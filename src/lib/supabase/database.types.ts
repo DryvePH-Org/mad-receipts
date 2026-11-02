@@ -149,8 +149,14 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "is_admin":
+            "confirm_receipt":
+{ Args: { "p_actor": string,"p_draft_id": string,"p_payload": Json }; Returns: Json
+                           },
+"is_admin":
 { Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"parse_money":
+{ Args: { "p_text": string }; Returns: number
                            }
           }
           Enums: {

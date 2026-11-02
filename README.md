@@ -26,9 +26,17 @@ supabase db push --db-url "postgresql://postgres.<project-ref>:<password>@<poole
 supabase start      # applies migrations + supabase/seed.sql (local test accounts)
 npm run db:types    # regenerate src/lib/supabase/database.types.ts after schema changes
 docker exec -i supabase_db_AutomatedSalesInvoice psql -U postgres -q < supabase/tests/phase2_constraints.sql
+docker exec -i supabase_db_AutomatedSalesInvoice psql -U postgres -q < supabase/tests/phase7_confirm_receipt.sql
 ```
 
 To run the app against local Supabase, set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` from `supabase status` in your shell before `npm run dev` (shell variables win over `.env.local`).
+
+## Inventory
+
+Confirming a receipt requires its plate to exist in the inventory Google Sheet (`INVENTORY_*` env vars).
+Until `INVENTORY_SHEET_ID` is set, **local development** uses a stand-in with three test plates
+(`NKF4771`, `ABC1234`, `XYZ5678`, see `src/lib/inventory/index.ts`). In production, no plate can be
+confirmed until the sheet is configured.
 
 ## Users and roles
 

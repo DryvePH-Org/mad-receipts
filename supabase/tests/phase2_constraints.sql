@@ -3,8 +3,8 @@
 begin;
 
 insert into auth.users (id, email) values
-  ('00000000-0000-0000-0000-000000000001', 'staff1@test.local'),
-  ('00000000-0000-0000-0000-000000000002', 'staff2@test.local');
+  ('00000000-0000-0000-0000-000000000001', 'p2-staff1@example.test'),
+  ('00000000-0000-0000-0000-000000000002', 'p2-staff2@example.test');
 
 do $$
 declare
@@ -15,13 +15,13 @@ begin
     'profile not auto-created as staff';
 
   insert into public.deals (plate_no, buyer_name, agreed_price, balance, created_by)
-  values ('NKF4771', 'Buyer A', 500000, 500000, '00000000-0000-0000-0000-000000000001')
+  values ('TST4771', 'Buyer A', 500000, 500000, '00000000-0000-0000-0000-000000000001')
   returning id into d1;
 
   -- Second open deal for the same plate must fail.
   begin
     insert into public.deals (plate_no, buyer_name, agreed_price, balance, created_by)
-    values ('NKF4771', 'Buyer B', 500000, 500000, '00000000-0000-0000-0000-000000000001');
+    values ('TST4771', 'Buyer B', 500000, 500000, '00000000-0000-0000-0000-000000000001');
     raise exception 'FAIL: second open deal for same plate was allowed';
   exception when unique_violation then
     raise notice 'ok: second open deal for same plate rejected';
@@ -29,16 +29,16 @@ begin
 
   -- A cancelled deal for the same plate is fine.
   insert into public.deals (plate_no, buyer_name, agreed_price, balance, status, created_by)
-  values ('NKF4771', 'Buyer C', 500000, 500000, 'cancelled', '00000000-0000-0000-0000-000000000001');
+  values ('TST4771', 'Buyer C', 500000, 500000, 'cancelled', '00000000-0000-0000-0000-000000000001');
   raise notice 'ok: cancelled deal for same plate allowed';
 
   insert into public.receipts (deal_id, receipt_no, amount, payment_type, balance_after, created_by)
-  values (d1, '2556', 50000, 'earnest', 450000, '00000000-0000-0000-0000-000000000001');
+  values (d1, 'T2556', 50000, 'earnest', 450000, '00000000-0000-0000-0000-000000000001');
 
   -- Duplicate receipt_no must fail.
   begin
     insert into public.receipts (deal_id, receipt_no, amount, payment_type, balance_after, created_by)
-    values (d1, '2556', 1000, 'partial', 449000, '00000000-0000-0000-0000-000000000001');
+    values (d1, 'T2556', 1000, 'partial', 449000, '00000000-0000-0000-0000-000000000001');
     raise exception 'FAIL: duplicate receipt_no was allowed';
   exception when unique_violation then
     raise notice 'ok: duplicate receipt_no rejected';
@@ -47,7 +47,7 @@ begin
   -- Unnormalized plate must fail.
   begin
     insert into public.deals (plate_no, buyer_name, agreed_price, balance, created_by)
-    values ('nkf-4771', 'Buyer D', 500000, 500000, '00000000-0000-0000-0000-000000000001');
+    values ('tst-4771', 'Buyer D', 500000, 500000, '00000000-0000-0000-0000-000000000001');
     raise exception 'FAIL: unnormalized plate was allowed';
   exception when check_violation then
     raise notice 'ok: unnormalized plate rejected';
@@ -60,7 +60,7 @@ select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000
 
 do $$
 begin
-  assert (select count(*) from public.deals) = 2, 'staff cannot read deals';
+  assert (select count(*) from public.deals where plate_no = 'TST4771') = 2, 'staff cannot read deals';
 
   begin
     insert into public.deals (plate_no, buyer_name, agreed_price, balance, created_by)
@@ -85,10 +85,10 @@ begin
   end;
 
   insert into public.receipt_drafts (photo_path) values ('drafts/00000000-0000-0000-0000-000000000001/a.jpg');
-  assert (select count(*) from public.receipt_drafts) = 1, 'staff cannot read own draft';
+  assert (select count(*) from public.receipt_drafts where created_by = '00000000-0000-0000-0000-000000000001') = 1, 'staff cannot read own draft';
   raise notice 'ok: staff inserts and reads own draft';
 
-  assert (select count(*) from public.audit_logs) = 0 and (select count(*) from public.sync_jobs) = 0;
+  assert (select count(*) from public.audit_logs) = 0 and (select count(*) from public.sync_jobs) = 0, 'staff can read admin-only tables';
   assert not public.is_admin();
 end $$;
 
@@ -96,7 +96,7 @@ end $$;
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000002","role":"authenticated"}', true);
 do $$
 begin
-  assert (select count(*) from public.receipt_drafts) = 0, 'FAIL: staff2 can see staff1 draft';
+  assert (select count(*) from public.receipt_drafts where created_by = '00000000-0000-0000-0000-000000000001') = 0, 'FAIL: staff2 can see staff1 draft';
   raise notice 'ok: staff2 cannot see staff1 draft';
 end $$;
 
@@ -108,7 +108,7 @@ set local role authenticated;
 do $$
 begin
   assert public.is_admin(), 'is_admin false for admin';
-  assert (select count(*) from public.receipt_drafts) = 1, 'admin cannot see drafts';
+  assert (select count(*) from public.receipt_drafts where created_by = '00000000-0000-0000-0000-000000000001') = 1, 'admin cannot see drafts';
   assert (select count(*) from public.profiles) = current_setting('test.user_count')::int, 'admin cannot see profiles';
   raise notice 'ok: admin reads all drafts and profiles';
 end $$;
