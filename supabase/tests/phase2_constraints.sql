@@ -103,12 +103,13 @@ end $$;
 -- Promote staff2 to admin (as postgres), then admin sees everything.
 reset role;
 update public.profiles set role = 'admin' where id = '00000000-0000-0000-0000-000000000002';
+select set_config('test.user_count', (select count(*) from auth.users)::text, true);
 set local role authenticated;
 do $$
 begin
   assert public.is_admin(), 'is_admin false for admin';
   assert (select count(*) from public.receipt_drafts) = 1, 'admin cannot see drafts';
-  assert (select count(*) from public.profiles) = 2, 'admin cannot see profiles';
+  assert (select count(*) from public.profiles) = current_setting('test.user_count')::int, 'admin cannot see profiles';
   raise notice 'ok: admin reads all drafts and profiles';
 end $$;
 

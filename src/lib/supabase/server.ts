@@ -1,10 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import type { Database } from "./database.types";
 
 // Server client for server components, route handlers and server actions.
 // Acts as the logged-in user (via auth cookies); RLS still applies.
 export async function createClient() {
+  // Auth reads the clock (session expiry), so never run during a prerender,
+  // including runtime prefetches that have cookies but no live request.
+  await connection();
   const cookieStore = await cookies();
 
   return createServerClient<Database>(
