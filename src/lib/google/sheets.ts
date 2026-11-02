@@ -7,8 +7,12 @@ export interface SheetsClient {
   /** Cell values of a range as text, row by row. Empty trailing cells are omitted. */
   getValues(spreadsheetId: string, range: string): Promise<string[][]>;
   /** Writes exactly the given cells, as typed (no formula parsing). */
-  updateValues(spreadsheetId: string, range: string, values: string[][]): Promise<void>;
+  updateValues(spreadsheetId: string, range: string, values: CellValue[][]): Promise<void>;
+  /** Adds rows after the last row of the tab's table. */
+  appendValues(spreadsheetId: string, range: string, values: CellValue[][]): Promise<void>;
 }
+
+export type CellValue = string | number;
 
 export function createSheetsClient(): SheetsClient {
   const api = google.sheets({ version: "v4", auth: googleAuth([GOOGLE_SCOPES.sheets]) });
@@ -26,6 +30,15 @@ export function createSheetsClient(): SheetsClient {
         spreadsheetId,
         range,
         valueInputOption: "RAW",
+        requestBody: { values },
+      });
+    },
+    async appendValues(spreadsheetId, range, values) {
+      await api.spreadsheets.values.append({
+        spreadsheetId,
+        range,
+        valueInputOption: "RAW",
+        insertDataOption: "INSERT_ROWS",
         requestBody: { values },
       });
     },

@@ -149,7 +149,25 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "confirm_receipt":
+            "claim_sync_jobs":
+{ Args: { "p_limit"?: number,"p_receipt_id"?: string }; Returns: {
+              "attempts": number,
+"created_at": string,
+"id": string,
+"last_error": string | null,
+"next_run_at": string,
+"receipt_id": string,
+"status": string,
+"target": string,
+"updated_at": string
+            }[]
+                          SetofOptions: {
+        from: "*"
+        to: "sync_jobs"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
+"confirm_receipt":
 { Args: { "p_actor": string,"p_draft_id": string,"p_payload": Json }; Returns: Json
                            },
 "is_admin":

@@ -1,24 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { columnLetter, tabRange, type SheetsClient } from "@/lib/google/sheets";
+import { columnLetter, tabRange } from "@/lib/google/sheets";
 import { createMockInventory } from "@/lib/inventory/mock";
 import { createSheetInventory, InventoryError } from "@/lib/inventory/sheet";
+import { fakeSheets } from "./fakes";
 
-/** A fake spreadsheet: one tab as a grid of strings, plus a log of every call. */
 function fakeSheet(grid: string[][]) {
-  const calls: { op: "get" | "update"; range: string; values?: string[][] }[] = [];
-  const client: SheetsClient = {
-    async getValues(_id, range) {
-      calls.push({ op: "get", range });
-      return grid.map((row) => [...row]);
-    },
-    async updateValues(_id, range, values) {
-      calls.push({ op: "update", range, values });
-      const m = /!([A-Z]+)(\d+)$/.exec(range)!;
-      const col = m[1].split("").reduce((n, c) => n * 26 + c.charCodeAt(0) - 64, 0) - 1;
-      grid[Number(m[2]) - 1][col] = values[0][0];
-    },
-  };
-  return { grid, calls, client };
+  const fake = fakeSheets({ Inventory: grid });
+  return { grid, calls: fake.calls, client: fake.client };
 }
 
 const config = { spreadsheetId: "sheet-id", tab: "Inventory", plateColumn: "Plate No", statusColumn: "Status" };
@@ -93,6 +81,7 @@ describe("sheet inventory: getUnit", () => {
       client: {
         getValues: () => Promise.reject(Object.assign(new Error("forbidden"), { code: 403 })),
         updateValues: () => Promise.resolve(),
+        appendValues: () => Promise.resolve(),
       },
     });
     await expect(denied.getUnit("NKF4771")).rejects.toThrow(/Share it with the service account as Editor/);

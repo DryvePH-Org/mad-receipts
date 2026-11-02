@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { z } from "zod";
 import { inventory, inventoryErrorMessage } from "@/lib/inventory";
 import { fromCentavos, MAX_CENTAVOS, toCentavos } from "@/lib/rules/money";
@@ -5,6 +6,7 @@ import { dealStatusForBalance, unitStatusForDeal } from "@/lib/rules/payment";
 import { normalizePlate } from "@/lib/rules/validate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { processDueJobs } from "@/lib/sync/process";
 
 const text = (max: number) => z.string().trim().max(max).nullable();
 const money = z.number().int().min(0).max(MAX_CENTAVOS).nullable();
@@ -124,6 +126,14 @@ export async function POST(request: Request) {
   const balanceAfter = toCentavos(result.balance_after) ?? 0;
   const dealStatus = dealStatusForBalance(balanceAfter);
   console.info(`[confirm] draft=${draftId} receipt=${result.receipt_id} status=confirmed`);
+
+  // Start this receipt's Drive/Sheets/Telegram/inventory sync after responding, so it feels
+  // instant. Failures stay queued for the cron run; they never affect the saved receipt.
+  after(() =>
+    processDueJobs({ receiptId: result.receipt_id }).catch((err) =>
+      console.error(`[sync] after-confirm run failed: ${err instanceof Error ? err.message : "unknown"}`),
+    ),
+  );
 
   return Response.json({
     receiptId: result.receipt_id,

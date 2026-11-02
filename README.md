@@ -25,6 +25,7 @@ supabase db push --db-url "postgresql://postgres.<project-ref>:<password>@<poole
 ```bash
 supabase start      # applies migrations + supabase/seed.sql (local test accounts)
 npm run db:types    # regenerate src/lib/supabase/database.types.ts after schema changes
+npm run test:integration   # sync runner against the local database
 docker exec -i supabase_db_AutomatedSalesInvoice psql -U postgres -q < supabase/tests/phase2_constraints.sql
 docker exec -i supabase_db_AutomatedSalesInvoice psql -U postgres -q < supabase/tests/phase7_confirm_receipt.sql
 ```
@@ -46,6 +47,17 @@ confirmed until the sheet is configured.
 
 If your Google Workspace blocks creating projects or keys: ask the Workspace admin, or create the project from a
 personal Google account and share the Workspace files with the service account (needs external sharing allowed).
+
+## Background sync
+
+After a receipt is confirmed, four jobs (Drive, Sheets, Telegram, inventory) run right away and are
+retried by `POST /api/sync/run` (send `Authorization: Bearer $CRON_SECRET`; schedule it every 5 minutes).
+A failed job retries after 1 min, 5 min, 15 min, then 1 h, and stops after 5 attempts. The receipt
+itself is never affected. The receipts log sheet needs two tabs named **Receipts** and **Deals**;
+header rows are written automatically when a tab is empty.
+
+The Drive folder should be in a **Shared drive**: service accounts have no storage of their own, so
+uploads into a normal "My Drive" folder fail.
 
 ## Users and roles
 
