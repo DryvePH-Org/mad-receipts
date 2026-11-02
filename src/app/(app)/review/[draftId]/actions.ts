@@ -1,7 +1,7 @@
 "use server";
 
 import { requireUser } from "@/lib/auth";
-import { inventory, type InventoryUnit } from "@/lib/inventory";
+import { inventory, inventoryErrorMessage, type InventoryUnit } from "@/lib/inventory";
 import { toCentavos } from "@/lib/rules/money";
 import { normalizePlate } from "@/lib/rules/validate";
 import { createClient } from "@/lib/supabase/server";
@@ -46,7 +46,7 @@ export async function lookupPlate(rawPlate: string): Promise<PlateLookup> {
   ]);
 
   if (unitResult.status === "rejected") {
-    return { ok: false, plate, error: "Couldn't check the inventory sheet right now. Try again in a moment." };
+    return { ok: false, plate, error: inventoryErrorMessage(unitResult.reason) };
   }
   if (dealResult.status === "rejected" || dealResult.value.error) {
     return { ok: false, plate, error: "Couldn't look up existing deals right now. Try again in a moment." };

@@ -38,6 +38,15 @@ Until `INVENTORY_SHEET_ID` is set, **local development** uses a stand-in with th
 (`NKF4771`, `ABC1234`, `XYZ5678`, see `src/lib/inventory/index.ts`). In production, no plate can be
 confirmed until the sheet is configured.
 
+### Google service account (inventory, Drive, Sheets)
+
+1. In a Google Cloud project, enable the **Google Sheets API** and **Google Drive API**, create a service account and a JSON key.
+2. Put `client_email` in `GOOGLE_SERVICE_ACCOUNT_EMAIL` and `private_key` in `GOOGLE_PRIVATE_KEY` (one line, keep the `\n`s).
+3. Share the inventory sheet, the receipts log sheet and the Drive folder with that email as **Editor**.
+
+If your Google Workspace blocks creating projects or keys: ask the Workspace admin, or create the project from a
+personal Google account and share the Workspace files with the service account (needs external sharing allowed).
+
 ## Users and roles
 
 Roles are `staff` (upload and confirm) and `admin` (everything). Public signups are **disabled**: only admins create accounts.

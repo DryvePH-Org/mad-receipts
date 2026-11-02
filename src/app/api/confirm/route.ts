@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { inventory } from "@/lib/inventory";
+import { inventory, inventoryErrorMessage } from "@/lib/inventory";
 import { fromCentavos, MAX_CENTAVOS, toCentavos } from "@/lib/rules/money";
 import { dealStatusForBalance, unitStatusForDeal } from "@/lib/rules/payment";
 import { normalizePlate } from "@/lib/rules/validate";
@@ -68,8 +68,8 @@ export async function POST(request: Request) {
   let unit;
   try {
     unit = await inventory.getUnit(plate);
-  } catch {
-    return fail("Couldn't check the inventory sheet right now. Please try again.", 503);
+  } catch (err) {
+    return fail(inventoryErrorMessage(err), 503);
   }
   if (!unit) {
     return fail("Plate not found in the inventory sheet. Check the plate, or add the unit to the sheet first.", 422);
