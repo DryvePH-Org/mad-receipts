@@ -3,6 +3,7 @@ import { createMockInventory } from "@/lib/inventory/mock";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { processDueJobs } from "@/lib/sync/process";
 import type { SyncDeps } from "@/lib/sync/targets";
+import type { TelegramClient } from "@/lib/telegram";
 import { fakeSheets } from "../fakes";
 
 // Seeded local staff user (supabase/seed.sql).
@@ -16,7 +17,10 @@ let receiptId: string;
 function fakeDeps(overrides: Partial<SyncDeps> = {}) {
   const sheets = fakeSheets({ Receipts: [], Deals: [] });
   const drive = { findFile: vi.fn(async () => null), uploadFile: vi.fn(async () => "drive-123") };
-  const telegram = { sendPhoto: vi.fn(async () => {}), sendMessage: vi.fn(async () => {}) };
+  const telegram = {
+    sendPhoto: vi.fn<TelegramClient["sendPhoto"]>(async () => {}),
+    sendMessage: vi.fn<TelegramClient["sendMessage"]>(async () => {}),
+  };
   const inventory = createMockInventory([{ plate: PLATE, status: "Available" }]);
   const deps: SyncDeps = {
     sheets: () => sheets.client,

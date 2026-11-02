@@ -9,6 +9,7 @@ import {
   type SyncContext,
   type SyncDeps,
 } from "@/lib/sync/targets";
+import type { TelegramClient } from "@/lib/telegram";
 import { fakeSheets } from "./fakes";
 
 const PHOTO = new Uint8Array([0xff, 0xd8, 0xff]);
@@ -69,7 +70,10 @@ function context(overrides: { receipt?: Partial<SyncContext["receipt"]>; deal?: 
 function deps(overrides: Partial<SyncDeps> = {}) {
   const sheets = fakeSheets({ Receipts: [], Deals: [] });
   const drive = { findFile: vi.fn(async () => null), uploadFile: vi.fn(async () => "drive-file-1") } satisfies DriveClient;
-  const telegram = { sendPhoto: vi.fn(async () => {}), sendMessage: vi.fn(async () => {}) };
+  const telegram = {
+    sendPhoto: vi.fn<TelegramClient["sendPhoto"]>(async () => {}),
+    sendMessage: vi.fn<TelegramClient["sendMessage"]>(async () => {}),
+  };
   const inventory = createMockInventory([{ plate: "NKF4771", status: "Available" }]);
   const all: SyncDeps = {
     sheets: () => sheets.client,
