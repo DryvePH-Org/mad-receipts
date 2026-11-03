@@ -34,10 +34,30 @@ To run the app against local Supabase, set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUB
 
 ## Inventory
 
-Confirming a receipt requires its plate to exist in the inventory Google Sheet (`INVENTORY_*` env vars).
-Until `INVENTORY_SHEET_ID` is set, **local development** uses a stand-in with three test plates
-(`NKF4771`, `ABC1234`, `XYZ5678`, see `src/lib/inventory/index.ts`). In production, no plate can be
-confirmed until the sheet is configured.
+The app reads the existing inventory Google Sheet (tab `INVENTORY 2026`) and changes **only the status
+text in the `REMARKS` cell of the car's row**. It never adds, removes, reorders or reformats anything,
+and other notes in that cell (`BIG BIG DROP`, `FOR REPAIR - ...`) are kept. The text follows what staff
+already write:
+
+| When | REMARKS cell |
+|---|---|
+| Deal open (earnest / partial) | `RESERVED - DAVID 11/2 10%` |
+| Fully paid | `SOLD - DAVID 11/2 100%` |
+| Deal cancelled | status removed, other notes stay |
+| Car already has a note | `RESERVED - DAVID 11/2 10% \| BIG BIG DROP` |
+
+`DAVID` is the staff member who opened the deal (their **Full name** in the app, in capitals), `11/2` is the
+date of the latest receipt (Manila time) and the percentage is the share of the agreed price paid so far.
+The format lives in `src/lib/inventory/remarks.ts`.
+
+Settings: `INVENTORY_SHEET_ID`, `INVENTORY_SHEET_TAB=INVENTORY 2026`, `INVENTORY_PLATE_COLUMN=PLATE NUMBER`,
+`INVENTORY_STATUS_COLUMN=REMARKS`. Confirming a receipt requires its plate to exist in that tab.
+
+**Test against a copy, not the real sheet:** with `INVENTORY_SHEET_ID` set, confirming a receipt writes to
+that sheet. While testing, point it (and the Apps Script's `ALLOWED_SHEET_IDS`) at a copy made with
+File → Make a copy. When `INVENTORY_SHEET_ID` is empty, local development uses a stand-in with three
+test plates (`NKF4771`, `ABC1234`, `XYZ5678`, see `src/lib/inventory/index.ts`); in production, nothing
+can be confirmed until the sheet is configured.
 
 ### Connecting Google (inventory, Drive, receipts log)
 

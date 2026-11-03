@@ -516,7 +516,7 @@ function PlateStatus({
 }: {
   pending: boolean;
   deal: OpenDeal | null;
-  unit: { makeType?: string; color?: string; status: string } | null;
+  unit: { makeType?: string; color?: string; status: string; remarks?: string } | null;
   plate: string;
 }) {
   if (!plate) return null;
@@ -533,6 +533,7 @@ function PlateStatus({
         <p>
           Unit found: {[unit.makeType, unit.color].filter(Boolean).join(", ") || plate}, status{" "}
           <strong>{unit.status}</strong>
+          {unit.remarks && <span className="block text-muted-foreground">Sheet note: {unit.remarks}</span>}
         </p>
       )}
       {deal ? (

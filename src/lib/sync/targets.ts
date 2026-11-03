@@ -1,5 +1,6 @@
 import { driveFileLink, type DriveClient } from "@/lib/google/drive";
 import { tabRange, type CellValue, type SheetsClient } from "@/lib/google/sheets";
+import { percentPaid, sheetDate } from "@/lib/inventory/remarks";
 import type { InventoryAdapter } from "@/lib/inventory/types";
 import { formatPeso, toCentavos } from "@/lib/rules/money";
 import { dealStatusForBalance, unitStatusForDeal, type DealStatus } from "@/lib/rules/payment";
@@ -15,6 +16,8 @@ export interface SyncContext {
   receipt: Tables<"receipts">;
   deal: Tables<"deals">;
   confirmedBy: string;
+  /** Who opened the deal; shown in the inventory sheet's status, e.g. "David". */
+  salesperson: string;
   /** Latest confirmed receipt number on the deal. */
   lastReceiptNo: string;
   photo: () => Promise<Uint8Array>;
@@ -74,7 +77,12 @@ export const syncTargets: Record<SyncTarget, (ctx: SyncContext, deps: SyncDeps) 
   async inventory(ctx, deps) {
     // The deal's current status, so a late or repeated job still writes the right word.
     const status = unitStatusForDeal(ctx.deal.status as DealStatus);
-    await deps.inventory.setStatus(ctx.deal.plate_no, status, { receiptNo: ctx.receipt.receipt_no });
+    await deps.inventory.setStatus(ctx.deal.plate_no, status, {
+      receiptNo: ctx.receipt.receipt_no,
+      salesperson: ctx.salesperson,
+      percentPaid: percentPaid(toCentavos(ctx.deal.total_paid) ?? 0, toCentavos(ctx.deal.agreed_price) ?? 0),
+      date: sheetDate(ctx.receipt.created_at),
+    });
   },
 };
 

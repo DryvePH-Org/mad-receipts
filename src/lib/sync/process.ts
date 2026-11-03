@@ -112,12 +112,14 @@ async function loadContext(admin: Admin, receiptId: string): Promise<SyncContext
     .maybeSingle();
 
   const { deal, creator, ...receiptRow } = receipt;
+  const { data: salesperson } = await admin.from("profiles").select("full_name").eq("id", deal.created_by).maybeSingle();
   let photo: Promise<Uint8Array> | undefined;
 
   return {
     receipt: receiptRow,
     deal,
     confirmedBy: creator?.full_name ?? "",
+    salesperson: salesperson?.full_name ?? "",
     lastReceiptNo: last?.receipt_no ?? receipt.receipt_no,
     photo: () =>
       (photo ??= (async () => {

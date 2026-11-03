@@ -103,7 +103,11 @@ describe("apps script clients", () => {
     fetchMock.mockResolvedValueOnce(
       reply({ ok: true, data: [["F", "1"], ["PLATE NUMBER", "REMARKS"], ["NKF 4771", "RESERVED - DAVID"]] }),
     );
-    expect(await inventory.getUnit("nkf-4771")).toMatchObject({ plate: "NKF4771", status: "RESERVED - DAVID" });
+    expect(await inventory.getUnit("nkf-4771")).toMatchObject({
+      plate: "NKF4771",
+      status: "Reserved",
+      remarks: "RESERVED - DAVID",
+    });
 
     fetchMock.mockResolvedValueOnce(reply({ ok: false, code: 403, message: "That file is not allowed." }));
     await expect(inventory.getUnit("NKF4771")).rejects.toThrow(/Editor access/);

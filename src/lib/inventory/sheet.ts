@@ -1,6 +1,7 @@
 import "server-only";
 import { columnLetter, createSheetsClient, tabRange, type SheetsClient } from "@/lib/google/sheets";
 import { normalizePlate } from "@/lib/rules/validate";
+import { applyStatus, readStatus } from "./remarks";
 import type { InventoryAdapter, InventoryUnit } from "./types";
 
 /** A problem staff can fix in the sheet; the message is safe to show them. */
@@ -14,6 +15,7 @@ interface SheetConfig {
 }
 
 // Optional columns, read only for display on the review screen. Never written.
+const BRAND_HEADERS = ["brand"];
 const MAKE_HEADERS = ["make/type", "make", "model", "makemodel", "make&model", "unit", "vehicle"];
 const COLOR_HEADERS = ["color", "colour"];
 const HEADER_SEARCH_ROWS = 10; // the header may sit below a title row
@@ -23,15 +25,18 @@ const header = (s: string) => s.toLowerCase().replace(/\s+/g, "");
 function configFromEnv(): SheetConfig {
   return {
     spreadsheetId: process.env.INVENTORY_SHEET_ID ?? "",
-    tab: process.env.INVENTORY_SHEET_TAB || "Inventory",
-    plateColumn: process.env.INVENTORY_PLATE_COLUMN || "Plate No",
-    statusColumn: process.env.INVENTORY_STATUS_COLUMN || "Status",
+    tab: process.env.INVENTORY_SHEET_TAB || "INVENTORY 2026",
+    plateColumn: process.env.INVENTORY_PLATE_COLUMN || "PLATE NUMBER",
+    // Staff keep the status as text in REMARKS, e.g. "RESERVED - DAVID 11/2".
+    statusColumn: process.env.INVENTORY_STATUS_COLUMN || "REMARKS",
   };
 }
 
 /**
  * The inventory Google Sheet that staff maintain by hand. Every call reads it live
- * (no cache), and the only write is the status cell of the plate's row.
+ * (no cache). The only write is the status column's cell of the plate's row (REMARKS), and only
+ * the status part of its text: other notes in the cell are kept. Format, other cells and rows
+ * are never touched.
  */
 export function createSheetInventory(
   options: { client?: SheetsClient; config?: SheetConfig } = {},
@@ -63,7 +68,8 @@ export function createSheetInventory(
         `Column "${config.statusColumn}" was not found in the "${config.tab}" tab of the inventory sheet.`,
       );
     }
-    const makeCol = headers.findIndex((h) => MAKE_HEADERS.includes(h));
+    const brandCol = headers.findIndex((h) => BRAND_HEADERS.includes(h));
+    const makeCol = headers.findIndex((h, i) => i !== brandCol && MAKE_HEADERS.includes(h));
     const colorCol = headers.findIndex((h) => COLOR_HEADERS.includes(h));
 
     const matches: number[] = [];
@@ -81,11 +87,14 @@ export function createSheetInventory(
 
     const row = rows[matches[0]];
     const cell = (col: number) => (col >= 0 ? (row[col] ?? "").trim() : "");
-    const unit: InventoryUnit = { plate: wanted, status: cell(statusCol) };
-    if (cell(makeCol)) unit.makeType = cell(makeCol);
+    const remarks = cell(statusCol);
+    const unit: InventoryUnit = { plate: wanted, status: readStatus(remarks) };
+    if (remarks) unit.remarks = remarks;
+    const makeType = [cell(brandCol), cell(makeCol)].filter(Boolean).join(" ");
+    if (makeType) unit.makeType = makeType;
     if (cell(colorCol)) unit.color = cell(colorCol);
 
-    return { rowNumber: matches[0] + 1, statusCol, unit };
+    return { rowNumber: matches[0] + 1, statusCol, remarks, unit };
   }
 
   return {
@@ -94,13 +103,17 @@ export function createSheetInventory(
       return (await findRow(plate))?.unit ?? null;
     },
 
-    async setStatus(plate, status) {
+    async setStatus(plate, status, ref) {
       // Look the row up again at write time: staff may have sorted or edited the sheet.
       const found = await findRow(plate);
       if (!found) throw new InventoryError(`Plate ${normalizePlate(plate)} is no longer in the inventory sheet.`);
+
+      const next = applyStatus(found.remarks, status, ref);
+      if (next === found.remarks) return; // already says the right thing: leave the cell alone
+
       const cell = `${columnLetter(found.statusCol)}${found.rowNumber}`;
       await withFriendlyErrors(() =>
-        sheets().updateValues(config.spreadsheetId, tabRange(config.tab, cell), [[status]]),
+        sheets().updateValues(config.spreadsheetId, tabRange(config.tab, cell), [[next]]),
       );
     },
   };
