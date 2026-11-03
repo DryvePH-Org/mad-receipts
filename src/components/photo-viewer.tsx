@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 
 /* eslint-disable @next/next/no-img-element -- signed Storage URLs, not static assets */
 
-/** Receipt photo; tap to open full size (scroll and pinch to zoom). */
-export function PhotoViewer({ url }: { url: string }) {
+/** Receipt photo; tap to open full size (scroll and pinch to zoom). `thumbnail` shows a small square. */
+export function PhotoViewer({ url, thumbnail = false }: { url: string; thumbnail?: boolean }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -15,13 +15,24 @@ export function PhotoViewer({ url }: { url: string }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="relative block w-full overflow-hidden rounded-lg border"
+        className={
+          thumbnail
+            ? "block size-20 shrink-0 overflow-hidden rounded-md border"
+            : "relative block w-full overflow-hidden rounded-lg border"
+        }
         aria-label="Open photo full size"
       >
-        <img src={url} alt="Receipt photo" className="max-h-[45vh] w-full bg-muted object-contain" />
-        <span className="absolute right-2 bottom-2 flex items-center gap-1 rounded-md bg-background/90 px-2 py-1 text-xs font-medium">
-          <ZoomIn className="size-4" /> Tap to zoom
-        </span>
+        <img
+          src={url}
+          alt="Receipt photo"
+          loading={thumbnail ? "lazy" : undefined}
+          className={thumbnail ? "size-full bg-muted object-cover" : "max-h-[45vh] w-full bg-muted object-contain"}
+        />
+        {!thumbnail && (
+          <span className="absolute right-2 bottom-2 flex items-center gap-1 rounded-md bg-background/90 px-2 py-1 text-xs font-medium">
+            <ZoomIn className="size-4" /> Tap to zoom
+          </span>
+        )}
       </button>
 
       {open && (

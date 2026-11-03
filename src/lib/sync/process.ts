@@ -5,7 +5,7 @@ import { inventory } from "@/lib/inventory";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Tables } from "@/lib/supabase/database.types";
 import { createTelegramClient } from "@/lib/telegram";
-import { syncTargets, TARGET_ORDER, type SyncContext, type SyncDeps, type SyncTarget } from "./targets";
+import { syncTargets, TARGET_ORDER, type SyncContext, type SyncDeps, type SyncEvent, type SyncTarget } from "./targets";
 
 /** Wait before the next try, by failed attempts so far (section: Phase 9, step 1). */
 export const BACKOFF_MINUTES = [1, 5, 15, 60, 360];
@@ -62,7 +62,7 @@ export async function processDueJobs(
   for (const [receiptId, receiptJobs] of byReceipt) {
     receiptJobs.sort((a, b) => TARGET_ORDER.indexOf(a.target as SyncTarget) - TARGET_ORDER.indexOf(b.target as SyncTarget));
 
-    let ctx: SyncContext;
+    let ctx: Omit<SyncContext, "event">;
     try {
       ctx = await loadContext(admin, receiptId);
     } catch (err) {
@@ -73,7 +73,7 @@ export async function processDueJobs(
 
     for (const job of receiptJobs) {
       try {
-        const result = await syncTargets[job.target as SyncTarget](ctx, deps);
+        const result = await syncTargets[job.target as SyncTarget]({ ...ctx, event: job.event as SyncEvent }, deps);
         if (result?.driveFileId) {
           const { error: saveError } = await admin
             .from("receipts")
@@ -94,7 +94,7 @@ export async function processDueJobs(
   return summary;
 }
 
-async function loadContext(admin: Admin, receiptId: string): Promise<SyncContext> {
+async function loadContext(admin: Admin, receiptId: string): Promise<Omit<SyncContext, "event">> {
   const { data: receipt, error } = await admin
     .from("receipts")
     .select("*, deal:deals(*), creator:profiles(full_name)")
@@ -104,7 +104,7 @@ async function loadContext(admin: Admin, receiptId: string): Promise<SyncContext
 
   const { data: last } = await admin
     .from("receipts")
-    .select("receipt_no")
+    .select("receipt_no, created_at")
     .eq("deal_id", receipt.deal_id)
     .eq("status", "confirmed")
     .order("created_at", { ascending: false })
@@ -129,6 +129,7 @@ async function loadContext(admin: Admin, receiptId: string): Promise<SyncContext
       .filter((p) => p.name)
       .sort((x, y) => x.name.localeCompare(y.name)),
     lastReceiptNo: last?.receipt_no ?? receipt.receipt_no,
+    lastReceiptAt: last?.created_at ?? receipt.created_at,
     photo: () =>
       (photo ??= (async () => {
         if (!receipt.photo_path) throw new Error("The receipt has no photo");

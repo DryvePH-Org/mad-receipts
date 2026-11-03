@@ -4,8 +4,10 @@ import { createMockInventory } from "@/lib/inventory/mock";
 import {
   DEAL_HEADERS,
   RECEIPT_HEADERS,
+  cancelMessage,
   syncTargets,
   telegramCaption,
+  voidMessage,
   type SyncContext,
   type SyncDeps,
 } from "@/lib/sync/targets";
@@ -64,7 +66,9 @@ function context(overrides: { receipt?: Partial<SyncContext["receipt"]>; deal?: 
     confirmedBy: "Test Staff",
     salesperson: "David",
     salespeople: [],
+    event: "confirm",
     lastReceiptNo: "2556",
+    lastReceiptAt: "2026-11-02T07:30:00Z",
     photo: async () => PHOTO,
   };
 }
@@ -232,6 +236,8 @@ describe("inventory target", () => {
       { name: "David", percent: 3 },
       { name: "Ella", percent: 1.5 },
     ];
+    sold.lastReceiptNo = "2557";
+    sold.lastReceiptAt = "2026-11-04T01:00:00Z";
     await syncTargets.inventory(sold, d.all);
     expect(d.inventory.changes.map((c) => [c.status, c.ref])).toEqual([
       ["Reserved", { receiptNo: "2556", people: [{ name: "David", percent: null }], date: "11/2" }],
@@ -247,5 +253,65 @@ describe("inventory target", () => {
         },
       ],
     ]);
+  });
+});
+
+describe("sync events: void, cancel and edit", () => {
+  const withEvent = (event: "void" | "cancel" | "edit", overrides: Parameters<typeof context>[0] = {}) => ({
+    ...context(overrides),
+    event,
+  });
+
+  it("drive uploads only for a confirmed receipt", async () => {
+    const d = deps();
+    for (const event of ["void", "cancel", "edit"] as const) {
+      expect(await syncTargets.drive(withEvent(event), d.all)).toBeUndefined();
+    }
+    expect(d.drive.uploadFile).not.toHaveBeenCalled();
+  });
+
+  it("void: marks the receipt row Voided in place and refreshes the deal row", async () => {
+    const d = deps();
+    await syncTargets.sheets(context(), d.all); // confirmed earlier
+    const voided = withEvent("void", { receipt: { status: "voided", void_reason: "wrong amount" }, deal: { total_paid: 0, balance: 500000 } });
+    await syncTargets.sheets(voided, d.all);
+    const { Receipts, Deals } = d.sheets.tabs;
+    expect(Receipts).toHaveLength(2); // not appended again
+    expect(Receipts[1][RECEIPT_HEADERS.indexOf("Status")]).toBe("Voided");
+    expect(Deals[1][DEAL_HEADERS.indexOf("Balance")]).toBe(500000);
+  });
+
+  it("cancel and edit only change the deal row, never the Receipts tab", async () => {
+    const d = deps();
+    await syncTargets.sheets(context(), d.all);
+    const before = JSON.stringify(d.sheets.tabs.Receipts);
+    await syncTargets.sheets(withEvent("cancel", { deal: { status: "cancelled" } }), d.all);
+    await syncTargets.sheets(withEvent("edit", { deal: { buyer_name: "Jose P. Rizal" } }), d.all);
+    expect(JSON.stringify(d.sheets.tabs.Receipts)).toBe(before);
+    expect(d.sheets.tabs.Deals[1][DEAL_HEADERS.indexOf("Buyer")]).toBe("Jose P. Rizal");
+  });
+
+  it("telegram announces a void and a cancel, but not an edit", async () => {
+    const d = deps();
+    await syncTargets.telegram(withEvent("void", { receipt: { status: "voided", void_reason: "wrong amount", receipt_no: "2557" }, deal: { total_paid: 50000, balance: 450000 } }), d.all);
+    await syncTargets.telegram(withEvent("cancel", { deal: { status: "cancelled", cancel_reason: "buyer backed out", forfeited: true } }), d.all);
+    await syncTargets.telegram(withEvent("edit"), d.all);
+    expect(d.telegram.sendPhoto).not.toHaveBeenCalled();
+    expect(d.telegram.sendMessage.mock.calls.map(([text]) => text)).toEqual([
+      ["⚠️ Receipt #2557 VOIDED", "Jose Rizal", "2021 Honda Civic · NKF4771", "Reason: wrong amount", "Paid ₱50,000 · Balance ₱450,000", "Unit: Reserved"].join("\n"),
+      ["❌ Deal CANCELLED", "Jose Rizal", "2021 Honda Civic · NKF4771", "Reason: buyer backed out", "Forfeited ₱50,000", "Unit: Available"].join("\n"),
+    ]);
+  });
+
+  it("a cancel message says when the money is not forfeited", () => {
+    expect(cancelMessage(withEvent("cancel", { deal: { status: "cancelled", cancel_reason: "x", forfeited: false } }))).toContain("Paid ₱50,000 (not forfeited)");
+    expect(voidMessage(withEvent("void", { receipt: { status: "voided", void_reason: null } }))).toContain("Reason: —");
+  });
+
+  it("inventory follows the deal: a cancel clears the status, a void of a sold deal reserves again", async () => {
+    const d = deps();
+    await syncTargets.inventory(withEvent("cancel", { deal: { status: "cancelled" } }), d.all);
+    await syncTargets.inventory(withEvent("void", { deal: { status: "open" } }), d.all);
+    expect(d.inventory.changes.map((c) => c.status)).toEqual(["Available", "Reserved"]);
   });
 });

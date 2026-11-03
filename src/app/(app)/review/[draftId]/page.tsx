@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
+import { PhotoViewer } from "@/components/photo-viewer";
 import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth";
 import { toFormValues } from "@/lib/extraction/merge";
@@ -9,7 +10,6 @@ import type { ExtractedReceipt } from "@/lib/extraction/schema";
 import type { VoiceResult } from "@/lib/extraction/voice-schema";
 import { createClient } from "@/lib/supabase/server";
 import { ExtractingWait } from "./extracting-wait";
-import { PhotoViewer } from "./photo-viewer";
 import { ReviewForm } from "./review-form";
 
 export default function ReviewPage({ params }: PageProps<"/review/[draftId]">) {

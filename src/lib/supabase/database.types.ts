@@ -165,14 +165,14 @@ isOneToOne: false
                   ]
                 },"sync_jobs": {
                   Row: {
-                    "attempts": number,"created_at": string,"id": string,"last_error": string | null,"next_run_at": string,"receipt_id": string,"status": string,"target": string,"updated_at": string
+                    "attempts": number,"created_at": string,"event": string,"id": string,"last_error": string | null,"next_run_at": string,"receipt_id": string,"status": string,"target": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "attempts"?: number,"created_at"?: string,"id"?: string,"last_error"?: string | null,"next_run_at"?: string,"receipt_id": string,"status"?: string,"target": string,"updated_at"?: string
+                    "attempts"?: number,"created_at"?: string,"event"?: string,"id"?: string,"last_error"?: string | null,"next_run_at"?: string,"receipt_id": string,"status"?: string,"target": string,"updated_at"?: string
                   }
                   Update: {
-                    "attempts"?: number,"created_at"?: string,"id"?: string,"last_error"?: string | null,"next_run_at"?: string,"receipt_id"?: string,"status"?: string,"target"?: string,"updated_at"?: string
+                    "attempts"?: number,"created_at"?: string,"event"?: string,"id"?: string,"last_error"?: string | null,"next_run_at"?: string,"receipt_id"?: string,"status"?: string,"target"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -186,13 +186,43 @@ isOneToOne: false
                 }
           }
           Views: {
-            [_ in never]: never
+            "deal_summaries": {
+              Row: {
+                "agreed_price": number | null,"balance": number | null,"buyer_address": string | null,"buyer_contact": string | null,"buyer_name": string | null,"cancel_reason": string | null,"chassis_no": string | null,"color": string | null,"created_at": string | null,"created_by": string | null,"forfeited": boolean | null,"id": string | null,"last_receipt_date": string | null,"last_receipt_no": string | null,"make_type": string | null,"motor_no": string | null,"next_due_date": string | null,"plate_no": string | null,"receipt_count": number | null,"status": string | null,"total_paid": number | null,"updated_at": string | null
+              }
+              Relationships: [
+                
+              ]
+            },"receipt_list": {
+              Row: {
+                "amount": number | null,"balance_after": number | null,"balance_due_date": string | null,"buyer_name": string | null,"created_at": string | null,"deal_id": string | null,"deal_status": string | null,"id": string | null,"payment_method": string | null,"payment_type": string | null,"photo_path": string | null,"plate_no": string | null,"receipt_date": string | null,"receipt_no": string | null,"status": string | null,"void_reason": string | null
+              }
+              Relationships: [
+                
+              ]
+            }
           }
           Functions: {
-            "claim_sync_jobs":
+            "cancel_deal":
+{ Args: { "p_actor": string,"p_deal_id": string,"p_forfeit": boolean,"p_reason": string }; Returns: Json
+                           },
+"check_salespeople":
+{ Args: { "p_people": Json }; Returns: undefined
+                           },
+"queue_sync":
+{ Args: { "p_event": string,"p_receipt_id": string,"p_targets": (string)[] }; Returns: undefined
+                           },
+"update_deal_details":
+{ Args: { "p_actor": string,"p_deal_id": string,"p_patch": Json,"p_salespeople": Json }; Returns: Json
+                           },
+"void_receipt":
+{ Args: { "p_actor": string,"p_receipt_id": string,"p_reason": string }; Returns: Json
+                           },
+"claim_sync_jobs":
 { Args: { "p_limit"?: number,"p_receipt_id"?: string }; Returns: {
               "attempts": number,
 "created_at": string,
+"event": string,
 "id": string,
 "last_error": string | null,
 "next_run_at": string,

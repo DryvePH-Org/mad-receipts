@@ -1,5 +1,6 @@
 import { driveFileLink, type DriveClient } from "@/lib/google/drive";
 import { tabRange, type CellValue, type SheetsClient } from "@/lib/google/sheets";
+import { formatDate } from "@/lib/dates";
 import { sheetDate } from "@/lib/inventory/remarks";
 import type { InventoryAdapter } from "@/lib/inventory/types";
 import { formatPeso, toCentavos } from "@/lib/rules/money";
@@ -9,10 +10,15 @@ import type { TelegramClient } from "@/lib/telegram";
 
 export type SyncTarget = "drive" | "sheets" | "telegram" | "inventory";
 
+/** Why a job runs: a receipt was confirmed, a receipt was voided, a deal was cancelled or edited. */
+export type SyncEvent = "confirm" | "void" | "cancel" | "edit";
+
 /** Drive runs first so the Sheets row can carry the photo link. */
 export const TARGET_ORDER: SyncTarget[] = ["drive", "sheets", "telegram", "inventory"];
 
 export interface SyncContext {
+  event: SyncEvent;
+  /** For void: the voided receipt. For cancel and edit: the deal's latest confirmed receipt. */
   receipt: Tables<"receipts">;
   deal: Tables<"deals">;
   confirmedBy: string;
@@ -20,8 +26,9 @@ export interface SyncContext {
   salesperson: string;
   /** Who is credited with the deal, with each person's own commission percent. */
   salespeople: { name: string; percent: number }[];
-  /** Latest confirmed receipt number on the deal. */
+  /** Latest confirmed receipt number on the deal, and when it was saved. */
   lastReceiptNo: string;
+  lastReceiptAt: string;
   photo: () => Promise<Uint8Array>;
 }
 
@@ -51,7 +58,7 @@ export const DEAL_HEADERS = [
 /** Each target is safe to run again: it checks for its own earlier result first. */
 export const syncTargets: Record<SyncTarget, (ctx: SyncContext, deps: SyncDeps) => Promise<SyncResult | void>> = {
   async drive(ctx, deps) {
-    if (ctx.receipt.drive_file_id) return;
+    if (ctx.event !== "confirm" || ctx.receipt.drive_file_id) return; // the photo is uploaded once
     const folderId = required(deps.config.driveFolderId, "GOOGLE_DRIVE_FOLDER_ID");
     const name = `${ctx.receipt.receipt_no}_${ctx.deal.plate_no}.jpg`;
     const drive = deps.drive();
@@ -64,16 +71,23 @@ export const syncTargets: Record<SyncTarget, (ctx: SyncContext, deps: SyncDeps) 
   async sheets(ctx, deps) {
     const sheetId = required(deps.config.logSheetId, "GOOGLE_SHEET_ID");
     const sheets = deps.sheets();
-    await upsertRow(sheets, sheetId, RECEIPTS_TAB, RECEIPT_HEADERS, 1, ctx.receipt.receipt_no, receiptRow(ctx), {
-      updateExisting: false, // receipts are appended once
-    });
+    // Receipts are appended once when confirmed, and their row is updated when voided.
+    // Cancelling or editing a deal only changes the deal's row.
+    if (ctx.event === "confirm" || ctx.event === "void") {
+      await upsertRow(sheets, sheetId, RECEIPTS_TAB, RECEIPT_HEADERS, 1, ctx.receipt.receipt_no, receiptRow(ctx), {
+        updateExisting: ctx.event === "void",
+      });
+    }
     await upsertRow(sheets, sheetId, DEALS_TAB, DEAL_HEADERS, 0, ctx.deal.id, dealRow(ctx), {
       updateExisting: true,
     });
   },
 
   async telegram(ctx, deps) {
-    await deps.telegram().sendPhoto(await ctx.photo(), telegramCaption(ctx));
+    if (ctx.event === "confirm") await deps.telegram().sendPhoto(await ctx.photo(), telegramCaption(ctx));
+    else if (ctx.event === "void") await deps.telegram().sendMessage(voidMessage(ctx));
+    else if (ctx.event === "cancel") await deps.telegram().sendMessage(cancelMessage(ctx));
+    // Edits are not announced.
   },
 
   async inventory(ctx, deps) {
@@ -83,9 +97,9 @@ export const syncTargets: Record<SyncTarget, (ctx: SyncContext, deps: SyncDeps) 
       ? ctx.salespeople
       : [{ name: ctx.salesperson, percent: null }]; // nobody recorded yet: the staff who opened the deal
     await deps.inventory.setStatus(ctx.deal.plate_no, status, {
-      receiptNo: ctx.receipt.receipt_no,
+      receiptNo: ctx.lastReceiptNo,
       people,
-      date: sheetDate(ctx.receipt.created_at),
+      date: sheetDate(ctx.lastReceiptAt),
     });
   },
 };
@@ -140,16 +154,6 @@ function manilaTimestamp(iso: string): string {
   }).format(new Date(iso));
 }
 
-/** "2026-11-05" → "Nov 5, 2026". */
-export function formatDate(date: string): string {
-  return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
-
 export function receiptRow({ receipt, deal, confirmedBy }: SyncContext): CellValue[] {
   const agreed = toCentavos(deal.agreed_price) ?? 0;
   const balance = toCentavos(receipt.balance_after) ?? 0;
@@ -196,6 +200,31 @@ export function dealRow({ deal, lastReceiptNo, salespeople }: SyncContext): Cell
     lastReceiptNo,
     salespeopleText(salespeople),
   ];
+}
+
+/** Sent when an admin voids a receipt. */
+export function voidMessage({ receipt, deal }: SyncContext): string {
+  return [
+    `⚠️ Receipt #${receipt.receipt_no} VOIDED`,
+    deal.buyer_name,
+    [deal.make_type, deal.plate_no].filter(Boolean).join(" · "),
+    `Reason: ${receipt.void_reason ?? "—"}`,
+    `Paid ${formatPeso(toCentavos(deal.total_paid) ?? 0)} · Balance ${formatPeso(toCentavos(deal.balance) ?? 0)}`,
+    `Unit: ${unitStatusForDeal(deal.status as DealStatus)}`,
+  ].join("\n");
+}
+
+/** Sent when an admin cancels a deal. */
+export function cancelMessage({ deal }: SyncContext): string {
+  const paid = formatPeso(toCentavos(deal.total_paid) ?? 0);
+  return [
+    "❌ Deal CANCELLED",
+    deal.buyer_name,
+    [deal.make_type, deal.plate_no].filter(Boolean).join(" · "),
+    `Reason: ${deal.cancel_reason ?? "—"}`,
+    deal.forfeited ? `Forfeited ${paid}` : `Paid ${paid} (not forfeited)`,
+    `Unit: ${unitStatusForDeal(deal.status as DealStatus)}`,
+  ].join("\n");
 }
 
 export function telegramCaption({ receipt, deal }: SyncContext): string {

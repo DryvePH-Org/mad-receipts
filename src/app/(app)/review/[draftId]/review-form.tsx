@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Loader2 } from "lucide-react";
+import { SalespeopleSection, type SalespersonOption } from "@/components/salespeople-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,7 +41,6 @@ import {
 } from "@/lib/salespeople/rows";
 import { cn } from "@/lib/utils";
 import { lookupPlate, type OpenDeal, type PlateLookup } from "./actions";
-import { SalespeopleSection, type SalespersonOption } from "./salespeople-section";
 import { VoicePanel } from "./voice-panel";
 
 export type FieldKey = keyof ReceiptFields;
