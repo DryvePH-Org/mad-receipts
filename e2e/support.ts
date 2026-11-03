@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
@@ -8,7 +8,10 @@ export const credentials = {
 };
 
 export const RECEIPT_PREFIX = "ZZT-E2E";
-export const PHOTO = resolve(process.cwd(), "Docs/76950a59-99da-48c6-94e8-faec982faf85.jpeg");
+// The real sample photo stays on this computer only (it is not in the repository); other machines
+// use a synthetic image. Groq is mocked, so either one works.
+const REAL_PHOTO = resolve(process.cwd(), "Docs/76950a59-99da-48c6-94e8-faec982faf85.jpeg");
+export const PHOTO = existsSync(REAL_PHOTO) ? REAL_PHOTO : resolve(process.cwd(), "e2e/fixtures/sample-receipt.jpg");
 
 function env() {
   const out: Record<string, string> = {};

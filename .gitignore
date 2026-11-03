@@ -44,3 +44,7 @@ next-env.d.ts
 # playwright
 /test-results/
 /playwright-report/
+
+# real customer sample photo: local only
+/Docs/*.jpeg
+/Docs/*.jpg

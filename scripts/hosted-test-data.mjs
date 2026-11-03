@@ -4,7 +4,7 @@
 // Everything it creates is marked: plates "ZZT…", salespeople "ZZT …", users "zzt-…@example.test".
 // It never touches anything else. It refuses to run if the project already holds real receipts.
 import { randomBytes, randomUUID } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 
 const env = {};
@@ -79,7 +79,10 @@ async function seed(credentialsFile) {
   const sp = Object.fromEntries(people.map((p) => [p.name, p.id]));
   const person = (name, percent) => ({ salesperson_id: sp[name], commission_percent: percent });
 
-  const photo = readFileSync(process.argv[4] ?? "Docs/76950a59-99da-48c6-94e8-faec982faf85.jpeg"); // the sample receipt photo, used for every thumbnail
+  const photo = (() => {
+    const sample = process.argv[4] ?? "Docs/76950a59-99da-48c6-94e8-faec982faf85.jpeg"; // local-only sample photo
+    return existsSync(sample) ? readFileSync(sample) : Buffer.alloc(0);
+  })();
   async function confirm(no, plate, amount, { people: list, due, reservation } = {}) {
     const draftId = randomUUID();
     must(await admin.from("receipt_drafts").insert({ id: draftId, photo_path: `drafts/zzt/${draftId}.jpg`, status: "ready", created_by: ids.admin }), "draft");
