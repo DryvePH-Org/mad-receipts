@@ -113,7 +113,7 @@ async function withFriendlyErrors<T>(call: () => Promise<T>): Promise<T> {
     if (err instanceof InventoryError) throw err;
     const code = Number((err as { code?: unknown; status?: unknown }).code ?? (err as { status?: unknown }).status);
     if (code === 403) {
-      throw new InventoryError("The app can't open the inventory sheet. Share it with the service account as Editor.");
+      throw new InventoryError("The app can't open the inventory sheet. The connected Google account needs Editor access to it, and its id must be allowed in the Apps Script (if used).");
     }
     if (code === 404) throw new InventoryError("The inventory sheet was not found. Check INVENTORY_SHEET_ID.");
     if (code === 400) throw new InventoryError("The inventory tab name looks wrong. Check INVENTORY_SHEET_TAB.");

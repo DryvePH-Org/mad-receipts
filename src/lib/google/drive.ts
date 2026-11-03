@@ -1,6 +1,7 @@
 import "server-only";
 import { Readable } from "node:stream";
 import { google } from "googleapis";
+import { appsScriptConfigured, createAppsScriptDriveClient } from "./apps-script";
 import { GOOGLE_SCOPES, googleAuth } from "./auth";
 
 export interface DriveClient {
@@ -12,6 +13,7 @@ export interface DriveClient {
 export const driveFileLink = (fileId: string) => `https://drive.google.com/file/d/${fileId}/view`;
 
 export function createDriveClient(): DriveClient {
+  if (appsScriptConfigured()) return createAppsScriptDriveClient();
   const api = google.drive({ version: "v3", auth: googleAuth([GOOGLE_SCOPES.drive]) });
   return {
     async findFile(folderId, name) {

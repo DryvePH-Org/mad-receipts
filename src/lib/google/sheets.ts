@@ -1,5 +1,6 @@
 import "server-only";
 import { google } from "googleapis";
+import { appsScriptConfigured, createAppsScriptSheetsClient } from "./apps-script";
 import { GOOGLE_SCOPES, googleAuth } from "./auth";
 
 /** The few Sheets calls the app needs, so adapters can be tested with a fake. */
@@ -15,6 +16,7 @@ export interface SheetsClient {
 export type CellValue = string | number;
 
 export function createSheetsClient(): SheetsClient {
+  if (appsScriptConfigured()) return createAppsScriptSheetsClient();
   const api = google.sheets({ version: "v4", auth: googleAuth([GOOGLE_SCOPES.sheets]) });
   return {
     async getValues(spreadsheetId, range) {

@@ -84,7 +84,7 @@ describe("sheet inventory: getUnit", () => {
         appendValues: () => Promise.resolve(),
       },
     });
-    await expect(denied.getUnit("NKF4771")).rejects.toThrow(/Share it with the service account as Editor/);
+    await expect(denied.getUnit("NKF4771")).rejects.toThrow(/connected Google account needs Editor access/);
   });
 });
 

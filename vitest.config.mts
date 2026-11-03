@@ -12,5 +12,6 @@ export default defineConfig({
   },
   test: {
     include: ["tests/**/*.test.ts"],
+    exclude: ["tests/integration/**", "node_modules/**"], // need local Supabase: npm run test:integration
   },
 });

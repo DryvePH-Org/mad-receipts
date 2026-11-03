@@ -39,14 +39,35 @@ Until `INVENTORY_SHEET_ID` is set, **local development** uses a stand-in with th
 (`NKF4771`, `ABC1234`, `XYZ5678`, see `src/lib/inventory/index.ts`). In production, no plate can be
 confirmed until the sheet is configured.
 
-### Google service account (inventory, Drive, Sheets)
+### Connecting Google (inventory, Drive, receipts log)
+
+Pick one way. The app uses whichever is configured (Apps Script wins if both are).
+
+**A. Apps Script bridge** (works with a normal company Google account: no Google Cloud project, no
+service account key, no Shared drive needed). The script runs as you, so the sheets and the Drive
+folder only need to be ones *you* can edit.
+
+1. Go to script.google.com → **New project**. Delete the sample code and paste all of
+   [`apps-script/Code.gs`](apps-script/Code.gs).
+2. **Project Settings (gear) → Script properties → Add**:
+   - `SECRET`: the value of `APPS_SCRIPT_SECRET` in your `.env.local`
+   - `ALLOWED_SHEET_IDS`: the inventory sheet id and the receipts log sheet id, comma separated
+   - `ALLOWED_FOLDER_IDS`: the Drive folder id for receipt photos
+3. **Deploy → New deployment → type: Web app**. *Execute as*: **Me**. *Who has access*: **Anyone**.
+   Approve the permission screen (Advanced → Go to project) the first time.
+4. Copy the **Web app URL** (ends in `/exec`) into `APPS_SCRIPT_URL` in `.env.local`.
+5. Check it: opening the URL in a browser should show `MAD Receipts bridge is running`.
+6. After you edit `Code.gs`, redeploy: **Deploy → Manage deployments → Edit → New version**.
+
+The script only reaches the sheet and folder ids you list, and refuses any request without the secret.
+If *Anyone* isn't offered in step 3, the Workspace admin has restricted it; ask them to allow it.
+
+**B. Service account** (needs Google Cloud access and permission to create keys)
 
 1. In a Google Cloud project, enable the **Google Sheets API** and **Google Drive API**, create a service account and a JSON key.
 2. Put `client_email` in `GOOGLE_SERVICE_ACCOUNT_EMAIL` and `private_key` in `GOOGLE_PRIVATE_KEY` (one line, keep the `\n`s).
 3. Share the inventory sheet, the receipts log sheet and the Drive folder with that email as **Editor**.
-
-If your Google Workspace blocks creating projects or keys: ask the Workspace admin, or create the project from a
-personal Google account and share the Workspace files with the service account (needs external sharing allowed).
+   The Drive folder must be in a Shared drive (service accounts have no storage of their own).
 
 ## Background sync
 
@@ -55,9 +76,6 @@ retried by `POST /api/sync/run` (send `Authorization: Bearer $CRON_SECRET`; sche
 A failed job retries after 1 min, 5 min, 15 min, then 1 h, and stops after 5 attempts. The receipt
 itself is never affected. The receipts log sheet needs two tabs named **Receipts** and **Deals**;
 header rows are written automatically when a tab is empty.
-
-The Drive folder should be in a **Shared drive**: service accounts have no storage of their own, so
-uploads into a normal "My Drive" folder fail.
 
 ## Users and roles
 
