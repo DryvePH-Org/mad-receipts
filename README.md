@@ -164,35 +164,46 @@ Roles are `staff` (upload and confirm) and `admin` (everything). Public signups 
 
 Log in as admin → tap the **Admin** badge (or open `/admin/users`) → **Add staff user**. Give them the temporary password. Use **Reset password** if they forget it.
 
-## Deploying (Hostinger VPS)
+## Deploying (Hostinger VPS that already runs other projects)
 
-The app runs as a normal Node server behind Caddy (automatic HTTPS), with cron for the background jobs.
-Files are in `deploy/`.
+The app runs in its own Docker container next to the other projects. The Caddy that already owns ports
+80/443 gives it HTTPS. Nothing else on the server is touched except **one site block** added to that
+Caddyfile (backed up first, checked before it is applied, undone automatically if it fails).
 
-1. **Domain:** point an `A` record (for example `receipts.yourcompany.com`) at the VPS IP. HTTPS is required
-   for the phone microphone. No domain yet? Use `<ip-with-dashes>.sslip.io`, e.g. `203-0-113-5.sslip.io`.
-2. **Set up the server (once).** SSH in as root on a fresh Ubuntu 22.04/24.04 and run:
+**Before anything:** take a snapshot in hPanel → VPS → Snapshots (it keeps one copy; a new one replaces it).
+
+1. **DNS:** an `A` record `invoice` → the VPS IP (already done for `invoice.dryveph.io`).
+2. **Get the code** (SSH as root, or hPanel → VPS → Browser terminal):
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/DryvePH-Org/mad-receipts/main/deploy/setup.sh | DOMAIN=receipts.yourcompany.com bash
+   git clone https://github.com/DryvePH-Org/mad-receipts.git /opt/mad-receipts && cd /opt/mad-receipts
+   cp .env.example .env && nano .env      # fill in the values; add: CRON_SECRET=<output of: openssl rand -hex 24>
+   chmod 600 .env
    ```
-3. **Add the keys:** `nano /etc/mad-receipts.env` and fill in the values from your `.env.local` (a random
-   `CRON_SECRET` is already added). For go-live set `INVENTORY_SHEET_ID` to the real inventory sheet and add that id
-   to the Apps Script `ALLOWED_SHEET_IDS`. Keep this file out of git and chat.
-4. **Start it:** `bash /opt/mad-receipts/deploy/update.sh`. Run the same command after any later change is pushed.
-5. **Supabase** → Authentication → URL Configuration: set **Site URL** to `https://<your address>`. Keep public
-   signups **off**. Run `supabase db push` for any migration not yet applied.
-6. **Background jobs** are in `/etc/cron.d/mad-receipts`: sync every 5 minutes, balance reminder daily at
-   8:00 AM Manila time. Check with `grep CRON /var/log/syslog | tail` and the admin **Sync jobs** page.
-7. **Smoke test:** log in, upload a photo, confirm, then check the Drive file, the Sheets row, the Telegram
-   message and the REMARKS cell. On a phone use **Add to Home Screen**, and test the voice note.
+3. **Install** (it checks everything first and stops without changes if something looks wrong):
+   ```bash
+   DOMAIN=invoice.dryveph.io bash deploy/vps-install.sh
+   ```
+4. **Supabase** → Authentication → URL Configuration: set **Site URL** to `https://invoice.dryveph.io`.
+5. **Smoke test:** log in, upload a photo, confirm, check the Drive file, Sheets row, Telegram message and the
+   REMARKS cell. On a phone use **Add to Home Screen** and try the voice note (HTTPS is required).
+6. **Updates:** `bash /opt/mad-receipts/deploy/update.sh` (pulls, rebuilds and restarts only this app).
+7. **Undo everything:** `bash deploy/rollback.sh <the Caddyfile backup path printed by the installer>`.
 
-Useful commands on the server: `systemctl status mad-receipts`, `journalctl -u mad-receipts -f` (app logs),
-`systemctl restart mad-receipts`.
+Background jobs run from `/etc/cron.d/mad-receipts` (sync every 5 minutes, reminder daily 8:00 AM Manila).
+Logs: `docker logs -f mad-receipts`. Status: `docker ps`.
+
+### Keeping projects apart on this server (also for the next project)
+- **One folder, one compose project, one container name per project** (`/opt/<project>`).
+- **Publish no ports.** Only the shared Caddy owns 80/443; projects are reached through it by name.
+- **Add a site block, never replace the Caddyfile.** Back it up, `caddy validate`, then `caddy reload` (no restart).
+- **Cap memory and log size** for every container (`deploy.resources.limits.memory`, `logging.options`).
+- **Never** run `docker system prune`, `docker compose down -v`, or change the firewall without a snapshot first.
+- The Caddy's network is shared so it can reach each app; apps hold no credentials for each other. A stricter
+  setup later is one network per project with Caddy joined to each.
 
 ### Retry failed syncs
 Admin → **Sync jobs** shows what is waiting or failed, with **Retry now** and **Run due jobs now**.
 
 ### Rotate keys
-Edit `/etc/mad-receipts.env` (and the Apps Script `SECRET` property if it is that secret), then
-`systemctl restart mad-receipts`. For Supabase keys, reset them in the dashboard first. Rebuild with
-`update.sh` if `NEXT_PUBLIC_*` values changed.
+Edit `/opt/mad-receipts/.env`, then `docker compose up -d` in that folder (rebuild with `update.sh` if a
+`NEXT_PUBLIC_*` value changed). For the Apps Script secret, change the script property too.
