@@ -20,14 +20,14 @@ export function CreateUserForm() {
   }, [state]);
 
   return (
-    <form ref={formRef} action={action} className="space-y-3">
+    <form ref={formRef} action={action} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="fullName">Full name</Label>
-        <Input id="fullName" name="fullName" required className="h-12 text-base" />
+        <Input id="fullName" name="fullName" required />
       </div>
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
-        <Input id="email" name="email" type="email" required className="h-12 text-base" />
+        <Input id="email" name="email" type="email" required />
       </div>
       <div className="space-y-2">
         <Label htmlFor="password">Temporary password</Label>
@@ -38,7 +38,7 @@ export function CreateUserForm() {
           minLength={8}
           autoComplete="new-password"
           required
-          className="h-12 text-base"
+         
         />
       </div>
       {state && !state.ok && (
@@ -46,7 +46,7 @@ export function CreateUserForm() {
           {state.message}
         </p>
       )}
-      <Button type="submit" disabled={pending} className="h-12 w-full text-base">
+      <Button type="submit" size="lg" disabled={pending} className="w-full">
         {pending ? "Creating…" : "Create staff user"}
       </Button>
     </form>

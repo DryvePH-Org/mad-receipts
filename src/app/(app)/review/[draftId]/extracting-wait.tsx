@@ -44,7 +44,7 @@ export function ExtractingWait({ draftId }: { draftId: string }) {
       <p className="font-medium">Reading the receipt…</p>
       <p className="text-sm text-muted-foreground">This usually takes a few seconds.</p>
       {stuck && (
-        <Button onClick={retry} disabled={retrying} variant="outline" className="h-12">
+        <Button onClick={retry} disabled={retrying} variant="outline">
           {retrying ? "Trying again…" : "Taking long? Try again"}
         </Button>
       )}

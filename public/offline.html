@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#171717" />
+    <title>Offline · MAD Receipts</title>
+    <style>
+      body { margin: 0; min-height: 100svh; display: grid; place-items: center; padding: 1rem; box-sizing: border-box;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #fff; color: #171717; text-align: center; }
+      main { max-width: 22rem; }
+      img { width: 3.5rem; height: 3.5rem; border-radius: 0.75rem; }
+      h1 { font-size: 1.5rem; margin: 1rem 0 0.5rem; letter-spacing: -0.01em; }
+      p { margin: 0 0 1.5rem; color: #737373; line-height: 1.5; }
+      button { height: 2.75rem; padding: 0 1.25rem; border: 0; border-radius: 0.625rem; background: #171717; color: #fafafa;
+        font: inherit; font-weight: 500; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/icons/icon-192.png" alt="" />
+      <h1>You're offline</h1>
+      <p>MAD Receipts needs an internet connection. Nothing you saved has been lost. Check your connection and try again.</p>
+      <button type="button" onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>

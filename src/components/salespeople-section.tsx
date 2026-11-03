@@ -4,6 +4,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
 import { MAX_SALESPEOPLE, newRowKey, type SalesRow } from "@/lib/salespeople/rows";
 
@@ -65,11 +66,10 @@ export function SalespeopleSection({
               <div className="grid grid-cols-[1fr_6.5rem_auto] items-end gap-2">
                 <div className="space-y-1.5">
                   <Label htmlFor={`sp-${row.key}`}>Salesperson</Label>
-                  <select
+                  <NativeSelect
                     id={`sp-${row.key}`}
                     value={row.salespersonId}
                     onChange={(e) => update(row.key, { salespersonId: e.target.value, heard: undefined })}
-                    className="h-12 w-full rounded-lg border border-input bg-transparent px-3 text-base"
                   >
                     <option value="">Choose…</option>
                     {known && <option value={row.salespersonId}>{names.get(row.salespersonId) ?? "Unknown"} (inactive)</option>}
@@ -78,7 +78,7 @@ export function SalespeopleSection({
                         {o.name}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor={`pct-${row.key}`}>Commission %</Label>
@@ -88,7 +88,6 @@ export function SalespeopleSection({
                     onChange={(e) => update(row.key, { percent: e.target.value })}
                     inputMode="decimal"
                     placeholder="3"
-                    className="h-12 text-base"
                   />
                 </div>
                 <Button
@@ -120,7 +119,7 @@ export function SalespeopleSection({
             type="button"
             variant="outline"
             onClick={() => onChange([...rows, { key: newRowKey(), salespersonId: "", percent: "" }])}
-            className="h-12 w-full text-base"
+            className="w-full"
           >
             <Plus className="size-5" /> Add {rows.length === 0 ? "salesperson" : "another salesperson"}
           </Button>

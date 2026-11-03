@@ -2,15 +2,8 @@
 
 import { useActionState, useState } from "react";
 import { toast } from "sonner";
+import { ResponsiveDialog } from "@/components/shared/responsive-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { updateSalesperson, type ActionResult } from "./actions";
@@ -27,33 +20,41 @@ export function EditSalespersonDialog({ id, name, aliases }: { id: string; name:
   }, null);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="outline" className="h-10" />}>Edit</DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit {name}</DialogTitle>
-          <DialogDescription>Past sales keep their salespeople. Renaming updates the name everywhere.</DialogDescription>
-        </DialogHeader>
-        <form action={action} className="space-y-3">
+    <>
+      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+        Edit
+      </Button>
+      <ResponsiveDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={`Edit ${name}`}
+        description="Past sales keep their salespeople. Renaming updates the name everywhere."
+      >
+        <form action={action} className="space-y-4">
           <input type="hidden" name="id" value={id} />
           <div className="space-y-2">
             <Label htmlFor={`name-${id}`}>Name</Label>
-            <Input id={`name-${id}`} name="name" defaultValue={name} required maxLength={60} className="h-12 text-base" />
+            <Input id={`name-${id}`} name="name" defaultValue={name} required maxLength={60} />
           </div>
           <div className="space-y-2">
             <Label htmlFor={`aliases-${id}`}>Nicknames and other spellings</Label>
-            <Input id={`aliases-${id}`} name="aliases" defaultValue={aliases.join(", ")} className="h-12 text-base" />
+            <Input id={`aliases-${id}`} name="aliases" defaultValue={aliases.join(", ")} />
           </div>
           {state && !state.ok && (
             <p role="alert" className="text-sm text-destructive">
               {state.message}
             </p>
           )}
-          <Button type="submit" disabled={pending} className="h-12 w-full text-base">
-            {pending ? "Saving…" : "Save"}
-          </Button>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Saving…" : "Save"}
+            </Button>
+          </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialog>
+    </>
   );
 }

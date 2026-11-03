@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
 import {
   FIELD_KEYS,
@@ -369,7 +370,7 @@ export function ReviewForm({
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <VoicePanel draftId={draftId} last={heard} onResult={applyVoice} />
 
       {openConflicts.length > 0 && (
@@ -413,8 +414,8 @@ export function ReviewForm({
       </Section>
 
       <Section title="Buyer">
-        {field("buyer_name", "Received from", { required: !deal })}
-        {field("buyer_address", "Postal address")}
+        {field("buyer_name", "Received from", { required: !deal, wide: true })}
+        {field("buyer_address", "Postal address", { wide: true })}
         {field("buyer_contact", "Contact No.", { type: "tel", inputMode: "tel" })}
       </Section>
 
@@ -434,7 +435,7 @@ export function ReviewForm({
           ]}
           issues={byField("paper_payment_type")}
         />
-        <label className="flex min-h-12 items-center gap-3 rounded-lg border p-3">
+        <label className="flex min-h-12 items-center gap-3 rounded-lg border p-3 sm:col-span-2">
           <input
             type="checkbox"
             checked={reservation}
@@ -482,7 +483,7 @@ export function ReviewForm({
         {field("agreed_price", "Agreed price (₱)", { required: !deal, inputMode: "decimal" })}
         {field("less_payment", "Less payment on paper (₱)", { inputMode: "decimal" })}
         {field("balance", "Balance on paper (₱)", { inputMode: "decimal" })}
-        {field("balance_words", "Balance in words")}
+        {field("balance_words", "Balance in words", { wide: true })}
         {field("balance_amount", "Balance amount in (P ____) (₱)", { inputMode: "decimal" })}
         {field("balance_due_date", "Balance due on or before", { type: "date" })}
       </Section>
@@ -520,7 +521,8 @@ export function ReviewForm({
             {submitError}
           </p>
         )}
-        <Button onClick={confirm} disabled={!canConfirm} className="h-14 w-full text-base">
+        <div className="sm:flex sm:justify-end">
+        <Button onClick={confirm} disabled={!canConfirm} size="lg" className="w-full sm:w-auto sm:min-w-56">
           {submitting ? (
             <>
               <Loader2 className="size-5 animate-spin" /> Saving…
@@ -531,6 +533,7 @@ export function ReviewForm({
             "Confirm receipt"
           )}
         </Button>
+        </div>
       </div>
     </div>
   );
@@ -544,12 +547,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">{children}</CardContent>
+      <CardContent className="grid gap-4 sm:grid-cols-2">{children}</CardContent>
     </Card>
   );
 }
 
 interface FieldOptions {
+  /** Spans both columns from sm up. */
+  wide?: boolean;
   required?: boolean;
   type?: string;
   inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
@@ -564,6 +569,7 @@ function Field({
   issues,
   locked,
   tag,
+  wide,
   required,
   type = "text",
   inputMode,
@@ -579,7 +585,7 @@ function Field({
 }) {
   const hasError = issues.some((i) => i.level === "error") || (required && !value.trim());
   return (
-    <div className="space-y-1.5">
+    <div className={cn("space-y-1.5", wide && "sm:col-span-2")}>
       <Label htmlFor={id}>
         {label}
         {required && <span className="text-destructive"> *</span>}
@@ -596,7 +602,6 @@ function Field({
         readOnly={locked}
         aria-invalid={hasError || undefined}
         className={cn(
-          "h-12 text-base",
           locked && "bg-muted text-muted-foreground",
           !hasError && issues.some((i) => i.level === "warning") && "border-amber-400",
         )}
@@ -624,21 +629,18 @@ function SelectField({
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id}>{label}</Label>
-      <select
+      <NativeSelect
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={cn(
-          "h-12 w-full rounded-lg border border-input bg-transparent px-3 text-base",
-          issues.some((i) => i.level === "warning") && "border-amber-400",
-        )}
+        className={cn(issues.some((i) => i.level === "warning") && "border-amber-400")}
       >
         {options.map(([v, text]) => (
           <option key={v} value={v}>
             {text}
           </option>
         ))}
-      </select>
+      </NativeSelect>
       <IssueList issues={issues} />
     </div>
   );
@@ -677,13 +679,13 @@ function PlateStatus({
   if (!plate) return null;
   if (pending) {
     return (
-      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+      <p className="flex items-center gap-2 text-sm text-muted-foreground sm:col-span-2">
         <Loader2 className="size-4 animate-spin" /> Checking {plate}…
       </p>
     );
   }
   return (
-    <div className="space-y-2 rounded-lg bg-muted p-3 text-sm">
+    <div className="space-y-2 rounded-lg bg-muted p-3 text-sm sm:col-span-2">
       {unit && (
         <p>
           Unit found: {[unit.makeType, unit.color].filter(Boolean).join(", ") || plate}, status{" "}
@@ -762,14 +764,14 @@ function SuccessCard({ success }: { success: Success }) {
           <dd className="text-right font-medium">{success.unitStatus}</dd>
         </dl>
         <div className="grid grid-cols-2 gap-3">
-          <Button render={<Link href="/upload" />} nativeButton={false} className="h-14 text-base">
+          <Button render={<Link href="/upload" />} nativeButton={false} size="lg">
             Upload another
           </Button>
           <Button
             render={<Link href={`/deals/${success.dealId}`} />}
             nativeButton={false}
             variant="outline"
-            className="h-14 text-base"
+            size="lg"
           >
             View deal
           </Button>

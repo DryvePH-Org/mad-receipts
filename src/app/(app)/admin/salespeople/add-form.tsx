@@ -19,14 +19,14 @@ export function AddSalespersonForm() {
   }, [state]);
 
   return (
-    <form ref={formRef} action={action} className="space-y-3">
+    <form ref={formRef} action={action} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="name">Name</Label>
-        <Input id="name" name="name" required maxLength={60} placeholder="David Santos" className="h-12 text-base" />
+        <Input id="name" name="name" required maxLength={60} placeholder="David Santos" />
       </div>
       <div className="space-y-2">
         <Label htmlFor="aliases">Nicknames and other spellings (optional)</Label>
-        <Input id="aliases" name="aliases" placeholder="Dave, Dabid" className="h-12 text-base" />
+        <Input id="aliases" name="aliases" placeholder="Dave, Dabid" />
         <p className="text-xs text-muted-foreground">
           Separate with commas. These help the voice recording understand how the name is said.
         </p>
@@ -36,7 +36,7 @@ export function AddSalespersonForm() {
           {state.message}
         </p>
       )}
-      <Button type="submit" disabled={pending} className="h-12 w-full text-base">
+      <Button type="submit" size="lg" disabled={pending} className="w-full">
         {pending ? "Adding…" : "Add salesperson"}
       </Button>
     </form>

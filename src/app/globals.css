@@ -128,3 +128,37 @@
     @apply font-sans;
   }
 }
+/* The receipt-reading sweep: a thin line moving over the photo while the AI reads it. */
+.scan-sweep {
+  position: relative;
+  overflow: hidden;
+}
+.scan-sweep::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  box-shadow: 0 0 18px 4px color-mix(in oklab, var(--primary) 35%, transparent);
+  animation: scan-sweep 1.8s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+@keyframes scan-sweep {
+  from { top: 0; }
+  to { top: calc(100% - 3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scan-sweep::after { animation: none; top: 50%; }
+}
+
+/* Space under fixed bars on phones, including the iPhone home indicator. */
+@utility pb-safe-bar {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+}
+
+@media print {
+  @page { size: A4; margin: 12mm; }
+  html, body { background: #fff; }
+  * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}

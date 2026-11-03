@@ -126,7 +126,7 @@ export function VoicePanel({
         rows={3}
         maxLength={2000}
         placeholder="Salesman David 3 percent, Ella 1 percent. Plate NKF 4771…"
-        className="w-full rounded-lg border border-input bg-transparent p-3 text-base"
+        className="w-full rounded-lg border border-input bg-transparent p-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
         aria-label="Type the details instead"
       />
       <Button
@@ -138,7 +138,8 @@ export function VoicePanel({
           body.set("text", text);
           void send(body);
         }}
-        className="h-12 w-full text-base"
+        size="lg"
+        className="w-full"
       >
         {state === "processing" ? "Reading…" : "Read this note"}
       </Button>
@@ -159,11 +160,11 @@ export function VoicePanel({
 
         {supported ? (
           state === "recording" ? (
-            <Button type="button" onClick={stop} className="h-14 w-full bg-destructive text-base text-white hover:bg-destructive/90">
+            <Button type="button" onClick={stop} variant="destructive" size="lg" className="w-full">
               <Square className="size-5" /> Stop and read ({seconds}s)
             </Button>
           ) : (
-            <Button type="button" onClick={start} disabled={state === "processing"} className="h-14 w-full text-base">
+            <Button type="button" onClick={start} disabled={state === "processing"} size="lg" className="w-full">
               {state === "processing" ? (
                 <>
                   <Loader2 className="size-5 animate-spin" /> Reading your note…

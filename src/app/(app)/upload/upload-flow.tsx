@@ -33,10 +33,13 @@ export function UploadFlow({ userId }: { userId: string }) {
     };
   }, [previewUrl]);
 
-  async function onFileChosen(event: React.ChangeEvent<HTMLInputElement>) {
+  function onFileChosen(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = ""; // let the same file be picked again after Retake
-    if (!file) return;
+    if (file) void handleFile(file);
+  }
+
+  async function handleFile(file: File) {
     setError(null);
 
     if (!file.type.startsWith("image/")) {
@@ -140,7 +143,15 @@ export function UploadFlow({ userId }: { userId: string }) {
       )}
 
       {step.kind === "pick" && (
-        <>
+        <div
+          className="space-y-4 lg:rounded-xl lg:border-2 lg:border-dashed lg:p-6"
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={(event) => {
+            event.preventDefault();
+            const file = event.dataTransfer.files?.[0];
+            if (file) void handleFile(file);
+          }}
+        >
           <Button
             type="button"
             onClick={() => cameraInput.current?.click()}
@@ -153,12 +164,14 @@ export function UploadFlow({ userId }: { userId: string }) {
             type="button"
             variant="outline"
             onClick={() => galleryInput.current?.click()}
-            className="h-14 w-full text-base"
+            size="lg"
+            className="w-full"
           >
             <ImageIcon className="size-5" />
             Choose from gallery
           </Button>
-        </>
+          <p className="hidden text-center text-sm text-muted-foreground lg:block">or drag a photo of the receipt here</p>
+        </div>
       )}
 
       {step.kind === "preparing" && (
@@ -185,7 +198,7 @@ export function UploadFlow({ userId }: { userId: string }) {
                   setError(null);
                   setStep({ kind: "pick" });
                 }}
-                className="h-14 text-base"
+                size="lg"
               >
                 <RotateCcw className="size-5" />
                 Retake
@@ -193,13 +206,13 @@ export function UploadFlow({ userId }: { userId: string }) {
               <Button
                 type="button"
                 onClick={() => submitPhoto(step.photo, step.url)}
-                className="h-14 text-base"
+                size="lg"
               >
                 Use photo
               </Button>
             </div>
           ) : (
-            <div className="flex h-14 items-center justify-center gap-2 text-muted-foreground">
+            <div className="flex h-11 items-center justify-center gap-2 text-muted-foreground">
               <Loader2 className="size-5 animate-spin" />
               {step.message}
             </div>

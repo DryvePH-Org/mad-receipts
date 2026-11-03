@@ -110,6 +110,17 @@ async function seed(credentialsFile) {
   must(await admin.rpc("cancel_deal", { p_actor: ids.admin, p_deal_id: c.deal_id, p_reason: "buyer backed out", p_forfeit: true }), "cancel");
   await confirm("ZZT-D1", "ZZT0004", "100000", { people: [person("ZZT Ella", "1")], due: "2026-11-05", reservation: true }); // due soon
 
+  // A receipt that is read and waiting to be reviewed, so the review screen can be looked at.
+  const draftId = randomUUID();
+  const draftPath = `drafts/zzt/${draftId}.jpg`;
+  if (photo.length) await admin.storage.from("receipt-photos").upload(draftPath, photo, { contentType: "image/jpeg" });
+  const fields = Object.fromEntries(
+    ["receipt_no","receipt_date","buyer_name","buyer_address","buyer_contact","amount_words","amount","paper_payment_type","make_type","plate_no","motor_no","chassis_no","color","agreed_price","less_payment","balance","payment_method","check_no","bank_branch","balance_words","balance_amount","balance_due_date"].map((k) => [k, null]),
+  );
+  Object.assign(fields, { receipt_no: "ZZT-R1", receipt_date: "2026-11-03", buyer_name: "ZZT Review Buyer", amount: 50000, amount_words: "Fifty Thousand Only", paper_payment_type: "earnest", make_type: "2021 Test Car", plate_no: "ZZT0099", color: "Black", agreed_price: 500000, payment_method: "cash", balance_due_date: "2026-11-10" });
+  must(await admin.from("receipt_drafts").insert({ id: draftId, photo_path: draftPath, status: "ready", created_by: ids.admin, extraction: { fields } }), "review draft");
+  credentials.draftId = draftId;
+
   writeFileSync(credentialsFile, JSON.stringify(credentials));
 }
 

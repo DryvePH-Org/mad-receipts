@@ -1,5 +1,7 @@
 import { Suspense } from "react";
-import { AdminNav } from "@/components/admin-nav";
+import { PageHeader } from "@/components/layout/page-header";
+import { PageSkeleton } from "@/components/shared/page-skeleton";
+import { Pill } from "@/components/shared/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireAdmin } from "@/lib/auth";
@@ -9,9 +11,9 @@ import { ResetPasswordDialog } from "./reset-password-dialog";
 
 export default function UsersPage() {
   return (
-    <div className="space-y-4 p-4">
-      <h1 className="text-xl font-semibold">Users</h1>
-      <Suspense fallback={<p className="text-muted-foreground">Loading…</p>}>
+    <div className="space-y-6">
+      <PageHeader title="Users" description="Create staff accounts and reset passwords. Nobody can sign up on their own." />
+      <Suspense fallback={<PageSkeleton />}>
         <UsersContent />
       </Suspense>
     </div>
@@ -32,18 +34,12 @@ async function UsersContent() {
   const users = authUsers.users
     .map((u) => {
       const profile = profileById.get(u.id);
-      return {
-        id: u.id,
-        email: u.email ?? "",
-        name: profile?.full_name ?? u.email ?? "",
-        role: profile?.role ?? "staff",
-      };
+      return { id: u.id, email: u.email ?? "", name: profile?.full_name ?? u.email ?? "", role: profile?.role ?? "staff" };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <>
-      <AdminNav />
+    <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
       <Card>
         <CardHeader>
           <CardTitle>Add staff user</CardTitle>
@@ -58,15 +54,15 @@ async function UsersContent() {
           <CardTitle>All users ({users.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="divide-y">
+          <ul className="-my-2 divide-y">
             {users.map((u) => (
               <li key={u.id} className="flex items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
                   <p className="truncate font-medium">{u.name}</p>
                   <p className="truncate text-sm text-muted-foreground">{u.email}</p>
-                  <Badge variant={u.role === "admin" ? "default" : "secondary"} className="mt-1">
-                    {u.role === "admin" ? "Admin" : "Staff"}
-                  </Badge>
+                  <div className="mt-1">
+                    {u.role === "admin" ? <Badge>Admin</Badge> : <Pill tone="grey">Staff</Pill>}
+                  </div>
                 </div>
                 <ResetPasswordDialog userId={u.id} name={u.name} />
               </li>
@@ -74,6 +70,6 @@ async function UsersContent() {
           </ul>
         </CardContent>
       </Card>
-    </>
+    </div>
   );
 }

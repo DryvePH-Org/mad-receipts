@@ -1,14 +1,23 @@
 import Link from "next/link";
+import { ShieldAlert } from "lucide-react";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 
 export default function Forbidden() {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-4 p-4 text-center">
-      <h1 className="text-xl font-semibold">Admins only</h1>
-      <p className="text-muted-foreground">You don&apos;t have access to this page.</p>
-      <Button render={<Link href="/" />} nativeButton={false} className="h-12 px-6">
-        Go home
-      </Button>
+    <main className="flex min-h-svh items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <EmptyState
+          icon={ShieldAlert}
+          title="Admins only"
+          description="You don't have access to this page."
+          action={
+            <Button nativeButton={false} render={<Link href="/" />}>
+              Go home
+            </Button>
+          }
+        />
+      </div>
     </main>
   );
 }

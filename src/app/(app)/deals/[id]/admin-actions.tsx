@@ -1,17 +1,11 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
+import { Pencil, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { SalespeopleSection, type SalespersonOption } from "@/components/salespeople-section";
+import { ResponsiveDialog } from "@/components/shared/responsive-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { rowsFromDeal, toPayload, validateRows, type SalesRow } from "@/lib/salespeople/rows";
@@ -39,36 +33,46 @@ function FormError({ state }: { state: ActionResult }) {
 }
 
 const textarea =
-  "w-full rounded-lg border border-input bg-transparent p-3 text-base outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
+  "w-full rounded-lg border border-input bg-transparent p-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm";
+
+/** Buttons at the bottom of a form: stacked on phones (main action on top), side by side from sm. */
+function Footer({ children }: { children: React.ReactNode }) {
+  return <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">{children}</div>;
+}
 
 export function VoidReceiptDialog({ receiptId, receiptNo }: { receiptId: string; receiptNo: string }) {
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useDialogAction(voidReceipt, () => setOpen(false));
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="outline" className="h-10 text-destructive" />}>Void</DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Void receipt No. {receiptNo}</DialogTitle>
-          <DialogDescription>
-            The receipt stays on record, marked voided. The deal&apos;s totals, status and the unit&apos;s status are
-            worked out again, and the sheet and Telegram group are updated.
-          </DialogDescription>
-        </DialogHeader>
-        <form action={action} className="space-y-3">
+    <>
+      <Button type="button" variant="outline" size="sm" className="text-destructive" onClick={() => setOpen(true)}>
+        Void
+      </Button>
+      <ResponsiveDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={`Void receipt No. ${receiptNo}`}
+        description="The receipt stays on record, marked voided. The deal's totals, status and the unit's status are worked out again, and the sheet and Telegram group are updated."
+      >
+        <form action={action} className="space-y-4">
           <input type="hidden" name="receiptId" value={receiptId} />
           <div className="space-y-2">
             <Label htmlFor={`void-${receiptId}`}>Reason</Label>
             <textarea id={`void-${receiptId}`} name="reason" required minLength={3} maxLength={300} rows={3} className={textarea} />
           </div>
           <FormError state={state} />
-          <Button type="submit" disabled={pending} className="h-12 w-full bg-destructive text-base text-white hover:bg-destructive/90">
-            {pending ? "Voiding…" : "Void this receipt"}
-          </Button>
+          <Footer>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              Keep receipt
+            </Button>
+            <Button type="submit" variant="destructive" disabled={pending}>
+              {pending ? "Voiding…" : "Void this receipt"}
+            </Button>
+          </Footer>
         </form>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialog>
+    </>
   );
 }
 
@@ -77,17 +81,17 @@ export function CancelDealDialog({ dealId, plate, paid }: { dealId: string; plat
   const [state, action, pending] = useDialogAction(cancelDeal, () => setOpen(false));
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="outline" className="h-12 flex-1 text-destructive" />}>Cancel deal</DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Cancel the deal for {plate}</DialogTitle>
-          <DialogDescription>
-            The buyer backs out. The unit goes back to Available and the Telegram group is told. Receipts stay on
-            record.
-          </DialogDescription>
-        </DialogHeader>
-        <form action={action} className="space-y-3">
+    <>
+      <Button type="button" variant="outline" className="w-full text-destructive" onClick={() => setOpen(true)}>
+        <Ban /> Cancel deal
+      </Button>
+      <ResponsiveDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={`Cancel the deal for ${plate}`}
+        description="The buyer backs out. The unit goes back to Available and the Telegram group is told. Receipts stay on record."
+      >
+        <form action={action} className="space-y-4">
           <input type="hidden" name="dealId" value={dealId} />
           <div className="space-y-2">
             <Label htmlFor="cancel-reason">Reason</Label>
@@ -101,12 +105,17 @@ export function CancelDealDialog({ dealId, plate, paid }: { dealId: string; plat
             </span>
           </label>
           <FormError state={state} />
-          <Button type="submit" disabled={pending} className="h-12 w-full bg-destructive text-base text-white hover:bg-destructive/90">
-            {pending ? "Cancelling…" : "Cancel this deal"}
-          </Button>
+          <Footer>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              Keep deal
+            </Button>
+            <Button type="submit" variant="destructive" disabled={pending}>
+              {pending ? "Cancelling…" : "Cancel this deal"}
+            </Button>
+          </Footer>
         </form>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialog>
+    </>
   );
 }
 
@@ -140,51 +149,49 @@ export function EditDealDialog({
   // A sold deal always needs someone credited; an open one may have nobody yet.
   const rowErrors = validateRows(rows, { active: options, names: nameMap }, deal.completed);
 
-  const field = (name: keyof EditableDeal, label: string, required = false) => (
-    <div className="space-y-1.5">
+  const field = (name: keyof EditableDeal, label: string, required = false, wide = false) => (
+    <div className={wide ? "space-y-1.5 sm:col-span-2" : "space-y-1.5"}>
       <Label htmlFor={`edit-${name}`}>{label}</Label>
-      <Input
-        id={`edit-${name}`}
-        name={name}
-        defaultValue={String(deal[name])}
-        required={required}
-        className="h-12 text-base"
-      />
+      <Input id={`edit-${name}`} name={name} defaultValue={String(deal[name])} required={required} />
     </div>
   );
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="outline" className="h-12 flex-1" />}>Edit details</DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Edit deal details</DialogTitle>
-          <DialogDescription>Changes are recorded in the audit log. The price and plate can&apos;t be changed here.</DialogDescription>
-        </DialogHeader>
-        <form action={action} className="space-y-3">
+    <>
+      <Button type="button" variant="outline" className="w-full" onClick={() => setOpen(true)}>
+        <Pencil /> Edit details
+      </Button>
+      <ResponsiveDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Edit deal details"
+        description="Changes are recorded in the audit log. The price and plate can't be changed here."
+        className="sm:max-w-xl"
+      >
+        <form action={action} className="space-y-4">
           <input type="hidden" name="dealId" value={deal.id} />
           <input type="hidden" name="salespeople" value={JSON.stringify(rowErrors.length === 0 ? toPayload(rows) : [])} />
-          {field("buyer_name", "Buyer's name", true)}
-          {field("buyer_address", "Address")}
-          {field("buyer_contact", "Contact no.")}
-          {field("make_type", "Make / Type")}
-          {field("color", "Color")}
-          {field("motor_no", "Motor No.")}
-          {field("chassis_no", "Chassis No.")}
-          <SalespeopleSection
-            rows={rows}
-            options={options}
-            names={nameMap}
-            required={deal.completed}
-            errors={rowErrors}
-            onChange={setRows}
-          />
+          <div className="grid gap-4 sm:grid-cols-2">
+            {field("buyer_name", "Buyer's name", true, true)}
+            {field("buyer_address", "Address", false, true)}
+            {field("buyer_contact", "Contact no.")}
+            {field("make_type", "Make / Type")}
+            {field("color", "Color")}
+            {field("motor_no", "Motor No.")}
+            {field("chassis_no", "Chassis No.", false, true)}
+          </div>
+          <SalespeopleSection rows={rows} options={options} names={nameMap} required={deal.completed} errors={rowErrors} onChange={setRows} />
           <FormError state={state} />
-          <Button type="submit" disabled={pending || rowErrors.length > 0} className="h-12 w-full text-base">
-            {pending ? "Saving…" : "Save changes"}
-          </Button>
+          <Footer>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={pending || rowErrors.length > 0}>
+              {pending ? "Saving…" : "Save changes"}
+            </Button>
+          </Footer>
         </form>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialog>
+    </>
   );
 }

@@ -1,20 +1,23 @@
 import { Suspense } from "react";
-import { BottomNav } from "@/components/bottom-nav";
-import { UserMenu } from "@/components/user-menu";
+import { AppShell } from "@/components/layout/app-shell";
+import { PageSkeleton } from "@/components/shared/page-skeleton";
+import { requireUser } from "@/lib/auth";
+
+async function Shell({ children }: { children: React.ReactNode }) {
+  const user = await requireUser();
+  return <AppShell user={user}>{children}</AppShell>;
+}
 
 export default function AppLayout({ children }: LayoutProps<"/">) {
   return (
-    <div className="flex min-h-full flex-col">
-      <header className="sticky top-0 z-30 border-b bg-background">
-        <div className="mx-auto flex h-14 max-w-lg items-center justify-between gap-4 px-4">
-          <span className="shrink-0 font-semibold">MAD Receipts</span>
-          <Suspense>
-            <UserMenu />
-          </Suspense>
+    <Suspense
+      fallback={
+        <div className="mx-auto min-h-svh max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+          <PageSkeleton />
         </div>
-      </header>
-      <main className="mx-auto w-full max-w-lg flex-1 pb-20">{children}</main>
-      <BottomNav />
-    </div>
+      }
+    >
+      <Shell>{children}</Shell>
+    </Suspense>
   );
 }
