@@ -163,3 +163,27 @@ Roles are `staff` (upload and confirm) and `admin` (everything). Public signups 
 ### Add staff
 
 Log in as admin → tap the **Admin** badge (or open `/admin/users`) → **Add staff user**. Give them the temporary password. Use **Reset password** if they forget it.
+
+## Deploying (Netlify)
+
+1. Push the repo to GitHub, then in Netlify **Add new site → Import from Git**. `netlify.toml` sets the build.
+2. **Site configuration → Environment variables**: add every variable from `.env.example` that has a value
+   in `.env.local`, plus `CRON_SECRET` (a long random string). For go-live set `INVENTORY_SHEET_ID` to the
+   **real** inventory sheet, and add that sheet's id to the Apps Script `ALLOWED_SHEET_IDS`.
+   Never put the service role key, `GROQ_API_KEY`, `APPS_SCRIPT_SECRET` or the Telegram token in the repo.
+3. Supabase → **Authentication → URL Configuration**: set **Site URL** to the live address. Keep public
+   signups **off**. Run `supabase db push` for any migration not yet applied.
+4. Two scheduled functions in `netlify/functions/` call the app with `CRON_SECRET`:
+   `sync-cron` every 5 minutes (`/api/sync/run`) and `reminders-cron` daily at 8:00 AM Manila time
+   (`/api/reminders/run`). Check **Logs → Functions** after the first run.
+5. Smoke test on the live address: log in, upload a photo, confirm, then check the Drive file, the Sheets
+   row, the Telegram message and the REMARKS cell of the inventory sheet.
+6. Phone: open the site in Chrome or Safari and use **Add to Home Screen**. The microphone only works over
+   the live `https` address, so test the voice note there.
+
+### Retry failed syncs
+Admin → **Sync jobs** shows what is waiting or failed, with **Retry now** and **Run due jobs now**.
+
+### Rotate keys
+Change the value in Netlify (and the Apps Script `SECRET` property if it is the Apps Script secret),
+then **Deploys → Trigger deploy**. For Supabase keys, reset them in the dashboard first, then update Netlify.

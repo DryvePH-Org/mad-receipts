@@ -79,7 +79,7 @@ async function seed(credentialsFile) {
   const sp = Object.fromEntries(people.map((p) => [p.name, p.id]));
   const person = (name, percent) => ({ salesperson_id: sp[name], commission_percent: percent });
 
-  const photo = readFileSync(process.argv[4] ?? "/dev/null"); // optional jpeg for the thumbnails
+  const photo = readFileSync(process.argv[4] ?? "Docs/76950a59-99da-48c6-94e8-faec982faf85.jpeg"); // the sample receipt photo, used for every thumbnail
   async function confirm(no, plate, amount, { people: list, due, reservation } = {}) {
     const draftId = randomUUID();
     must(await admin.from("receipt_drafts").insert({ id: draftId, photo_path: `drafts/zzt/${draftId}.jpg`, status: "ready", created_by: ids.admin }), "draft");
@@ -127,4 +127,4 @@ async function seed(credentialsFile) {
 const [command, file] = process.argv.slice(2);
 if (command === "seed" && file) await seed(file).then(() => console.log("seeded; credentials written to the given file"));
 else if (command === "clean") await clean().then(() => console.log("cleaned"));
-else console.log("usage: node scripts/hosted-test-data.mjs seed <credentials-file> [photo.jpg] | clean");
+else console.log("usage: node scripts/hosted-test-data.mjs seed <credentials-file> [photo.jpg; default: the Docs sample] | clean");
