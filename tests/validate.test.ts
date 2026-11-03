@@ -59,6 +59,18 @@ describe("validateExtraction", () => {
     expect(validateExtraction({ ...sample, receipt_date: "2026-11-02" }, ctx)).toEqual([]);
   });
 
+  it("handles the balance line when a financing company pays the rest", () => {
+    const issues = validateExtraction({ ...sample, balance: null, balance_words: "Mad: 0 Gdfi: 130,000" });
+    expect(fieldsOf(issues)).toEqual(["warning:balance_words"]);
+    expect(issues[0].message).toContain("Gdfi: 130,000");
+  });
+
+  it("flags a check without a check number, and a less-payment below the amount", () => {
+    expect(fieldsOf(validateExtraction({ ...sample, payment_method: "check", check_no: null }))).toEqual(["warning:payment_method"]);
+    expect(validateExtraction({ ...sample, payment_method: "check", check_no: "0012345" })).toEqual([]);
+    expect(fieldsOf(validateExtraction({ ...sample, less_payment: pesos(20_000), balance: pesos(480_000), balance_words: null }))).toEqual(["warning:less_payment"]);
+  });
+
   it("does not flag blank motor and chassis numbers", () => {
     const issues = validateExtraction({ ...sample, motor_no: null, chassis_no: "" });
     expect(issues.filter((i) => i.field === "motor_no" || i.field === "chassis_no")).toEqual([]);

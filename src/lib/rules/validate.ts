@@ -111,10 +111,24 @@ export function validateExtraction(
     }
   }
   const balanceNumber = data.balance_amount ?? data.balance;
-  if (!blank(data.balance_words) && balanceNumber !== null && balanceNumber >= 0) {
+  if (!blank(data.balance_words) && /\d/.test(data.balance_words!)) {
+    // Not words at all: the balance line holds notes such as "Mad: 0  Gdfi: 130,000" (a financing company pays the rest).
+    warning(
+      "balance_words",
+      `The balance line on the paper says "${data.balance_words!.trim()}". Check what is still owed to MAD before confirming.`,
+    );
+  } else if (!blank(data.balance_words) && balanceNumber !== null && balanceNumber >= 0) {
     if (!wordsMatchAmount(data.balance_words!, balanceNumber)) {
       warning("balance_words", `Balance in words does not match ${formatPeso(balanceNumber)}.`);
     }
+  }
+
+  // Cash or check: a check needs its number, and "less payment" can't be smaller than this payment.
+  if (data.payment_method === "check" && blank(data.check_no)) {
+    warning("payment_method", "Paid by check but there is no check number. Is it really a check? Look at the boxes on the paper.");
+  }
+  if (data.less_payment !== null && data.amount !== null && data.amount > 0 && data.less_payment < data.amount) {
+    warning("less_payment", "Less payment is smaller than this amount. It should include this payment (and any earlier ones).");
   }
 
   // Computed payment (needs the deal's numbers).

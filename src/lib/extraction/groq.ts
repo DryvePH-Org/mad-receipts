@@ -54,7 +54,14 @@ Reading handwriting (this matters most):
 - Contact numbers are Philippine mobile numbers: 11 digits starting with 09 (e.g. 09171234567). Read digit by digit and return exactly 11 digits if you can see them all.
 - The money amounts must agree: Less payment = the amount just paid, and Agreed price minus Less payment = Balance. Use that only to double-check a number you can already see; never invent one.
 - Words fields (amount_words, balance_words): copy only the words that are actually handwritten. Do not add or complete words such as "ONLY" or "PESOS" if they are not on the line.
-- Names and addresses: copy the handwriting letter by letter. Prefer real Philippine names and places (for example SAN FERNANDO, KAPITOLYO, PASIG CITY, QUEZON CITY) over invented ones, but never change letters you can clearly see.`;
+- Names and addresses: copy the handwriting letter by letter. Prefer real Philippine names and places (for example SAN FERNANDO, KAPITOLYO, PASIG CITY, QUEZON CITY) over invented ones, but never change letters you can clearly see.- Money on the right side (Agreed Price, Less Payment, Balance): copy exactly what is written. NEVER calculate a number that is not written. If Less Payment is a sum such as "20,000 + 580,000", return the TOTAL (600000) as less_payment. If Balance is not a single number (for example it says "Mad: 0  Gdfi: 130,000" or names a bank or financing company), return null for balance and copy that text as written into balance_words; do not turn it into a number.
+- paper_payment_type is the ONE option that has a line under it, a circle or a tick: earnest money, partial payment or full payment. Look for the underline carefully. If a word is struck through, it was NOT chosen.
+- payment_method: only the box with an X or check mark counts ("Cash" or "Check"). A filled-in Bank/Br. line does NOT mean the payment was by check. check_no only if a check number is actually written, otherwise null.
+- balance_due_date: only a real date, as YYYY-MM-DD. If it says something else (such as "Upon approval of financing", "0" or a dash), return null.
+- Motor No. and Chassis No.: copy character by character; letters O and I are rare in these numbers, digits 0 and 1 are common. If you cannot read one, return null instead of guessing.
+- Numeric dates are MONTH/DAY/YEAR: 11/03/2026 is November 3, 2026 (the first number is the month, 01 to 12). A date is never earlier than a few months before today's date given above, so reread it if it seems far off.
+- Tick boxes are written like "( ) Check" and "(X) Cash" or "(√) Cash": the choice is the word whose brackets contain a tick, X or check mark; empty brackets "( )" mean not chosen. Decide Cash or Check by looking at BOTH brackets.
+- Names: copy exactly the letters you see; do not replace a hard-to-read name with a more common one.`;
 
 let client: Groq | null = null;
 
