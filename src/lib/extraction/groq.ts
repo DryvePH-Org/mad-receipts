@@ -1,5 +1,5 @@
 import "server-only";
-import Groq from "groq-sdk";
+import Groq, { toFile } from "groq-sdk";
 
 export const EXTRACTION_PROMPT = `You read a photo of a handwritten Philippine car-sale "Acknowledgement of Payment" form from Manila Auto Display (MAD).
 
@@ -72,5 +72,43 @@ export async function callGroqVision(imageBytes: Uint8Array, mimeType: string): 
     ],
   });
 
+  return completion.choices[0]?.message?.content ?? "";
+}
+
+/** Speech-to-text model on Groq. */
+export const transcriptionModel = () => process.env.GROQ_TRANSCRIPTION_MODEL || "whisper-large-v3-turbo";
+
+const AUDIO_EXTENSION: [RegExp, string][] = [
+  [/mp4|m4a|aac/, "m4a"],
+  [/ogg/, "ogg"],
+  [/wav/, "wav"],
+  [/mpeg|mp3/, "mp3"],
+];
+
+/** Turns a voice recording into text. `prompt` tells it which names to expect. */
+export async function callGroqTranscription(bytes: Uint8Array, mimeType: string, prompt: string): Promise<string> {
+  const extension = AUDIO_EXTENSION.find(([pattern]) => pattern.test(mimeType))?.[1] ?? "webm";
+  const file = await toFile(Buffer.from(bytes), `voice.${extension}`, { type: mimeType });
+  const result = await groq().audio.transcriptions.create({
+    file,
+    model: transcriptionModel(),
+    prompt,
+    temperature: 0,
+    response_format: "json",
+  });
+  return result.text ?? "";
+}
+
+/** Text in, JSON text out, with the same model as the photo reading. */
+export async function callGroqJson(system: string, user: string): Promise<string> {
+  const completion = await groq().chat.completions.create({
+    model: visionModel(),
+    temperature: 0,
+    response_format: { type: "json_object" },
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+  });
   return completion.choices[0]?.message?.content ?? "";
 }

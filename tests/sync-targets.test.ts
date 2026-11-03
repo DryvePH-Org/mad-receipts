@@ -63,6 +63,7 @@ function context(overrides: { receipt?: Partial<SyncContext["receipt"]>; deal?: 
     },
     confirmedBy: "Test Staff",
     salesperson: "David",
+    salespeople: [],
     lastReceiptNo: "2556",
     photo: async () => PHOTO,
   };
@@ -142,7 +143,7 @@ describe("sheets target", () => {
       "Confirmed By": "Test Staff",
       Status: "Confirmed",
     });
-    expect(Deals).toEqual([DEAL_HEADERS, ["d1", "NKF4771", "Jose Rizal", 500000, 50000, 450000, "Open", "2556"]]);
+    expect(Deals).toEqual([DEAL_HEADERS, ["d1", "NKF4771", "Jose Rizal", 500000, 50000, 450000, "Open", "2556", ""]]);
   });
 
   it("does not duplicate a receipt row, and updates the deal row in place", async () => {
@@ -156,11 +157,15 @@ describe("sheets target", () => {
       deal: { total_paid: 500000, balance: 0, status: "completed" },
     });
     second.lastReceiptNo = "2557";
+    second.salespeople = [
+      { name: "David", percent: 3 },
+      { name: "Ella", percent: 1.5 },
+    ];
     await syncTargets.sheets(second, d.all);
     expect(d.sheets.tabs.Receipts).toHaveLength(3);
     expect(d.sheets.tabs.Deals).toEqual([
       DEAL_HEADERS,
-      ["d1", "NKF4771", "Jose Rizal", 500000, 500000, 0, "Completed", "2557"],
+      ["d1", "NKF4771", "Jose Rizal", 500000, 500000, 0, "Completed", "2557", "David 3%, Ella 1.5%"],
     ]);
   });
 
@@ -214,16 +219,33 @@ describe("inventory target", () => {
     expect((await d.inventory.getUnit("NKF4771"))?.status).toBe("Available");
   });
 
-  it("passes the deal's salesperson, the date in Manila and the percent paid", async () => {
+  it("passes the deal's salespeople with their percents, and the date in Manila", async () => {
     const d = deps();
-    await syncTargets.inventory(context(), d.all); // ₱50,000 of ₱500,000
-    await syncTargets.inventory(
-      context({ receipt: { receipt_no: "2557", created_at: "2026-11-04T01:00:00Z" }, deal: { status: "completed", total_paid: 500000, balance: 0 } }),
-      d.all,
-    );
-    expect(d.inventory.changes.map((c) => c.ref)).toEqual([
-      { receiptNo: "2556", salesperson: "David", percentPaid: 10, date: "11/2" },
-      { receiptNo: "2557", salesperson: "David", percentPaid: 100, date: "11/4" },
+    // Reserved, nobody recorded yet: the staff who opened the deal.
+    await syncTargets.inventory(context(), d.all);
+    // Sold, with two salespeople.
+    const sold = context({
+      receipt: { receipt_no: "2557", created_at: "2026-11-04T01:00:00Z" },
+      deal: { status: "completed", total_paid: 500000, balance: 0 },
+    });
+    sold.salespeople = [
+      { name: "David", percent: 3 },
+      { name: "Ella", percent: 1.5 },
+    ];
+    await syncTargets.inventory(sold, d.all);
+    expect(d.inventory.changes.map((c) => [c.status, c.ref])).toEqual([
+      ["Reserved", { receiptNo: "2556", people: [{ name: "David", percent: null }], date: "11/2" }],
+      [
+        "Sold",
+        {
+          receiptNo: "2557",
+          people: [
+            { name: "David", percent: 3 },
+            { name: "Ella", percent: 1.5 },
+          ],
+          date: "11/4",
+        },
+      ],
     ]);
   });
 });

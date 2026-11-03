@@ -43,6 +43,32 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"deal_salespeople": {
+                  Row: {
+                    "commission_percent": number,"created_at": string,"deal_id": string,"salesperson_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "commission_percent": number,"created_at"?: string,"deal_id": string,"salesperson_id": string
+                  }
+                  Update: {
+                    "commission_percent"?: number,"created_at"?: string,"deal_id"?: string,"salesperson_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "deal_salespeople_deal_id_fkey"
+      columns: ["deal_id"]
+isOneToOne: false
+      referencedRelation: "deals"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "deal_salespeople_salesperson_id_fkey"
+      columns: ["salesperson_id"]
+isOneToOne: false
+      referencedRelation: "salespeople"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"deals": {
                   Row: {
                     "agreed_price": number,"balance": number,"buyer_address": string | null,"buyer_contact": string | null,"buyer_name": string,"cancel_reason": string | null,"chassis_no": string | null,"color": string | null,"created_at": string,"created_by": string,"forfeited": boolean,"id": string,"make_type": string | null,"motor_no": string | null,"plate_no": string,"status": string,"total_paid": number,"updated_at": string
@@ -79,14 +105,14 @@ isOneToOne: false
                   ]
                 },"receipt_drafts": {
                   Row: {
-                    "created_at": string,"created_by": string,"error": string | null,"extraction": Json | null,"id": string,"photo_path": string,"status": string
+                    "created_at": string,"created_by": string,"error": string | null,"extraction": Json | null,"id": string,"photo_path": string,"status": string,"voice": Json | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"created_by"?: string,"error"?: string | null,"extraction"?: Json | null,"id"?: string,"photo_path": string,"status"?: string
+                    "created_at"?: string,"created_by"?: string,"error"?: string | null,"extraction"?: Json | null,"id"?: string,"photo_path": string,"status"?: string,"voice"?: Json | null
                   }
                   Update: {
-                    "created_at"?: string,"created_by"?: string,"error"?: string | null,"extraction"?: Json | null,"id"?: string,"photo_path"?: string,"status"?: string
+                    "created_at"?: string,"created_by"?: string,"error"?: string | null,"extraction"?: Json | null,"id"?: string,"photo_path"?: string,"status"?: string,"voice"?: Json | null
                   }
                   Relationships: [
                     {
@@ -122,6 +148,20 @@ isOneToOne: false
       referencedRelation: "deals"
       referencedColumns: ["id"]
     }
+                  ]
+                },"salespeople": {
+                  Row: {
+                    "active": boolean,"aliases": (string)[],"created_at": string,"id": string,"name": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "active"?: boolean,"aliases"?: (string)[],"created_at"?: string,"id"?: string,"name": string
+                  }
+                  Update: {
+                    "active"?: boolean,"aliases"?: (string)[],"created_at"?: string,"id"?: string,"name"?: string
+                  }
+                  Relationships: [
+                    
                   ]
                 },"sync_jobs": {
                   Row: {
@@ -174,6 +214,9 @@ isOneToOne: false
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "parse_money":
+{ Args: { "p_text": string }; Returns: number
+                           },
+"parse_percent":
 { Args: { "p_text": string }; Returns: number
                            }
           }

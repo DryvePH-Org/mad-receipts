@@ -19,6 +19,8 @@ export interface OpenDeal {
   agreedPrice: number;
   totalPaid: number;
   confirmedReceipts: number;
+  /** Who is credited with the deal so far, with each person's own commission percent. */
+  salespeople: { salespersonId: string; name: string; percent: number }[];
 }
 
 export type PlateLookup =
@@ -37,7 +39,7 @@ export async function lookupPlate(rawPlate: string): Promise<PlateLookup> {
     supabase
       .from("deals")
       .select(
-        "id, buyer_name, buyer_address, buyer_contact, make_type, color, motor_no, chassis_no, agreed_price, total_paid, receipts(count)",
+        "id, buyer_name, buyer_address, buyer_contact, make_type, color, motor_no, chassis_no, agreed_price, total_paid, receipts(count), deal_salespeople(salesperson_id, commission_percent, salespeople(name))",
       )
       .eq("plate_no", plate)
       .eq("status", "open")
@@ -65,6 +67,11 @@ export async function lookupPlate(rawPlate: string): Promise<PlateLookup> {
     agreedPrice: toCentavos(row.agreed_price) ?? 0,
     totalPaid: toCentavos(row.total_paid) ?? 0,
     confirmedReceipts: row.receipts[0]?.count ?? 0,
+    salespeople: row.deal_salespeople.map((p) => ({
+      salespersonId: p.salesperson_id,
+      name: p.salespeople?.name ?? "",
+      percent: Number(p.commission_percent),
+    })),
   };
 
   return { ok: true, plate, unit: unitResult.value, deal };

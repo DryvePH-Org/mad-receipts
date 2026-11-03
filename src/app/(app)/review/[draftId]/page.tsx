@@ -4,13 +4,13 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth";
+import { toFormValues } from "@/lib/extraction/merge";
 import type { ExtractedReceipt } from "@/lib/extraction/schema";
-import { EXTRACTED_FIELDS } from "@/lib/extraction/schema";
-import { fromCentavos, toCentavos } from "@/lib/rules/money";
+import type { VoiceResult } from "@/lib/extraction/voice-schema";
 import { createClient } from "@/lib/supabase/server";
 import { ExtractingWait } from "./extracting-wait";
 import { PhotoViewer } from "./photo-viewer";
-import { ReviewForm, type FormValues } from "./review-form";
+import { ReviewForm } from "./review-form";
 
 export default function ReviewPage({ params }: PageProps<"/review/[draftId]">) {
   return (
@@ -31,7 +31,7 @@ async function Review({ params }: { params: Promise<{ draftId: string }> }) {
   const supabase = await createClient();
   const { data: draft } = await supabase
     .from("receipt_drafts")
-    .select("id, photo_path, status, extraction, error, created_by")
+    .select("id, photo_path, status, extraction, voice, error, created_by")
     .eq("id", draftId)
     .maybeSingle();
   if (!draft || draft.created_by !== user.id) notFound();
@@ -52,6 +52,8 @@ async function Review({ params }: { params: Promise<{ draftId: string }> }) {
     .createSignedUrl(draft.photo_path, 60 * 60);
 
   const extracted = (draft.extraction as { fields?: ExtractedReceipt } | null)?.fields ?? null;
+  const voice = (draft.voice as VoiceResult | null) ?? null;
+  const { data: salespeople } = await supabase.from("salespeople").select("id, name").eq("active", true).order("name");
 
   return (
     <>
@@ -80,24 +82,12 @@ async function Review({ params }: { params: Promise<{ draftId: string }> }) {
           <ReviewForm
             draftId={draft.id}
             initialValues={toFormValues(extracted)}
-            initialReservation={extracted?.paper_payment_type === "earnest"}
+            initialReservation={extracted?.paper_payment_type === "earnest" || voice?.fields.paper_payment_type === "earnest"}
+            salespeople={salespeople ?? []}
+            initialVoice={voice}
           />
         </>
       )}
     </>
   );
-}
-
-function toFormValues(data: ExtractedReceipt | null): FormValues {
-  const values = {} as FormValues;
-  for (const key of EXTRACTED_FIELDS) {
-    const v = data?.[key] ?? null;
-    if (typeof v === "number") {
-      const centavos = toCentavos(v);
-      values[key] = centavos === null ? "" : fromCentavos(centavos).replace(/\.00$/, "");
-    } else {
-      values[key] = v ?? "";
-    }
-  }
-  return values;
 }

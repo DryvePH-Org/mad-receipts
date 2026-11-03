@@ -21,10 +21,8 @@ export interface InventoryUnit {
 /** What gets written into the sheet with a status. */
 export interface StatusRef {
   receiptNo: string;
-  /** The salesperson shown in the sheet, e.g. "David". */
-  salesperson: string;
-  /** Whole percent of the agreed price paid so far (100 only when fully paid). */
-  percentPaid: number;
+  /** Everyone credited with the deal. A percent is written only with Sold. */
+  people: { name: string; percent: number | null }[];
   /** Month/day as staff write it in the sheet, e.g. "11/2". */
   date: string;
 }

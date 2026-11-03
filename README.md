@@ -89,6 +89,32 @@ If *Anyone* isn't offered in step 3, the Workspace admin has restricted it; ask 
 3. Share the inventory sheet, the receipts log sheet and the Drive folder with that email as **Editor**.
    The Drive folder must be in a Shared drive (service accounts have no storage of their own).
 
+## Voice note and salespeople
+
+On the review screen staff can record a **voice note** (or type it): the receipt details and who sold
+the car, each salesperson with their own commission percent, for example "Salesman David, 3 percent,
+Ella, 1 percent". Audio goes to Groq Whisper (`whisper-large-v3-turbo`, override with
+`GROQ_TRANSCRIPTION_MODEL`), the same Groq model reads the text into fields, and names are matched to
+the salespeople list. The audio is never stored, only the resulting fields.
+
+- **Cross-check:** the voice fills blank fields. Where the photo and the voice both have a value and
+  they differ, staff pick one before confirming. Anything typed by staff always wins.
+- **Salespeople list:** admins manage it at **Admin → Salespeople**, with nicknames and other spellings
+  that help the recording and the name matching. A voice note can only name people on this list.
+- **Optional until sold:** a voice note can be said on any receipt. A payment that completes the deal
+  needs at least one salesperson with a percent, from that receipt or an earlier one.
+- **Sheet text:** `RESERVED - DAVID ELLA 11/2` while open, `SOLD - DAVID 3% ELLA 1.5% 11/2` when sold.
+
+## Testing locally without touching real services
+
+`.env.local` points at your real inventory sheet, Apps Script, Drive and Telegram. For a local test run
+with those switched off (so confirming a test receipt can't write to the real sheet or message the
+group), start the dev server with them emptied:
+
+```bash
+INVENTORY_SHEET_ID= APPS_SCRIPT_URL= APPS_SCRIPT_SECRET= TELEGRAM_BOT_TOKEN= TELEGRAM_CHAT_ID= npm run dev
+```
+
 ## Background sync
 
 After a receipt is confirmed, four jobs (Drive, Sheets, Telegram, inventory) run right away and are

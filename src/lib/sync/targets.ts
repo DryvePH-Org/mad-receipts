@@ -1,6 +1,6 @@
 import { driveFileLink, type DriveClient } from "@/lib/google/drive";
 import { tabRange, type CellValue, type SheetsClient } from "@/lib/google/sheets";
-import { percentPaid, sheetDate } from "@/lib/inventory/remarks";
+import { sheetDate } from "@/lib/inventory/remarks";
 import type { InventoryAdapter } from "@/lib/inventory/types";
 import { formatPeso, toCentavos } from "@/lib/rules/money";
 import { dealStatusForBalance, unitStatusForDeal, type DealStatus } from "@/lib/rules/payment";
@@ -16,8 +16,10 @@ export interface SyncContext {
   receipt: Tables<"receipts">;
   deal: Tables<"deals">;
   confirmedBy: string;
-  /** Who opened the deal; shown in the inventory sheet's status, e.g. "David". */
+  /** Who opened the deal: used in the inventory sheet when no salesperson has been recorded yet. */
   salesperson: string;
+  /** Who is credited with the deal, with each person's own commission percent. */
+  salespeople: { name: string; percent: number }[];
   /** Latest confirmed receipt number on the deal. */
   lastReceiptNo: string;
   photo: () => Promise<Uint8Array>;
@@ -43,7 +45,7 @@ export const RECEIPT_HEADERS = [
   "Check No", "Bank/Branch", "Balance Due Date", "Photo Link", "Confirmed By", "Status",
 ];
 export const DEAL_HEADERS = [
-  "Deal ID", "Plate", "Buyer", "Agreed Price", "Total Paid", "Balance", "Status", "Last Receipt No",
+  "Deal ID", "Plate", "Buyer", "Agreed Price", "Total Paid", "Balance", "Status", "Last Receipt No", "Salespeople",
 ];
 
 /** Each target is safe to run again: it checks for its own earlier result first. */
@@ -77,10 +79,12 @@ export const syncTargets: Record<SyncTarget, (ctx: SyncContext, deps: SyncDeps) 
   async inventory(ctx, deps) {
     // The deal's current status, so a late or repeated job still writes the right word.
     const status = unitStatusForDeal(ctx.deal.status as DealStatus);
+    const people = ctx.salespeople.length > 0
+      ? ctx.salespeople
+      : [{ name: ctx.salesperson, percent: null }]; // nobody recorded yet: the staff who opened the deal
     await deps.inventory.setStatus(ctx.deal.plate_no, status, {
       receiptNo: ctx.receipt.receipt_no,
-      salesperson: ctx.salesperson,
-      percentPaid: percentPaid(toCentavos(ctx.deal.total_paid) ?? 0, toCentavos(ctx.deal.agreed_price) ?? 0),
+      people,
       date: sheetDate(ctx.receipt.created_at),
     });
   },
@@ -176,7 +180,11 @@ export function receiptRow({ receipt, deal, confirmedBy }: SyncContext): CellVal
   ];
 }
 
-export function dealRow({ deal, lastReceiptNo }: SyncContext): CellValue[] {
+/** "David 3%, Ella 1.5%" for the log sheet. */
+const salespeopleText = (people: { name: string; percent: number }[]) =>
+  people.map((p) => `${p.name} ${Number(p.percent.toFixed(2))}%`).join(", ");
+
+export function dealRow({ deal, lastReceiptNo, salespeople }: SyncContext): CellValue[] {
   return [
     deal.id,
     deal.plate_no,
@@ -186,6 +194,7 @@ export function dealRow({ deal, lastReceiptNo }: SyncContext): CellValue[] {
     pesos(deal.balance),
     label(deal.status),
     lastReceiptNo,
+    salespeopleText(salespeople),
   ];
 }
 

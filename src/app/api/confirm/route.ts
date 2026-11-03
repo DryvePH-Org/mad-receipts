@@ -15,6 +15,11 @@ const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable();
 const Body = z.object({
   draftId: z.uuid(),
   markedReservation: z.boolean(),
+  // Each salesperson's own commission percent. Omitted: the deal keeps its salespeople.
+  salespeople: z
+    .array(z.object({ salespersonId: z.uuid(), commissionPercent: z.number().min(0).max(100) }))
+    .max(5)
+    .optional(),
   fields: z.object({
     receipt_no: text(20),
     receipt_date: date,
@@ -49,6 +54,8 @@ const ERRORS: Record<string, [string, number]> = {
   missing_buyer_name: ["Enter the buyer's name.", 422],
   invalid_agreed_price: ["Enter the agreed price.", 422],
   overpayment: ["This payment is more than the remaining balance.", 422],
+  salesperson_required: ["Add who sold the car and their commission % to complete the sale.", 422],
+  invalid_salespeople: ["Check the salespeople: each needs a name from the list and a commission % from 0 to 100.", 422],
 };
 
 const fail = (error: string, status: number) => Response.json({ error }, { status });
@@ -62,7 +69,7 @@ export async function POST(request: Request) {
 
   const body = Body.safeParse(await request.json().catch(() => null));
   if (!body.success) return fail("Some fields are not valid. Please check the form.", 400);
-  const { draftId, markedReservation, fields } = body.data;
+  const { draftId, markedReservation, fields, salespeople } = body.data;
 
   // The plate must exist in the inventory sheet before anything is saved.
   const plate = normalizePlate(fields.plate_no);
@@ -84,6 +91,14 @@ export async function POST(request: Request) {
     amount: toPesos(fields.amount),
     agreed_price: toPesos(fields.agreed_price),
     marked_reservation: markedReservation,
+    ...(salespeople?.length
+      ? {
+          salespeople: salespeople.map((p) => ({
+            salesperson_id: p.salespersonId,
+            commission_percent: p.commissionPercent.toFixed(2),
+          })),
+        }
+      : {}),
   };
 
   const admin = createAdminClient();

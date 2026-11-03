@@ -113,6 +113,10 @@ async function loadContext(admin: Admin, receiptId: string): Promise<SyncContext
 
   const { deal, creator, ...receiptRow } = receipt;
   const { data: salesperson } = await admin.from("profiles").select("full_name").eq("id", deal.created_by).maybeSingle();
+  const { data: people } = await admin
+    .from("deal_salespeople")
+    .select("commission_percent, salespeople(name)")
+    .eq("deal_id", receipt.deal_id);
   let photo: Promise<Uint8Array> | undefined;
 
   return {
@@ -120,6 +124,10 @@ async function loadContext(admin: Admin, receiptId: string): Promise<SyncContext
     deal,
     confirmedBy: creator?.full_name ?? "",
     salesperson: salesperson?.full_name ?? "",
+    salespeople: (people ?? [])
+      .map((p) => ({ name: p.salespeople?.name ?? "", percent: Number(p.commission_percent) }))
+      .filter((p) => p.name)
+      .sort((x, y) => x.name.localeCompare(y.name)),
     lastReceiptNo: last?.receipt_no ?? receipt.receipt_no,
     photo: () =>
       (photo ??= (async () => {

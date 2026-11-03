@@ -401,6 +401,27 @@ tests/
 
 ---
 
+## Phase 7b — Voice note and salespeople (added after Phase 7)
+
+**Goal:** Staff can say who sold the car and each person's commission, and the voice can also fill
+receipt fields, cross-checked against the photo.
+
+**Rules**
+- Optional on any receipt; **required when a payment completes the deal** (at least one salesperson
+  with a commission %, from that receipt or an earlier one). Each percent is the person's **own**
+  commission (0 to 100), not a share.
+- A **Salespeople** admin module (name + nicknames) feeds both the speech-to-text hint and the name matching.
+- Photo, voice and typed values are cross-checked: typed wins, voice fills blanks, differences are
+  shown for staff to resolve before confirming.
+- The inventory REMARKS text becomes `RESERVED - DAVID ELLA 11/2` and `SOLD - DAVID 3% ELLA 1.5% 11/2`
+  (percents on SOLD only). The audio is never stored.
+
+**Built:** tables `salespeople` and `deal_salespeople`, `receipt_drafts.voice`, `confirm_receipt` with
+`salespeople` and the sold rule, `POST /api/voice`, `/admin/salespeople`, the review-screen voice panel,
+conflicts and "Sold by" section.
+
+---
+
 ## Phase 8 — Inventory (Google Sheet)
 
 **Goal:** Read and update unit status in the inventory Google Sheet that staff already maintain. Staff can edit that sheet at any time, so the app **always reads it live** and **only writes the status cell**.

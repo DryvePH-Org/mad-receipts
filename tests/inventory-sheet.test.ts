@@ -27,7 +27,7 @@ function unit(plate: string, remarks: string, brand: string, make: string, color
 }
 
 const config = { spreadsheetId: "sheet-id", tab: "INVENTORY 2026", plateColumn: "PLATE NUMBER", statusColumn: "REMARKS" };
-const ref: StatusRef = { receiptNo: "2556", salesperson: "David", percentPaid: 10, date: "11/2" };
+const ref: StatusRef = { receiptNo: "2556", people: [{ name: "David", percent: 3 }], date: "11/2" };
 
 let sheet: ReturnType<typeof fakeSheets>;
 let grid: string[][];
@@ -122,25 +122,25 @@ describe("setStatus", () => {
     expect(grid).toEqual(expected);
   }
 
-  it("reserves a unit: writes 'RESERVED - NAME M/D %' into REMARKS only", async () => {
+  it("reserves a unit: writes 'RESERVED - NAME M/D' into REMARKS only", async () => {
     const before = grid.map((r) => [...r]);
     await inventory.setStatus("NKU8411", "Reserved", ref);
-    expect(updates()).toEqual([{ op: "update", range: "'INVENTORY 2026'!S4", values: [["RESERVED - DAVID 11/2 10%"]] }]);
-    expectOnlyChanged(before, 4, REMARKS_COL, "RESERVED - DAVID 11/2 10%");
+    expect(updates()).toEqual([{ op: "update", range: "'INVENTORY 2026'!S4", values: [["RESERVED - DAVID 11/2"]] }]);
+    expectOnlyChanged(before, 4, REMARKS_COL, "RESERVED - DAVID 11/2");
   });
 
   it("marks sold, keeping the sheet's own format and the salesperson", async () => {
     const before = grid.map((r) => [...r]);
-    await inventory.setStatus("NKH7462", "Sold", { ...ref, percentPaid: 100 });
-    expectOnlyChanged(before, 7, REMARKS_COL, "SOLD - DAVID 11/2 100%");
+    await inventory.setStatus("NKH7462", "Sold", ref);
+    expectOnlyChanged(before, 7, REMARKS_COL, "SOLD - DAVID 3% 11/2");
     expect((await inventory.getUnit("NKH7462"))?.status).toBe("Sold");
   });
 
   it("keeps another note in the cell", async () => {
     await inventory.setStatus("NBU4875", "Reserved", ref);
-    expect(remarksOf("NBU4875")).toBe("RESERVED - DAVID 11/2 10% | BIG BIG DROP");
+    expect(remarksOf("NBU4875")).toBe("RESERVED - DAVID 11/2 | BIG BIG DROP");
     await inventory.setStatus("NEW7902", "Reserved", ref);
-    expect(remarksOf("NEW7902")).toBe("RESERVED - DAVID 11/2 10% | FOR REPAIR - 48V BATTERY PACK");
+    expect(remarksOf("NEW7902")).toBe("RESERVED - DAVID 11/2 | FOR REPAIR - 48V BATTERY PACK");
   });
 
   it("cancelling clears only the status", async () => {
@@ -154,10 +154,23 @@ describe("setStatus", () => {
   it("does not write when the cell already says the right thing", async () => {
     await inventory.setStatus("NKU8411", "Available", ref); // empty and Available
     await inventory.setStatus("NEW7902", "Available", ref); // a note, still Available
-    await inventory.setStatus("NKH7462", "Reserved", { ...ref, percentPaid: 10 }); // changes percent: writes
+    await inventory.setStatus("NKH7462", "Reserved", ref); // already "RESERVED - DAVID 11/2"
+    expect(updates()).toHaveLength(0);
+    await inventory.setStatus("NKH7462", "Reserved", { ...ref, people: [{ name: "Ella", percent: null }] }); // changes: writes
     expect(updates()).toHaveLength(1);
-    await inventory.setStatus("NKH7462", "Reserved", { ...ref, percentPaid: 10 }); // same again: no write
+    await inventory.setStatus("NKH7462", "Reserved", { ...ref, people: [{ name: "Ella", percent: null }] }); // same again
     expect(updates()).toHaveLength(1);
+  });
+
+  it("writes every salesperson with their own percent when sold", async () => {
+    await inventory.setStatus("NKH7462", "Sold", {
+      ...ref,
+      people: [
+        { name: "David", percent: 3 },
+        { name: "Ella", percent: 1.5 },
+      ],
+    });
+    expect(remarksOf("NKH7462")).toBe("SOLD - DAVID 3% ELLA 1.5% 11/2");
   });
 
   it("writes into a short row whose REMARKS cell is past the last filled cell", async () => {
@@ -172,7 +185,7 @@ describe("setStatus", () => {
     grid.push(moved);
     await inventory.setStatus("NKU8411", "Reserved", ref);
     expect(updates().at(-1)?.range).toBe("'INVENTORY 2026'!S9");
-    expect(remarksOf("NKU8411")).toBe("RESERVED - DAVID 11/2 10%");
+    expect(remarksOf("NKU8411")).toBe("RESERVED - DAVID 11/2");
     expect(remarksOf("NBU4875")).toBe("BIG BIG DROP"); // rows that moved up are untouched
   });
 

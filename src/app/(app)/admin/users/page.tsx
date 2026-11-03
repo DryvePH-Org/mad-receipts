@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { AdminNav } from "@/components/admin-nav";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireAdmin } from "@/lib/auth";
@@ -42,6 +43,7 @@ async function UsersContent() {
 
   return (
     <>
+      <AdminNav />
       <Card>
         <CardHeader>
           <CardTitle>Add staff user</CardTitle>

@@ -13,12 +13,20 @@ language sql as $$
   values ('drafts/x/' || gen_random_uuid() || '.jpg', 'ready', p_owner) returning id;
 $$;
 
+-- A salesperson, required by confirm_receipt on the payment that completes a deal.
+create temp table t_seller as
+  with s as (insert into public.salespeople (name) values ('P7 Test Seller') returning id) select id from s;
+create function pg_temp.seller() returns jsonb language sql as $$
+  select jsonb_build_array(jsonb_build_object('salesperson_id', (select id from t_seller), 'commission_percent', '3'));
+$$;
+
 create function pg_temp.confirm(p_no text, p_plate text, p_amount text, p_price text default '500000',
-  p_reservation boolean default false) returns jsonb
+  p_reservation boolean default false, p_people jsonb default null) returns jsonb
 language sql as $$
   select public.confirm_receipt('00000000-0000-0000-0000-0000000000a1', pg_temp.draft(), jsonb_build_object(
     'receipt_no', p_no, 'plate_no', p_plate, 'amount', p_amount, 'agreed_price', p_price,
-    'buyer_name', 'Jose Rizal', 'marked_reservation', p_reservation, 'receipt_date', '2026-11-02'));
+    'buyer_name', 'Jose Rizal', 'marked_reservation', p_reservation, 'receipt_date', '2026-11-02')
+    || case when p_people is null then '{}'::jsonb else jsonb_build_object('salespeople', p_people) end);
 $$;
 
 create function pg_temp.expect_error(p_sql text, p_code text) returns void
@@ -41,7 +49,7 @@ begin
   r := pg_temp.confirm('T1001', 'tst-4771', '50000', p_reservation => true);
   assert r ->> 'payment_type' = 'earnest' and (r ->> 'balance_after')::numeric = 450000 and r ->> 'deal_status' = 'open', r::text;
   assert (r ->> 'new_deal')::boolean;
-  r := pg_temp.confirm('T1002', 'TST 4771', '450000', p_price => '999999'); -- price ignored for an existing deal
+  r := pg_temp.confirm('T1002', 'TST 4771', '450000', p_price => '999999', p_people => pg_temp.seller()); -- price ignored for an existing deal
   assert r ->> 'payment_type' = 'full' and (r ->> 'balance_after')::numeric = 0 and r ->> 'deal_status' = 'completed', r::text;
   assert not (r ->> 'new_deal')::boolean;
   select * into d from public.deals where id = (r ->> 'deal_id')::uuid;
@@ -51,13 +59,13 @@ begin
   -- Case 2: 100k earnest, 100k, rest → earnest, partial, full.
   assert pg_temp.confirm('T2001', 'ABC123', '100000', p_reservation => true) ->> 'payment_type' = 'earnest';
   assert pg_temp.confirm('T2002', 'ABC123', '100000', p_reservation => true) ->> 'payment_type' = 'partial';
-  r := pg_temp.confirm('T2003', 'ABC123', '300000');
+  r := pg_temp.confirm('T2003', 'ABC123', '300000', p_people => pg_temp.seller());
   assert r ->> 'payment_type' = 'full' and r ->> 'deal_status' = 'completed';
   raise notice 'ok: case 2 earnest → partial → full';
 
   -- Case 3: 250k on 500k, no earnest → partial, then full.
   assert pg_temp.confirm('T3001', 'XYZ789', '250000') ->> 'payment_type' = 'partial';
-  assert pg_temp.confirm('T3002', 'XYZ789', '250000') ->> 'payment_type' = 'full';
+  assert pg_temp.confirm('T3002', 'XYZ789', '250000', p_people => pg_temp.seller()) ->> 'payment_type' = 'full';
   raise notice 'ok: case 3 partial → full';
 
   -- A completed deal frees the plate for a new deal.

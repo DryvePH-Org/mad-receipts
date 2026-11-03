@@ -1,15 +1,21 @@
 import { UNIT_STATUS, type StatusRef, type UnitStatus } from "./types";
 
 // How a unit's status is written in the inventory sheet's REMARKS cell, following what staff
-// already type there: "RESERVED - DAVID 11/2". We add the percent paid: "RESERVED - DAVID 11/2 10%".
+// already type there ("RESERVED - DAVID 11/2"):
+//   Reserved:  RESERVED - DAVID ELLA 11/2
+//   Sold:      SOLD - DAVID 3% ELLA 1.5% 11/2     (each person's own commission percent)
 // Other notes in the cell ("BIG BIG DROP", "FOR REPAIR - ...") are never removed: the status goes
 // in front and the note stays after a " | ".
 
 const SEPARATOR = " | ";
 
-// Our status text at the start of the cell, followed by the end of the cell or a " | ".
-const STATUS_SEGMENT =
-  /^\s*(?:RESERVED|SOLD) - \p{L}[\p{L} .'-]*? \d{1,2}\/\d{1,2}(?: \d{1,3}%)?(?=\s*(?:\||$))\s*(?:\|\s*)?/iu;
+// Our status text at the start of the cell: words and percents, then M/D, then the end of the
+// cell or a " | ".
+const TOKEN = String.raw`(?:\p{L}[\p{L}.'-]*|\d+(?:\.\d+)?%)`;
+const STATUS_SEGMENT = new RegExp(
+  String.raw`^\s*(?:RESERVED|SOLD) - ${TOKEN}(?: ${TOKEN})*? \d{1,2}\/\d{1,2}(?=\s*(?:\||$))\s*(?:\|\s*)?`,
+  "iu",
+);
 
 /** Name as shown in the sheet: capitals, letters only (a "|" or digit would break the format). */
 function sheetName(name: string): string {
@@ -17,10 +23,20 @@ function sheetName(name: string): string {
   return (cleaned || "STAFF").toUpperCase();
 }
 
-/** "RESERVED - DAVID 11/2 10%" or "SOLD - DAVID 11/2 100%". */
-export function formatStatusText(status: typeof UNIT_STATUS.reserved | typeof UNIT_STATUS.sold, ref: StatusRef): string {
-  const word = status === UNIT_STATUS.sold ? "SOLD" : "RESERVED";
-  return `${word} - ${sheetName(ref.salesperson)} ${ref.date} ${ref.percentPaid}%`;
+/** 3 → "3%", 1.5 → "1.5%". */
+const percentText = (percent: number) => `${Number(percent.toFixed(2))}%`;
+
+/** "RESERVED - DAVID ELLA 11/2" or "SOLD - DAVID 3% ELLA 1.5% 11/2". */
+export function formatStatusText(
+  status: typeof UNIT_STATUS.reserved | typeof UNIT_STATUS.sold,
+  ref: StatusRef,
+): string {
+  const sold = status === UNIT_STATUS.sold;
+  const people = ref.people.length > 0 ? ref.people : [{ name: "", percent: null }];
+  const who = people
+    .map((p) => (sold && p.percent !== null ? `${sheetName(p.name)} ${percentText(p.percent)}` : sheetName(p.name)))
+    .join(" ");
+  return `${sold ? "SOLD" : "RESERVED"} - ${who} ${ref.date}`;
 }
 
 /** Reads the status out of a remarks cell: Reserved or Sold if it starts with that word, else Available. */
@@ -43,16 +59,6 @@ export function applyStatus(existing: string, status: UnitStatus, ref: StatusRef
   if (status === UNIT_STATUS.available) return rest;
   const line = formatStatusText(status, ref);
   return rest ? `${line}${SEPARATOR}${rest}` : line;
-}
-
-/**
- * Whole percent of the price paid. 100 only when fully paid, and at least 1 once anything is paid,
- * so "SOLD" always reads 100% and a reservation never rounds up to look complete.
- */
-export function percentPaid(paidCentavos: number, priceCentavos: number): number {
-  if (priceCentavos <= 0 || paidCentavos <= 0) return 0;
-  if (paidCentavos >= priceCentavos) return 100;
-  return Math.min(99, Math.max(1, Math.round((paidCentavos * 100) / priceCentavos)));
 }
 
 /** "2026-11-02T07:30:00Z" → "11/2" in Manila time, the way staff write dates in the sheet. */

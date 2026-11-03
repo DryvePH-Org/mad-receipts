@@ -8,6 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  FIELD_KEYS,
+  mergeVoice,
+  toFormValues,
+  type Conflict,
+  type FormValues,
+  type Sources,
+} from "@/lib/extraction/merge";
+import type { VoiceResult } from "@/lib/extraction/voice-schema";
 import { formatPeso, toCentavos } from "@/lib/rules/money";
 import {
   computePayment,
@@ -21,11 +30,64 @@ import {
   type ReceiptFields,
   type ValidationIssue,
 } from "@/lib/rules/validate";
+import {
+  filledRows,
+  rowsFromDeal,
+  rowsFromVoice,
+  toPayload,
+  validateRows,
+  type SalesRow,
+} from "@/lib/salespeople/rows";
 import { cn } from "@/lib/utils";
 import { lookupPlate, type OpenDeal, type PlateLookup } from "./actions";
+import { SalespeopleSection, type SalespersonOption } from "./salespeople-section";
+import { VoicePanel } from "./voice-panel";
 
 export type FieldKey = keyof ReceiptFields;
-export type FormValues = Record<FieldKey, string>;
+export type { FormValues };
+
+/** Names shown when the photo and the voice disagree. */
+const FIELD_LABELS: Record<FieldKey, string> = {
+  receipt_no: "Receipt No.",
+  receipt_date: "Date",
+  buyer_name: "Received from",
+  buyer_address: "Postal address",
+  buyer_contact: "Contact No.",
+  amount_words: "Amount in words",
+  amount: "Amount",
+  paper_payment_type: "Marked on paper",
+  make_type: "Make / Type",
+  plate_no: "Plate No.",
+  motor_no: "Motor No.",
+  chassis_no: "Chassis No.",
+  color: "Color",
+  agreed_price: "Agreed price",
+  less_payment: "Less payment",
+  balance: "Balance",
+  payment_method: "Paid by",
+  check_no: "Check No.",
+  bank_branch: "Bank / Branch",
+  balance_words: "Balance in words",
+  balance_amount: "Balance amount",
+  balance_due_date: "Balance due on or before",
+};
+
+const SOURCE_LABEL = { photo: "Photo", voice: "Voice", typed: "You" } as const;
+
+/** The form's starting point: the photo's values, with a saved voice note applied on top. */
+function startState(photo: FormValues, voice: VoiceResult | null) {
+  const sources: Sources = {};
+  for (const key of FIELD_KEYS) if (photo[key].trim()) sources[key] = "photo";
+  if (!voice) return { values: photo, sources, conflicts: [] as Conflict[], rows: null as SalesRow[] | null };
+
+  const merge = mergeVoice(photo, sources, voice.fields);
+  return {
+    values: { ...photo, ...merge.values },
+    sources: { ...sources, ...merge.sources },
+    conflicts: merge.conflicts,
+    rows: voice.salespeople.length > 0 ? rowsFromVoice(voice.salespeople) : null,
+  };
+}
 
 const MONEY_FIELDS: FieldKey[] = ["amount", "agreed_price", "less_payment", "balance", "balance_amount"];
 const SAVED_MONEY: FieldKey[] = ["amount", "agreed_price"]; // the others are paper-only cross-checks
@@ -102,12 +164,21 @@ export function ReviewForm({
   draftId,
   initialValues,
   initialReservation,
+  salespeople,
+  initialVoice,
 }: {
   draftId: string;
   initialValues: FormValues;
   initialReservation: boolean;
+  salespeople: SalespersonOption[];
+  initialVoice: VoiceResult | null;
 }) {
-  const [values, setValues] = useState(initialValues);
+  const [start] = useState(() => startState(initialValues, initialVoice));
+  const [values, setValues] = useState(start.values);
+  const [sources, setSources] = useState<Sources>(start.sources);
+  const [conflicts, setConflicts] = useState<Conflict[]>(start.conflicts);
+  const [rows, setRows] = useState<SalesRow[] | null>(start.rows); // null: nobody has changed them
+  const [heard, setHeard] = useState<VoiceResult | null>(initialVoice);
   const [reservation, setReservation] = useState(initialReservation);
   const [checkedWarnings, setCheckedWarnings] = useState(false);
   const [lookup, setLookup] = useState<PlateLookup | null>(null);
@@ -115,10 +186,34 @@ export function ReviewForm({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState<Success | null>(null);
 
+  // Typing always wins over the photo and the voice, and settles any disagreement about the field.
   const set = (key: FieldKey) => (value: string) => {
     setValues((v) => ({ ...v, [key]: value }));
+    setSources((src) => ({ ...src, [key]: "typed" }));
+    setConflicts((list) => list.filter((c) => c.field !== key));
     setCheckedWarnings(false);
   };
+
+  function applyVoice(result: VoiceResult) {
+    const merge = mergeVoice(values, sources, result.fields);
+    const mentioned = new Set(FIELD_KEYS.filter((k) => toFormValues(result.fields)[k].trim()));
+    setValues((v) => ({ ...v, ...merge.values }));
+    setSources((src) => ({ ...src, ...merge.sources }));
+    // A new note replaces earlier disagreements about the fields it mentions; the rest stay.
+    setConflicts((list) => [...list.filter((c) => !mentioned.has(c.field)), ...merge.conflicts]);
+    if (result.salespeople.length > 0) setRows(rowsFromVoice(result.salespeople));
+    setHeard(result);
+    setCheckedWarnings(false);
+  }
+
+  function resolveConflict(field: FieldKey, useVoice: boolean) {
+    const conflict = conflicts.find((c) => c.field === field);
+    if (!conflict) return;
+    if (useVoice) setValues((v) => ({ ...v, [field]: conflict.voice }));
+    setSources((src) => ({ ...src, [field]: "typed" })); // staff decided
+    setConflicts((list) => list.filter((c) => c.field !== field));
+    setCheckedWarnings(false);
+  }
 
   // Look up the plate in inventory and open deals, 500 ms after typing stops.
   const plate = normalizePlate(values.plate_no);
@@ -191,11 +286,25 @@ export function ReviewForm({
     return list;
   }, [fields, effective, payment, deal, unit, current, plate]);
 
+  // Fields that come from the existing deal can't disagree: the deal's values are used.
+  const openConflicts = conflicts.filter((c) => !(deal && (DEAL_FIELDS as readonly FieldKey[]).includes(c.field)));
+
+  // Who sold the car: the deal's saved salespeople until staff or the voice note change them.
+  const salesRows = rows ?? (deal ? rowsFromDeal(deal.salespeople) : []);
+  const completingSale = !!payment && !payment.error && payment.balanceAfter === 0;
+  const names = useMemo(() => {
+    const map = new Map(salespeople.map((p) => [p.id, p.name]));
+    for (const p of deal?.salespeople ?? []) if (!map.has(p.salespersonId)) map.set(p.salespersonId, p.name);
+    return map;
+  }, [salespeople, deal]);
+  const salesErrors = validateRows(salesRows, { active: salespeople, names }, completingSale);
+
   const errors = issues.filter((i) => i.level === "error");
   const warnings = issues.filter((i) => i.level === "warning");
   const byField = (key: FieldKey) => issues.filter((i) => i.field === key);
+  const problemCount = errors.length + openConflicts.length + salesErrors.length;
   const canConfirm =
-    errors.length === 0 && !lookupPending && (warnings.length === 0 || checkedWarnings) && !submitting;
+    problemCount === 0 && !lookupPending && (warnings.length === 0 || checkedWarnings) && !submitting;
 
   async function confirm() {
     setSubmitting(true);
@@ -228,6 +337,8 @@ export function ReviewForm({
           balance_words: f.balance_words,
           balance_due_date: f.balance_due_date,
         },
+        // Only when someone changed them: otherwise the deal keeps its salespeople as saved.
+        ...(rows !== null && filledRows(rows).length > 0 ? { salespeople: toPayload(rows) } : {}),
       }),
     }).catch(() => null);
 
@@ -252,12 +363,41 @@ export function ReviewForm({
       onChange={set(key)}
       issues={byField(key)}
       locked={!!deal && (DEAL_FIELDS as readonly FieldKey[]).includes(key)}
+      tag={sources[key] === "voice" ? "from voice note" : undefined}
       {...opts}
     />
   );
 
   return (
     <div className="space-y-4">
+      <VoicePanel draftId={draftId} last={heard} onResult={applyVoice} />
+
+      {openConflicts.length > 0 && (
+        <Card className="border-destructive/40">
+          <CardHeader>
+            <CardTitle>The photo and the voice disagree</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">Check the paper, then tap the right one for each.</p>
+            {openConflicts.map((c) => (
+              <div key={c.field} className="space-y-2">
+                <p className="text-sm font-medium">{FIELD_LABELS[c.field]}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button type="button" variant="outline" onClick={() => resolveConflict(c.field, false)} className="h-auto min-h-14 flex-col gap-0.5 py-2 whitespace-normal">
+                    <span className="text-xs font-normal text-muted-foreground">{SOURCE_LABEL[c.currentSource]}</span>
+                    <span className="break-all">{c.current}</span>
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => resolveConflict(c.field, true)} className="h-auto min-h-14 flex-col gap-0.5 py-2 whitespace-normal">
+                    <span className="text-xs font-normal text-muted-foreground">Voice</span>
+                    <span className="break-all">{c.voice}</span>
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <Section title="Receipt">
         {field("receipt_no", "Receipt No.", { required: true, inputMode: "numeric" })}
         {field("receipt_date", "Date", { type: "date" })}
@@ -326,6 +466,18 @@ export function ReviewForm({
         )}
       </Section>
 
+      <SalespeopleSection
+        rows={salesRows}
+        options={salespeople}
+        names={names}
+        required={completingSale}
+        errors={salesErrors}
+        onChange={(next) => {
+          setRows(next);
+          setCheckedWarnings(false);
+        }}
+      />
+
       <Section title="Balance">
         {field("agreed_price", "Agreed price (₱)", { required: !deal, inputMode: "decimal" })}
         {field("less_payment", "Less payment on paper (₱)", { inputMode: "decimal" })}
@@ -344,12 +496,12 @@ export function ReviewForm({
       />
 
       <div className="space-y-3 pb-4">
-        {errors.length > 0 && (
+        {problemCount > 0 && (
           <p className="text-sm text-destructive">
-            Fix {errors.length === 1 ? "1 problem" : `${errors.length} problems`} marked in red to confirm.
+            Fix {problemCount === 1 ? "1 problem" : `${problemCount} problems`} marked in red to confirm.
           </p>
         )}
-        {errors.length === 0 && warnings.length > 0 && (
+        {problemCount === 0 && warnings.length > 0 && (
           <label className="flex min-h-12 items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:bg-amber-950/30">
             <input
               type="checkbox"
@@ -411,6 +563,7 @@ function Field({
   onChange,
   issues,
   locked,
+  tag,
   required,
   type = "text",
   inputMode,
@@ -422,6 +575,7 @@ function Field({
   onChange: (v: string) => void;
   issues: ValidationIssue[];
   locked: boolean;
+  tag?: string;
 }) {
   const hasError = issues.some((i) => i.level === "error") || (required && !value.trim());
   return (
@@ -430,6 +584,7 @@ function Field({
         {label}
         {required && <span className="text-destructive"> *</span>}
         {locked && <span className="text-xs font-normal text-muted-foreground"> · from the existing deal</span>}
+        {tag && !locked && <span className="text-xs font-normal text-primary"> · {tag}</span>}
       </Label>
       <Input
         id={id}
