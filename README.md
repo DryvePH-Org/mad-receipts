@@ -222,3 +222,5 @@ Admin → **Sync jobs** shows what is waiting or failed, with **Retry now** and 
 ### Rotate keys
 Edit `/opt/mad-receipts/.env`, then `docker compose up -d` in that folder (rebuild with `update.sh` if a
 `NEXT_PUBLIC_*` value changed). For the Apps Script secret, change the script property too.
+
+_Deploys are automatic: pushes to `main` that pass CI go live._
