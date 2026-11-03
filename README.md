@@ -192,6 +192,21 @@ Caddyfile (backed up first, checked before it is applied, undone automatically i
 Background jobs run from `/etc/cron.d/mad-receipts` (sync every 5 minutes, reminder daily 8:00 AM Manila).
 Logs: `docker logs -f mad-receipts`. Status: `docker ps`.
 
+### Automatic deploys (GitHub Actions)
+Every push to `main` runs **CI** (lint, typecheck, unit tests, production build). Only if it passes, **Deploy** logs in to
+the server and runs `deploy/update.sh`, which pulls, rebuilds, waits for the app to be healthy, and **goes back to the
+previous version by itself** if it is not. The deploy key can run that one script only (a forced command), and only
+one deploy runs at a time. Pull requests run CI but never deploy. One-time setup:
+
+1. On the server, allow the key (replace `<PUBLIC KEY>` with the line from `deploy_key.pub`):
+   ```bash
+   cd /opt/mad-receipts && git pull
+   mkdir -p ~/.ssh && echo 'restrict,command="/opt/mad-receipts/deploy/ci-deploy.sh" <PUBLIC KEY>' >> ~/.ssh/authorized_keys
+   ```
+2. In GitHub → repo → Settings → Secrets and variables → Actions, add `DEPLOY_SSH_KEY` (the private key file),
+   `DEPLOY_KNOWN_HOSTS` (the server's host key line) and `DEPLOY_HOST` (the server IP).
+3. Turn on branch protection for `main` (require the CI check) so nothing untested can reach the server.
+
 ### Keeping projects apart on this server (also for the next project)
 - **One folder, one compose project, one container name per project** (`/opt/<project>`).
 - **Publish no ports.** Only the shared Caddy owns 80/443; projects are reached through it by name.
