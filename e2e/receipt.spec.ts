@@ -98,6 +98,29 @@ test("the salesperson form checks input before sending and then adds the person"
   await expect(page.getByText("ZZT E2E Sam").first()).toBeVisible();
 });
 
+for (const [name, width, height] of [["phone", 390, 800], ["tablet", 820, 1100], ["desktop", 1366, 800]] as const) {
+  test(`no button's content spills outside the button (${name})`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await login(page, "staff");
+    for (const path of ["/", "/upload", "/deals", "/receipts"]) {
+      await page.goto(path);
+      await page.waitForLoadState("networkidle");
+      const spilled = await page.evaluate(() =>
+        [...document.querySelectorAll("button, a[data-slot=button]")]
+          .filter((el) => (el as HTMLElement).offsetParent !== null)
+          .filter((el) => el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1)
+          .map((el) => (el.textContent ?? "").trim().slice(0, 40) || el.getAttribute("aria-label")),
+      );
+      expect(spilled, `${path} at ${name}`).toEqual([]);
+    }
+    if (name === "tablet") {
+      await page.goto("/upload");
+      await page.waitForLoadState("networkidle");
+      await page.screenshot({ path: "test-results/upload-tablet.png" });
+    }
+  });
+}
+
 test("dark mode can be switched on and stays after a reload", async ({ page }) => {
   await login(page, "staff");
   await page.getByRole("button", { name: /dark mode/i }).first().click();

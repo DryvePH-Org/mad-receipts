@@ -19,6 +19,7 @@ import {
   type Sources,
 } from "@/lib/extraction/merge";
 import type { VoiceResult } from "@/lib/extraction/voice-schema";
+import { manilaToday } from "@/lib/dates";
 import { formatPeso, toCentavos } from "@/lib/rules/money";
 import {
   computePayment,
@@ -255,7 +256,7 @@ export function ReviewForm({
       : undefined;
 
   const issues: ValidationIssue[] = useMemo(() => {
-    const list = validateExtraction(fields, { payment });
+    const list = validateExtraction(fields, { payment, today: manilaToday() });
     const add = (field: FieldKey, level: ValidationIssue["level"], message: string) =>
       list.push({ field, level, message });
 
@@ -384,11 +385,11 @@ export function ReviewForm({
               <div key={c.field} className="space-y-2">
                 <p className="text-sm font-medium">{FIELD_LABELS[c.field]}</p>
                 <div className="grid grid-cols-2 gap-2">
-                  <Button type="button" variant="outline" onClick={() => resolveConflict(c.field, false)} className="h-auto min-h-14 flex-col gap-0.5 py-2 whitespace-normal">
+                  <Button type="button" variant="outline" onClick={() => resolveConflict(c.field, false)} className="h-auto min-h-14 flex-col gap-0.5 py-2 whitespace-normal md:h-auto">
                     <span className="text-xs font-normal text-muted-foreground">{SOURCE_LABEL[c.currentSource]}</span>
                     <span className="break-all">{c.current}</span>
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => resolveConflict(c.field, true)} className="h-auto min-h-14 flex-col gap-0.5 py-2 whitespace-normal">
+                  <Button type="button" variant="outline" onClick={() => resolveConflict(c.field, true)} className="h-auto min-h-14 flex-col gap-0.5 py-2 whitespace-normal md:h-auto">
                     <span className="text-xs font-normal text-muted-foreground">Voice</span>
                     <span className="break-all">{c.voice}</span>
                   </Button>

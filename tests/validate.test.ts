@@ -47,6 +47,18 @@ describe("validateExtraction", () => {
     expect(validateExtraction(sample, { payment: firstPayment(sample) })).toEqual([]);
   });
 
+  it("flags implausible contact numbers, plates and dates (handwriting misreads)", () => {
+    const ctx = { today: "2026-11-03" };
+    expect(validateExtraction({ ...sample, buyer_contact: "09173216078" }, ctx)).toEqual([]);
+    expect(validateExtraction({ ...sample, buyer_contact: "0917 321 6078" }, ctx)).toEqual([]);
+    expect(fieldsOf(validateExtraction({ ...sample, buyer_contact: "0917321607" }, ctx))).toEqual(["warning:buyer_contact"]);
+    expect(fieldsOf(validateExtraction({ ...sample, plate_no: "NKF-477" }, ctx))).toEqual([]);
+    expect(fieldsOf(validateExtraction({ ...sample, plate_no: "N4F47711" }, ctx))).toEqual(["warning:plate_no"]);
+    expect(fieldsOf(validateExtraction({ ...sample, receipt_date: "2024-11-02" }, ctx))).toEqual(["warning:receipt_date"]);
+    expect(fieldsOf(validateExtraction({ ...sample, receipt_date: "2026-12-30" }, ctx))).toEqual(["warning:receipt_date"]);
+    expect(validateExtraction({ ...sample, receipt_date: "2026-11-02" }, ctx)).toEqual([]);
+  });
+
   it("does not flag blank motor and chassis numbers", () => {
     const issues = validateExtraction({ ...sample, motor_no: null, chassis_no: "" });
     expect(issues.filter((i) => i.field === "motor_no" || i.field === "chassis_no")).toEqual([]);

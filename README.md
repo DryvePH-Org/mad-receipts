@@ -118,6 +118,11 @@ node scripts/hosted-test-data.mjs clean                     # remove all of it
 npm run test:e2e                                            # browser tests (below)
 ```
 
+**Reading quality** (uses your real Groq quota, nothing is saved):
+`ALLOW_LIVE_TESTS=yes npm run test:live` checks the voice note against English, Tagalog and mixed sentences, and
+`node --env-file=.env.local scripts/eval-extraction.mjs <photo.jpg> <truth.json> <prompt.txt>` scores the photo prompt
+against a receipt whose true values you know. The photo prompt is in `src/lib/extraction/groq.ts`.
+
 **Browser tests** (`e2e/`, Playwright with your installed Chrome) start the app on port 3124 and a fake Groq
 on port 8766, so no AI, Google or Telegram call is made. They log in as marked test users, upload the sample
 photo from `Docs/`, review, confirm, and check that staff are kept out of the admin pages and that a repeated

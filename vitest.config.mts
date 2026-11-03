@@ -12,6 +12,6 @@ export default defineConfig({
   },
   test: {
     include: ["tests/**/*.test.ts"],
-    exclude: ["tests/integration/**", "tests/hosted/**", "node_modules/**"], // need a database: npm run test:integration / test:hosted
+    exclude: ["tests/integration/**", "tests/hosted/**", "tests/live/**", "node_modules/**"], // need a database or the real Groq API: npm run test:integration / test:hosted / test:live
   },
 });

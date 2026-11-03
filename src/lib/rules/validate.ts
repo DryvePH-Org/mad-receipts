@@ -39,6 +39,8 @@ export interface ValidationIssue {
 export interface ValidationContext {
   /** Result of computePayment for this receipt, when the deal numbers are known. */
   payment?: PaymentResult;
+  /** Today in Manila (YYYY-MM-DD). When given, a receipt date far from it is flagged. */
+  today?: string;
 }
 
 /** Plates are the inventory key: uppercase letters and digits only ("nkf-4771" → "NKF4771"). */
@@ -84,6 +86,22 @@ export function validateExtraction(
         `Agreed price minus payment is ${formatPeso(expected)}, but the balance says ${formatPeso(data.balance)}.`,
       );
     }
+  }
+
+  // Handwriting is easy to misread, so flag values that do not look right. These are warnings:
+  // the person looks at the paper and either fixes the value or confirms it is really so.
+  const contact = (data.buyer_contact ?? "").replace(/[\s()+-]/g, "");
+  if (contact !== "" && !/^(09\d{9}|639\d{9}|\d{7,8})$/.test(contact)) {
+    warning("buyer_contact", "Check the contact number: a mobile number has 11 digits and starts with 09.");
+  }
+  const plate = normalizePlate(data.plate_no);
+  if (plate !== "" && !/^([A-Z]{3}\d{3,4}|[A-Z]{2}\d{4,5}|\d{3,4}[A-Z]{2,3}|[A-Z]\d{3}[A-Z]{2})$/.test(plate)) {
+    warning("plate_no", "This does not look like a usual plate (3 letters then 3 or 4 digits). Check it against the paper.");
+  }
+  if (context.today && data.receipt_date) {
+    const days = (Date.parse(data.receipt_date) - Date.parse(context.today)) / 86_400_000;
+    if (days > 1) warning("receipt_date", "The receipt date is in the future. Check the year and month.");
+    else if (days < -60) warning("receipt_date", "The receipt date is more than two months ago. Check the year and month.");
   }
 
   // Words vs numbers.

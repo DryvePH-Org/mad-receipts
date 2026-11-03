@@ -22,7 +22,9 @@ Return ONLY a JSON object:
 
 Rules:
 - Put in "fields" only what was actually said. Anything not said is null. NEVER guess or invent a value.
-- Spoken numbers become digits without commas or symbols: "fifty thousand" or "limampung libo" is 50000.
+- Spoken numbers become digits without commas or symbols: "fifty thousand" or "limampung libo" is 50000. Understand Tagalog and shorthand: "K" or "k" is thousand ("450K" is 450000), "mil" or "libo" is thousand ("singkwenta mil" is 50000), "milyon" is million ("kalahating milyon" is 500000, "isang milyon" is 1000000), "isa't kalahati" is 1.5, "dalawa't kalahati" is 2.5, "porsyento" means percent.
+- What each thing means: "amount", "binayad", "paid", "down", "down payment", "earnest", "reservation fee" is the money paid on this receipt (amount). "price", "agreed price", "presyo", "benta" is the agreed price of the car. "balance", "remaining", "natitira", "kulang" is what is still owed (balance). "due", "on or before", "bayaran sa" is balance_due_date. "buyer", "customer", "received from", "kay" before a customer name is buyer_name.
+- Phone numbers spoken digit by digit become one string of digits: "zero nine one seven, three two one, six zero seven eight" is "09173216078".
 - Plate numbers spoken letter by letter ("N K F four seven seven one") become "NKF4771".
 - Dates are YYYY-MM-DD. If the year is not said, use the year of today's date.
 - "salespeople" lists everyone credited with selling the car (the salesman and any others involved), each with their OWN commission percent as a number ("three percent" is 3, "two point five" is 2.5). If no percent was said for a person, use null. If nobody is named, use [].

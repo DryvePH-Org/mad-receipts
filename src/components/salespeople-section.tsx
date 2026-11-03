@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +13,13 @@ export interface SalespersonOption {
   id: string;
   name: string;
 }
+
+/** Keeps only what a percent can contain: digits and one decimal point ("3 %" becomes "3"; "2,5" becomes "2.5"). */
+const cleanPercent = (value: string) => {
+  const cleaned = value.replace(",", ".").replace(/[^\d.]/g, "");
+  const [whole, ...rest] = cleaned.split(".");
+  return rest.length ? `${whole}.${rest.join("").slice(0, 2)}` : whole;
+};
 
 /** Who sold the car and each person's own commission percent. */
 export function SalespeopleSection({
@@ -30,6 +38,9 @@ export function SalespeopleSection({
   errors: string[];
   onChange: (rows: SalesRow[]) => void;
 }) {
+  // The row just added gets the keyboard focus, so staff can keep going without tapping again.
+  const [addedKey, setAddedKey] = useState<string | null>(null);
+  const taken = (row: SalesRow, id: string) => rows.some((r) => r.key !== row.key && r.salespersonId === id);
   const update = (key: string, patch: Partial<SalesRow>) =>
     onChange(rows.map((row) => (row.key === key ? { ...row, ...patch } : row)));
 
@@ -68,13 +79,14 @@ export function SalespeopleSection({
                   <Label htmlFor={`sp-${row.key}`}>Salesperson</Label>
                   <NativeSelect
                     id={`sp-${row.key}`}
+                    autoFocus={row.key === addedKey}
                     value={row.salespersonId}
                     onChange={(e) => update(row.key, { salespersonId: e.target.value, heard: undefined })}
                   >
                     <option value="">Choose…</option>
                     {known && <option value={row.salespersonId}>{names.get(row.salespersonId) ?? "Unknown"} (inactive)</option>}
                     {options.map((o) => (
-                      <option key={o.id} value={o.id}>
+                      <option key={o.id} value={o.id} disabled={taken(row, o.id)}>
                         {o.name}
                       </option>
                     ))}
@@ -85,8 +97,10 @@ export function SalespeopleSection({
                   <Input
                     id={`pct-${row.key}`}
                     value={row.percent}
-                    onChange={(e) => update(row.key, { percent: e.target.value })}
+                    onChange={(e) => update(row.key, { percent: cleanPercent(e.target.value) })}
                     inputMode="decimal"
+                    autoComplete="off"
+                    enterKeyHint="done"
                     placeholder="3"
                   />
                 </div>
@@ -105,7 +119,7 @@ export function SalespeopleSection({
         })}
 
         {errors.length > 0 && (
-          <ul className="space-y-1">
+          <ul className="space-y-1" aria-live="polite">
             {errors.map((message) => (
               <li key={message} className="text-sm text-destructive">
                 {message}
@@ -118,7 +132,11 @@ export function SalespeopleSection({
           <Button
             type="button"
             variant="outline"
-            onClick={() => onChange([...rows, { key: newRowKey(), salespersonId: "", percent: "" }])}
+            onClick={() => {
+              const key = newRowKey();
+              setAddedKey(key);
+              onChange([...rows, { key, salespersonId: "", percent: "" }]);
+            }}
             className="w-full"
           >
             <Plus className="size-5" /> Add {rows.length === 0 ? "salesperson" : "another salesperson"}

@@ -1,7 +1,14 @@
 import "server-only";
 import Groq, { toFile } from "groq-sdk";
+import { manilaToday } from "@/lib/dates";
 
-export const EXTRACTION_PROMPT = `You read a photo of a handwritten Philippine car-sale "Acknowledgement of Payment" form from Manila Auto Display (MAD).
+/**
+ * The instructions for reading a receipt photo. Tuned against a real handwritten receipt (the
+ * handwriting hints and the two "spelled" fields lifted plate, date and colour reads from wrong
+ * to right). Keep scripts/eval-extraction.mjs handy when changing it. Today's date is passed in
+ * so a handwritten 6 is not read as a 4 (2024 instead of 2026).
+ */
+export const extractionPrompt = (today: string = manilaToday()) => `You read a photo of a handwritten Philippine car-sale "Acknowledgement of Payment" form from Manila Auto Display (MAD).
 
 Return ONLY a JSON object with exactly these keys:
 {
@@ -9,12 +16,14 @@ Return ONLY a JSON object with exactly these keys:
   "receipt_date": "date at the top, as YYYY-MM-DD",
   "buyer_name": "'Received from'",
   "buyer_address": "'Postal address'",
-  "buyer_contact": "'Contact no.'",
+  "contact_spelled": "the contact number read one digit at a time, like 0-9-1-7-1-2-3-4-5-6-7, BEFORE you decide buyer_contact",
+  "buyer_contact": "'Contact no.', built from contact_spelled",
   "amount_words": "'The sum of PESOS', written in words, exactly as written",
   "amount": "the numeric amount after 'P' next to the words",
   "paper_payment_type": "earnest | partial | full",
   "make_type": "'Make/Type', e.g. 2021 Honda Civic",
-  "plate_no": "'Plate No.'",
+  "plate_spelled": "the plate read one character at a time, like N-K-F-4-7-7-1, BEFORE you decide plate_no",
+  "plate_no": "'Plate No.', built from plate_spelled",
   "motor_no": "'Motor No.'",
   "chassis_no": "'Chassis No.'",
   "color": "'Color'",
@@ -36,7 +45,16 @@ Rules:
 - paper_payment_type: the option (earnest money / partial payment / full payment) that is underlined, circled or ticked. null if none is marked.
 - payment_method: the option (cash / check) that has an X or check mark. null if none is marked.
 - Dates: Philippine forms write month before day (11/02/2026 is November 2, 2026). Convert to YYYY-MM-DD.
-- Ignore the preprinted header, footer remarks and signatures.`;
+- Ignore the preprinted header, footer remarks and signatures.
+
+Reading handwriting (this matters most):
+- Today is ${today}. Receipts are filled in recently, so the year is almost always ${today.slice(0, 4)} (or the previous year just after New Year). A handwritten 6 is often mistaken for a 4: if you read 2024 or 2023, look again at the last digit.
+- Plate numbers in the Philippines are 3 letters followed by 3 or 4 digits (e.g. NKF4771, ABC123). Read each character one at a time. A handwritten 7 has a flat top bar and no closed loop; a 9 has a closed loop on top; a 1 is a single stroke. A star or mark left of the "Plate No." label is NOT part of the plate.
+- Color is a car color word such as BLACK, WHITE, SILVER, GRAY, RED, BLUE, GREEN, YELLOW, ORANGE, BROWN, BEIGE, MAROON, GOLD. Count the letters and compare: BLACK has 5 letters with a tall "K" at the end; BLUE has 4.
+- Contact numbers are Philippine mobile numbers: 11 digits starting with 09 (e.g. 09171234567). Read digit by digit and return exactly 11 digits if you can see them all.
+- The money amounts must agree: Less payment = the amount just paid, and Agreed price minus Less payment = Balance. Use that only to double-check a number you can already see; never invent one.
+- Words fields (amount_words, balance_words): copy only the words that are actually handwritten. Do not add or complete words such as "ONLY" or "PESOS" if they are not on the line.
+- Names and addresses: copy the handwriting letter by letter. Prefer real Philippine names and places (for example SAN FERNANDO, KAPITOLYO, PASIG CITY, QUEZON CITY) over invented ones, but never change letters you can clearly see.`;
 
 let client: Groq | null = null;
 
@@ -61,7 +79,7 @@ export async function callGroqVision(imageBytes: Uint8Array, mimeType: string): 
     temperature: 0,
     response_format: { type: "json_object" },
     messages: [
-      { role: "system", content: EXTRACTION_PROMPT },
+      { role: "system", content: extractionPrompt() },
       {
         role: "user",
         content: [

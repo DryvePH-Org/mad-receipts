@@ -155,7 +155,7 @@ export function UploadFlow({ userId }: { userId: string }) {
           <Button
             type="button"
             onClick={() => cameraInput.current?.click()}
-            className="h-40 w-full flex-col gap-3 text-lg"
+            className="h-40 w-full flex-col gap-3 text-lg md:h-40"
           >
             <Camera className="size-10" />
             Take photo of receipt

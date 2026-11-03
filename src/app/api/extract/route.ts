@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { extractReceipt, ExtractionError, toReceiptFields } from "@/lib/extraction";
 import { visionModel } from "@/lib/extraction/groq";
+import { manilaToday } from "@/lib/dates";
 import { validateExtraction } from "@/lib/rules/validate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
 
   try {
     const fields = await extractReceipt(new Uint8Array(await photo.data.arrayBuffer()), "image/jpeg");
-    const issues = validateExtraction(toReceiptFields(fields));
+    const issues = validateExtraction(toReceiptFields(fields), { today: manilaToday() });
     const extraction = { fields, issues, model: visionModel(), extracted_at: new Date().toISOString() };
 
     const { error } = await admin
