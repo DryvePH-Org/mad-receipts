@@ -1,0 +1,4 @@
+# Background sync every 5 minutes, and the balance reminder daily at 8:00 AM Manila time (00:00 UTC).
+CRON_TZ=UTC
+*/5 * * * * madapp /opt/mad-receipts/deploy/run-cron.sh /api/sync/run
+0 0 * * * madapp /opt/mad-receipts/deploy/run-cron.sh /api/reminders/run
