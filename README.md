@@ -105,6 +105,21 @@ the salespeople list. The audio is never stored, only the resulting fields.
   needs at least one salesperson with a percent, from that receipt or an earlier one.
 - **Sheet text:** `RESERVED - DAVID ELLA 11/2` while open, `SOLD - DAVID 3% ELLA 1.5% 11/2` when sold.
 
+## Testing on the hosted project (before go-live)
+
+While the hosted Supabase holds no real data, database changes can be tested there instead of with Docker.
+Everything the tests create is marked (plates `ZZT…`, salespeople `ZZT …`, users `zzt-…@example.test`)
+and is removed before and after:
+
+```bash
+ALLOW_HOSTED_TESTS=yes npm run test:hosted                  # database functions, sync events, access rules
+node scripts/hosted-test-data.mjs seed /tmp/creds.json      # marked test users and deals, to click through the app
+node scripts/hosted-test-data.mjs clean                     # remove all of it
+```
+
+The seed script refuses to run if the project already has real receipts. **Stop using this once you go live.**
+Then test against the local Docker copy (`npm run test:integration`) or a separate test project.
+
 ## Testing locally without touching real services
 
 `.env.local` points at your real inventory sheet, Apps Script, Drive and Telegram. For a local test run

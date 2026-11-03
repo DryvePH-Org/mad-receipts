@@ -514,6 +514,8 @@ conflicts and "Sold by" section.
 
 ---
 
+> **Status (Nov 3, 2026):** Phases 10 and 11 are built and tested on the hosted project. Adjustments made while building: voiding the *only* receipt of a deal is blocked (cancel the deal instead); only open deals can be cancelled (void a sold deal's latest receipt first); admins can also edit a deal's salespeople; sync jobs carry an event (confirm, void, cancel, edit). The 8:00 AM reminder endpoint exists; the schedule is set in Phase 13.
+
 ## Phase 12 — Testing and hardening
 
 **Goal:** Trust it with real money records.

@@ -1,265 +1,574 @@
-
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
 
 export type Database = {
-  
-  "graphql_public": {
-          Tables: {
-            [_ in never]: never
-          }
-          Views: {
-            [_ in never]: never
-          }
-          Functions: {
-            "graphql":
-{ Args: { "extensions"?: Json,"operationName"?: string,"query"?: string,"variables"?: Json }; Returns: Json
-                           }
-          }
-          Enums: {
-            [_ in never]: never
-          }
-          CompositeTypes: {
-            [_ in never]: never
-          }
-        },"public": {
-          Tables: {
-            "audit_logs": {
-                  Row: {
-                    "action": string,"actor_id": string | null,"after": Json | null,"before": Json | null,"created_at": string,"entity": string,"entity_id": string | null,"id": string
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "action": string,"actor_id"?: string | null,"after"?: Json | null,"before"?: Json | null,"created_at"?: string,"entity": string,"entity_id"?: string | null,"id"?: string
-                  }
-                  Update: {
-                    "action"?: string,"actor_id"?: string | null,"after"?: Json | null,"before"?: Json | null,"created_at"?: string,"entity"?: string,"entity_id"?: string | null,"id"?: string
-                  }
-                  Relationships: [
-                    {
-      foreignKeyName: "audit_logs_actor_id_fkey"
-      columns: ["actor_id"]
-isOneToOne: false
-      referencedRelation: "profiles"
-      referencedColumns: ["id"]
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.18"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
     }
-                  ]
-                },"deal_salespeople": {
-                  Row: {
-                    "commission_percent": number,"created_at": string,"deal_id": string,"salesperson_id": string
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "commission_percent": number,"created_at"?: string,"deal_id": string,"salesperson_id": string
-                  }
-                  Update: {
-                    "commission_percent"?: number,"created_at"?: string,"deal_id"?: string,"salesperson_id"?: string
-                  }
-                  Relationships: [
-                    {
-      foreignKeyName: "deal_salespeople_deal_id_fkey"
-      columns: ["deal_id"]
-isOneToOne: false
-      referencedRelation: "deals"
-      referencedColumns: ["id"]
-    },{
-      foreignKeyName: "deal_salespeople_salesperson_id_fkey"
-      columns: ["salesperson_id"]
-isOneToOne: false
-      referencedRelation: "salespeople"
-      referencedColumns: ["id"]
+    Views: {
+      [_ in never]: never
     }
-                  ]
-                },"deals": {
-                  Row: {
-                    "agreed_price": number,"balance": number,"buyer_address": string | null,"buyer_contact": string | null,"buyer_name": string,"cancel_reason": string | null,"chassis_no": string | null,"color": string | null,"created_at": string,"created_by": string,"forfeited": boolean,"id": string,"make_type": string | null,"motor_no": string | null,"plate_no": string,"status": string,"total_paid": number,"updated_at": string
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "agreed_price": number,"balance": number,"buyer_address"?: string | null,"buyer_contact"?: string | null,"buyer_name": string,"cancel_reason"?: string | null,"chassis_no"?: string | null,"color"?: string | null,"created_at"?: string,"created_by": string,"forfeited"?: boolean,"id"?: string,"make_type"?: string | null,"motor_no"?: string | null,"plate_no": string,"status"?: string,"total_paid"?: number,"updated_at"?: string
-                  }
-                  Update: {
-                    "agreed_price"?: number,"balance"?: number,"buyer_address"?: string | null,"buyer_contact"?: string | null,"buyer_name"?: string,"cancel_reason"?: string | null,"chassis_no"?: string | null,"color"?: string | null,"created_at"?: string,"created_by"?: string,"forfeited"?: boolean,"id"?: string,"make_type"?: string | null,"motor_no"?: string | null,"plate_no"?: string,"status"?: string,"total_paid"?: number,"updated_at"?: string
-                  }
-                  Relationships: [
-                    {
-      foreignKeyName: "deals_created_by_fkey"
-      columns: ["created_by"]
-isOneToOne: false
-      referencedRelation: "profiles"
-      referencedColumns: ["id"]
-    }
-                  ]
-                },"profiles": {
-                  Row: {
-                    "created_at": string,"full_name": string | null,"id": string,"role": string
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "created_at"?: string,"full_name"?: string | null,"id": string,"role"?: string
-                  }
-                  Update: {
-                    "created_at"?: string,"full_name"?: string | null,"id"?: string,"role"?: string
-                  }
-                  Relationships: [
-                    
-                  ]
-                },"receipt_drafts": {
-                  Row: {
-                    "created_at": string,"created_by": string,"error": string | null,"extraction": Json | null,"id": string,"photo_path": string,"status": string,"voice": Json | null
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "created_at"?: string,"created_by"?: string,"error"?: string | null,"extraction"?: Json | null,"id"?: string,"photo_path": string,"status"?: string,"voice"?: Json | null
-                  }
-                  Update: {
-                    "created_at"?: string,"created_by"?: string,"error"?: string | null,"extraction"?: Json | null,"id"?: string,"photo_path"?: string,"status"?: string,"voice"?: Json | null
-                  }
-                  Relationships: [
-                    {
-      foreignKeyName: "receipt_drafts_created_by_fkey"
-      columns: ["created_by"]
-isOneToOne: false
-      referencedRelation: "profiles"
-      referencedColumns: ["id"]
-    }
-                  ]
-                },"receipts": {
-                  Row: {
-                    "amount": number,"amount_words": string | null,"balance_after": number,"balance_due_date": string | null,"balance_words": string | null,"bank_branch": string | null,"check_no": string | null,"created_at": string,"created_by": string,"deal_id": string,"drive_file_id": string | null,"extraction_raw": Json | null,"id": string,"paper_payment_type": string | null,"payment_method": string | null,"payment_type": string,"photo_path": string | null,"receipt_date": string | null,"receipt_no": string,"status": string,"void_reason": string | null
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "amount": number,"amount_words"?: string | null,"balance_after": number,"balance_due_date"?: string | null,"balance_words"?: string | null,"bank_branch"?: string | null,"check_no"?: string | null,"created_at"?: string,"created_by": string,"deal_id": string,"drive_file_id"?: string | null,"extraction_raw"?: Json | null,"id"?: string,"paper_payment_type"?: string | null,"payment_method"?: string | null,"payment_type": string,"photo_path"?: string | null,"receipt_date"?: string | null,"receipt_no": string,"status"?: string,"void_reason"?: string | null
-                  }
-                  Update: {
-                    "amount"?: number,"amount_words"?: string | null,"balance_after"?: number,"balance_due_date"?: string | null,"balance_words"?: string | null,"bank_branch"?: string | null,"check_no"?: string | null,"created_at"?: string,"created_by"?: string,"deal_id"?: string,"drive_file_id"?: string | null,"extraction_raw"?: Json | null,"id"?: string,"paper_payment_type"?: string | null,"payment_method"?: string | null,"payment_type"?: string,"photo_path"?: string | null,"receipt_date"?: string | null,"receipt_no"?: string,"status"?: string,"void_reason"?: string | null
-                  }
-                  Relationships: [
-                    {
-      foreignKeyName: "receipts_created_by_fkey"
-      columns: ["created_by"]
-isOneToOne: false
-      referencedRelation: "profiles"
-      referencedColumns: ["id"]
-    },{
-      foreignKeyName: "receipts_deal_id_fkey"
-      columns: ["deal_id"]
-isOneToOne: false
-      referencedRelation: "deals"
-      referencedColumns: ["id"]
-    }
-                  ]
-                },"salespeople": {
-                  Row: {
-                    "active": boolean,"aliases": (string)[],"created_at": string,"id": string,"name": string
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "active"?: boolean,"aliases"?: (string)[],"created_at"?: string,"id"?: string,"name": string
-                  }
-                  Update: {
-                    "active"?: boolean,"aliases"?: (string)[],"created_at"?: string,"id"?: string,"name"?: string
-                  }
-                  Relationships: [
-                    
-                  ]
-                },"sync_jobs": {
-                  Row: {
-                    "attempts": number,"created_at": string,"event": string,"id": string,"last_error": string | null,"next_run_at": string,"receipt_id": string,"status": string,"target": string,"updated_at": string
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "attempts"?: number,"created_at"?: string,"event"?: string,"id"?: string,"last_error"?: string | null,"next_run_at"?: string,"receipt_id": string,"status"?: string,"target": string,"updated_at"?: string
-                  }
-                  Update: {
-                    "attempts"?: number,"created_at"?: string,"event"?: string,"id"?: string,"last_error"?: string | null,"next_run_at"?: string,"receipt_id"?: string,"status"?: string,"target"?: string,"updated_at"?: string
-                  }
-                  Relationships: [
-                    {
-      foreignKeyName: "sync_jobs_receipt_id_fkey"
-      columns: ["receipt_id"]
-isOneToOne: false
-      referencedRelation: "receipts"
-      referencedColumns: ["id"]
-    }
-                  ]
-                }
-          }
-          Views: {
-            "deal_summaries": {
-              Row: {
-                "agreed_price": number | null,"balance": number | null,"buyer_address": string | null,"buyer_contact": string | null,"buyer_name": string | null,"cancel_reason": string | null,"chassis_no": string | null,"color": string | null,"created_at": string | null,"created_by": string | null,"forfeited": boolean | null,"id": string | null,"last_receipt_date": string | null,"last_receipt_no": string | null,"make_type": string | null,"motor_no": string | null,"next_due_date": string | null,"plate_no": string | null,"receipt_count": number | null,"status": string | null,"total_paid": number | null,"updated_at": string | null
-              }
-              Relationships: [
-                
-              ]
-            },"receipt_list": {
-              Row: {
-                "amount": number | null,"balance_after": number | null,"balance_due_date": string | null,"buyer_name": string | null,"created_at": string | null,"deal_id": string | null,"deal_status": string | null,"id": string | null,"payment_method": string | null,"payment_type": string | null,"photo_path": string | null,"plate_no": string | null,"receipt_date": string | null,"receipt_no": string | null,"status": string | null,"void_reason": string | null
-              }
-              Relationships: [
-                
-              ]
-            }
-          }
-          Functions: {
-            "cancel_deal":
-{ Args: { "p_actor": string,"p_deal_id": string,"p_forfeit": boolean,"p_reason": string }; Returns: Json
-                           },
-"check_salespeople":
-{ Args: { "p_people": Json }; Returns: undefined
-                           },
-"queue_sync":
-{ Args: { "p_event": string,"p_receipt_id": string,"p_targets": (string)[] }; Returns: undefined
-                           },
-"update_deal_details":
-{ Args: { "p_actor": string,"p_deal_id": string,"p_patch": Json,"p_salespeople": Json }; Returns: Json
-                           },
-"void_receipt":
-{ Args: { "p_actor": string,"p_receipt_id": string,"p_reason": string }; Returns: Json
-                           },
-"claim_sync_jobs":
-{ Args: { "p_limit"?: number,"p_receipt_id"?: string }; Returns: {
-              "attempts": number,
-"created_at": string,
-"event": string,
-"id": string,
-"last_error": string | null,
-"next_run_at": string,
-"receipt_id": string,
-"status": string,
-"target": string,
-"updated_at": string
-            }[]
-                          SetofOptions: {
-        from: "*"
-        to: "sync_jobs"
-        isOneToOne: false
-        isSetofReturn: true
-      } },
-"confirm_receipt":
-{ Args: { "p_actor": string,"p_draft_id": string,"p_payload": Json }; Returns: Json
-                           },
-"is_admin":
-{ Args: Record<PropertyKey, never>; Returns: boolean
-                           },
-"parse_money":
-{ Args: { "p_text": string }; Returns: number
-                           },
-"parse_percent":
-{ Args: { "p_text": string }; Returns: number
-                           }
-          }
-          Enums: {
-            [_ in never]: never
-          }
-          CompositeTypes: {
-            [_ in never]: never
-          }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
         }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+  public: {
+    Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          actor_id: string | null
+          after: Json | null
+          before: Json | null
+          created_at: string
+          entity: string
+          entity_id: string | null
+          id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          entity: string
+          entity_id?: string | null
+          id?: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          entity?: string
+          entity_id?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_salespeople: {
+        Row: {
+          commission_percent: number
+          created_at: string
+          deal_id: string
+          salesperson_id: string
+        }
+        Insert: {
+          commission_percent: number
+          created_at?: string
+          deal_id: string
+          salesperson_id: string
+        }
+        Update: {
+          commission_percent?: number
+          created_at?: string
+          deal_id?: string
+          salesperson_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_salespeople_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_salespeople_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_salespeople_salesperson_id_fkey"
+            columns: ["salesperson_id"]
+            isOneToOne: false
+            referencedRelation: "salespeople"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deals: {
+        Row: {
+          agreed_price: number
+          balance: number
+          buyer_address: string | null
+          buyer_contact: string | null
+          buyer_name: string
+          cancel_reason: string | null
+          chassis_no: string | null
+          color: string | null
+          created_at: string
+          created_by: string
+          forfeited: boolean
+          id: string
+          make_type: string | null
+          motor_no: string | null
+          plate_no: string
+          status: string
+          total_paid: number
+          updated_at: string
+        }
+        Insert: {
+          agreed_price: number
+          balance: number
+          buyer_address?: string | null
+          buyer_contact?: string | null
+          buyer_name: string
+          cancel_reason?: string | null
+          chassis_no?: string | null
+          color?: string | null
+          created_at?: string
+          created_by: string
+          forfeited?: boolean
+          id?: string
+          make_type?: string | null
+          motor_no?: string | null
+          plate_no: string
+          status?: string
+          total_paid?: number
+          updated_at?: string
+        }
+        Update: {
+          agreed_price?: number
+          balance?: number
+          buyer_address?: string | null
+          buyer_contact?: string | null
+          buyer_name?: string
+          cancel_reason?: string | null
+          chassis_no?: string | null
+          color?: string | null
+          created_at?: string
+          created_by?: string
+          forfeited?: boolean
+          id?: string
+          make_type?: string | null
+          motor_no?: string | null
+          plate_no?: string
+          status?: string
+          total_paid?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          full_name: string | null
+          id: string
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          full_name?: string | null
+          id: string
+          role?: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          role?: string
+        }
+        Relationships: []
+      }
+      receipt_drafts: {
+        Row: {
+          created_at: string
+          created_by: string
+          error: string | null
+          extraction: Json | null
+          id: string
+          photo_path: string
+          status: string
+          voice: Json | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          error?: string | null
+          extraction?: Json | null
+          id?: string
+          photo_path: string
+          status?: string
+          voice?: Json | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          error?: string | null
+          extraction?: Json | null
+          id?: string
+          photo_path?: string
+          status?: string
+          voice?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipt_drafts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receipts: {
+        Row: {
+          amount: number
+          amount_words: string | null
+          balance_after: number
+          balance_due_date: string | null
+          balance_words: string | null
+          bank_branch: string | null
+          check_no: string | null
+          created_at: string
+          created_by: string
+          deal_id: string
+          drive_file_id: string | null
+          extraction_raw: Json | null
+          id: string
+          paper_payment_type: string | null
+          payment_method: string | null
+          payment_type: string
+          photo_path: string | null
+          receipt_date: string | null
+          receipt_no: string
+          status: string
+          void_reason: string | null
+        }
+        Insert: {
+          amount: number
+          amount_words?: string | null
+          balance_after: number
+          balance_due_date?: string | null
+          balance_words?: string | null
+          bank_branch?: string | null
+          check_no?: string | null
+          created_at?: string
+          created_by: string
+          deal_id: string
+          drive_file_id?: string | null
+          extraction_raw?: Json | null
+          id?: string
+          paper_payment_type?: string | null
+          payment_method?: string | null
+          payment_type: string
+          photo_path?: string | null
+          receipt_date?: string | null
+          receipt_no: string
+          status?: string
+          void_reason?: string | null
+        }
+        Update: {
+          amount?: number
+          amount_words?: string | null
+          balance_after?: number
+          balance_due_date?: string | null
+          balance_words?: string | null
+          bank_branch?: string | null
+          check_no?: string | null
+          created_at?: string
+          created_by?: string
+          deal_id?: string
+          drive_file_id?: string | null
+          extraction_raw?: Json | null
+          id?: string
+          paper_payment_type?: string | null
+          payment_method?: string | null
+          payment_type?: string
+          photo_path?: string | null
+          receipt_date?: string | null
+          receipt_no?: string
+          status?: string
+          void_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipts_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipts_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      salespeople: {
+        Row: {
+          active: boolean
+          aliases: string[]
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          active?: boolean
+          aliases?: string[]
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          active?: boolean
+          aliases?: string[]
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      sync_jobs: {
+        Row: {
+          attempts: number
+          created_at: string
+          event: string
+          id: string
+          last_error: string | null
+          next_run_at: string
+          receipt_id: string
+          status: string
+          target: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          event?: string
+          id?: string
+          last_error?: string | null
+          next_run_at?: string
+          receipt_id: string
+          status?: string
+          target: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          event?: string
+          id?: string
+          last_error?: string | null
+          next_run_at?: string
+          receipt_id?: string
+          status?: string
+          target?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sync_jobs_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "receipt_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sync_jobs_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
+    Views: {
+      deal_summaries: {
+        Row: {
+          agreed_price: number | null
+          balance: number | null
+          buyer_address: string | null
+          buyer_contact: string | null
+          buyer_name: string | null
+          cancel_reason: string | null
+          chassis_no: string | null
+          color: string | null
+          created_at: string | null
+          created_by: string | null
+          forfeited: boolean | null
+          id: string | null
+          last_receipt_date: string | null
+          last_receipt_no: string | null
+          make_type: string | null
+          motor_no: string | null
+          next_due_date: string | null
+          plate_no: string | null
+          receipt_count: number | null
+          status: string | null
+          total_paid: number | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receipt_list: {
+        Row: {
+          amount: number | null
+          balance_after: number | null
+          balance_due_date: string | null
+          buyer_name: string | null
+          created_at: string | null
+          deal_id: string | null
+          deal_status: string | null
+          id: string | null
+          payment_method: string | null
+          payment_type: string | null
+          photo_path: string | null
+          plate_no: string | null
+          receipt_date: string | null
+          receipt_no: string | null
+          status: string | null
+          void_reason: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipts_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipts_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
+    Functions: {
+      cancel_deal: {
+        Args: {
+          p_actor: string
+          p_deal_id: string
+          p_forfeit: boolean
+          p_reason: string
+        }
+        Returns: Json
+      }
+      check_salespeople: { Args: { p_people: Json }; Returns: undefined }
+      claim_sync_jobs: {
+        Args: { p_limit?: number; p_receipt_id?: string }
+        Returns: {
+          attempts: number
+          created_at: string
+          event: string
+          id: string
+          last_error: string | null
+          next_run_at: string
+          receipt_id: string
+          status: string
+          target: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "sync_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      confirm_receipt: {
+        Args: { p_actor: string; p_draft_id: string; p_payload: Json }
+        Returns: Json
+      }
+      is_admin: { Args: never; Returns: boolean }
+      parse_money: { Args: { p_text: string }; Returns: number }
+      parse_percent: { Args: { p_text: string }; Returns: number }
+      queue_sync: {
+        Args: { p_event: string; p_receipt_id: string; p_targets: string[] }
+        Returns: undefined
+      }
+      update_deal_details: {
+        Args: {
+          p_actor: string
+          p_deal_id: string
+          p_patch: Json
+          p_salespeople: Json
+        }
+        Returns: Json
+      }
+      void_receipt: {
+        Args: { p_actor: string; p_reason: string; p_receipt_id: string }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
 }
 
-type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
@@ -267,111 +576,120 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+    : never) = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
       DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-  ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-      Row: infer R
-    }
-    ? R
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
     : never
-  : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+    : never) = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-      Insert: infer I
-    }
-    ? I
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
     : never
-  : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+    : never) = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-      Update: infer U
-    }
-    ? U
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
     : never
-  : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never
-> = DefaultSchemaEnumNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+    : never) = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-  : never
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never
-> = PublicCompositeTypeNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+    : never) = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-  : never
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
 
 export const Constants = {
-  "graphql_public": {
-          Enums: {
-            
-          }
-        },"public": {
-          Enums: {
-            
-          }
-        }
+  graphql_public: {
+    Enums: {},
+  },
+  public: {
+    Enums: {},
+  },
 } as const
