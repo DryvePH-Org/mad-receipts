@@ -10,10 +10,12 @@
     "test": "vitest run",
     "db:types": "supabase gen types typescript --linked > src/lib/supabase/database.types.ts",
     "test:integration": "vitest run --config vitest.integration.config.mts",
-    "test:hosted": "vitest run --config vitest.hosted.config.mts"
+    "test:hosted": "vitest run --config vitest.hosted.config.mts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
+    "@hookform/resolvers": "^7.0.1",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",
     "browser-image-compression": "^2.0.2",
@@ -26,6 +28,7 @@
     "next-themes": "^0.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "react-hook-form": "^7.91.0",
     "server-only": "^0.0.1",
     "shadcn": "^4.23.0",
     "sonner": "^2.0.8",

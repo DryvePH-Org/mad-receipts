@@ -1,49 +1,39 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { FormField } from "@/components/shared/form-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { createUserSchema } from "@/lib/forms";
+import { useActionForm } from "@/lib/use-action-form";
 import { createStaffUser } from "./actions";
 
 export function CreateUserForm() {
-  const [state, action, pending] = useActionState(createStaffUser, null);
-  const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    if (!state) return;
-    if (state.ok) {
-      toast.success(state.message);
-      formRef.current?.reset();
-    }
-  }, [state]);
+  const { form, onSubmit, serverError, pending } = useActionForm({
+    schema: createUserSchema,
+    defaultValues: { fullName: "", email: "", password: "" },
+    run: (body) => createStaffUser(null, body),
+    onSuccess: (message) => {
+      toast.success(message);
+      form.reset();
+    },
+  });
+  const { register, formState: { errors } } = form;
 
   return (
-    <form ref={formRef} action={action} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="fullName">Full name</Label>
-        <Input id="fullName" name="fullName" required />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
-        <Input id="email" name="email" type="email" required />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="password">Temporary password</Label>
-        <Input
-          id="password"
-          name="password"
-          type="text"
-          minLength={8}
-          autoComplete="new-password"
-          required
-         
-        />
-      </div>
-      {state && !state.ok && (
+    <form onSubmit={onSubmit} noValidate className="space-y-4">
+      <FormField id="fullName" label="Full name" error={errors.fullName?.message}>
+        <Input id="fullName" aria-invalid={!!errors.fullName} {...register("fullName")} />
+      </FormField>
+      <FormField id="email" label="Email" error={errors.email?.message}>
+        <Input id="email" type="email" inputMode="email" aria-invalid={!!errors.email} {...register("email")} />
+      </FormField>
+      <FormField id="password" label="Temporary password" error={errors.password?.message} hint="At least 8 characters.">
+        <Input id="password" type="text" autoComplete="new-password" aria-invalid={!!errors.password} {...register("password")} />
+      </FormField>
+      {serverError && (
         <p role="alert" className="text-sm text-destructive">
-          {state.message}
+          {serverError}
         </p>
       )}
       <Button type="submit" size="lg" disabled={pending} className="w-full">

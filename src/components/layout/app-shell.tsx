@@ -1,6 +1,7 @@
 import { Brand } from "@/components/layout/brand";
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import type { CurrentUser } from "@/lib/auth";
 
@@ -20,9 +21,10 @@ export function AppShell({ user, children }: { user: CurrentUser; children: Reac
       <div className="lg:pl-64 print:pl-0">
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b bg-background/95 px-4 backdrop-blur sm:px-6 lg:hidden print:hidden">
           <Brand tagline={false} />
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 items-center gap-1">
             <span className="max-w-32 truncate text-sm font-medium sm:max-w-48">{name}</span>
             <Badge variant={user.role === "admin" ? "default" : "secondary"}>{user.role === "admin" ? "Admin" : "Staff"}</Badge>
+            <ThemeToggle />
           </div>
         </header>
 

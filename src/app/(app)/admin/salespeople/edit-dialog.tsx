@@ -1,23 +1,28 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
+import { FormField } from "@/components/shared/form-field";
 import { ResponsiveDialog } from "@/components/shared/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { updateSalesperson, type ActionResult } from "./actions";
+import { salespersonSchema } from "@/lib/forms";
+import { useActionForm } from "@/lib/use-action-form";
+import { updateSalesperson } from "./actions";
 
 export function EditSalespersonDialog({ id, name, aliases }: { id: string; name: string; aliases: string[] }) {
   const [open, setOpen] = useState(false);
-  const [state, action, pending] = useActionState(async (prev: ActionResult, form: FormData) => {
-    const result = await updateSalesperson(prev, form);
-    if (result?.ok) {
-      toast.success(result.message);
+  const { form, onSubmit, serverError, pending } = useActionForm({
+    schema: salespersonSchema,
+    defaultValues: { name, aliases: aliases.join(", ") },
+    extra: { id },
+    run: (body) => updateSalesperson(null, body),
+    onSuccess: (message) => {
+      toast.success(message);
       setOpen(false);
-    }
-    return result;
-  }, null);
+    },
+  });
+  const { register, formState: { errors } } = form;
 
   return (
     <>
@@ -30,19 +35,16 @@ export function EditSalespersonDialog({ id, name, aliases }: { id: string; name:
         title={`Edit ${name}`}
         description="Past sales keep their salespeople. Renaming updates the name everywhere."
       >
-        <form action={action} className="space-y-4">
-          <input type="hidden" name="id" value={id} />
-          <div className="space-y-2">
-            <Label htmlFor={`name-${id}`}>Name</Label>
-            <Input id={`name-${id}`} name="name" defaultValue={name} required maxLength={60} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor={`aliases-${id}`}>Nicknames and other spellings</Label>
-            <Input id={`aliases-${id}`} name="aliases" defaultValue={aliases.join(", ")} />
-          </div>
-          {state && !state.ok && (
+        <form onSubmit={onSubmit} noValidate className="space-y-4">
+          <FormField id={`name-${id}`} label="Name" error={errors.name?.message}>
+            <Input id={`name-${id}`} maxLength={60} aria-invalid={!!errors.name} {...register("name")} />
+          </FormField>
+          <FormField id={`aliases-${id}`} label="Nicknames and other spellings">
+            <Input id={`aliases-${id}`} {...register("aliases")} />
+          </FormField>
+          {serverError && (
             <p role="alert" className="text-sm text-destructive">
-              {state.message}
+              {serverError}
             </p>
           )}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { Brand } from "@/components/layout/brand";
 import { InstallButton } from "@/components/pwa/install-button";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/lib/auth-actions";
@@ -79,11 +80,14 @@ function View({ role, name, pathname }: Props & { pathname: string | null }) {
               {role === "admin" ? "Admin" : "Staff"}
             </Badge>
           </div>
-          <form action={logout}>
-            <Button type="submit" variant="ghost" size="icon" aria-label="Log out">
-              <LogOut />
-            </Button>
-          </form>
+          <div className="flex items-center">
+            <ThemeToggle />
+            <form action={logout}>
+              <Button type="submit" variant="ghost" size="icon" aria-label="Log out">
+                <LogOut />
+              </Button>
+            </form>
+          </div>
         </div>
       </div>
     </div>

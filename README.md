@@ -112,10 +112,16 @@ Everything the tests create is marked (plates `ZZT…`, salespeople `ZZT …`, u
 and is removed before and after:
 
 ```bash
-ALLOW_HOSTED_TESTS=yes npm run test:hosted                  # database functions, sync events, access rules
+ALLOW_HOSTED_TESTS=yes npm run test:hosted                  # confirm_receipt outcomes, access rules, admin functions, sync events
 node scripts/hosted-test-data.mjs seed /tmp/creds.json      # marked test users and deals, to click through the app
 node scripts/hosted-test-data.mjs clean                     # remove all of it
+npm run test:e2e                                            # browser tests (below)
 ```
+
+**Browser tests** (`e2e/`, Playwright with your installed Chrome) start the app on port 3124 and a fake Groq
+on port 8766, so no AI, Google or Telegram call is made. They log in as marked test users, upload the sample
+photo from `Docs/`, review, confirm, and check that staff are kept out of the admin pages and that a repeated
+receipt number is refused. They clean their data before and after.
 
 The seed script refuses to run if the project already has real receipts. **Stop using this once you go live.**
 Then test against the local Docker copy (`npm run test:integration`) or a separate test project.

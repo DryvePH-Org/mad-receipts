@@ -1,39 +1,40 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { FormField } from "@/components/shared/form-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { salespersonSchema } from "@/lib/forms";
+import { useActionForm } from "@/lib/use-action-form";
 import { addSalesperson } from "./actions";
 
 export function AddSalespersonForm() {
-  const [state, action, pending] = useActionState(addSalesperson, null);
-  const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    if (state?.ok) {
-      toast.success(state.message);
-      formRef.current?.reset();
-    }
-  }, [state]);
+  const { form, onSubmit, serverError, pending } = useActionForm({
+    schema: salespersonSchema,
+    defaultValues: { name: "", aliases: "" },
+    run: (body) => addSalesperson(null, body),
+    onSuccess: (message) => {
+      toast.success(message);
+      form.reset();
+    },
+  });
+  const { register, formState: { errors } } = form;
 
   return (
-    <form ref={formRef} action={action} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="name">Name</Label>
-        <Input id="name" name="name" required maxLength={60} placeholder="David Santos" />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="aliases">Nicknames and other spellings (optional)</Label>
-        <Input id="aliases" name="aliases" placeholder="Dave, Dabid" />
-        <p className="text-xs text-muted-foreground">
-          Separate with commas. These help the voice recording understand how the name is said.
-        </p>
-      </div>
-      {state && !state.ok && (
+    <form onSubmit={onSubmit} noValidate className="space-y-4">
+      <FormField id="name" label="Name" error={errors.name?.message}>
+        <Input id="name" maxLength={60} placeholder="David Santos" aria-invalid={!!errors.name} {...register("name")} />
+      </FormField>
+      <FormField
+        id="aliases"
+        label="Nicknames and other spellings (optional)"
+        hint="Separate with commas. These help the voice recording understand how the name is said."
+      >
+        <Input id="aliases" placeholder="Dave, Dabid" {...register("aliases")} />
+      </FormField>
+      {serverError && (
         <p role="alert" className="text-sm text-destructive">
-          {state.message}
+          {serverError}
         </p>
       )}
       <Button type="submit" size="lg" disabled={pending} className="w-full">

@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { Camera, Mic, Receipt, RefreshCw } from "lucide-react";
+import { FormField } from "@/components/shared/form-field";
 import { Brand } from "@/components/layout/brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { loginSchema } from "@/lib/forms";
 import { createClient } from "@/lib/supabase/client";
 
 function friendlyError(message: string): string {
@@ -27,17 +30,19 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<{ email: string; password: string }>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: "", password: "" },
+  });
+
+  const onSubmit = handleSubmit(async ({ email, password }) => {
     setError(null);
     setPending(true);
-
-    const form = new FormData(event.currentTarget);
-    const { error } = await createClient().auth.signInWithPassword({
-      email: String(form.get("email")).trim(),
-      password: String(form.get("password")),
-    });
-
+    const { error } = await createClient().auth.signInWithPassword({ email: email.trim(), password });
     if (error) {
       setError(friendlyError(error.message));
       setPending(false);
@@ -45,7 +50,7 @@ export default function LoginPage() {
     }
     router.replace("/");
     router.refresh();
-  }
+  });
 
   return (
     <main className="min-h-svh lg:grid lg:grid-cols-2">
@@ -82,15 +87,13 @@ export default function LoginPage() {
             <p className="text-sm text-muted-foreground">Use the account your admin gave you.</p>
           </div>
 
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" autoComplete="email" inputMode="email" required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" name="password" type="password" autoComplete="current-password" required />
-            </div>
+          <form onSubmit={onSubmit} noValidate className="space-y-4">
+            <FormField id="email" label="Email" error={errors.email?.message}>
+              <Input id="email" type="email" autoComplete="email" inputMode="email" aria-invalid={!!errors.email} {...register("email")} />
+            </FormField>
+            <FormField id="password" label="Password" error={errors.password?.message}>
+              <Input id="password" type="password" autoComplete="current-password" aria-invalid={!!errors.password} {...register("password")} />
+            </FormField>
             {error && (
               <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
                 {error}
