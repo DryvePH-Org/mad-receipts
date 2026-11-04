@@ -125,7 +125,7 @@ test("trade-in shows only its own fields and credits the traded car", async ({ p
   await page.getByRole("radio", { name: "Trade-in" }).click();
   await expect(page.getByLabel("Loan amount (₱)")).toHaveCount(0);
   await page.getByLabel("Value of the traded car (₱)").fill("200000");
-  await page.getByLabel("Traded car").fill("2015 Toyota Vios, silver");
+  await page.getByLabel("Traded car", { exact: true }).fill("2015 Toyota Vios, silver");
   await expect(page.getByText("Trade-in credit").locator("xpath=following-sibling::dd[1]")).toHaveText("− ₱200,000");
   await expect(page.getByText("Buyer owes MAD").locator("xpath=following-sibling::dd[1]")).toHaveText("₱300,000");
   await page.getByRole("radio", { name: "Cash" }).click();

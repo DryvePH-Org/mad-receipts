@@ -64,5 +64,5 @@ export function unitStatusForDeal(status: DealStatus): UnitStatus {
 export const PAYMENT_ERROR_MESSAGES: Record<PaymentError, string> = {
   invalid_input: "Check the agreed price and amount.",
   amount_not_positive: "The amount must be more than zero.",
-  overpayment: "This payment is more than the remaining balance.",
+  overpayment: "This payment is more than the buyer still owes on this deal.",
 };

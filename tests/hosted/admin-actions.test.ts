@@ -332,7 +332,7 @@ describe("the sync runner handles the new events", () => {
     expect(message).toContain("Unit: Reserved");
     const receiptsTab = sheets.tabs.Receipts;
     expect(receiptsTab.filter((r) => r[1] === "ZZT802")).toHaveLength(1);
-    expect(receiptsTab.find((r) => r[1] === "ZZT802")!.at(-1)).toBe("Voided");
+    expect(receiptsTab.find((r) => r[1] === "ZZT802")![22]).toBe("Voided");
     expect((await inventory.getUnit(p))?.status).toBe("Reserved");
     expect((await jobs(last.receipt_id, "void")).every((j) => j.status === "done")).toBe(true);
   });

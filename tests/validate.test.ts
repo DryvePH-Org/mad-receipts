@@ -129,7 +129,7 @@ describe("validateExtraction", () => {
     expect(issues).toContainEqual({
       field: "amount",
       level: "error",
-      message: "This payment is more than the remaining balance.",
+      message: "This payment is more than the buyer still owes on this deal.",
     });
   });
 
