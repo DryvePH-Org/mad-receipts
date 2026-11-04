@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { extractReceipt, ExtractionError, toReceiptFields } from "@/lib/extraction";
+import { interpretTerms } from "@/lib/extraction/interpret";
 import { visionModel } from "@/lib/extraction/groq";
 import { manilaToday } from "@/lib/dates";
 import { validateExtraction } from "@/lib/rules/validate";
@@ -55,9 +56,11 @@ export async function POST(request: Request) {
   if (photo.error) return fail(admin, draftId, "Could not open the photo. Please upload it again.", 500);
 
   try {
-    const fields = await extractReceipt(new Uint8Array(await photo.data.arrayBuffer()), "image/jpeg");
+    const { fields, hints } = await extractReceipt(new Uint8Array(await photo.data.arrayBuffer()), "image/jpeg");
     const issues = validateExtraction(toReceiptFields(fields), { today: manilaToday() });
-    const extraction = { fields, issues, model: visionModel(), extracted_at: new Date().toISOString() };
+    // How the sale is paid (financing, trade-in, money paid earlier): a suggestion for the review screen.
+    const terms = await interpretTerms(fields, hints);
+    const extraction = { fields, terms, issues, model: visionModel(), extracted_at: new Date().toISOString() };
 
     const { error } = await admin
       .from("receipt_drafts")

@@ -89,6 +89,25 @@ If *Anyone* isn't offered in step 3, the Workspace admin has restricted it; ask 
 3. Share the inventory sheet, the receipts log sheet and the Drive folder with that email as **Editor**.
    The Drive folder must be in a Shared drive (service accounts have no storage of their own).
 
+## How a sale is paid
+
+Every deal has an agreed price and one of three ways of paying (chosen on the review screen, editable by an admin on an open deal):
+
+| Type | The buyer owes MAD | Fields |
+|---|---|---|
+| **Cash** | the price | none |
+| **Financing** | price − loan + processing fee | loan amount, down payment (= price − loan, linked), processing fee, financing company |
+| **Trade-in** | price − trade-in value | value of the traded car, a description of it |
+
+`balance = what the buyer owes − everything paid`; at zero the deal is **Sold**. Money received before the app existed
+(for example a reservation) goes in **Paid before this receipt** on the deal's first receipt. The loan is paid by the
+financing company, so it is not part of the buyer's balance. Example, receipt 2540: price 720,000, loan 130,000 (GDFI),
+fee 10,000 → the buyer owes 600,000, and 20,000 paid earlier + 580,000 now settles it.
+
+The photo suggests the type (a balance line like `Mad: 0  Gdfi: 130,000` means financing) and a voice note can say it
+("financing, loan one thirty thousand, GDFI, fee ten thousand"). Staff always see and can change it. A sale waiting on
+"approval of financing" with no loan amount stays **Cash** until the loan is known; the next receipt then switches it.
+
 ## Voice note and salespeople
 
 On the review screen staff can record a **voice note** (or type it): the receipt details and who sold
@@ -117,6 +136,14 @@ node scripts/hosted-test-data.mjs seed /tmp/creds.json      # marked test users 
 node scripts/hosted-test-data.mjs clean                     # remove all of it
 npm run test:e2e                                            # browser tests (below)
 ```
+
+**Money rules** (`tests/db`, run with the normal `npm test`): the project's real migrations are applied to a throwaway
+Postgres (PGlite, inside the test) and the deal, payment, void and edit rules are exercised, so database changes can be
+tested without Docker or the hosted project.
+
+**AI models:** the vision model (`GROQ_VISION_MODEL`) reads the photo. `openai/gpt-oss-120b` (override with
+`GROQ_REASONING_MODEL`) cannot see images, so it handles the text work: understanding voice notes and deciding the sale
+type from what was read.
 
 **Reading quality** (uses your real Groq quota, nothing is saved):
 `ALLOW_LIVE_TESTS=yes npm run test:live` checks the voice note against English, Tagalog and mixed sentences, and

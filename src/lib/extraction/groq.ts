@@ -35,7 +35,8 @@ Return ONLY a JSON object with exactly these keys:
   "bank_branch": "'Bank/Branch' if paid by check",
   "balance_words": "the words in 'Balance of ____', exactly as written",
   "balance_amount": "the number in '(P____)' after the balance words",
-  "balance_due_date": "the date after 'shall be given on or before', as YYYY-MM-DD"
+  "balance_due_date": "the date after 'shall be given on or before', as YYYY-MM-DD",
+  "terms_hints": "copy exactly as written any words or names on the Balance lines, the Bank/Br. line or the 'shall be given on or before' line that are not a plain amount or date (for example 'Mad: 0 Gdfi: 130,000' or 'Upon approval of financing'), and any mention of trade-in. Empty string if there is none"
 }
 
 Rules:
@@ -54,7 +55,8 @@ Reading handwriting (this matters most):
 - Contact numbers are Philippine mobile numbers: 11 digits starting with 09 (e.g. 09171234567). Read digit by digit and return exactly 11 digits if you can see them all.
 - The money amounts must agree: Less payment = the amount just paid, and Agreed price minus Less payment = Balance. Use that only to double-check a number you can already see; never invent one.
 - Words fields (amount_words, balance_words): copy only the words that are actually handwritten. Do not add or complete words such as "ONLY" or "PESOS" if they are not on the line.
-- Names and addresses: copy the handwriting letter by letter. Prefer real Philippine names and places (for example SAN FERNANDO, KAPITOLYO, PASIG CITY, QUEZON CITY) over invented ones, but never change letters you can clearly see.- Money on the right side (Agreed Price, Less Payment, Balance): copy exactly what is written. NEVER calculate a number that is not written. If Less Payment is a sum such as "20,000 + 580,000", return the TOTAL (600000) as less_payment. If Balance is not a single number (for example it says "Mad: 0  Gdfi: 130,000" or names a bank or financing company), return null for balance and copy that text as written into balance_words; do not turn it into a number.
+- Names and addresses: copy the handwriting letter by letter. Prefer real Philippine names and places (for example SAN FERNANDO, KAPITOLYO, PASIG CITY, QUEZON CITY) over invented ones, but never change letters you can clearly see.
+- Money on the right side (Agreed Price, Less Payment, Balance): copy exactly what is written. NEVER calculate a number that is not written. If Less Payment is a sum such as "20,000 + 580,000", return the TOTAL (600000) as less_payment. If Balance is not a single number (for example it says "Mad: 0  Gdfi: 130,000" or names a bank or financing company), return null for balance and copy that text as written into balance_words; do not turn it into a number.
 - paper_payment_type is the ONE option that has a line under it, a circle or a tick: earnest money, partial payment or full payment. Look for the underline carefully. If a word is struck through, it was NOT chosen.
 - payment_method: only the box with an X or check mark counts ("Cash" or "Check"). A filled-in Bank/Br. line does NOT mean the payment was by check. check_no only if a check number is actually written, otherwise null.
 - balance_due_date: only a real date, as YYYY-MM-DD. If it says something else (such as "Upon approval of financing", "0" or a dash), return null.
@@ -70,6 +72,12 @@ function groq(): Groq {
   client ??= new Groq({ apiKey: process.env.GROQ_API_KEY, timeout: 60_000, maxRetries: 2 });
   return client;
 }
+
+/**
+ * The text model that reasons about what was read or said (deal terms, voice notes). It cannot see
+ * images, so the vision model above still reads the photo. Override with GROQ_REASONING_MODEL.
+ */
+export const reasoningModel = () => process.env.GROQ_REASONING_MODEL || "openai/gpt-oss-120b";
 
 export function visionModel(): string {
   const model = process.env.GROQ_VISION_MODEL;
@@ -124,11 +132,13 @@ export async function callGroqTranscription(bytes: Uint8Array, mimeType: string,
   return result.text ?? "";
 }
 
-/** Text in, JSON text out, with the same model as the photo reading. */
+/** Text in, JSON text out, from the reasoning model. */
 export async function callGroqJson(system: string, user: string): Promise<string> {
   const completion = await groq().chat.completions.create({
-    model: visionModel(),
+    model: reasoningModel(),
     temperature: 0,
+    reasoning_effort: "medium",
+    max_completion_tokens: 3000,
     response_format: { type: "json_object" },
     messages: [
       { role: "system", content: system },

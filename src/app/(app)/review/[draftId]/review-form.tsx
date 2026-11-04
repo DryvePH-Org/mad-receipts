@@ -20,7 +20,7 @@ import {
 } from "@/lib/extraction/merge";
 import type { VoiceResult } from "@/lib/extraction/voice-schema";
 import { manilaToday } from "@/lib/dates";
-import { formatPeso, toCentavos } from "@/lib/rules/money";
+import { formatPeso, fromCentavos, toCentavos } from "@/lib/rules/money";
 import {
   computePayment,
   dealStatusForBalance,
@@ -41,7 +41,19 @@ import {
   validateRows,
   type SalesRow,
 } from "@/lib/salespeople/rows";
+import {
+  amountDue,
+  describeTerms,
+  EMPTY_TERMS,
+  parseTerms,
+  termsPayload,
+  validateTerms,
+  type Terms,
+  type TermsValues,
+} from "@/lib/rules/terms";
+import type { TermsSuggestion } from "@/lib/extraction/terms-schema";
 import { cn } from "@/lib/utils";
+import { SaleTypeSection } from "@/components/sale-type-section";
 import { lookupPlate, type OpenDeal, type PlateLookup } from "./actions";
 import { VoicePanel } from "./voice-panel";
 
@@ -162,16 +174,63 @@ function toFields(values: FormValues): ReceiptFields {
   };
 }
 
+type TermsTags = Partial<Record<keyof TermsValues, string>>;
+
+const pesosText = (n: number | null) => (n === null || n === 0 ? "" : String(n));
+
+/** Starting terms: the photo's suggestion first, then anything said in a voice note on top of it. */
+function termsFromSuggestions(photo: TermsSuggestion | null, voice: TermsSuggestion | null): { values: TermsValues; tags: TermsTags } {
+  const values: TermsValues = { ...EMPTY_TERMS };
+  const tags: TermsTags = {};
+  const apply = (s: TermsSuggestion | null, from: string) => {
+    if (!s) return;
+    const set = (key: keyof TermsValues, value: string | null) => {
+      if (value) {
+        values[key] = value as never;
+        tags[key] = from;
+      }
+    };
+    set("type", s.transaction_type);
+    set("loan", pesosText(s.loan_amount));
+    set("fee", pesosText(s.processing_fee));
+    set("financier", s.financier);
+    set("tradeIn", pesosText(s.trade_in_value));
+    set("tradeInDetails", s.trade_in_details);
+    set("paidBefore", pesosText(s.paid_before));
+  };
+  apply(photo, "from the photo");
+  apply(voice, "from your voice note");
+  return { values, tags };
+}
+
+/** The terms of a saved deal, as form text. */
+function termsFromDeal(deal: OpenDeal): TermsValues {
+  const t = deal.terms;
+  const pesos = (c: number) => (c === 0 ? "" : String(c / 100));
+  return { type: t.type, loan: pesos(t.loan), fee: pesos(t.fee), financier: t.financier, tradeIn: pesos(t.tradeIn), tradeInDetails: t.tradeInDetails, paidBefore: "" };
+}
+
+const sameTerms = (a: Terms, deal: OpenDeal) =>
+  a.type === deal.terms.type &&
+  a.loan === deal.terms.loan &&
+  a.fee === deal.terms.fee &&
+  a.tradeIn === deal.terms.tradeIn &&
+  (a.financier ?? "") === deal.terms.financier &&
+  (a.tradeInDetails ?? "") === deal.terms.tradeInDetails;
+
 export function ReviewForm({
   draftId,
   initialValues,
   initialReservation,
+  initialTerms,
   salespeople,
   initialVoice,
 }: {
   draftId: string;
   initialValues: FormValues;
   initialReservation: boolean;
+  /** How the photo suggests the sale is paid (financing, trade-in, money paid earlier). */
+  initialTerms: TermsSuggestion | null;
   salespeople: SalespersonOption[];
   initialVoice: VoiceResult | null;
 }) {
@@ -187,6 +246,18 @@ export function ReviewForm({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState<Success | null>(null);
+
+  // How the sale is paid. Starts from the photo and the voice note; a saved deal's terms take over when found.
+  const [startTerms] = useState(() => termsFromSuggestions(initialTerms, initialVoice?.terms ?? null));
+  const [terms, setTerms] = useState<TermsValues>(startTerms.values);
+  const [termsTags, setTermsTags] = useState<TermsTags>(startTerms.tags);
+  const [termsTyped, setTermsTyped] = useState<Set<keyof TermsValues>>(new Set());
+  const changeTerms = (patch: Partial<TermsValues>) => {
+    setTerms((t) => ({ ...t, ...patch }));
+    setTermsTags((tags) => Object.fromEntries(Object.entries(tags).filter(([k]) => !(k in patch))));
+    setTermsTyped((typed) => new Set([...typed, ...(Object.keys(patch) as (keyof TermsValues)[])]));
+    setCheckedWarnings(false);
+  };
 
   // Typing always wins over the photo and the voice, and settles any disagreement about the field.
   const set = (key: FieldKey) => (value: string) => {
@@ -204,6 +275,13 @@ export function ReviewForm({
     // A new note replaces earlier disagreements about the fields it mentions; the rest stay.
     setConflicts((list) => [...list.filter((c) => !mentioned.has(c.field)), ...merge.conflicts]);
     if (result.salespeople.length > 0) setRows(rowsFromVoice(result.salespeople));
+    if (result.terms) {
+      // What was said fills the terms, except anything staff already typed.
+      const said = termsFromSuggestions(null, result.terms);
+      const free = (Object.keys(said.values) as (keyof TermsValues)[]).filter((k) => said.tags[k] && !termsTyped.has(k));
+      setTerms((t) => ({ ...t, ...Object.fromEntries(free.map((k) => [k, said.values[k]])) }));
+      setTermsTags((tags) => ({ ...tags, ...Object.fromEntries(free.map((k) => [k, said.tags[k]])) }));
+    }
     setHeard(result);
     setCheckedWarnings(false);
   }
@@ -239,15 +317,27 @@ export function ReviewForm({
   const deal = current?.ok ? current.deal : null;
   const unit = current?.ok ? current.unit : null;
 
+  // A saved deal knows how it is paid: show that, unless staff already changed the terms here.
+  // (Set while rendering, once per deal found, instead of in an effect.)
+  const [shownDealId, setShownDealId] = useState<string | null>(null);
+  if (deal && deal.id !== shownDealId && termsTyped.size === 0) {
+    setShownDealId(deal.id);
+    setTerms(termsFromDeal(deal));
+    setTermsTags({});
+  }
+  const termsType = terms.type;
+
   const effective = useMemo(() => (deal ? { ...values, ...dealValues(deal) } : values), [values, deal]);
   const fields = useMemo(() => toFields(effective), [effective]);
 
   const agreedPrice = deal ? deal.agreedPrice : fields.agreed_price;
-  const paidBefore = deal?.totalPaid ?? 0;
+  const { terms: parsedTerms, unreadable } = parseTerms(terms, agreedPrice ?? 0);
+  const due = agreedPrice !== null && agreedPrice > 0 ? amountDue(parsedTerms) : null;
+  const paidBefore = deal ? deal.totalPaid : parsedTerms.paidBefore;
   const payment =
-    agreedPrice !== null && agreedPrice > 0 && fields.amount !== null
+    due !== null && due > 0 && fields.amount !== null
       ? computePayment({
-          agreedPrice,
+          amountDue: due,
           totalPaidBefore: paidBefore,
           amount: fields.amount,
           isFirstReceipt: deal ? deal.confirmedReceipts === 0 : true,
@@ -255,8 +345,9 @@ export function ReviewForm({
         })
       : undefined;
 
-  const issues: ValidationIssue[] = useMemo(() => {
-    const list = validateExtraction(fields, { payment, today: manilaToday() });
+  // (Recomputed each render: it is cheap, and the React Compiler memoizes it.)
+  const issues: ValidationIssue[] = (() => {
+    const list = validateExtraction(fields, { payment, today: manilaToday(), termsType });
     const add = (field: FieldKey, level: ValidationIssue["level"], message: string) =>
       list.push({ field, level, message });
 
@@ -286,7 +377,7 @@ export function ReviewForm({
       add("plate_no", "warning", "Unit is already marked Sold in inventory.");
     }
     return list;
-  }, [fields, effective, payment, deal, unit, current, plate]);
+  })();
 
   // Fields that come from the existing deal can't disagree: the deal's values are used.
   const openConflicts = conflicts.filter((c) => !(deal && (DEAL_FIELDS as readonly FieldKey[]).includes(c.field)));
@@ -304,9 +395,12 @@ export function ReviewForm({
   const errors = issues.filter((i) => i.level === "error");
   const warnings = issues.filter((i) => i.level === "warning");
   const byField = (key: FieldKey) => issues.filter((i) => i.field === key);
-  const problemCount = errors.length + openConflicts.length + salesErrors.length;
+  const termIssues = validateTerms(parsedTerms, unreadable);
+  const termErrors = termIssues.filter((i) => i.level === "error");
+  const warningCount = warnings.length + termIssues.filter((i) => i.level === "warning").length;
+  const problemCount = errors.length + openConflicts.length + salesErrors.length + termErrors.length;
   const canConfirm =
-    problemCount === 0 && !lookupPending && (warnings.length === 0 || checkedWarnings) && !submitting;
+    problemCount === 0 && !lookupPending && (warningCount === 0 || checkedWarnings) && !submitting;
 
   async function confirm() {
     setSubmitting(true);
@@ -318,6 +412,8 @@ export function ReviewForm({
       body: JSON.stringify({
         draftId,
         markedReservation: reservation,
+        // How the sale is paid. paid_before only matters for a new deal.
+        terms: { ...termsPayload(parsedTerms), ...(deal ? {} : { paid_before: fromCentavos(parsedTerms.paidBefore) }) },
         fields: {
           receipt_no: f.receipt_no,
           receipt_date: f.receipt_date,
@@ -420,6 +516,17 @@ export function ReviewForm({
         {field("buyer_contact", "Contact No.", { type: "tel", inputMode: "tel" })}
       </Section>
 
+      <SaleTypeSection
+        terms={terms}
+        onChange={changeTerms}
+        price={agreedPrice ?? 0}
+        priceField={field("agreed_price", "Agreed price (₱)", { required: !deal, inputMode: "decimal" })}
+        issues={termIssues}
+        isNewDeal={!deal}
+        tags={termsTags}
+        changingDeal={!!deal && !sameTerms(parsedTerms, deal)}
+      />
+
       <Section title="Payment">
         {field("amount", "Amount (₱)", { required: true, inputMode: "decimal" })}
         {field("amount_words", "Amount in words")}
@@ -480,8 +587,7 @@ export function ReviewForm({
         }}
       />
 
-      <Section title="Balance">
-        {field("agreed_price", "Agreed price (₱)", { required: !deal, inputMode: "decimal" })}
+      <Section title="Balance on the paper (for checking)">
         {field("less_payment", "Less payment on paper (₱)", { inputMode: "decimal" })}
         {field("balance", "Balance on paper (₱)", { inputMode: "decimal" })}
         {field("balance_words", "Balance in words", { wide: true })}
@@ -491,6 +597,9 @@ export function ReviewForm({
 
       <SummaryCard
         agreedPrice={agreedPrice}
+        terms={parsedTerms}
+        due={due}
+        isNewDeal={!deal}
         paidBefore={paidBefore}
         amount={fields.amount}
         balanceAfter={payment && !payment.error ? payment.balanceAfter : null}
@@ -503,7 +612,7 @@ export function ReviewForm({
             Fix {problemCount === 1 ? "1 problem" : `${problemCount} problems`} marked in red to confirm.
           </p>
         )}
-        {problemCount === 0 && warnings.length > 0 && (
+        {problemCount === 0 && warningCount > 0 && (
           <label className="flex min-h-12 items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:bg-amber-950/30">
             <input
               type="checkbox"
@@ -512,7 +621,7 @@ export function ReviewForm({
               className="mt-0.5 size-5 accent-primary"
             />
             <span className="text-sm">
-              I checked the {warnings.length === 1 ? "warning" : `${warnings.length} warnings`} marked in yellow
+              I checked the {warningCount === 1 ? "warning" : `${warningCount} warnings`} marked in yellow
               against the paper.
             </span>
           </label>
@@ -708,30 +817,43 @@ function PlateStatus({
 
 function SummaryCard({
   agreedPrice,
+  terms,
+  due,
+  isNewDeal,
   paidBefore,
   amount,
   balanceAfter,
   paymentType,
 }: {
   agreedPrice: number | null;
+  terms: Terms;
+  due: number | null;
+  isNewDeal: boolean;
   paidBefore: number;
   amount: number | null;
   balanceAfter: number | null;
   paymentType: PaymentType | null;
 }) {
   const peso = (v: number | null) => (v === null ? "—" : formatPeso(v));
-  const rows: [string, string][] = [
-    ["Agreed price", peso(agreedPrice)],
-    ["Paid so far", peso(paidBefore)],
+  const rows: [string, string][] = [["Agreed price", peso(agreedPrice)]];
+  if (terms.type === "trade_in") rows.push(["Trade-in credit", `− ${peso(terms.tradeIn)}`]);
+  if (terms.type === "financing") {
+    rows.push([`Paid by ${terms.financier ?? "the financing company"}`, `− ${peso(terms.loan)}`]);
+    if (terms.fee > 0) rows.push(["Processing fee", `+ ${peso(terms.fee)}`]);
+  }
+  rows.push(
+    ["Buyer owes MAD", peso(due)],
+    [isNewDeal ? "Paid before this receipt" : "Paid so far", peso(paidBefore)],
     ["This payment", peso(amount)],
     ["New balance", peso(balanceAfter)],
     ["Computed type", paymentType ? TYPE_LABEL[paymentType] : "—"],
     ["Unit will be", balanceAfter === null ? "—" : unitStatusForDeal(dealStatusForBalance(balanceAfter))],
-  ];
+  );
   return (
     <Card>
       <CardHeader>
         <CardTitle>Summary</CardTitle>
+        <p className="text-sm text-muted-foreground">{describeTerms(terms)}</p>
       </CardHeader>
       <CardContent>
         <dl className="grid grid-cols-2 gap-y-2 text-sm">

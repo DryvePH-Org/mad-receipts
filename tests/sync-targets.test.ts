@@ -53,6 +53,14 @@ function context(overrides: { receipt?: Partial<SyncContext["receipt"]>; deal?: 
       buyer_address: "16 San Fernando, Kapitolyo, Pasig City",
       buyer_contact: null,
       agreed_price: 500000,
+      amount_due: 500000,
+      transaction_type: "cash",
+      trade_in_value: 0,
+      trade_in_details: null,
+      loan_amount: 0,
+      processing_fee: 0,
+      financier: null,
+      opening_paid: 0,
       total_paid: 50000,
       balance: 450000,
       status: "open",
@@ -146,8 +154,9 @@ describe("sheets target", () => {
       "Photo Link": "https://drive.google.com/file/d/f9/view",
       "Confirmed By": "Test Staff",
       Status: "Confirmed",
+      "Sale Type": "Cash",
     });
-    expect(Deals).toEqual([DEAL_HEADERS, ["d1", "NKF4771", "Jose Rizal", 500000, 50000, 450000, "Open", "2556", ""]]);
+    expect(Deals).toEqual([DEAL_HEADERS, ["d1", "NKF4771", "Jose Rizal", 500000, 50000, 450000, "Open", "2556", "", "Cash", 500000]]);
   });
 
   it("does not duplicate a receipt row, and updates the deal row in place", async () => {
@@ -169,8 +178,33 @@ describe("sheets target", () => {
     expect(d.sheets.tabs.Receipts).toHaveLength(3);
     expect(d.sheets.tabs.Deals).toEqual([
       DEAL_HEADERS,
-      ["d1", "NKF4771", "Jose Rizal", 500000, 500000, 0, "Completed", "2557", "David 3%, Ella 1.5%"],
+      ["d1", "NKF4771", "Jose Rizal", 500000, 500000, 0, "Completed", "2557", "David 3%, Ella 1.5%", "Cash", 500000],
     ]);
+  });
+
+  it("a financed deal: total paid is measured against what the buyer owes, and the terms are written down", async () => {
+    const d = deps();
+    const ctx = context({
+      receipt: { amount: 580000, balance_after: 0, payment_type: "full" },
+      deal: {
+        agreed_price: 720000, amount_due: 600000, transaction_type: "financing", loan_amount: 130000, processing_fee: 10000,
+        financier: "GDFI", opening_paid: 20000, total_paid: 600000, balance: 0, status: "completed",
+      },
+    });
+    await syncTargets.sheets(ctx, d.all);
+    const row = Object.fromEntries(RECEIPT_HEADERS.map((h, i) => [h, d.sheets.tabs.Receipts[1][i]]));
+    expect([row["Agreed Price"], row["Total Paid"], row.Balance, row["Sale Type"]]).toEqual([720000, 600000, 0, "Financing: loan ₱130,000 (GDFI) + fee ₱10,000"]);
+    expect(d.sheets.tabs.Deals[1].slice(-2)).toEqual(["Financing: loan ₱130,000 (GDFI) + fee ₱10,000", 600000]);
+    expect(telegramCaption(ctx)).toContain("Financing: loan ₱130,000 (GDFI) + fee ₱10,000");
+  });
+
+  it("adds the names of newer columns to an older header row", async () => {
+    const d = deps();
+    d.sheets.tabs.Receipts.push(RECEIPT_HEADERS.slice(0, 23));
+    d.sheets.tabs.Deals.push(DEAL_HEADERS.slice(0, 9));
+    await syncTargets.sheets(context(), d.all);
+    expect(d.sheets.tabs.Receipts[0]).toEqual(RECEIPT_HEADERS);
+    expect(d.sheets.tabs.Deals[0]).toEqual(DEAL_HEADERS);
   });
 
   it("keeps rows staff added above, and appends below them", async () => {

@@ -22,6 +22,9 @@ const ERRORS: Record<string, string> = {
   deal_not_open: "Only an open (reserved) deal can be cancelled. For a sold deal, void its latest receipt first.",
   missing_buyer_name: "The buyer's name can't be empty.",
   invalid_details: "Some details are too long or not valid.",
+  invalid_terms: "Check how the sale is paid: a loan or a trade-in value must be more than zero and less than the agreed price.",
+  overpayment: "The buyer has already paid more than these terms would leave them owing.",
+  terms_would_complete: "These amounts would leave nothing to pay. Confirm the last receipt instead.",
   invalid_salespeople: "Check the salespeople: each needs a name from the list and a commission % from 0 to 100.",
 };
 
@@ -96,14 +99,27 @@ const editSchema = z.object({
   salespeople: z
     .array(z.object({ salespersonId: z.uuid(), commissionPercent: z.number().min(0).max(100) }))
     .max(5),
+  // Only sent when the deal's terms were changed.
+  terms: z
+    .object({
+      transaction_type: z.enum(["cash", "financing", "trade_in"]),
+      trade_in_value: z.string().regex(/^\d{1,10}\.\d{2}$/),
+      trade_in_details: z.string().trim().max(200).nullable(),
+      loan_amount: z.string().regex(/^\d{1,10}\.\d{2}$/),
+      processing_fee: z.string().regex(/^\d{1,10}\.\d{2}$/),
+      financier: z.string().trim().max(100).nullable(),
+    })
+    .optional(),
 });
 
 export async function editDeal(_prev: ActionResult, form: FormData): Promise<ActionResult> {
   const actor = await requireAdmin();
 
   let salespeople: unknown = [];
+  let terms: unknown = undefined;
   try {
     salespeople = JSON.parse(String(form.get("salespeople") || "[]"));
+    if (form.get("terms")) terms = JSON.parse(String(form.get("terms")));
   } catch {
     return { ok: false, message: ERRORS.invalid_salespeople };
   }
@@ -117,14 +133,15 @@ export async function editDeal(_prev: ActionResult, form: FormData): Promise<Act
     motor_no: form.get("motor_no") ?? "",
     chassis_no: form.get("chassis_no") ?? "",
     salespeople,
+    terms,
   });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
-  const { dealId, salespeople: people, ...details } = parsed.data;
+  const { dealId, salespeople: people, terms: newTerms, ...details } = parsed.data;
 
   const { error } = await createAdminClient().rpc("update_deal_details", {
     p_actor: actor.id,
     p_deal_id: dealId,
-    p_patch: details,
+    p_patch: { ...details, ...(newTerms ?? {}) },
     // An empty list means "leave the salespeople as they are".
     p_salespeople: people.map((p) => ({
       salesperson_id: p.salespersonId,

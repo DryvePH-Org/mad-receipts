@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { NameMatch } from "@/lib/salespeople/names";
 import { ExtractedReceipt } from "./schema";
+import { TermsSuggestion } from "./terms-schema";
 
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 
@@ -26,10 +27,15 @@ const HeardPerson = z.preprocess(
 export const VoiceExtraction = z.preprocess(
   (v) =>
     isObject(v)
-      ? { fields: isObject(v.fields) ? v.fields : {}, salespeople: Array.isArray(v.salespeople) ? v.salespeople : [] }
+      ? {
+          fields: isObject(v.fields) ? v.fields : {},
+          terms: isObject(v.terms) ? v.terms : {},
+          salespeople: Array.isArray(v.salespeople) ? v.salespeople : [],
+        }
       : v,
   z.object({
     fields: ExtractedReceipt,
+    terms: TermsSuggestion,
     // Entries without a name are dropped instead of failing the whole note.
     salespeople: z.array(z.unknown()).transform((items) =>
       items.flatMap((item) => {
@@ -53,6 +59,8 @@ export interface VoiceResult {
   source: "voice" | "typed";
   transcript: string;
   fields: ExtractedReceipt;
+  /** How the sale is paid, as said. Missing on notes saved before this existed. */
+  terms?: TermsSuggestion;
   salespeople: HeardSalesperson[];
   transcribed_at: string;
 }

@@ -4,8 +4,11 @@ export type PaymentType = "earnest" | "partial" | "full";
 export type DealStatus = "open" | "completed" | "cancelled";
 
 export interface PaymentInput {
-  /** All money in integer centavos. */
-  agreedPrice: number;
+  /**
+   * All money in integer centavos. `amountDue` is what the BUYER owes MAD for the deal: the agreed
+   * price minus a trade-in or a financing loan, plus any processing fee (see rules/terms.ts).
+   */
+  amountDue: number;
   totalPaidBefore: number;
   amount: number;
   /** No confirmed receipts on the deal yet. */
@@ -25,14 +28,14 @@ export type PaymentResult =
  * paper is never trusted: the computed type always wins.
  */
 export function computePayment(input: PaymentInput): PaymentResult {
-  const { agreedPrice, totalPaidBefore, amount, isFirstReceipt, markedReservation } = input;
+  const { amountDue, totalPaidBefore, amount, isFirstReceipt, markedReservation } = input;
 
-  const money = [agreedPrice, totalPaidBefore, amount];
-  if (!money.every(Number.isSafeInteger) || agreedPrice <= 0 || totalPaidBefore < 0) {
+  const money = [amountDue, totalPaidBefore, amount];
+  if (!money.every(Number.isSafeInteger) || amountDue <= 0 || totalPaidBefore < 0) {
     return { balanceAfter: NaN, paymentType: null, error: "invalid_input" };
   }
 
-  const balanceAfter = agreedPrice - (totalPaidBefore + amount);
+  const balanceAfter = amountDue - (totalPaidBefore + amount);
   if (amount <= 0) return { balanceAfter, paymentType: null, error: "amount_not_positive" };
   if (balanceAfter < 0) return { balanceAfter, paymentType: null, error: "overpayment" };
 

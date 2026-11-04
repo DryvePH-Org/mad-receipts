@@ -69,6 +69,56 @@ test("photo to confirmed receipt, then it shows on the deal; the same number is 
   await expect(page.getByText(/already saved/i)).toBeVisible();
 });
 
+test("a financed sale: loan, fee and money paid earlier, up to Sold", async ({ page }) => {
+  const no = `${RECEIPT_PREFIX}-F${Date.now() % 100000}`;
+  await setMockGroq({ down: false, financing: true, receipt_no: no, plate_no: "ABC1234" });
+  await login(page, "staff");
+  await uploadPhoto(page);
+
+  // The photo and the reasoning step fill in how it is paid.
+  await expect(page.getByRole("radio", { name: "Financing" })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByLabel("Loan amount (₱)")).toHaveValue("130000");
+  await expect(page.getByLabel("Down payment (₱)")).toHaveValue("590000");
+  await expect(page.getByLabel("Financing company")).toHaveValue("GDFI");
+  await expect(page.getByLabel("Paid before this receipt (₱)")).toHaveValue("20000");
+
+  // 590,000 down + no fee is less than the 600,000 paid: the form says so until the 10,000 fee is added.
+  await expect(page.getByText(/more than the buyer still owes/i)).toBeVisible();
+  await page.getByLabel("Processing fee (₱)").fill("10000");
+  await expect(page.getByText("Buyer owes MAD").locator("xpath=following-sibling::dd[1]")).toHaveText("₱600,000");
+
+  // The sale completes, so someone must be credited.
+  await page.getByRole("button", { name: "Add salesperson" }).click();
+  await page.getByLabel("Salesperson", { exact: true }).selectOption({ label: "ZZT E2E Pat" });
+  await page.getByLabel("Commission %").fill("3");
+  const warned = page.getByLabel(/I checked the/);
+  if (await warned.count()) await warned.check();
+  await page.getByRole("button", { name: "Confirm receipt" }).click();
+  await expect(page.getByText(`Receipt No. ${no} saved`)).toBeVisible();
+  await expect(page.getByText("Sold", { exact: true })).toBeVisible();
+
+  await page.getByText("View deal").click();
+  await page.waitForURL("**/deals/**");
+  await expect(page.getByText("Financing: loan ₱130,000 (GDFI) + fee ₱10,000")).toBeVisible();
+  await expect(page.getByText("Buyer owes MAD")).toBeVisible();
+  await expect(page.getByText(/includes ₱20,000 paid before the first receipt/)).toBeVisible();
+  await setMockGroq({ financing: false, plate_no: "NKF4771" });
+});
+
+test("trade-in shows only its own fields and credits the traded car", async ({ page }) => {
+  await setMockGroq({ down: false, financing: false, receipt_no: `${RECEIPT_PREFIX}-T${Date.now() % 100000}`, plate_no: "XYZ5678" });
+  await login(page, "staff");
+  await uploadPhoto(page);
+  await page.getByRole("radio", { name: "Trade-in" }).click();
+  await expect(page.getByLabel("Loan amount (₱)")).toHaveCount(0);
+  await page.getByLabel("Value of the traded car (₱)").fill("200000");
+  await page.getByLabel("Traded car").fill("2015 Toyota Vios, silver");
+  await expect(page.getByText("Trade-in credit").locator("xpath=following-sibling::dd[1]")).toHaveText("− ₱200,000");
+  await expect(page.getByText("Buyer owes MAD").locator("xpath=following-sibling::dd[1]")).toHaveText("₱300,000");
+  await page.getByRole("radio", { name: "Cash" }).click();
+  await expect(page.getByLabel("Value of the traded car (₱)")).toHaveCount(0);
+});
+
 test("when the AI service is down the form can still be filled by hand", async ({ page }) => {
   await setMockGroq({ down: true });
   await login(page, "staff");

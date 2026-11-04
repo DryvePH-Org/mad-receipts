@@ -41,6 +41,8 @@ export interface ValidationContext {
   payment?: PaymentResult;
   /** Today in Manila (YYYY-MM-DD). When given, a receipt date far from it is flagged. */
   today?: string;
+  /** How the sale is paid. A balance line with names or numbers is expected (and not flagged) for financing. */
+  termsType?: "cash" | "financing" | "trade_in";
 }
 
 /** Plates are the inventory key: uppercase letters and digits only ("nkf-4771" → "NKF4771"). */
@@ -113,7 +115,8 @@ export function validateExtraction(
   const balanceNumber = data.balance_amount ?? data.balance;
   if (!blank(data.balance_words) && /\d/.test(data.balance_words!)) {
     // Not words at all: the balance line holds notes such as "Mad: 0  Gdfi: 130,000" (a financing company pays the rest).
-    warning(
+    // Once the sale is marked as financing that is accounted for, so only flag it for other sale types.
+    if (context.termsType !== "financing") warning(
       "balance_words",
       `The balance line on the paper says "${data.balance_words!.trim()}". Check what is still owed to MAD before confirming.`,
     );

@@ -32,7 +32,7 @@ const sample: ReceiptFields = {
 
 const firstPayment = (fields: ReceiptFields, markedReservation = true) =>
   computePayment({
-    agreedPrice: fields.agreed_price!,
+    amountDue: fields.agreed_price!,
     totalPaidBefore: 0,
     amount: fields.amount!,
     isFirstReceipt: true,
@@ -63,6 +63,8 @@ describe("validateExtraction", () => {
     const issues = validateExtraction({ ...sample, balance: null, balance_words: "Mad: 0 Gdfi: 130,000" });
     expect(fieldsOf(issues)).toEqual(["warning:balance_words"]);
     expect(issues[0].message).toContain("Gdfi: 130,000");
+    // Once the sale is marked as financing, the note is accounted for and not flagged again.
+    expect(validateExtraction({ ...sample, balance: null, balance_words: "Mad: 0 Gdfi: 130,000" }, { termsType: "financing" })).toEqual([]);
   });
 
   it("flags a check without a check number, and a less-payment below the amount", () => {

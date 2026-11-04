@@ -14,6 +14,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
 import { formatDate, formatManilaDateTime, manilaToday } from "@/lib/dates";
 import { paymentTypeLabel, pesos } from "@/lib/deals";
+import { toCentavos } from "@/lib/rules/money";
+import { describeTerms, parseTerms, type TermsValues, type TransactionType } from "@/lib/rules/terms";
 import { createClient } from "@/lib/supabase/server";
 import { CancelDealDialog, EditDealDialog, VoidReceiptDialog } from "./admin-actions";
 
@@ -70,6 +72,18 @@ async function DealContent({ params }: { params: PageProps<"/deals/[id]">["param
   const names = new Map(people.map((p) => [p.salespersonId, p.name]));
   for (const o of optionsResult?.data ?? []) names.set(o.id, o.name);
 
+  const cents = (v: number | null) => toCentavos(v) ?? 0;
+  const termsValues: TermsValues = {
+    type: (["cash", "financing", "trade_in"].includes(deal.transaction_type ?? "") ? deal.transaction_type : "cash") as TransactionType,
+    loan: cents(deal.loan_amount) ? String(cents(deal.loan_amount) / 100) : "",
+    fee: cents(deal.processing_fee) ? String(cents(deal.processing_fee) / 100) : "",
+    financier: deal.financier ?? "",
+    tradeIn: cents(deal.trade_in_value) ? String(cents(deal.trade_in_value) / 100) : "",
+    tradeInDetails: deal.trade_in_details ?? "",
+    paidBefore: "",
+  };
+  const terms = parseTerms(termsValues, cents(deal.agreed_price)).terms;
+
   const stateNote =
     deal.status === "open"
       ? "This car is reserved. The balance is still to be paid."
@@ -98,14 +112,44 @@ async function DealContent({ params }: { params: PageProps<"/deals/[id]">["param
         <div className="min-w-0 space-y-6">
           <Card>
             <CardContent className="space-y-4">
-              <dl className="grid grid-cols-3 gap-3 text-sm">
+              <p className="text-sm text-muted-foreground">{describeTerms(terms)}</p>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-3">
                 <div>
                   <dt className="text-muted-foreground">Agreed price</dt>
                   <dd className="text-base font-semibold sm:text-lg"><MoneyText value={deal.agreed_price} /></dd>
                 </div>
+                {terms.type === "trade_in" && (
+                  <div>
+                    <dt className="text-muted-foreground">Trade-in credit</dt>
+                    <dd className="text-base font-semibold sm:text-lg">− <MoneyText value={deal.trade_in_value} /></dd>
+                  </div>
+                )}
+                {terms.type === "financing" && (
+                  <>
+                    <div>
+                      <dt className="text-muted-foreground">Paid by {terms.financier ?? "the financing company"}</dt>
+                      <dd className="text-base font-semibold sm:text-lg">− <MoneyText value={deal.loan_amount} /></dd>
+                    </div>
+                    {terms.fee > 0 && (
+                      <div>
+                        <dt className="text-muted-foreground">Processing fee</dt>
+                        <dd className="text-base font-semibold sm:text-lg">+ <MoneyText value={deal.processing_fee} /></dd>
+                      </div>
+                    )}
+                  </>
+                )}
+                <div>
+                  <dt className="text-muted-foreground">Buyer owes MAD</dt>
+                  <dd className="text-base font-semibold sm:text-lg"><MoneyText value={deal.amount_due} /></dd>
+                </div>
                 <div>
                   <dt className="text-muted-foreground">Paid</dt>
                   <dd className="text-base font-semibold sm:text-lg"><MoneyText value={deal.total_paid} /></dd>
+                  {(deal.opening_paid ?? 0) > 0 && (
+                    <dd className="text-xs text-muted-foreground">
+                      includes <MoneyText value={deal.opening_paid} /> paid before the first receipt
+                    </dd>
+                  )}
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Balance</dt>
@@ -207,6 +251,9 @@ async function DealContent({ params }: { params: PageProps<"/deals/[id]">["param
                       motor_no: deal.motor_no ?? "",
                       chassis_no: deal.chassis_no ?? "",
                       completed: deal.status === "completed",
+                      agreedPrice: toCentavos(deal.agreed_price) ?? 0,
+                      totalPaid: toCentavos(deal.total_paid) ?? 0,
+                      terms: termsValues,
                     }}
                     salespeople={people.map((p) => ({ salespersonId: p.salespersonId, percent: p.percent }))}
                     options={optionsResult?.data ?? []}

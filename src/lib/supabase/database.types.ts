@@ -142,6 +142,14 @@ export type Database = {
           plate_no: string
           status: string
           total_paid: number
+          amount_due: number | null
+          financier: string | null
+          loan_amount: number
+          opening_paid: number
+          processing_fee: number
+          trade_in_details: string | null
+          trade_in_value: number
+          transaction_type: string
           updated_at: string
         }
         Insert: {
@@ -162,6 +170,13 @@ export type Database = {
           plate_no: string
           status?: string
           total_paid?: number
+          financier?: string | null
+          loan_amount?: number
+          opening_paid?: number
+          processing_fee?: number
+          trade_in_details?: string | null
+          trade_in_value?: number
+          transaction_type?: string
           updated_at?: string
         }
         Update: {
@@ -182,6 +197,13 @@ export type Database = {
           plate_no?: string
           status?: string
           total_paid?: number
+          financier?: string | null
+          loan_amount?: number
+          opening_paid?: number
+          processing_fee?: number
+          trade_in_details?: string | null
+          trade_in_value?: number
+          transaction_type?: string
           updated_at?: string
         }
         Relationships: [
@@ -453,6 +475,14 @@ export type Database = {
           receipt_count: number | null
           status: string | null
           total_paid: number | null
+          amount_due: number | null
+          financier: string | null
+          loan_amount: number | null
+          opening_paid: number | null
+          processing_fee: number | null
+          trade_in_details: string | null
+          trade_in_value: number | null
+          transaction_type: string | null
           updated_at: string | null
         }
         Relationships: [

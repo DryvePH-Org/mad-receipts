@@ -6,6 +6,12 @@ export { ExtractedReceipt, toReceiptFields } from "./schema";
 
 export class ExtractionError extends Error {}
 
+/** The fields read from the photo, plus any words about financing or trade-in the paper carries. */
+export interface PhotoReading {
+  fields: ExtractedReceipt;
+  hints: string;
+}
+
 // Groq accepts base64 images up to 4 MB per request.
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
@@ -17,7 +23,7 @@ const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 export async function extractReceipt(
   imageBytes: Uint8Array,
   mimeType = "image/jpeg",
-): Promise<ExtractedReceipt> {
+): Promise<PhotoReading> {
   if (imageBytes.byteLength === 0) throw new ExtractionError("The photo is empty.");
   if (imageBytes.byteLength * (4 / 3) > MAX_IMAGE_BYTES) {
     throw new ExtractionError("The photo is too large to read.");
@@ -25,8 +31,12 @@ export async function extractReceipt(
 
   for (let attempt = 1; attempt <= 2; attempt++) {
     const raw = await callGroqVision(imageBytes, mimeType);
-    const parsed = ExtractedReceipt.safeParse(parseJson(raw));
-    if (parsed.success) return parsed.data;
+    const json = parseJson(raw);
+    const parsed = ExtractedReceipt.safeParse(json);
+    if (parsed.success) {
+      const hints = (json as Record<string, unknown>).terms_hints;
+      return { fields: parsed.data, hints: typeof hints === "string" ? hints.trim().slice(0, 300) : "" };
+    }
   }
   throw new ExtractionError("The AI did not return a readable answer.");
 }

@@ -4,6 +4,7 @@ import { formatDate } from "@/lib/dates";
 import { sheetDate } from "@/lib/inventory/remarks";
 import type { InventoryAdapter } from "@/lib/inventory/types";
 import { formatPeso, toCentavos } from "@/lib/rules/money";
+import { describeTerms, type TransactionType } from "@/lib/rules/terms";
 import { dealStatusForBalance, unitStatusForDeal, type DealStatus } from "@/lib/rules/payment";
 import type { Tables } from "@/lib/supabase/database.types";
 import type { TelegramClient } from "@/lib/telegram";
@@ -49,10 +50,11 @@ export const DEALS_TAB = "Deals";
 export const RECEIPT_HEADERS = [
   "Timestamp", "Receipt No", "Date", "Buyer", "Address", "Contact", "Plate", "Make/Type", "Color",
   "Motor", "Chassis", "Payment Type", "Amount", "Agreed Price", "Total Paid", "Balance", "Method",
-  "Check No", "Bank/Branch", "Balance Due Date", "Photo Link", "Confirmed By", "Status",
+  "Check No", "Bank/Branch", "Balance Due Date", "Photo Link", "Confirmed By", "Status", "Sale Type",
 ];
 export const DEAL_HEADERS = [
   "Deal ID", "Plate", "Buyer", "Agreed Price", "Total Paid", "Balance", "Status", "Last Receipt No", "Salespeople",
+  "Sale Type", "Amount Due",
 ];
 
 /** Each target is safe to run again: it checks for its own earlier result first. */
@@ -128,7 +130,8 @@ async function upsertRow(
     }
     throw err;
   }
-  if (rows.length === 0) {
+  // Write the header row when the tab is empty, or add the names of newer columns to an older header row.
+  if (rows.length === 0 || rows[0].length < headers.length) {
     await sheets.updateValues(sheetId, tabRange(tab, "A1"), [headers]);
   }
   const index = rows.findIndex((r, i) => i > 0 && r[keyColumn] === key);
@@ -155,7 +158,8 @@ function manilaTimestamp(iso: string): string {
 }
 
 export function receiptRow({ receipt, deal, confirmedBy }: SyncContext): CellValue[] {
-  const agreed = toCentavos(deal.agreed_price) ?? 0;
+  // What the buyer owes is the agreed price less a loan or trade-in plus any fee, so "paid so far" is that minus the balance.
+  const due = toCentavos(deal.amount_due ?? deal.agreed_price) ?? 0;
   const balance = toCentavos(receipt.balance_after) ?? 0;
   return [
     manilaTimestamp(receipt.created_at),
@@ -172,7 +176,7 @@ export function receiptRow({ receipt, deal, confirmedBy }: SyncContext): CellVal
     label(receipt.payment_type),
     pesos(receipt.amount),
     pesos(deal.agreed_price),
-    (agreed - balance) / 100, // total paid as of this receipt
+    (due - balance) / 100, // total paid as of this receipt
     pesos(receipt.balance_after),
     receipt.payment_method ? label(receipt.payment_method) : "",
     receipt.check_no ?? "",
@@ -181,7 +185,21 @@ export function receiptRow({ receipt, deal, confirmedBy }: SyncContext): CellVal
     receipt.drive_file_id ? driveFileLink(receipt.drive_file_id) : "",
     confirmedBy,
     label(receipt.status),
+    dealTermsText(deal),
   ];
+}
+
+/** "Cash", "Financing: loan ₱130,000 (GDFI) + fee ₱10,000" or "Trade-in: ₱200,000 (2015 Vios) + cash". */
+export function dealTermsText(deal: Tables<"deals">): string {
+  const type = (["cash", "financing", "trade_in"].includes(deal.transaction_type) ? deal.transaction_type : "cash") as TransactionType;
+  return describeTerms({
+    type,
+    loan: toCentavos(deal.loan_amount) ?? 0,
+    fee: toCentavos(deal.processing_fee) ?? 0,
+    tradeIn: toCentavos(deal.trade_in_value) ?? 0,
+    financier: deal.financier,
+    tradeInDetails: deal.trade_in_details,
+  });
 }
 
 /** "David 3%, Ella 1.5%" for the log sheet. */
@@ -199,6 +217,8 @@ export function dealRow({ deal, lastReceiptNo, salespeople }: SyncContext): Cell
     label(deal.status),
     lastReceiptNo,
     salespeopleText(salespeople),
+    dealTermsText(deal),
+    pesos(deal.amount_due ?? deal.agreed_price),
   ];
 }
 
@@ -237,6 +257,7 @@ export function telegramCaption({ receipt, deal }: SyncContext): string {
     deal.buyer_name,
     [deal.make_type, deal.plate_no].filter(Boolean).join(" · "),
     money.join(" · "),
+    ...(deal.transaction_type && deal.transaction_type !== "cash" ? [dealTermsText(deal)] : []),
     `Unit: ${unitStatusForDeal(dealStatusForBalance(balance))}`,
   ].join("\n");
 }

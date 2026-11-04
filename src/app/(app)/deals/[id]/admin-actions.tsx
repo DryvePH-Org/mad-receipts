@@ -3,11 +3,14 @@
 import { useActionState, useMemo, useState } from "react";
 import { Pencil, Ban } from "lucide-react";
 import { toast } from "sonner";
+import { formatPeso } from "@/lib/rules/money";
 import { SalespeopleSection, type SalespersonOption } from "@/components/salespeople-section";
 import { ResponsiveDialog } from "@/components/shared/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SaleTypeSection } from "@/components/sale-type-section";
+import { amountDue, parseTerms, termsPayload, validateTerms, type TermsValues } from "@/lib/rules/terms";
 import { rowsFromDeal, toPayload, validateRows, type SalesRow } from "@/lib/salespeople/rows";
 import { cancelDeal, editDeal, voidReceipt, type ActionResult } from "./actions";
 
@@ -129,6 +132,10 @@ export interface EditableDeal {
   motor_no: string;
   chassis_no: string;
   completed: boolean;
+  /** Centavos. */
+  agreedPrice: number;
+  totalPaid: number;
+  terms: TermsValues;
 }
 
 export function EditDealDialog({
@@ -149,6 +156,17 @@ export function EditDealDialog({
   // A sold deal always needs someone credited; an open one may have nobody yet.
   const rowErrors = validateRows(rows, { active: options, names: nameMap }, deal.completed);
 
+  // How the deal is paid can be changed while it is open (a sold deal: void its last receipt first).
+  const [terms, setTerms] = useState<TermsValues>(deal.terms);
+  const { terms: parsedTerms, unreadable } = parseTerms(terms, deal.agreedPrice);
+  const termIssues = validateTerms(parsedTerms, unreadable);
+  const due = amountDue(parsedTerms);
+  const changed = JSON.stringify(terms) !== JSON.stringify(deal.terms);
+  const termsProblem =
+    termIssues.find((i) => i.level === "error")?.message ??
+    (changed && due < deal.totalPaid ? "The buyer has already paid more than this would leave them owing." : null) ??
+    (changed && due === deal.totalPaid ? "These amounts would leave nothing to pay. Confirm the last receipt instead." : null);
+
   const field = (name: keyof EditableDeal, label: string, required = false, wide = false) => (
     <div className={wide ? "space-y-1.5 sm:col-span-2" : "space-y-1.5"}>
       <Label htmlFor={`edit-${name}`}>{label}</Label>
@@ -165,7 +183,7 @@ export function EditDealDialog({
         open={open}
         onOpenChange={setOpen}
         title="Edit deal details"
-        description="Changes are recorded in the audit log. The price and plate can't be changed here."
+        description="Changes are recorded in the audit log. The plate can't be changed here."
         className="sm:max-w-xl"
       >
         <form action={action} className="space-y-4">
@@ -180,13 +198,34 @@ export function EditDealDialog({
             {field("motor_no", "Motor No.")}
             {field("chassis_no", "Chassis No.", false, true)}
           </div>
+          {!deal.completed && (
+            <>
+              {changed && <input type="hidden" name="terms" value={JSON.stringify(termsPayload(parsedTerms))} />}
+              <SaleTypeSection
+                terms={terms}
+                onChange={(patch) => setTerms((t) => ({ ...t, ...patch }))}
+                price={deal.agreedPrice}
+                priceField={
+                  <div className="space-y-1.5">
+                    <Label>Agreed price</Label>
+                    <p className="flex h-10 items-center rounded-lg bg-muted px-3 text-sm md:h-8">{formatPeso(deal.agreedPrice)} (can&apos;t be changed)</p>
+                  </div>
+                }
+                issues={termIssues}
+                isNewDeal={false}
+                tags={{}}
+                changingDeal={changed}
+              />
+              {termsProblem && changed && <p className="text-sm text-destructive">{termsProblem}</p>}
+            </>
+          )}
           <SalespeopleSection rows={rows} options={options} names={nameMap} required={deal.completed} errors={rowErrors} onChange={setRows} />
           <FormError state={state} />
           <Footer>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={pending || rowErrors.length > 0}>
+            <Button type="submit" disabled={pending || rowErrors.length > 0 || !!termsProblem}>
               {pending ? "Saving…" : "Save changes"}
             </Button>
           </Footer>

@@ -6,13 +6,13 @@ import { normalizePlate, type ReceiptFields } from "@/lib/rules/validate";
 // Every field is nullable. A field the model returns in the wrong shape becomes
 // null (shown as blank on the review screen) rather than failing the whole receipt.
 
-const text = z
+export const text = z
   .unknown()
   .transform((v) => (typeof v === "string" || typeof v === "number" ? String(v).trim() : ""))
   .transform((s) => (s === "" || /^(null|n\/?a|none|-+)$/i.test(s) ? null : s.slice(0, 500)));
 
 /** Pesos as a plain number, e.g. 50000 or 1500.5. Accepts "50,000" style strings too. */
-const pesos = z.unknown().transform((v) => {
+export const pesos = z.unknown().transform((v) => {
   if (typeof v !== "number" && typeof v !== "string") return null;
   const centavos = toCentavos(v);
   return centavos === null ? null : centavos / 100;

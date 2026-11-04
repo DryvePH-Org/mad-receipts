@@ -13,11 +13,11 @@ const pesos = (n: number) => n * 100;
  * Plays a sequence of payments on one deal the way confirm_receipt will:
  * each step uses the running total, and only the first receipt can be earnest.
  */
-function playDeal(agreedPrice: number, payments: { amount: number; reservation?: boolean }[]) {
+function playDeal(amountDue: number, payments: { amount: number; reservation?: boolean }[]) {
   let totalPaid = 0;
   return payments.map(({ amount, reservation = false }, i) => {
     const result = computePayment({
-      agreedPrice,
+      amountDue,
       totalPaidBefore: totalPaid,
       amount,
       isFirstReceipt: i === 0,
@@ -78,7 +78,7 @@ describe("section 2.4 cases", () => {
 
 describe("computePayment", () => {
   const base = {
-    agreedPrice: pesos(500_000),
+    amountDue: pesos(500_000),
     totalPaidBefore: 0,
     isFirstReceipt: true,
     markedReservation: false,
@@ -114,12 +114,12 @@ describe("computePayment", () => {
 
   it("works to the centavo with no float drift", () => {
     // ₱0.10 + ₱0.20 against ₱0.30: exact in centavos.
-    const first = computePayment({ ...base, agreedPrice: 30, amount: 10 });
-    const second = computePayment({ ...base, agreedPrice: 30, totalPaidBefore: 10, isFirstReceipt: false, amount: 20 });
+    const first = computePayment({ ...base, amountDue: 30, amount: 10 });
+    const second = computePayment({ ...base, amountDue: 30, totalPaidBefore: 10, isFirstReceipt: false, amount: 20 });
     expect(first).toMatchObject({ balanceAfter: 20, paymentType: "partial" });
     expect(second).toMatchObject({ balanceAfter: 0, paymentType: "full" });
 
-    const odd = computePayment({ ...base, agreedPrice: 123_456_78, amount: 23_456_77 });
+    const odd = computePayment({ ...base, amountDue: 123_456_78, amount: 23_456_77 });
     expect(odd.balanceAfter).toBe(100_000_01);
   });
 
@@ -127,6 +127,6 @@ describe("computePayment", () => {
     expect(computePayment({ ...base, amount: 0 }).error).toBe("amount_not_positive");
     expect(computePayment({ ...base, amount: -100 }).error).toBe("amount_not_positive");
     expect(computePayment({ ...base, amount: 100.5 }).error).toBe("invalid_input");
-    expect(computePayment({ ...base, agreedPrice: 0, amount: 100 }).error).toBe("invalid_input");
+    expect(computePayment({ ...base, amountDue: 0, amount: 100 }).error).toBe("invalid_input");
   });
 });

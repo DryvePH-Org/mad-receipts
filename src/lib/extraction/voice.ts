@@ -17,6 +17,7 @@ export function voicePrompt(people: SalespersonRef[]): string {
 Return ONLY a JSON object:
 {
   "fields": { ${FIELD_KEYS} },
+  "terms": { "transaction_type": "cash | financing | trade_in", "loan_amount": 0, "financier": "...", "processing_fee": 0, "trade_in_value": 0, "trade_in_details": "...", "paid_before": 0 },
   "salespeople": [ { "name": "...", "commission_percent": 3 } ]
 }
 
@@ -29,7 +30,14 @@ Rules:
 - Dates are YYYY-MM-DD. If the year is not said, use the year of today's date.
 - "salespeople" lists everyone credited with selling the car (the salesman and any others involved), each with their OWN commission percent as a number ("three percent" is 3, "two point five" is 2.5). If no percent was said for a person, use null. If nobody is named, use [].
 - Write each salesperson's name as said. If it sounds like one of these known salespeople, use that exact spelling: ${names || "(none yet)"}.
-- Commission percents belong in "salespeople", never in "fields".`;
+- Commission percents belong in "salespeople", never in "fields".
+- "terms" says how the sale is paid; every part is null unless it was said:
+  - "cash" or "straight payment" means transaction_type "cash".
+  - "financing", "finance", "loan", "bank loan" or "naka-loan" means "financing". loan_amount is the amount the bank or financing company pays ("loan amount", "financing amount", "loan ng bangko"). financier is the company's name (BPI, GDFI, Security Bank). processing_fee is the processing fee the buyer pays.
+  - "trade in", "trade-in" or "pa-trade" means "trade_in". trade_in_value is what the traded car is worth ("value ng trade in") and trade_in_details describes that car ("2015 Vios").
+  - paid_before is money the buyer already paid before this receipt ("may bayad na ng 20K", "already paid 20 thousand before").
+  - The money paid on THIS receipt ("down payment", "binayad", "paid") belongs in fields.amount, never in terms. A "down payment" is not the loan.
+  - A price, loan, fee or value that is not said stays null.`;
 }
 
 function parseJson(raw: string): unknown {
@@ -66,7 +74,7 @@ export async function interpretTranscript(
       spoken: heard.name,
       commission_percent: heard.commission_percent,
     }));
-    return { source, transcript, fields: parsed.data.fields, salespeople, transcribed_at: new Date().toISOString() };
+    return { source, transcript, fields: parsed.data.fields, terms: parsed.data.terms, salespeople, transcribed_at: new Date().toISOString() };
   }
   throw new VoiceError("I couldn't understand that recording. Try again, or type the details instead.");
 }
