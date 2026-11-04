@@ -1,6 +1,7 @@
 import "server-only";
 import Groq, { toFile } from "groq-sdk";
 import { manilaToday } from "@/lib/dates";
+import type { SpeechSegment } from "./speech";
 
 /**
  * The instructions for reading a receipt photo. Tuned against a real handwritten receipt (the
@@ -8,7 +9,12 @@ import { manilaToday } from "@/lib/dates";
  * to right). Keep scripts/eval-extraction.mjs handy when changing it. Today's date is passed in
  * so a handwritten 6 is not read as a 4 (2024 instead of 2026).
  */
-export const extractionPrompt = (today: string = manilaToday()) => `You read a photo of a handwritten Philippine car-sale "Acknowledgement of Payment" form from Manila Auto Display (MAD).
+/** Extra instructions for the second, independent reading: unsure means null. */
+const CAREFUL = `
+- Read the form ONE FIELD AT A TIME, from top to bottom, as if you had never seen this kind of form. For every handwritten value, first decide whether each character is clearly readable. If any character is unclear or could be two different characters, return null for that field instead of your best guess.
+`;
+
+export const extractionPrompt = (today: string = manilaToday(), careful = false) => `You read a photo of a handwritten Philippine car-sale "Acknowledgement of Payment" form from Manila Auto Display (MAD).
 
 Return ONLY a JSON object with exactly these keys:
 {
@@ -63,7 +69,7 @@ Reading handwriting (this matters most):
 - Motor No. and Chassis No.: copy character by character; letters O and I are rare in these numbers, digits 0 and 1 are common. If you cannot read one, return null instead of guessing.
 - Numeric dates are MONTH/DAY/YEAR: 11/03/2026 is November 3, 2026 (the first number is the month, 01 to 12). A date is never earlier than a few months before today's date given above, so reread it if it seems far off.
 - Tick boxes are written like "( ) Check" and "(X) Cash" or "(√) Cash": the choice is the word whose brackets contain a tick, X or check mark; empty brackets "( )" mean not chosen. Decide Cash or Check by looking at BOTH brackets.
-- Names: copy exactly the letters you see; do not replace a hard-to-read name with a more common one.`;
+- Names: copy exactly the letters you see; do not replace a hard-to-read name with a more common one.${careful ? CAREFUL : ""}`;
 
 let client: Groq | null = null;
 
@@ -86,7 +92,7 @@ export function visionModel(): string {
 }
 
 /** Sends the photo to the Groq vision model and returns its raw JSON text. */
-export async function callGroqVision(imageBytes: Uint8Array, mimeType: string): Promise<string> {
+export async function callGroqVision(imageBytes: Uint8Array, mimeType: string, careful = false): Promise<string> {
   const dataUrl = `data:${mimeType};base64,${Buffer.from(imageBytes).toString("base64")}`;
 
   const completion = await groq().chat.completions.create({
@@ -94,7 +100,7 @@ export async function callGroqVision(imageBytes: Uint8Array, mimeType: string): 
     temperature: 0,
     response_format: { type: "json_object" },
     messages: [
-      { role: "system", content: extractionPrompt() },
+      { role: "system", content: extractionPrompt(undefined, careful) },
       {
         role: "user",
         content: [
@@ -118,18 +124,21 @@ const AUDIO_EXTENSION: [RegExp, string][] = [
   [/mpeg|mp3/, "mp3"],
 ];
 
-/** Turns a voice recording into text. `prompt` tells it which names to expect. */
-export async function callGroqTranscription(bytes: Uint8Array, mimeType: string, prompt: string): Promise<string> {
+/**
+ * Turns a voice recording into text, with the speech model's own confidence for each segment so that
+ * guesses and noise can be filtered out (see speech.ts). `prompt` tells it which names to expect.
+ */
+export async function callGroqTranscription(bytes: Uint8Array, mimeType: string, prompt: string): Promise<{ text: string; segments: SpeechSegment[] }> {
   const extension = AUDIO_EXTENSION.find(([pattern]) => pattern.test(mimeType))?.[1] ?? "webm";
   const file = await toFile(Buffer.from(bytes), `voice.${extension}`, { type: mimeType });
-  const result = await groq().audio.transcriptions.create({
+  const result = (await groq().audio.transcriptions.create({
     file,
     model: transcriptionModel(),
     prompt,
     temperature: 0,
-    response_format: "json",
-  });
-  return result.text ?? "";
+    response_format: "verbose_json",
+  })) as { text?: string; segments?: SpeechSegment[] };
+  return { text: result.text ?? "", segments: result.segments ?? [] };
 }
 
 /** Text in, JSON text out, from the reasoning model. */

@@ -56,11 +56,11 @@ export async function POST(request: Request) {
   if (photo.error) return fail(admin, draftId, "Could not open the photo. Please upload it again.", 500);
 
   try {
-    const { fields, hints } = await extractReceipt(new Uint8Array(await photo.data.arrayBuffer()), "image/jpeg");
+    const { fields, hints, uncertain, checked } = await extractReceipt(new Uint8Array(await photo.data.arrayBuffer()), "image/jpeg");
     const issues = validateExtraction(toReceiptFields(fields), { today: manilaToday() });
     // How the sale is paid (financing, trade-in, money paid earlier): a suggestion for the review screen.
     const terms = await interpretTerms(fields, hints);
-    const extraction = { fields, terms, issues, model: visionModel(), extracted_at: new Date().toISOString() };
+    const extraction = { fields, terms, uncertain, checked, issues, model: visionModel(), extracted_at: new Date().toISOString() };
 
     const { error } = await admin
       .from("receipt_drafts")

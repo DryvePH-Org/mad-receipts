@@ -108,6 +108,24 @@ The photo suggests the type (a balance line like `Mad: 0  Gdfi: 130,000` means f
 ("financing, loan one thirty thousand, GDFI, fee ten thousand"). Staff always see and can change it. A sale waiting on
 "approval of financing" with no loan amount stays **Cash** until the loan is known; the next receipt then switches it.
 
+## How the AI is kept honest
+
+Only information that can be shown to be right goes into a receipt; anything else is left blank for staff.
+
+- **Photo:** every photo is read twice, independently (full size, and a smaller copy with stricter instructions).
+  A field both readings agree on is filled in. A field they disagree on is left **blank** and both readings are
+  offered as one-tap choices ("The AI wasn't sure how to read this"). If the second reading cannot run, the first
+  stands. Limits: two readings that make the *same* mistake agree, so staff checking the paper stays the last guard;
+  and each photo now uses two vision calls (about 1 photo per minute on Groq's free tier).
+- **Voice:** the speech model reports how sure it was about each sentence. Unsure parts and known "hallucinations"
+  (words heard in silence) are ignored and shown to staff. Then every value the language model extracted (amounts,
+  plate, names, phone, dates, percents, sale type) is checked in plain code against the transcript, in English,
+  Tagalog and mixed speech ("limampung libo", "450K", "kalahating milyon", digits said one at a time). A value that
+  is not in the words is thrown away and listed as "I wasn't sure about…".
+- **Always:** typed values win, photo and voice disagreements are shown for staff to pick, amounts must agree with
+  the words and the arithmetic, the plate must exist in the inventory sheet, and nothing is saved until a person
+  confirms.
+
 ## Voice note and salespeople
 
 On the review screen staff can record a **voice note** (or type it): the receipt details and who sold

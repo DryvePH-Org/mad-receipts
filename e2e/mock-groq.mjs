@@ -3,7 +3,7 @@
 import { createServer } from "node:http";
 
 const KEYS = ["receipt_no","receipt_date","buyer_name","buyer_address","buyer_contact","amount_words","amount","paper_payment_type","make_type","plate_no","motor_no","chassis_no","color","agreed_price","less_payment","balance","payment_method","check_no","bank_branch","balance_words","balance_amount","balance_due_date"];
-const state = { down: false, financing: false, receipt_no: "ZZT-E2E-0", plate_no: "NKF4771", amount: 100000 };
+const state = { down: false, financing: false, disagree: false, receipt_no: "ZZT-E2E-0", plate_no: "NKF4771", amount: 100000 };
 
 // A financed, full payment like a real paper: price 720,000, 20,000 paid earlier + 580,000 now, loan 130,000.
 const financed = () => ({
@@ -11,7 +11,7 @@ const financed = () => ({
   paper_payment_type: "full", balance_words: "Mad: 0 Gdfi: 130,000", terms_hints: "Mad: 0 Gdfi: 130,000",
 });
 
-const fields = () => ({
+const fields = (careful) => ({
   ...Object.fromEntries(KEYS.map((k) => [k, null])),
   receipt_no: state.receipt_no,
   receipt_date: "2026-11-03",
@@ -20,7 +20,7 @@ const fields = () => ({
   amount_words: "One Hundred Thousand Only",
   paper_payment_type: "earnest",
   make_type: "2021 Honda Civic",
-  plate_no: state.plate_no,
+  plate_no: state.disagree && careful ? "NKF4971" : state.plate_no, // the second reading misreads one digit
   color: "Black",
   agreed_price: 500000,
   payment_method: "cash",
@@ -47,5 +47,6 @@ createServer(async (req, res) => {
     const terms = state.financing ? { transaction_type: "financing", loan_amount: 130000, financier: "GDFI" } : {};
     return res.end(JSON.stringify({ id: "mock", object: "chat.completion", choices: [{ index: 0, message: { role: "assistant", content: JSON.stringify(terms) }, finish_reason: "stop" }] }));
   }
-  res.end(JSON.stringify({ id: "mock", object: "chat.completion", choices: [{ index: 0, message: { role: "assistant", content: JSON.stringify(fields()) }, finish_reason: "stop" }] }));
+  const careful = body.includes("ONE FIELD AT A TIME");
+  res.end(JSON.stringify({ id: "mock", object: "chat.completion", choices: [{ index: 0, message: { role: "assistant", content: JSON.stringify(fields(careful)) }, finish_reason: "stop" }] }));
 }).listen(8766, "127.0.0.1");

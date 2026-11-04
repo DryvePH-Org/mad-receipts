@@ -191,6 +191,18 @@ export function VoicePanel({
             <span className="font-medium">{last.source === "typed" ? "You typed" : "I heard"}:</span> {last.transcript}
           </p>
         )}
+        {last && state !== "recording" && last.unsure && last.unsure.length > 0 && (
+          <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-500/40 dark:bg-amber-950/30">
+            I wasn&apos;t sure about {last.unsure.join(", ")}, so I left {last.unsure.length === 1 ? "it" : "them"} blank. Please type
+            {last.unsure.length === 1 ? " it" : " them"} or record again.
+          </p>
+        )}
+        {last && state !== "recording" && last.unclear && last.unclear.length > 0 && (
+          <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-500/40 dark:bg-amber-950/30">
+            Part of the recording was unclear, so I ignored it: &quot;{last.unclear.join(" … ")}&quot;. Record again if something
+            important was in it.
+          </p>
+        )}
 
         {supported && !typing ? (
           <button type="button" onClick={() => setTyping(true)} className="text-sm font-medium underline">

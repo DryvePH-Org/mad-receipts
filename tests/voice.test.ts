@@ -80,15 +80,32 @@ describe("voicePrompt", () => {
 
 describe("transcribeVoice", () => {
   it("sends the names to the speech model as a hint and returns the text", async () => {
-    groq.callGroqTranscription.mockResolvedValue("  Salesman is David, three percent.  ");
-    const text = await transcribeVoice(new Uint8Array([1]), "audio/webm", people);
-    expect(text).toBe("Salesman is David, three percent.");
+    groq.callGroqTranscription.mockResolvedValue({ text: "  Salesman is David, three percent.  ", segments: [] });
+    const heard = await transcribeVoice(new Uint8Array([1]), "audio/webm", people);
+    expect(heard).toEqual({ text: "Salesman is David, three percent.", ignored: [] });
     expect(groq.callGroqTranscription.mock.calls[0][2]).toContain("Salespeople: David Santos, Dave, Ella");
   });
 
   it("explains an empty recording", async () => {
-    groq.callGroqTranscription.mockResolvedValue("   ");
+    groq.callGroqTranscription.mockResolvedValue({ text: "   ", segments: [] });
     await expect(transcribeVoice(new Uint8Array([1]), "audio/webm", people)).rejects.toThrow(VoiceError);
+  });
+
+  it("leaves out segments the speech model was unsure about, and says so", async () => {
+    groq.callGroqTranscription.mockResolvedValue({
+      text: "",
+      segments: [
+        { text: "Plate NKF 4771.", avg_logprob: -0.2, no_speech_prob: 0.01 },
+        { text: "uh fifty tousand maybe", avg_logprob: -1.6, no_speech_prob: 0.2 },
+      ],
+    });
+    const heard = await transcribeVoice(new Uint8Array([1]), "audio/webm", people);
+    expect(heard).toEqual({ text: "Plate NKF 4771.", ignored: ["uh fifty tousand maybe"] });
+  });
+
+  it("refuses a recording where nothing could be trusted", async () => {
+    groq.callGroqTranscription.mockResolvedValue({ text: "", segments: [{ text: "mumble", avg_logprob: -2, no_speech_prob: 0.9 }] });
+    await expect(transcribeVoice(new Uint8Array([1]), "audio/webm", people)).rejects.toThrow(/clearly enough/);
   });
 });
 
@@ -104,7 +121,7 @@ describe("interpretTranscript", () => {
         { name: "Pedro", commission_percent: 2 },
       ],
     });
-    const result = await interpretTranscript("transcript", people, "voice");
+    const result = await interpretTranscript("Plate NKF 4771, fifty thousand. Dave three percent, Elia one percent, Pedro two percent.", people, "voice");
     expect(result.source).toBe("voice");
     expect(result.fields).toMatchObject({ plate_no: "NKF4771", amount: 50000 });
     expect(result.salespeople).toEqual([
@@ -125,12 +142,20 @@ describe("interpretTranscript", () => {
 
   it("retries once when the answer is not JSON, then explains", async () => {
     groq.callGroqJson.mockResolvedValueOnce("not json").mockResolvedValueOnce("```json\n{\"salespeople\":[{\"name\":\"Ella\"}]}\n```");
-    const result = await interpretTranscript("x", people, "voice");
+    const result = await interpretTranscript("Ella", people, "voice");
     expect(result.salespeople[0]).toMatchObject({ salespersonId: "ella", commission_percent: null });
     expect(groq.callGroqJson).toHaveBeenCalledTimes(2);
 
     groq.callGroqJson.mockReset();
     groq.callGroqJson.mockResolvedValue("still not json");
     await expect(interpretTranscript("x", people, "voice")).rejects.toThrow(VoiceError);
+  });
+
+  it("throws away what the model made up, and lists it", async () => {
+    model({ fields: { plate_no: "NKF4991", amount: 50000, agreed_price: 500000 }, salespeople: [{ name: "Pedro", commission_percent: 2 }] });
+    const result = await interpretTranscript("Plate NKF 4771, fifty thousand pesos.", people, "voice");
+    expect(result.fields).toMatchObject({ plate_no: null, amount: 50000, agreed_price: null });
+    expect(result.salespeople).toEqual([]);
+    expect([...(result.unsure ?? [])].sort()).toEqual(["a salesperson's name", "the agreed price", "the plate number"]);
   });
 });

@@ -61,10 +61,10 @@ export async function POST(request: Request) {
 
   let result: VoiceResult;
   try {
-    const transcript = hasAudio
+    const heard = hasAudio
       ? await transcribeVoice(new Uint8Array(await audio.arrayBuffer()), audio.type.split(";")[0].toLowerCase(), people)
-      : typed;
-    result = await interpretTranscript(transcript, people, hasAudio ? "voice" : "typed");
+      : { text: typed, ignored: [] };
+    result = await interpretTranscript(heard.text, people, hasAudio ? "voice" : "typed", heard.ignored);
   } catch (err) {
     log(draftId, "failed");
     if (err instanceof VoiceError) return fail(err.message, 422);

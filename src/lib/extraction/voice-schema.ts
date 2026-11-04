@@ -62,5 +62,9 @@ export interface VoiceResult {
   /** How the sale is paid, as said. Missing on notes saved before this existed. */
   terms?: TermsSuggestion;
   salespeople: HeardSalesperson[];
+  /** What was said but could not be checked against the words, so it was left blank (e.g. "the plate number"). */
+  unsure?: string[];
+  /** Parts of the recording the speech model was not sure about; they were ignored. */
+  unclear?: string[];
   transcribed_at: string;
 }

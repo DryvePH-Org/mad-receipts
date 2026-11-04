@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth";
 import { toFormValues } from "@/lib/extraction/merge";
 import type { ExtractedReceipt } from "@/lib/extraction/schema";
+import type { Uncertain } from "@/lib/extraction/crosscheck";
 import type { TermsSuggestion } from "@/lib/extraction/terms-schema";
 import type { VoiceResult } from "@/lib/extraction/voice-schema";
 import { createClient } from "@/lib/supabase/server";
@@ -59,7 +60,7 @@ async function Review({ params }: { params: Promise<{ draftId: string }> }) {
 
   const { data: signed } = await supabase.storage.from("receipt-photos").createSignedUrl(draft.photo_path, 60 * 60);
 
-  const extraction = draft.extraction as { fields?: ExtractedReceipt; terms?: TermsSuggestion } | null;
+  const extraction = draft.extraction as { fields?: ExtractedReceipt; terms?: TermsSuggestion; uncertain?: Uncertain; checked?: boolean } | null;
   const extracted = extraction?.fields ?? null;
   const voice = (draft.voice as VoiceResult | null) ?? null;
   const { data: salespeople } = await supabase.from("salespeople").select("id, name").eq("active", true).order("name");
@@ -97,6 +98,7 @@ async function Review({ params }: { params: Promise<{ draftId: string }> }) {
               initialValues={toFormValues(extracted)}
               initialReservation={extracted?.paper_payment_type === "earnest" || voice?.fields.paper_payment_type === "earnest"}
               initialTerms={extraction?.terms ?? null}
+              uncertain={extraction?.uncertain ?? {}}
               salespeople={salespeople ?? []}
               initialVoice={voice}
             />

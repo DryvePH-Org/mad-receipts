@@ -51,6 +51,7 @@ import {
   type Terms,
   type TermsValues,
 } from "@/lib/rules/terms";
+import type { Uncertain } from "@/lib/extraction/crosscheck";
 import type { TermsSuggestion } from "@/lib/extraction/terms-schema";
 import { cn } from "@/lib/utils";
 import { SaleTypeSection } from "@/components/sale-type-section";
@@ -223,6 +224,7 @@ export function ReviewForm({
   initialValues,
   initialReservation,
   initialTerms,
+  uncertain,
   salespeople,
   initialVoice,
 }: {
@@ -231,6 +233,8 @@ export function ReviewForm({
   initialReservation: boolean;
   /** How the photo suggests the sale is paid (financing, trade-in, money paid earlier). */
   initialTerms: TermsSuggestion | null;
+  /** Fields the two photo readings disagreed on: blank, with both readings to choose from. */
+  uncertain: Uncertain;
   salespeople: SalespersonOption[];
   initialVoice: VoiceResult | null;
 }) {
@@ -462,6 +466,8 @@ export function ReviewForm({
       issues={byField(key)}
       locked={!!deal && (DEAL_FIELDS as readonly FieldKey[]).includes(key)}
       tag={sources[key] === "voice" ? "from voice note" : undefined}
+      choices={!effective[key].trim() ? uncertain[key] : undefined}
+      onPick={set(key)}
       {...opts}
     />
   );
@@ -684,6 +690,8 @@ function Field({
   type = "text",
   inputMode,
   autoCapitalize,
+  choices,
+  onPick,
 }: FieldOptions & {
   id: string;
   label: string;
@@ -692,6 +700,9 @@ function Field({
   issues: ValidationIssue[];
   locked: boolean;
   tag?: string;
+  /** The AI read this two different ways: both are offered, and the field stays blank until one is picked or typed. */
+  choices?: string[];
+  onPick?: (v: string) => void;
 }) {
   const hasError = issues.some((i) => i.level === "error") || (required && !value.trim());
   return (
@@ -716,6 +727,25 @@ function Field({
           !hasError && issues.some((i) => i.level === "warning") && "border-amber-400",
         )}
       />
+      {choices && choices.length > 0 && !locked && (
+        <div className="space-y-1.5 rounded-lg border border-amber-300 bg-amber-50 p-2 dark:border-amber-500/40 dark:bg-amber-950/30">
+          <p className="text-xs text-amber-800 dark:text-amber-300">
+            The AI wasn&apos;t sure how to read this. Check the paper, then tap the right one or type it.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {choices.map((choice) => (
+              <button
+                key={choice}
+                type="button"
+                onClick={() => onPick?.(choice)}
+                className="min-h-10 rounded-lg border bg-background px-3 text-sm font-medium break-all hover:bg-muted"
+              >
+                {choice}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <IssueList issues={issues} />
     </div>
   );

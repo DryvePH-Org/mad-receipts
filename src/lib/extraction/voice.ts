@@ -1,6 +1,8 @@
 import "server-only";
 import { matchSalesperson, transcriptionPrompt, type SalespersonRef } from "@/lib/salespeople/names";
 import { callGroqJson, callGroqTranscription } from "./groq";
+import { groundInTranscript } from "./grounding";
+import { cleanSegments } from "./speech";
 import { VoiceExtraction, type HeardSalesperson, type VoiceResult } from "./voice-schema";
 
 /** A problem with the voice note that staff can act on; the message is safe to show them. */
@@ -32,7 +34,7 @@ Rules:
 - Write each salesperson's name as said. If it sounds like one of these known salespeople, use that exact spelling: ${names || "(none yet)"}.
 - Commission percents belong in "salespeople", never in "fields".
 - "terms" says how the sale is paid; every part is null unless it was said:
-  - "cash" or "straight payment" means transaction_type "cash".
+  - "cash" or "straight payment" with no loan and no trade-in means transaction_type "cash". If a trade-in or a loan is mentioned, that wins over "cash": a trade-in where the rest is paid in cash is "trade_in", and a loan with a cash down payment is "financing".
   - "financing", "finance", "loan", "bank loan" or "naka-loan" means "financing". loan_amount is the amount the bank or financing company pays ("loan amount", "financing amount", "loan ng bangko"). financier is the company's name (BPI, GDFI, Security Bank). processing_fee is the processing fee the buyer pays.
   - "trade in", "trade-in" or "pa-trade" means "trade_in". trade_in_value is what the traded car is worth ("value ng trade in") and trade_in_details describes that car ("2015 Vios").
   - paid_before is money the buyer already paid before this receipt ("may bayad na ng 20K", "already paid 20 thousand before").
@@ -51,11 +53,26 @@ function parseJson(raw: string): unknown {
 /** Today in Manila as YYYY-MM-DD. */
 const manilaToday = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Manila" }).format(new Date());
 
-/** Speech to text. Names from the salespeople list are given to the model as hints. */
-export async function transcribeVoice(bytes: Uint8Array, mimeType: string, people: SalespersonRef[]): Promise<string> {
-  const text = (await callGroqTranscription(bytes, mimeType, transcriptionPrompt(people))).trim();
-  if (!text) throw new VoiceError("I couldn't hear anything in that recording. Please try again, closer to the phone.");
-  return text.slice(0, MAX_TRANSCRIPT_CHARS);
+/**
+ * Speech to text. Names from the salespeople list are given to the model as hints. Segments the
+ * model was not sure about (or that are probably noise) are dropped and reported in `ignored`.
+ */
+export async function transcribeVoice(
+  bytes: Uint8Array,
+  mimeType: string,
+  people: SalespersonRef[],
+): Promise<{ text: string; ignored: string[] }> {
+  const heard = await callGroqTranscription(bytes, mimeType, transcriptionPrompt(people));
+  // Without segment details (an unusual answer), trust the text only as far as it goes: keep it whole.
+  const { text, ignored } = heard.segments.length ? cleanSegments(heard.segments) : { text: heard.text.trim(), ignored: [] };
+  if (!text) {
+    throw new VoiceError(
+      ignored.length
+        ? "I couldn't hear that clearly enough to trust it. Please try again, closer to the phone, or type the details."
+        : "I couldn't hear anything in that recording. Please try again, closer to the phone.",
+    );
+  }
+  return { text: text.slice(0, MAX_TRANSCRIPT_CHARS), ignored };
 }
 
 /** Turns what was said (or typed) into receipt fields and salespeople matched to the list. */
@@ -63,18 +80,30 @@ export async function interpretTranscript(
   transcript: string,
   people: SalespersonRef[],
   source: VoiceResult["source"],
+  unclear: string[] = [],
 ): Promise<VoiceResult> {
   for (let attempt = 1; attempt <= 2; attempt++) {
     const raw = await callGroqJson(voicePrompt(people), `Today is ${manilaToday()} (Manila time).\n\nTranscript:\n${transcript}`);
     const parsed = VoiceExtraction.safeParse(parseJson(raw));
     if (!parsed.success) continue;
 
-    const salespeople: HeardSalesperson[] = parsed.data.salespeople.map((heard) => ({
+    // Only what is really in the words goes through; the rest is blanked and listed for staff.
+    const grounded = groundInTranscript(transcript, parsed.data);
+    const salespeople: HeardSalesperson[] = grounded.salespeople.map((heard) => ({
       ...matchSalesperson(heard.name, people),
       spoken: heard.name,
       commission_percent: heard.commission_percent,
     }));
-    return { source, transcript, fields: parsed.data.fields, terms: parsed.data.terms, salespeople, transcribed_at: new Date().toISOString() };
+    return {
+      source,
+      transcript,
+      fields: grounded.fields,
+      terms: grounded.terms,
+      salespeople,
+      unsure: grounded.unsure,
+      ...(unclear.length ? { unclear } : {}),
+      transcribed_at: new Date().toISOString(),
+    };
   }
   throw new VoiceError("I couldn't understand that recording. Try again, or type the details instead.");
 }

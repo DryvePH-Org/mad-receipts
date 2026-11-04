@@ -89,6 +89,21 @@ describe("trade-in", () => {
     expect([num(d.amount_due), num(d.balance), d.trade_in_details]).toEqual([300000, 200000, "2015 Toyota Vios, silver"]);
   });
 
+  it("the traded car is worth less than the price: the buyer adds cash, in as many payments as needed, until Sold", async () => {
+    const p = plateOf();
+    // Price 500,000; the old car is taken at 200,000, so 300,000 in cash is still to come.
+    await confirm(tradeIn(p, { amount: "100000" }));
+    expect(num((await deal(p)).balance)).toBe(200000);
+    await confirm(base(p, { amount: "150000", marked_reservation: false }));
+    expect(num((await deal(p)).balance)).toBe(50000);
+    const last = await confirm(base(p, { amount: "50000", marked_reservation: false, salespeople: [{ salesperson_id: david, commission_percent: "3" }] }));
+    expect(last).toMatchObject({ payment_type: "full", deal_status: "completed" });
+    const d = await deal(p);
+    expect([num(d.total_paid), num(d.balance), d.status]).toEqual([300000, 0, "completed"]); // 300,000 in cash + 200,000 trade-in = 500,000
+    // And the buyer can never pay more cash than what is left after the trade-in.
+    await fails(confirm(tradeIn(plateOf(), { amount: "350000" })), "overpayment");
+  });
+
   it("refuses a trade-in with no value or one worth the whole car", async () => {
     await fails(confirm(tradeIn(plateOf(), { trade_in_value: "0" })), "invalid_terms");
     await fails(confirm(tradeIn(plateOf(), { trade_in_value: "500000" })), "invalid_terms");

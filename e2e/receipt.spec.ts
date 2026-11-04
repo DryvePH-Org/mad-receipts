@@ -105,6 +105,19 @@ test("a financed sale: loan, fee and money paid earlier, up to Sold", async ({ p
   await setMockGroq({ financing: false, plate_no: "NKF4771" });
 });
 
+test("when the two photo readings disagree, the field is blank and both readings are offered", async ({ page }) => {
+  await setMockGroq({ down: false, financing: false, disagree: true, receipt_no: `${RECEIPT_PREFIX}-D${Date.now() % 100000}`, plate_no: "NKF4771" });
+  await login(page, "staff");
+  await uploadPhoto(page);
+  await expect(page.getByLabel("Plate No.")).toHaveValue("");
+  await expect(page.getByText(/wasn.t sure how to read this/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "NKF4971" })).toBeVisible();
+  await page.getByRole("button", { name: "NKF4771" }).click();
+  await expect(page.getByLabel("Plate No.")).toHaveValue("NKF4771");
+  await expect(page.getByText(/wasn.t sure how to read this/)).toHaveCount(0);
+  await setMockGroq({ disagree: false });
+});
+
 test("trade-in shows only its own fields and credits the traded car", async ({ page }) => {
   await setMockGroq({ down: false, financing: false, receipt_no: `${RECEIPT_PREFIX}-T${Date.now() % 100000}`, plate_no: "XYZ5678" });
   await login(page, "staff");
