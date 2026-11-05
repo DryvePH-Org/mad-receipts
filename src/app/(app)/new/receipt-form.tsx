@@ -17,6 +17,9 @@ import { submitReceipt, type SubmitResult } from "./actions";
 import { emptyFin, emptyForm, prettyMoney, resolveFinance, workOut, type FinUi } from "./form-state";
 import type { InvUnit } from "./inventory-picker";
 import { StepBuyer, StepDeal, StepFinish, StepPayment, StepVehicles, type Ctx } from "./steps";
+import { applyVoice } from "./voice-apply";
+import { VoicePanel, type VoiceOutcome } from "./voice-panel";
+import type { VoiceProposal } from "@/lib/voice/schema";
 
 export interface LiveDeal { id: string; dealNo: string; buyerName: string; plateNos: string[]; receiptCount: number; committed: number; balance: number }
 export interface ContinueDeal { id: string; dealNo: string; buyerName: string; committed: number; receiptCount: number; terms: Partial<FormState> }
@@ -62,6 +65,13 @@ export function ReceiptForm({ userId, today, settings, inventory, liveDeals, con
     setTimeout(() => { const el = document.getElementById(target); if (el) { el.scrollIntoView({ block: "center" }); el.focus({ preventScroll: true }); } }, 80);
   }
   const ctx: Ctx = { s, t, ledger, sources, set, fin, setFin: (f) => { setFin(f); setConfirmed(false); }, settings, userId, inventory, missing, warnings, linked: !!linked, go, dpResolved: { dpC: resolved.dpC } };
+
+  // What the voice reader heard goes into the form; what staff already typed stays (unless they ask otherwise).
+  function heard(p: VoiceProposal, overwrite: boolean): VoiceOutcome {
+    const r = applyVoice(form, fin, p.fields, { settings, inventory, linked: !!linked, today, overwrite });
+    setForm(r.form); setFin(r.fin); setConfirmed(false);
+    return { filled: r.filled, kept: r.kept, notes: r.notes };
+  }
 
   function send() {
     start(async () => {
@@ -112,6 +122,7 @@ export function ReceiptForm({ userId, today, settings, inventory, liveDeals, con
               {dup && !linked && <Button className="ml-auto" size="sm" variant="outline" nativeButton={false} render={<Link href={`/new?deal=${dup.id}`} />}>Continue this deal</Button>}
             </div>
           )}
+          <VoicePanel apply={heard} />
           {body}
         </div>
 

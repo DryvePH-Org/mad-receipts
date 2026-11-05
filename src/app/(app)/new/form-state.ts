@@ -23,9 +23,9 @@ export function emptyForm(settings: AppSettings, today: string): FormState {
 export type DpMode = "amount" | "percent" | "loan";
 export type FeeMode = "amount" | "percent";
 interface Lock { mode: string; raw: string; cents: number; base: number }
-export interface FinUi { dpMode: DpMode; dpIn: string; feeMode: FeeMode; feeIn: string; dpLock: Lock | null; feeLock: Lock | null; feeTouched: boolean }
+export interface FinUi { dpMode: DpMode; dpIn: string; feeMode: FeeMode; feeIn: string; dpLock: Lock | null; feeLock: Lock | null; feeTouched: boolean; /** The staff picked "Other" for the fee, so any amount or percent is typed. */ feeOther: boolean }
 
-export const emptyFin = (): FinUi => ({ dpMode: "amount", dpIn: "", feeMode: "percent", feeIn: "", dpLock: null, feeLock: null, feeTouched: false });
+export const emptyFin = (): FinUi => ({ dpMode: "amount", dpIn: "", feeMode: "percent", feeIn: "", dpLock: null, feeLock: null, feeTouched: false, feeOther: false });
 
 const peso = (t: string) => toCentavos(t) ?? 0;
 const pct = (t: string) => parseFloat(t.replace(/,/g, "")) || 0;

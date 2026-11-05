@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  distDir: process.env.NEXT_DIST_DIR || ".next", // the browser tests use their own folder so they can run beside `npm run dev`
   /* config options here */
   output: "standalone", // a small self-contained server for the Docker image
   cacheComponents: true,

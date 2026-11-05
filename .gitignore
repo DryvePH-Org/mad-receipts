@@ -48,3 +48,4 @@ next-env.d.ts
 # real customer sample photo: local only
 /Docs/*.jpeg
 /Docs/*.jpg
+/.next-e2e/

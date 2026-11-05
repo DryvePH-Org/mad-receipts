@@ -9,3 +9,4 @@ Docs
 test-results
 playwright-report
 deploy
+.next-e2e

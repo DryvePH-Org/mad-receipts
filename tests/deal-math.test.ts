@@ -9,9 +9,9 @@ const C = (x: number) => Math.round(x * 100);
 interface Case { price: number; fin?: boolean; dp?: number; fee?: number; trade?: number; earlier?: number; cash?: number; payout?: number }
 function indep(c: Case) {
   const P = C(c.price), T = C(c.trade ?? 0);
-  const share = c.fin ? Math.min(C(c.dp ?? 0), P) : P, loan = c.fin ? P - share : 0, due = share - T;
+  const share = c.fin ? Math.min(C(c.dp ?? 0), P) : P, loan = c.fin ? P - share : 0, fee = c.fin ? C(c.fee ?? 0) : 0, due = share - T + fee;
   const paid = C(c.earlier ?? 0) + C(c.cash ?? 0), payout = due < 0 ? C(c.payout ?? 0) : 0;
-  return { P, T, loan, due, paid, payout, balance: due - paid + payout };
+  return { P, T, loan, fee, due, paid, payout, balance: due - paid + payout };
 }
 const input = (c: Case): MathInput => ({
   price: C(c.price), sale: c.fin ? "financing" : "cash", dp: C(c.dp ?? 0), fee: C(c.fee ?? 0), tradeIn: C(c.trade ?? 0),
@@ -31,9 +31,16 @@ const named: [string, Case][] = [
   ["cash + trade-in worth more, part paid out", { price: 500000, trade: 580000, payout: 30000 }],
   ["cash + trade-in worth more, fully paid out", { price: 500000, trade: 580000, payout: 80000 }],
   ["payout ignored when the buyer owes", { price: 500000, payout: 10000 }],
-  ["financing", { price: 720000, fin: true, dp: 150000, fee: 39900, cash: 50000 }],
-  ["financing, the fee changes nothing", { price: 720000, fin: true, dp: 150000, fee: 999999, cash: 50000 }],
-  ["financing + trade-in", { price: 720000, fin: true, dp: 150000, fee: 39900, trade: 60000, earlier: 10000, cash: 40000 }],
+  ["financing, no fee", { price: 720000, fin: true, dp: 150000, fee: 0, cash: 50000 }],
+  ["financing, 7% fee, part paid", { price: 720000, fin: true, dp: 150000, fee: 39900, cash: 50000 }],
+  ["financing, earnest 20k, then the down payment and the fee: all come off one balance", { price: 720000, fin: true, dp: 150000, fee: 39900, earlier: 20000, cash: 169900 }],
+  ["financing, earnest + down payment but the fee not yet paid", { price: 720000, fin: true, dp: 150000, fee: 39900, earlier: 20000, cash: 130000 }],
+  ["financing, down payment and fee paid in full", { price: 720000, fin: true, dp: 150000, fee: 39900, cash: 189900 }],
+  ["financing, only the fee is left", { price: 720000, fin: true, dp: 150000, fee: 39900, cash: 150000 }],
+  ["financing, a custom fee in pesos", { price: 900000, fin: true, dp: 200000, fee: 25000, earlier: 5000, cash: 100000 }],
+  ["financing, trade-in equals the down payment, the fee is still owed", { price: 720000, fin: true, dp: 130000, fee: 36400, trade: 130000 }],
+  ["financing, a fee on a cash sale is ignored", { price: 500000, fee: 20000, cash: 100000 }],
+  ["financing + trade-in + fee", { price: 720000, fin: true, dp: 150000, fee: 39900, trade: 60000, earlier: 10000, cash: 40000 }],
   ["financing, trade-in equals the down payment", { price: 720000, fin: true, dp: 130000, trade: 130000 }],
   ["financing, down payment fully paid", { price: 720000, fin: true, dp: 150000, cash: 150000 }],
   ["financing, odd centavos", { price: 333333.33, fin: true, dp: 100001.01, cash: 1000.99 }],
@@ -42,8 +49,8 @@ const named: [string, Case][] = [
 describe("the money rules", () => {
   it.each(named)("%s", (_name, c) => {
     const t = totals(input(c)), e = indep(c);
-    expect([t.price, t.tv, t.loan, t.due, t.paid, t.payout, t.balance]).toEqual([e.P, e.T, e.loan, e.due, e.paid, e.payout, e.balance]);
-    expect(e.P).toBe(e.T + e.loan + e.paid - e.payout + e.balance);
+    expect([t.price, t.tv, t.loan, t.fee, t.due, t.paid, t.payout, t.balance]).toEqual([e.P, e.T, e.loan, e.fee, e.due, e.paid, e.payout, e.balance]);
+    expect(e.P + e.fee).toBe(e.T + e.loan + e.paid - e.payout + e.balance);
     const ledger = buildLedger(t, info), sources = buildSources(t, info);
     expect(ledger.proves).toBe(true);
     expect(sources.proves).toBe(true);
@@ -55,20 +62,36 @@ describe("the money rules", () => {
     const pesos = (lo: number, hi: number) => Math.round((lo + rnd() * (hi - lo)) * 100) / 100;
     for (let i = 0; i < 300; i++) {
       const fin = rnd() < 0.5, price = pesos(150000, 2500000);
-      const c: Case = { price, fin, dp: fin ? pesos(price * 0.1, price * 0.9) : 0, fee: pesos(0, 120000), cash: pesos(0, 300000), earlier: rnd() < 0.5 ? pesos(0, 80000) : 0 };
+      const c: Case = { price, fin, dp: fin ? pesos(price * 0.1, price * 0.9) : 0, fee: rnd() < 0.2 ? 0 : pesos(0, 120000), cash: pesos(0, 300000), earlier: rnd() < 0.5 ? pesos(0, 80000) : 0 };
       if (rnd() < 0.4) c.trade = pesos(10000, fin ? c.dp! : price * 1.1);
       if (rnd() < 0.3) c.payout = pesos(0, 100000);
       const t = totals(input(c)), e = indep(c), ledger = buildLedger(t, info);
-      expect([t.due, t.loan, t.balance]).toEqual([e.due, e.loan, e.balance]);
+      expect([t.due, t.loan, t.fee, t.balance]).toEqual([e.due, e.loan, e.fee, e.balance]);
       expect(ledger.proves, JSON.stringify(c)).toBe(true);
       expect(buildSources(t, info).proves).toBe(true);
     }
   });
 
-  it("the processing fee never enters the amount due", () => {
+  it("the processing fee is part of what the buyer owes, on top of the down payment", () => {
     const a = totals(input({ price: 720000, fin: true, dp: 150000, fee: 0 })), b = totals(input({ price: 720000, fin: true, dp: 150000, fee: 39900 }));
-    expect(a.due).toBe(b.due);
-    expect(b.fee).toBe(3990000);
+    expect([a.due, b.due, b.fee, b.loan]).toEqual([15000000, 18990000, 3990000, 57000000]); // the loan does not change
+  });
+
+  it("earnest 20k, a 120k down payment installment and the fee are all deducted from the same balance", () => {
+    // price 720,000, down payment 150,000, fee 7% of the 570,000 loan = 39,900: the buyer owes 189,900
+    const t = totals(input({ price: 720000, fin: true, dp: 150000, fee: 39900, earlier: 20000, cash: 120000 }));
+    expect([t.due, t.paid, t.balance]).toEqual([18990000, 14000000, 4990000]); // 49,900 still to pay (the rest of the down payment and the fee)
+    const later = totals(input({ price: 720000, fin: true, dp: 150000, fee: 39900, earlier: 140000, cash: 49900 }));
+    expect(later.balance).toBe(0);
+  });
+
+  it("the fee is shown in the working-out and in the sources", () => {
+    const t = totals(input({ price: 720000, fin: true, dp: 150000, fee: 39900, cash: 50000 }));
+    const ledger = buildLedger(t, info), sources = buildSources(t, info);
+    expect(ledger.rows.find((r) => r.label === "Processing fee")).toMatchObject({ kind: "plus", amount: 3990000, detail: "7% of the loan" });
+    expect(ledger.rows.find((r) => r.kind === "sub")?.amount).toBe(18990000);
+    expect(sources.rows.map((r) => r.label)).toContain("Processing fee");
+    expect([sources.total, sources.totalLabel]).toEqual([75990000, "Agreed price + processing fee"]);
   });
 
   it("says who is owed what", () => {

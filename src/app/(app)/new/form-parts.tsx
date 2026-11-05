@@ -8,7 +8,7 @@ export function Seg<T extends string>({ value, options, onChange, label, classNa
     <div role="radiogroup" aria-label={label} className={cn("inline-flex rounded-lg bg-muted p-0.5", className)}>
       {options.map(([v, text]) => (
         <button key={v} type="button" role="radio" aria-checked={value === v} onClick={() => onChange(v)}
-          className={cn("rounded-md px-3 py-1 text-sm font-medium transition-colors", value === v ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>{text}</button>
+          className={cn("rounded-md px-3 py-1 text-sm font-medium whitespace-nowrap transition-colors", value === v ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>{text}</button>
       ))}
     </div>
   );

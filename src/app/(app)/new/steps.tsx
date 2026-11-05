@@ -134,7 +134,8 @@ export function StepDeal({ ctx }: { ctx: Ctx }) {
   const inList = settings.institutions.includes(s.institution);
   const pc = (c: number, of: number) => (of ? Math.round((c / of) * 1000) / 10 : 0);
   const feePct = fin.feeMode === "percent" ? parseFloat(fin.feeIn.replace(/,/g, "")) || 0 : t.loan ? Math.round((t.fee / t.loan) * 10000) / 100 : 0;
-  const custom = fin.feeMode === "percent" && fin.feeIn.trim() !== "" && String(feePct) !== settings.feeStd;
+  const feeVal = parseFloat(fin.feeIn.replace(/,/g, "")) || 0;
+  const feeChoice: "std" | "none" | "other" = fin.feeOther ? "other" : feeVal === 0 ? "none" : fin.feeMode === "percent" && String(feeVal) === settings.feeStd ? "std" : "other";
   const dpIn = fin.dpMode === "percent" ? "%" : "₱";
   return (
     <>
@@ -157,16 +158,26 @@ export function StepDeal({ ctx }: { ctx: Ctx }) {
                 <Seg label="How you know it" value={fin.dpMode} options={[["amount", "DP ₱"], ["percent", "DP %"], ["loan", "Loan ₱"]]} onChange={(m: DpMode) => setFin(switchDpMode(s.price, fin, m))} className="flex" />
                 <MoneyInput id="dpIn" prefix={dpIn} value={fin.dpIn} onChange={(v) => setFin({ ...fin, dpIn: v })} invalid={bad(ctx, "dpIn")} />
                 <p className="text-xs text-muted-foreground">Type whichever you know. The others are worked out. Most lenders ask for about {settings.minDownPct}% down.</p></div>
-              <div className="sm:col-span-3 space-y-2"><Label htmlFor="feeIn">Processing fee</Label>
-                <Seg label="How the fee is typed" value={fin.feeMode} options={[["percent", "% of loan"], ["amount", "₱ amount"]]} onChange={(m: FeeMode) => setFin(switchFeeMode(s.price, fin, m))} className="flex" />
-                <MoneyInput id="feeIn" prefix={fin.feeMode === "percent" ? "%" : "₱"} value={fin.feeIn} onChange={(v) => setFin({ ...fin, feeIn: v, feeTouched: true })} />
-                <p className="text-xs text-muted-foreground">{custom ? `Custom rate: ${feePct}% of the loan (the standard is ${settings.feeStd}%). Type any percent, decimals too.` : `Owed by the buyer to the lender, not to us. The standard is ${settings.feeStd}% of the loan; type any other percent for special cases.`}
-                  {" "}<button type="button" className="underline" onClick={() => setFin({ ...fin, feeMode: "percent", feeIn: settings.feeStd, feeLock: null, feeTouched: false })}>Use the standard {settings.feeStd}%</button></p></div>
+              <div className="sm:col-span-3 space-y-2"><Label>Processing fee</Label>
+                <Seg label="Processing fee" value={feeChoice} className="flex"
+                  options={[["std", `${settings.feeStd}%`], ["none", "No fee"], ["other", "Other"]]}
+                  onChange={(c: "std" | "none" | "other") => setFin(c === "std" ? { ...fin, feeMode: "percent", feeIn: settings.feeStd, feeLock: null, feeTouched: true, feeOther: false }
+                    : c === "none" ? { ...fin, feeMode: "percent", feeIn: "0", feeLock: null, feeTouched: true, feeOther: false }
+                    : { ...fin, feeIn: feeChoice === "other" ? fin.feeIn : "", feeLock: null, feeTouched: true, feeOther: true })} />
+                {feeChoice === "other" && (<>
+                  <Seg label="How the fee is typed" value={fin.feeMode} options={[["percent", "% of loan"], ["amount", "₱ amount"]]} onChange={(m: FeeMode) => setFin(switchFeeMode(s.price, fin, m))} className="flex" />
+                  <MoneyInput id="feeIn" prefix={fin.feeMode === "percent" ? "%" : "₱"} value={fin.feeIn} onChange={(v) => setFin({ ...fin, feeIn: v, feeTouched: true })} /></>)}
+                <p className="text-xs text-muted-foreground" aria-live="polite">
+                  {feeChoice === "none" ? "No processing fee on this deal."
+                    : !t.loan ? "Enter the price and the down payment to see the fee."
+                    : fin.feeMode === "percent" || feeChoice === "std" ? `${feePct}% of the ${formatPeso(t.loan)} loan = ${formatPeso(t.fee)}.`
+                    : `${formatPeso(t.fee)} is ${feePct}% of the ${formatPeso(t.loan)} loan.`}
+                  {" "}The buyer pays it together with the down payment, so it is part of the balance.</p></div>
               <div className="sm:col-span-6 grid divide-y rounded-lg bg-muted/50 text-sm sm:grid-cols-3 sm:divide-x sm:divide-y-0">
                 {t.dpSet && t.price ? (<>
                   <div className="p-3"><p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Down payment</p><b className="text-base">{formatPeso(t.share)}</b><p className="text-xs text-muted-foreground">{pc(t.share, t.price)}% of the price</p></div>
                   <div className="p-3"><p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Loan{s.institution ? ` from ${s.institution}` : ""}</p><b className="text-base">{formatPeso(t.loan)}</b><p className="text-xs text-muted-foreground">{pc(t.loan, t.price)}% of the price</p></div>
-                  <div className="p-3"><p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Processing fee, to the lender</p><b className="text-base">{formatPeso(t.fee)}</b><p className="text-xs text-muted-foreground">{t.fee && t.loan ? `${fin.feeMode === "percent" ? feePct : pc(t.fee, t.loan)}% of the loan${custom ? " · custom" : ""}` : "none"}</p></div>
+                  <div className="p-3"><p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Processing fee</p><b className="text-base">{formatPeso(t.fee)}</b><p className="text-xs text-muted-foreground">{t.fee && t.loan ? `${feePct}% of the loan${feeChoice === "other" ? " · custom" : ""}` : "none"}</p></div>
                 </>) : <p className="p-3 text-muted-foreground sm:col-span-3">Enter the agreed price and the down payment (or the loan) to see the split.</p>}
               </div>
               <div className="sm:col-span-6"><div className="flex flex-wrap items-center gap-2"><Label>Years to pay</Label>{settings.years.map((y) => <Chip key={y} selected={s.years === y} onClick={() => set({ years: s.years === y ? "" : y })}>{y}</Chip>)}
@@ -315,11 +326,11 @@ export function StepFinish({ ctx, confirmed, onConfirm }: { ctx: Ctx; confirmed:
               <li><b>Agreed price</b> is the full price of the unit (all units together).</li>
               <li><b>Trade-in value</b> comes off the price. It is a car, not cash, so it is never part of the balance.</li>
               <li><b>Loan</b> (financing) = price − down payment. The lender pays it to us, so it is not in the balance.</li>
-              <li><b>Processing fee</b> (financing only, usually {settings.feeStd}% of the loan) is owed by the buyer to the lender, not to us. It is shown for information and never changes the balance.</li>
-              <li><b>Amount due from the buyer</b> = down payment (or the whole price on a cash sale) − trade-in. Below zero means we pay the buyer.</li>
+              <li><b>Processing fee</b> (financing only, usually {settings.feeStd}% of the loan, or none, or any amount) is paid by the buyer on top of the down payment. It is part of the amount due.</li>
+              <li><b>Amount due from the buyer</b> = down payment (or the whole price on a cash sale) − trade-in + processing fee. Below zero means we pay the buyer.</li>
               <li><b>Balance</b> = amount due − earlier payments − payments today (+ any payout we made to the buyer).</li>
               <li><b>In lieu of documents</b> is collateral: no money moves, so it is never in the math.</li>
-              <li><b>Proof:</b> price = trade-in + loan + received − payout + balance. If this does not add up, saving is blocked.</li>
+              <li><b>Proof:</b> price + processing fee = trade-in + loan + received − payout + balance. If this does not add up, saving is blocked.</li>
             </ol></details>
           <Seg label="View" value={view} options={[["details", "Payment details"], ["sources", "Who pays for the price"]]} onChange={setView} />
           {!t.price ? <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">Nothing to show yet. Fill in the agreed price and the payment.</p> : view === "details" ? <LedgerView ledger={ledger} /> : <SourcesView {...ctx.sources} />}

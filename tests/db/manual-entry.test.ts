@@ -2,9 +2,9 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Db } from "./harness";
 
 // Version 2 of the database (manual entry + approvals), on the project's real migrations.
-//   amount due = (down payment, or the price for cash) - trade-in
-//   balance    = amount due - received + payout          (the loan and the processing fee are never in it)
-//   always:      price = trade-in + loan + received - payout + balance
+//   amount due = (down payment, or the price for cash) - trade-in + processing fee (financing only)
+//   balance    = amount due - received + payout          (the loan is never in it)
+//   always:      price + fee = trade-in + loan + received - payout + balance
 
 let db: Db;
 let sales: string, admin: string, approver: string;
@@ -49,17 +49,29 @@ describe("submitting a receipt", () => {
     expect([num(d.amount_due), num(d.loan_amount), d.loan_status, d.status]).toEqual([720000, 0, "none", "open"]);
   });
 
-  it("financing: the buyer owes the down payment; the loan and the fee are not in what we collect", async () => {
+  it("financing: the buyer owes the down payment and the processing fee; the loan is the lender's", async () => {
     const r = await submit(sales, payload(sales, { sale_type: "financing", institution: "BDO", down_payment: "150000", processing_fee: "39900", monthly: "14250", years: "5", payments: [cash(sales, "50000")] }));
     const d = await one("select * from public.deals where id = $1", [r.deal_id]);
-    expect([num(d.amount_due), num(d.loan_amount), num(d.processing_fee), d.loan_status]).toEqual([150000, 570000, 39900, "waiting"]);
-    expect(num(r.balance_after)).toBe(100000);
+    expect([num(d.amount_due), num(d.loan_amount), num(d.processing_fee), d.loan_status]).toEqual([189900, 570000, 39900, "waiting"]);
+    expect(num(r.balance_after)).toBe(139900); // 150,000 + 39,900 - 50,000
+  });
+
+  it("financing, earnest then down payment then fee: all come off one balance, and the totals add up", async () => {
+    // price 720,000, down payment 150,000, fee 39,900 (7% of the 570,000 loan): the buyer owes 189,900
+    const first = await submit(sales, payload(sales, { sale_type: "financing", institution: "BDO", down_payment: "150000", processing_fee: "39900", earlier: "20000", kind: "partial", payments: [cash(sales, "120000")] }));
+    const d = await one("select amount_due, opening_paid from public.deals where id = $1", [first.deal_id]);
+    expect([num(d.amount_due), num(d.opening_paid), num(first.balance_after)]).toEqual([189900, 20000, 49900]);
+    const second = await submit(sales, { deal_id: first.deal_id, receipt_no: `R-${++n}`, receipt_date: "2026-11-05", kind: "full", payments: [cash(sales, "49900")] });
+    expect(num(second.balance_after)).toBe(0);
+    await fails(submit(sales, { deal_id: first.deal_id, receipt_no: `R-${++n}`, receipt_date: "2026-11-06", kind: "partial", payments: [cash(sales, "1")] }), "overpayment");
+    const s2 = await one("select balance, amount_due from public.deal_summaries where id = $1", [first.deal_id]);
+    expect([num(s2.amount_due), num(s2.balance)]).toEqual([189900, 189900 - 20000]); // only the earlier 20,000 counts: pending receipts wait for approval
   });
 
   it("financing with a trade-in: the trade-in is part of the down payment", async () => {
     const r = await submit(sales, payload(sales, { sale_type: "financing", institution: "BDO", down_payment: "150000", trade_in: { value: "60000", unit: "Old Vios" }, payments: [cash(sales, "50000")] }));
     const d = await one("select amount_due, trade_in_value from public.deals where id = $1", [r.deal_id]);
-    expect([num(d.amount_due), num(d.trade_in_value), num(r.balance_after)]).toEqual([90000, 60000, 40000]);
+    expect([num(d.amount_due), num(d.trade_in_value), num(r.balance_after)]).toEqual([90000, 60000, 40000]); // no fee given, so none
   });
 
   it("cash with a trade-in worth more: we pay the buyer; the payout settles it", async () => {
@@ -215,14 +227,15 @@ describe("the money, 300 random deals", () => {
       const share = fin ? Math.min(dp, P) : P;
       const T = rnd() < 0.4 ? pesos(10000, Math.max(10001, (share / 100) * (fin ? 1 : 1.1))) : 0;
       if (fin && T > share) continue;
-      const due = share - T;
+      const fee = fin && rnd() < 0.8 ? pesos(0, 120000) : 0;
+      const due = share - T + fee;
       const pays = [pesos(0, 200000), ...(rnd() < 0.5 ? [pesos(0, 60000)] : [])].filter((c) => c > 0);
       const paid = pays.reduce((a, b) => a + b, 0);
       const payout = due < 0 && rnd() < 0.7 ? Math.min(pesos(0, Math.max(1, -due / 100)), -due) : 0;
       const balance = due - paid + payout;
       const body = payload(sales, {
         price: money(P), sale_type: fin ? "financing" : "cash", institution: fin ? "BDO" : undefined, down_payment: fin ? money(dp) : undefined,
-        processing_fee: fin ? money(pesos(0, 120000)) : undefined, trade_in: T ? { value: money(T) } : null,
+        processing_fee: fin ? money(fee) : undefined, trade_in: T ? { value: money(T) } : null,
         payments: pays.map((c) => ({ method: "wallet", label: "GCash", amount: money(c), attachments: proof(sales) })),
         payout: payout > 0 ? { amount: money(payout), attachments: proof(sales) } : null,
       });

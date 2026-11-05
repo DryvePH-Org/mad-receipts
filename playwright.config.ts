@@ -22,6 +22,7 @@ export default defineConfig({
       timeout: 180_000,
       reuseExistingServer: false,
       env: {
+        NEXT_DIST_DIR: ".next-e2e",
         APPS_SCRIPT_URL: "",
         APPS_SCRIPT_SECRET: "",
         TELEGRAM_BOT_TOKEN: "",

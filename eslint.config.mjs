@@ -13,7 +13,7 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     // The HTML prototype is a design reference, not part of the app.
-    "Docs/**",
+    "Docs/**", ".next-e2e/**",
   ]),
 ]);
 

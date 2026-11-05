@@ -48,12 +48,24 @@ test("the whole flow: Sales fills in, the Approver approves, the numbers agree",
 
   // the money rules, live on the screen
   await expect(sales.getByText("Buyer must pay us in cash")).toBeVisible();
-  await expect(sales.getByText("₱90,000").first()).toBeVisible(); // 150,000 down payment − 60,000 trade-in
-  await expect(sales.getByText("₱39,900", { exact: true })).toBeVisible(); // 7% of the ₱570,000 loan, owed to the lender, not to us
+  await expect(sales.getByText("₱39,900", { exact: true }).first()).toBeVisible(); // 7% of the ₱570,000 loan, the standard fee
+  await expect(sales.getByText("₱129,900").first()).toBeVisible(); // 150,000 down payment − 60,000 trade-in + 39,900 fee
+  // the fee buttons: no fee, a custom percent (shows the pesos), a custom amount (shows the percent), back to the standard
+  await sales.getByRole("radio", { name: "No fee" }).click();
+  await expect(sales.getByText("No processing fee on this deal.")).toBeVisible();
+  await expect(sales.getByText("₱90,000").first()).toBeVisible();
+  await sales.getByRole("radio", { name: "Other" }).click();
+  await sales.locator("#feeIn").fill("5");
+  await expect(sales.getByText("5% of the ₱570,000 loan = ₱28,500.")).toBeVisible();
+  await sales.getByRole("radio", { name: "₱ amount" }).click();
+  await sales.locator("#feeIn").fill("42,750");
+  await expect(sales.getByText("₱42,750 is 7.5% of the ₱570,000 loan.")).toBeVisible();
+  await sales.getByRole("radio", { name: "7%", exact: true }).click();
+  await expect(sales.getByText("₱129,900").first()).toBeVisible();
   await next(sales, "Payment");
   await sales.getByLabel("Cash amount").fill("40000");
   await sales.getByLabel("Earlier payments").fill("10000");
-  await expect(sales.getByText("₱40,000").last()).toBeVisible(); // balance: 90,000 − 10,000 − 40,000
+  await expect(sales.getByText("₱79,900").last()).toBeVisible(); // balance: 129,900 − 10,000 − 40,000
 
   await sales.getByLabel("Due date").fill("2026-12-15"); // a balance is left, so a due date is needed
 
@@ -86,7 +98,7 @@ test("the whole flow: Sales fills in, the Approver approves, the numbers agree",
   const read = async () => (await admin.from("deal_summaries").select("id, balance, approved_paid, opening_paid").eq("buyer_name", "ZZT E2E Maria Santos").single()).data;
   await expect.poll(async () => Number((await read())?.approved_paid)).toBe(40000);
   const after = await read();
-  expect([Number(after?.opening_paid), Number(after?.balance)]).toEqual([10000, 40000]); // 90,000 due − 10,000 earlier − 40,000
+  expect([Number(after?.opening_paid), Number(after?.balance)]).toEqual([10000, 79900]); // 129,900 due (down payment − trade-in + fee) − 10,000 earlier − 40,000
   await sales.goto(`/deals/${after!.id}`);
   await expect(sales.getByText("Adds up").first()).toBeVisible();
   await expect(sales.getByText("Waiting for lender").first()).not.toBeVisible().catch(() => undefined);
@@ -137,4 +149,36 @@ test("a color the Admin adds shows up in the form", async ({ browser }) => {
   await admin.getByRole("button", { name: "Restore all defaults" }).click();
   await admin.getByRole("button", { name: "Restore defaults" }).click();
   await admin.close(); await sales.close();
+});
+
+test("voice fills the form and the math follows", async ({ browser }) => {
+  const sales = await as(browser, "sales");
+  // the voice reader itself is tested with the real Groq API (npm run test:live); here the answer is canned
+  await sales.route("**/api/voice", (route) => route.fulfill({ json: { proposal: {
+    source: "typed", transcript: "canned note", unsure: ["the contact number"], unclear: [],
+    fields: {
+      receipt_no: null, date: null, kind: null, buyer_name: "ZZT E2E Voice Buyer", buyer_address: "Pasig City", buyer_contact: null,
+      units: [{ make_type: "2019 Ford Everest", plate: "ZZT 2002", motor: null, chassis: null, color: "Silver" }],
+      price: 720000, sale: "financing", institution: "BDO", down_payment: 150000, down_payment_percent: null, loan_amount: null, monthly: null, years: null,
+      fee_mode: "standard", fee_value: null, trade_in: null, lieu: null, earlier_paid: 20000, cash_today: 120000, wallets: [], check: null,
+      due_date: null, due_text: null, remarks: null,
+    },
+  } } }));
+  await sales.goto("/new");
+  await sales.getByRole("button", { name: /Fill it by voice/ }).click();
+  await sales.getByRole("radio", { name: "Type it" }).click();
+  await sales.getByLabel("Type the details").fill("anything");
+  await sales.getByRole("button", { name: "Read it" }).click();
+  await expect(sales.getByText("Filled in:")).toBeVisible();
+  await expect(sales.getByText(/couldn.t be sure about the contact number/)).toBeVisible();
+  await expect(sales.getByLabel("Received from")).toHaveValue("ZZT E2E Voice Buyer");
+  await next(sales, "Vehicle");
+  await expect(sales.getByRole("button", { name: "Silver" })).toBeVisible();
+  await next(sales, "Deal");
+  await expect(sales.getByLabel("Agreed price")).toHaveValue("720,000");
+  await expect(sales.getByText("₱189,900").first()).toBeVisible(); // 150,000 down payment + 39,900 standard fee
+  await next(sales, "Payment");
+  await next(sales, "Finish");
+  await expect(sales.getByText("₱49,900").first()).toBeVisible(); // 189,900 − 20,000 earlier − 120,000 today
+  await sales.close();
 });

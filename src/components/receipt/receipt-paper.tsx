@@ -100,7 +100,7 @@ export function ReceiptPaper({ state: s, company: co, layout, copy, unapproved }
         {t.balance > 0 && <SlipRow k="DUE ON/BEFORE" val={U(dueTextOf(s))} />}<hr />
         <div className="bold">{U(saleLine(s, t))}</div>
         {t.loan > 0 && <SlipRow k={`LOAN BY ${U(s.institution || "LENDER")}`} val={formatPeso(t.loan)} />}
-        {t.fee > 0 && <SlipRow k="PROC. FEE (TO LENDER)" val={formatPeso(t.fee)} />}
+        {t.fee > 0 && <SlipRow k="PROC. FEE" val={formatPeso(t.fee)} />}
         {s.hasTi && <><div style={{ marginTop: ".25rem" }}>TRADE-IN: {tradeText[0]}</div><div className="dim">{tradeText.slice(1).join(" · ")}</div><SlipRow k="VALUE" val={formatPeso(t.tv)} /></>}
         {s.hasLieu && t.lieu > 0 && <><div style={{ marginTop: ".25rem" }}>IN LIEU OF DOCS {formatPeso(t.lieu)}</div><div className="dim">DOCUMENTS HELD AS COLLATERAL UNTIL {U(s.lieuUntil ? formatDate(s.lieuUntil) : "")}</div></>}
         {s.hasRem && s.remarks.trim() && <><hr /><div>REMARKS</div><Remarks text={s.remarks} bullet="" /></>}
@@ -164,7 +164,7 @@ export function ReceiptPaper({ state: s, company: co, layout, copy, unapproved }
         <div className="f s2"><span className="k">Shall be given on or before</span><div className="v">{t.balance > 0 ? v(dueTextOf(s)) : NB}</div></div>
       </div>
       <div className="terms">
-        <div><b>Sale:</b> {saleLine(s, t)}{t.loan > 0 && ` · Loan ${formatPeso(t.loan)}, paid by ${s.institution || "the lender"}`}{t.fee > 0 && ` · Processing fee ${formatPeso(t.fee)}, owed to the lender`}</div>
+        <div><b>Sale:</b> {saleLine(s, t)}{t.loan > 0 && ` · Loan ${formatPeso(t.loan)}, paid by ${s.institution || "the lender"}`}{t.fee > 0 && ` · Processing fee ${formatPeso(t.fee)}, paid by the buyer`}</div>
         {s.hasTi && <div><b>Trade-in:</b> {tradeText[0] || "—"}{tradeText.slice(1).map((x) => ` · ${x}`)} · valued {formatPeso(t.tv)}, taken off the price</div>}
         {s.hasLieu && t.lieu > 0 && <div><b>In lieu of documents:</b> documents held as collateral for {formatPeso(t.lieu)} until {s.lieuUntil ? formatDate(s.lieuUntil) : "—"}</div>}
       </div>

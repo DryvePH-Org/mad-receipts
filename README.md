@@ -96,14 +96,16 @@ inventory updates (see Background sync).
 **Money rules** (the database function `submit_receipt` is the authority, `src/lib/deal/math.ts` only mirrors it
 for the screen; `tests/deal-math.test.ts` and `tests/db/manual-entry.test.ts` check both against an independent calculator):
 
-- Buyer pays us = (down payment for financing, or the price for cash) − trade-in.
+- Buyer pays us = (down payment for financing, or the price for cash) − trade-in + processing fee.
 - The trade-in is part of the down payment. If it is worth more than the buyer's share, we pay the buyer the
   difference (needs a proof). Financing with a trade-in above the down payment is refused.
 - Loan = price − down payment, paid to us by the lender. It is never part of the buyer's balance.
-- Processing fee (financing only, default 7% of the loan, or any % or peso amount) is owed by the buyer to the
-  lender, not us. It is shown for information only.
+- Processing fee (financing only) is paid by the buyer on top of the down payment, so it is part of the amount due.
+  Default 7% of the loan; one button for no fee; "Other" takes any percent or peso amount and shows the other one.
+  Earnest money, the down payment and the fee all come off the same balance.
 - "In lieu of documents" is collateral. No money moves.
 - Balance = amount due − earlier payments − paid today + payout. An overpayment cannot be saved.
+- Always: price + fee = trade-in + loan + received − payout + balance.
 
 **Roles:** Sales fills in receipts and sees deals; Approver approves and sees approvals, cash report and activity;
 Admin manages users, Settings (colors, banks, institutions, notes, phrases, required proofs...) and sync, and can
@@ -112,14 +114,22 @@ void, cancel and mark loans released. Settings live in one document (`app_settin
 **Pages:** Transactions (`/deals`), New receipt, Approvals, Reminders, Cash report, Activity, Settings, Users, Sync.
 `/print/<receipt id>` prints 3 copies by default.
 
-Removed from the first version: photo reading, voice entry and the salespeople/commission pages.
+**Voice entry** ("Fill it by voice" on the form): staff speak (English, Tagalog or mixed) or type a note. Groq Whisper
+(`whisper-large-v3-turbo`) turns it into text, dropping segments it was unsure about; Groq `openai/gpt-oss-120b` reads the
+text into fields; then plain code checks every value against the words that were really said and blanks anything that
+is not there (`src/lib/voice/grounding.ts`). The form is filled only where it is empty, so what staff typed wins, and
+anything blanked or in conflict is listed for them. A plate found in the inventory brings its make, type and color; a
+plate that is a different car in the inventory is flagged, not swapped. Needs `GROQ_API_KEY` on the server.
+
+Removed from the first version: photo reading and the salespeople/commission pages.
 
 ## Testing
 
 ```bash
 npm test                                         # unit tests + database tests (the real migrations, run in memory)
 ALLOW_HOSTED_TESTS=yes npm run test:hosted       # the real functions, access rules and storage on the hosted project
-npm run test:e2e                                 # Playwright (installed Chrome): fill in, approve, roles, settings
+npm run test:e2e                                 # Playwright (installed Chrome): fill in, approve, roles, settings, voice
+npm run test:live                                # the real Groq API (voice) and a read-only look at the real inventory sheet
 ```
 
 The hosted and browser tests write only marked data (receipts `ZZT-HOSTED…` / `ZZT-E2E…`, users `zzt-…@example.test`)

@@ -69,7 +69,7 @@ describe("the hosted v2 backend", () => {
     const ok = await admin.rpc("review_receipt", { p_actor: users.approver.id, p_receipt_id: r.receipt_id, p_approve: true });
     expect(ok.error).toBeNull();
     const { data: s } = await admin.from("deal_summaries").select("balance, loan_amount, processing_fee").eq("id", r.deal_id).single();
-    expect([Number(s?.balance), Number(s?.loan_amount), Number(s?.processing_fee)]).toEqual([50000, 570000, 39900]); // 150,000 − 60,000 trade-in − 40,000
+    expect([Number(s?.balance), Number(s?.loan_amount), Number(s?.processing_fee)]).toEqual([89900, 570000, 39900]); // 150,000 − 60,000 trade-in + 39,900 fee − 40,000
   });
 
   it("signed-in people read but cannot write or call the functions", async () => {

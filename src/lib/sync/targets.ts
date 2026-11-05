@@ -56,7 +56,7 @@ export const RECEIPT_HEADERS = [
   "Agreed Price", "Amount Due", "Balance After", "Sale Type", "Institution", "Filled In By", "Approved By", "Drive Link", "Status",
 ];
 export const DEAL_HEADERS = [
-  "Deal No", "Buyer", "Plate", "Make/Type", "Agreed Price", "Sale Type", "Institution", "Loan", "Processing Fee (to lender)", "Trade-in",
+  "Deal No", "Buyer", "Plate", "Make/Type", "Agreed Price", "Sale Type", "Institution", "Loan", "Processing Fee", "Trade-in",
   "Amount Due", "Received", "Balance", "Status", "Loan Status", "Last Receipt No",
 ];
 

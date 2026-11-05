@@ -12,6 +12,6 @@ export default defineConfig({
   },
   test: {
     include: ["tests/**/*.test.ts"],
-    exclude: ["tests/hosted/**", "node_modules/**"], // the hosted tests need the real project: npm run test:hosted
+    exclude: ["tests/hosted/**", "tests/live/**", "node_modules/**"], // these need the real project or the real Groq API: npm run test:hosted / test:live
   },
 });

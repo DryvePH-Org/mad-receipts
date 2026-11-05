@@ -38,8 +38,8 @@ export function LedgerView({ ledger, stage, showInfo = true, showProof = true }:
   );
 }
 
-/** Who pays for the price: the buyer in cash, the trade-in car and the lender. */
-export function SourcesView({ rows, total, proves }: { rows: { label: string; note: string; amount: number }[]; total: number; proves: boolean }) {
+/** Who pays for the price and the fee: the buyer in cash, the trade-in car and the lender. */
+export function SourcesView({ rows, total, totalLabel = "Agreed price", proves }: { rows: { label: string; note: string; amount: number }[]; total: number; totalLabel?: string; proves: boolean }) {
   return (
     <div className="overflow-hidden rounded-lg ring-1 ring-foreground/10">
       {rows.map((r) => (
@@ -48,9 +48,9 @@ export function SourcesView({ rows, total, proves }: { rows: { label: string; no
           <p className="tabular-nums">{formatPeso(Math.abs(r.amount))}</p>
         </div>
       ))}
-      <div className="flex items-center justify-between border-t bg-muted px-4 py-2.5 font-semibold"><span>Agreed price</span><span className="tabular-nums">{formatPeso(total)}</span></div>
+      <div className="flex items-center justify-between border-t bg-muted px-4 py-2.5 font-semibold"><span>{totalLabel}</span><span className="tabular-nums">{formatPeso(total)}</span></div>
       <p className={cn("flex items-center gap-2 border-t px-4 py-2 text-xs", proves ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300" : "bg-red-50 text-red-800")}>
-        {proves ? <CircleCheck className="size-3.5" aria-hidden /> : <CircleAlert className="size-3.5" aria-hidden />}{proves ? "Adds up to the agreed price" : "Does not add up to the agreed price"}
+        {proves ? <CircleCheck className="size-3.5" aria-hidden /> : <CircleAlert className="size-3.5" aria-hidden />}{proves ? `Adds up to the ${totalLabel.toLowerCase()}` : `Does not add up to the ${totalLabel.toLowerCase()}`}
       </p>
     </div>
   );
