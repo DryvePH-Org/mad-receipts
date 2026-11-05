@@ -9,7 +9,7 @@ export default function Forbidden() {
       <div className="w-full max-w-md">
         <EmptyState
           icon={ShieldAlert}
-          title="Admins only"
+          title="No access"
           description="You don't have access to this page."
           action={
             <Button nativeButton={false} render={<Link href="/" />}>

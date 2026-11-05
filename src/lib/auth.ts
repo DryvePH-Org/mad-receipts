@@ -3,7 +3,8 @@ import { cache } from "react";
 import { forbidden, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-export type Role = "staff" | "admin";
+/** Sales fill in receipts, the Approver approves every one, the Admin manages everything else. */
+export type Role = "sales" | "admin" | "approver";
 
 export interface CurrentUser {
   id: string;
@@ -21,18 +22,14 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, role")
-    .eq("id", user.id)
-    .single();
+  const { data: profile } = await supabase.from("profiles").select("full_name, role").eq("id", user.id).single();
 
   return {
     id: user.id,
     email: user.email ?? "",
     fullName: profile?.full_name ?? null,
     // No profile row means no elevated rights.
-    role: profile?.role === "admin" ? "admin" : "staff",
+    role: profile?.role === "admin" ? "admin" : profile?.role === "approver" ? "approver" : "sales",
   };
 });
 
@@ -42,9 +39,13 @@ export async function requireUser(): Promise<CurrentUser> {
   return user;
 }
 
-// For every /admin page, admin server action and admin API route: 403 unless admin.
-export async function requireAdmin(): Promise<CurrentUser> {
+/** 403 unless the signed-in user has one of the roles. */
+export async function requireRole(...roles: Role[]): Promise<CurrentUser> {
   const user = await requireUser();
-  if (user.role !== "admin") forbidden();
+  if (!roles.includes(user.role)) forbidden();
   return user;
 }
+
+// For every admin page, admin server action and admin API route: 403 unless admin.
+export const requireAdmin = () => requireRole("admin");
+export const requireApprover = () => requireRole("approver");

@@ -1,0 +1,22 @@
+/* Pretend inventory, shaped like the real sheet (plate, make/type with year, color, status). Motor, chassis and price are extras for the demo. */
+window.INVENTORY = [
+  { plate: "NBC 4821", makeType: "2023 Toyota Vios 1.3 XLE A/T", color: "Silver Metallic", status: "Available", motor: "2NZ5160482", chassis: "MR053REF7K4012345", price: 720000 },
+  { plate: "NBC 4822", makeType: "2023 Toyota Vios 1.3 XLE A/T", color: "Super White II", status: "Available", motor: "2NZ5160503", chassis: "MR053REF7K4012346", price: 725000 },
+  { plate: "NDA 1190", makeType: "2023 Toyota Vios 1.3 XLE A/T", color: "Attitude Black Mica", status: "Reserved", motor: "2NZ5160611", chassis: "MR053REF7K4012399", price: 725000 },
+  { plate: "NCX 7710", makeType: "2022 Toyota Fortuner 2.4 G 4x2 A/T", color: "Gray Metallic", status: "Available", motor: "2GD3318820", chassis: "MR0FB3GS3N0123401", price: 1580000 },
+  { plate: "NCX 7711", makeType: "2022 Toyota Fortuner 2.4 G 4x2 A/T", color: "Platinum White Pearl Mica", status: "Available", motor: "2GD3318844", chassis: "MR0FB3GS3N0123402", price: 1590000 },
+  { plate: "NEA 3052", makeType: "2021 Toyota Innova 2.8 E M/T", color: "Silver Metallic", status: "Available", motor: "1GD2987120", chassis: "MR0BA8GS5M0200771", price: 1010000 },
+  { plate: "NFB 6204", makeType: "2023 Mitsubishi Xpander GLS 1.5 A/T", color: "Quartz White Pearl", status: "Available", motor: "4A91TE5512", chassis: "MMBXTNA17PH001208", price: 985000 },
+  { plate: "NFB 6205", makeType: "2023 Mitsubishi Xpander GLS 1.5 A/T", color: "Red Metallic", status: "Available", motor: "4A91TE5530", chassis: "MMBXTNA17PH001209", price: 990000 },
+  { plate: "NGC 9033", makeType: "2022 Mitsubishi Montero Sport GLS 2.4 A/T", color: "Jet Black Mica", status: "Available", motor: "4N15AB1190", chassis: "MMBGRKH80NH003354", price: 1490000 },
+  { plate: "NHD 2417", makeType: "2021 Honda City 1.5 E CVT", color: "Lunar Silver Metallic", status: "Available", motor: "L15Z12234Z", chassis: "MRHGM6630MP100912", price: 640000 },
+  { plate: "NHD 2418", makeType: "2021 Honda City 1.5 E CVT", color: "Ignite Red Metallic", status: "Sold", motor: "L15Z12240Z", chassis: "MRHGM6630MP100913", price: 645000 },
+  { plate: "NJE 5581", makeType: "2022 Honda Civic 1.8 E CVT", color: "Crystal Black Pearl", status: "Available", motor: "R18Z14420Z", chassis: "MRHFC1650NP200443", price: 1090000 },
+  { plate: "NKF 4771", makeType: "2021 Honda Civic 1.8 E CVT", color: "Platinum White Pearl", status: "Available", motor: "R18Z14102Z", chassis: "MRHFC1650MP200119", price: 1040000 },
+  { plate: "NLG 8120", makeType: "2022 Suzuki Ertiga GL 1.5 M/T", color: "Metallic Magma Gray", status: "Available", motor: "K15B4519920", chassis: "MA3NCF21SN0450112", price: 760000 },
+  { plate: "NLG 8121", makeType: "2022 Suzuki Ertiga GL 1.5 M/T", color: "Oxford Blue Pearl Metallic", status: "Available", motor: "K15B4519951", chassis: "MA3NCF21SN0450113", price: 765000 },
+  { plate: "NMH 3340", makeType: "2022 Nissan Navara EL 2.5 4x2 A/T", color: "Earth Brown", status: "Available", motor: "YS23DDTT4410", chassis: "MNTVCUD23N0102288", price: 1120000 },
+  { plate: "NNJ 7766", makeType: "2021 Ford Ranger XLT 2.2 4x2 M/T", color: "Meteor Grey", status: "Available", motor: "P4AT2102288", chassis: "MNCLSFF40MW604417", price: 1060000 },
+  { plate: "NPK 1209", makeType: "2023 Isuzu D-Max LS-A 3.0 4x2 A/T", color: "Splash White", status: "Available", motor: "4JJ1TC8801", chassis: "MPATFS86JPT000211", price: 1185000 },
+  { plate: "NQL 4408", makeType: "2020 Hyundai Accent 1.4 GL M/T", color: "Sleek Silver", status: "Available", motor: "G4LC8842201", chassis: "KMHCT41BALU788120", price: 560000 },
+];

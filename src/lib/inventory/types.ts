@@ -29,5 +29,7 @@ export interface StatusRef {
 
 export interface InventoryAdapter {
   getUnit(plate: string): Promise<InventoryUnit | null>;
+  /** Every unit in the inventory, for the make / type picker. */
+  listUnits(): Promise<InventoryUnit[]>;
   setStatus(plate: string, status: UnitStatus, ref: StatusRef): Promise<void>;
 }

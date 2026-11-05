@@ -16,6 +16,9 @@ const STUBS = `
   create table storage.objects (id uuid default gen_random_uuid(), bucket_id text, name text, owner uuid);
   create function storage.foldername(name text) returns text[] language sql as $$ select string_to_array(name, '/') $$;
   grant usage on schema auth, storage to anon, authenticated, service_role;
+  -- Supabase gives its API roles access to every new table; the migrations then take away what they must.
+  alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+  alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
 `;
 
 export async function createDb() {

@@ -20,10 +20,10 @@ const TARGET_LABEL: Record<string, string> = {
   inventory: "Inventory sheet",
 };
 const EVENT_LABEL: Record<string, string> = {
-  confirm: "receipt confirmed",
+  confirm: "receipt approved",
   void: "receipt voided",
   cancel: "deal cancelled",
-  edit: "details edited",
+  edit: "deal changed (loan released)",
 };
 const MAX_ATTEMPTS = 5;
 

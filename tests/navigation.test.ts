@@ -2,37 +2,33 @@ import { describe, expect, it } from "vitest";
 import { NAV_ITEMS, isActivePath, navFor, navGroups, tabBarItems } from "@/lib/navigation";
 
 describe("navigation", () => {
-  it("staff see the four everyday pages, admins also see the admin pages", () => {
-    expect(navFor("staff").map((i) => i.href)).toEqual(["/", "/upload", "/deals", "/receipts"]);
-    expect(navFor("admin").map((i) => i.href)).toEqual([
-      "/", "/upload", "/deals", "/receipts", "/admin/users", "/admin/salespeople", "/admin/audit", "/admin/sync",
-    ]);
+  it("each role sees its own pages", () => {
+    expect(navFor("sales").map((i) => i.href)).toEqual(["/new", "/deals", "/reminders"]);
+    expect(navFor("approver").map((i) => i.href)).toEqual(["/new", "/deals", "/approvals", "/reminders", "/cash", "/activity"]);
+    expect(navFor("admin").map((i) => i.href)).toEqual(["/new", "/deals", "/approvals", "/reminders", "/cash", "/activity", "/settings", "/admin/users", "/admin/sync"]);
   });
 
-  it("every admin page is for admins only", () => {
-    for (const item of NAV_ITEMS.filter((i) => i.href.startsWith("/admin"))) expect(item.roles).toEqual(["admin"]);
+  it("settings, users and sync jobs are for the Admin only", () => {
+    for (const item of NAV_ITEMS.filter((i) => ["/settings", "/admin/users", "/admin/sync"].includes(i.href))) expect(item.roles).toEqual(["admin"]);
   });
 
-  it("groups the sidebar into Operations and Administration (staff have no Administration)", () => {
-    expect(navGroups("admin").map((g) => [g.label, g.items.length])).toEqual([["Operations", 4], ["Administration", 4]]);
-    expect(navGroups("staff").map((g) => g.label)).toEqual(["Operations"]);
+  it("groups the sidebar into Operations and Administration (Sales have no Administration)", () => {
+    expect(navGroups("admin").map((g) => [g.label, g.items.length])).toEqual([["Operations", 6], ["Administration", 3]]);
+    expect(navGroups("sales").map((g) => g.label)).toEqual(["Operations"]);
   });
 
   it("the phone tab bar shows four items and puts the rest in More", () => {
-    expect(tabBarItems("staff")).toMatchObject({ more: [] });
-    expect(tabBarItems("staff").tabs).toHaveLength(4);
+    expect(tabBarItems("sales")).toMatchObject({ more: [] });
     const admin = tabBarItems("admin");
-    expect(admin.tabs.map((i) => i.label)).toEqual(["Dashboard", "Upload", "Deals", "Receipts"]);
-    expect(admin.more.map((i) => i.label)).toEqual(["Users", "Salespeople", "Audit log", "Sync jobs"]);
+    expect(admin.tabs.map((i) => i.label)).toEqual(["New receipt", "Transactions", "Approvals", "Reminders"]);
+    expect(admin.more.map((i) => i.label)).toEqual(["Daily cash report", "Activity log", "Settings", "Users", "Sync jobs"]);
   });
 
-  it("marks the current page, and Home only on the home page", () => {
-    expect(isActivePath("/", "/")).toBe(true);
-    expect(isActivePath("/", "/deals")).toBe(false);
+  it("marks the current page", () => {
     expect(isActivePath("/deals", "/deals")).toBe(true);
     expect(isActivePath("/deals", "/deals/abc")).toBe(true);
     expect(isActivePath("/deals", "/dealsheet")).toBe(false);
-    expect(isActivePath("/admin/users", "/admin/audit")).toBe(false);
+    expect(isActivePath("/admin/users", "/admin/sync")).toBe(false);
     expect(isActivePath("/deals", null)).toBe(false);
   });
 });

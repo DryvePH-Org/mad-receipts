@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Print layouts — MAD Receipts prototype</title><link rel="stylesheet" href="style.css"></head>
+<body data-page="prints"><div class="shell">
+<aside class="side" id="side"></aside>
+<main>
+<div class="head"><div><h1>Print layouts</h1><p>Three ways the receipt can come out of the printer. Each prints 3 copies by default; staff can change that. The footer names who the copy is for.</p></div><span class="tag proto">Prototype</span></div>
+<div class="samples">
+
+<section class="sample"><div>
+  <h2>Official form</h2><p class="hint">The full-page form, like the paper booklet. Every field has its own line, so it is easy to read and sign.</p>
+  <dl><dt>Paper</dt><dd>A4 · 210 × 297 mm</dd><dt>Best for</dt><dd>File copy, bank and LTO papers</dd><dt>Copies</dt><dd>Customer's · Office · Accounting</dd></dl>
+  <a class="btn primary" href="print-form.html">Open print preview</a>
+</div><div class="desk" style="place-items:start center"><div style="position:relative;width:492px;height:696px;overflow:hidden;box-shadow:0 2px 12px rgb(0 0 0 / .25)"><iframe src="print-form.html?bare" width="794" height="1123" title="Official form" style="position:absolute;top:0;left:0;transform:scale(0.62);transform-origin:top left;box-shadow:none"></iframe></div></div></section>
+
+<section class="sample"><div>
+  <h2>Half page</h2><p class="hint">The same form on A5, so two copies fit on one A4 sheet. Uses less paper for the extra copies.</p>
+  <dl><dt>Paper</dt><dd>A5 · 148 × 210 mm</dd><dt>Best for</dt><dd>Customer's copy, handed over at the desk</dd><dt>Copies</dt><dd>Customer's · Office · Accounting</dd></dl>
+  <a class="btn primary" href="print-half.html">Open print preview</a>
+</div><div class="desk" style="place-items:start center"><div style="position:relative;width:476px;height:675px;overflow:hidden;box-shadow:0 2px 12px rgb(0 0 0 / .25)"><iframe src="print-half.html?bare" width="560" height="794" title="Half page" style="position:absolute;top:0;left:0;transform:scale(0.85);transform-origin:top left;box-shadow:none"></iframe></div></div></section>
+
+<section class="sample"><div>
+  <h2>Receipt slip</h2><p class="hint">Looks like a till receipt: narrow, monospaced, dashed lines and a bar at the bottom. For a thermal printer.</p>
+  <dl><dt>Paper</dt><dd>80 mm thermal roll</dd><dt>Best for</dt><dd>A quick copy for the buyer</dd><dt>Copies</dt><dd>Customer's · Office · Accounting</dd></dl>
+  <a class="btn primary" href="print-slip.html">Open print preview</a>
+</div><div class="desk" style="place-items:start center"><div style="position:relative;width:242px;height:848px;overflow:hidden;box-shadow:0 2px 12px rgb(0 0 0 / .25)"><iframe src="print-slip.html?bare" width="302" height="1060" title="Receipt slip" style="position:absolute;top:0;left:0;transform:scale(0.8);transform-origin:top left;box-shadow:none"></iframe></div></div></section>
+
+</div></main></div><script src="inventory.js"></script><script src="paper.js"></script><script src="store.js"></script><script src="shell.js"></script>
+</body></html>

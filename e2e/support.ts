@@ -1,17 +1,15 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
 export const credentials = {
-  staff: { email: "zzt-e2e-staff@example.test", password: `Zz1-${"e2e-staff-pass"}` },
-  admin: { email: "zzt-e2e-admin@example.test", password: `Zz1-${"e2e-admin-pass"}` },
-};
+  sales: { email: "zzt-e2e-sales@example.test", password: `Zz1-${"e2e-sales-pass"}`, role: "sales" },
+  approver: { email: "zzt-e2e-approver@example.test", password: `Zz1-${"e2e-approver-pass"}`, role: "approver" },
+  admin: { email: "zzt-e2e-admin@example.test", password: `Zz1-${"e2e-admin-pass"}`, role: "admin" },
+} as const;
 
 export const RECEIPT_PREFIX = "ZZT-E2E";
-// The real sample photo stays on this computer only (it is not in the repository); other machines
-// use a synthetic image. Groq is mocked, so either one works.
-const REAL_PHOTO = resolve(process.cwd(), "Docs/76950a59-99da-48c6-94e8-faec982faf85.jpeg");
-export const PHOTO = existsSync(REAL_PHOTO) ? REAL_PHOTO : resolve(process.cwd(), "e2e/fixtures/sample-receipt.jpg");
+export const PROOF = resolve(process.cwd(), "e2e/fixtures/sample-receipt.jpg");
 
 function env() {
   const out: Record<string, string> = {};
@@ -27,41 +25,31 @@ export function adminClient() {
   return createClient(e.NEXT_PUBLIC_SUPABASE_URL, e.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
-export const setMockGroq = (state: Record<string, unknown>) =>
-  fetch("http://127.0.0.1:8766/__set", { method: "POST", body: JSON.stringify(state) });
-
 /** Removes everything the browser tests created. Safe to run any number of times. */
 export async function cleanup() {
   const admin = adminClient();
-  const { data: receipts } = await admin.from("receipts").select("id, deal_id, photo_path").like("receipt_no", `${RECEIPT_PREFIX}%`);
+  const { data: receipts } = await admin.from("receipts").select("id, deal_id").like("receipt_no", `${RECEIPT_PREFIX}%`);
   const receiptIds = (receipts ?? []).map((r) => r.id);
   const dealIds = [...new Set((receipts ?? []).map((r) => r.deal_id))];
   if (receiptIds.length) {
+    const { data: files } = await admin.from("attachments").select("storage_path").in("receipt_id", receiptIds);
+    const paths = (files ?? []).map((f) => f.storage_path);
+    if (paths.length) await admin.storage.from("payment-proofs").remove(paths);
     await admin.from("sync_jobs").delete().in("receipt_id", receiptIds);
     await admin.from("audit_logs").delete().in("entity_id", receiptIds);
-    const paths = (receipts ?? []).map((r) => r.photo_path).filter((p): p is string => !!p);
-    if (paths.length) await admin.storage.from("receipt-photos").remove(paths);
+    await admin.from("receipts").delete().in("id", receiptIds);
   }
   if (dealIds.length) {
     await admin.from("audit_logs").delete().in("entity_id", dealIds);
-    await admin.from("deal_salespeople").delete().in("deal_id", dealIds);
-    await admin.from("receipts").delete().in("deal_id", dealIds);
     await admin.from("deals").delete().in("id", dealIds);
-  }
-  const { data: people } = await admin.from("salespeople").select("id").like("name", "ZZT E2E %");
-  const personIds = (people ?? []).map((x) => x.id);
-  if (personIds.length) {
-    await admin.from("audit_logs").delete().in("entity_id", personIds);
-    await admin.from("salespeople").delete().in("id", personIds);
   }
   const { data: list } = await admin.auth.admin.listUsers({ perPage: 200 });
   for (const user of list?.users ?? []) {
     if (!user.email?.startsWith("zzt-e2e-")) continue;
-    const { data: drafts } = await admin.from("receipt_drafts").select("id, photo_path").eq("created_by", user.id);
-    const draftPaths = (drafts ?? []).map((d) => d.photo_path);
-    if (draftPaths.length) await admin.storage.from("receipt-photos").remove(draftPaths);
-    await admin.from("receipt_drafts").delete().eq("created_by", user.id);
+    const { data: stray } = await admin.storage.from("payment-proofs").list(user.id, { limit: 500 });
+    if (stray?.length) await admin.storage.from("payment-proofs").remove(stray.map((f) => `${user.id}/${f.name}`));
     await admin.from("audit_logs").delete().eq("actor_id", user.id);
+    await admin.from("app_settings").delete().eq("updated_by", user.id); // settings the test Admin saved
     await admin.auth.admin.deleteUser(user.id);
   }
 }

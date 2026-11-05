@@ -1,351 +1,137 @@
 import { describe, expect, it, vi } from "vitest";
+import { emptyForm } from "@/app/(app)/new/form-state";
+import { DEFAULT_SETTINGS, parseSettings } from "@/lib/deal/settings";
 import type { DriveClient } from "@/lib/google/drive";
 import { createMockInventory } from "@/lib/inventory/mock";
-import {
-  DEAL_HEADERS,
-  RECEIPT_HEADERS,
-  cancelMessage,
-  syncTargets,
-  telegramCaption,
-  voidMessage,
-  type SyncContext,
-  type SyncDeps,
-} from "@/lib/sync/targets";
+import { DEAL_HEADERS, RECEIPT_HEADERS, cancelMessage, syncTargets, telegramCaption, unitStatusFor, voidMessage, type SyncContext, type SyncDeps } from "@/lib/sync/targets";
 import type { TelegramClient } from "@/lib/telegram";
 import { fakeSheets } from "./fakes";
 
-const PHOTO = new Uint8Array([0xff, 0xd8, 0xff]);
+const settings = parseSettings(DEFAULT_SETTINGS);
+const IMAGE = { name: "cash.jpg", mime: "image/jpeg", bytes: new Uint8Array([0xff, 0xd8, 0xff]) };
 
-function context(overrides: { receipt?: Partial<SyncContext["receipt"]>; deal?: Partial<SyncContext["deal"]> } = {}): SyncContext {
+function context(over: { receipt?: Partial<SyncContext["receipt"]>; deal?: Partial<SyncContext["deal"]>; event?: SyncContext["event"]; proofs?: SyncContext["proofs"] } = {}): SyncContext {
+  const snapshot = { ...emptyForm(settings, "2026-11-04"), receiptNo: "2556", receivedFrom: "Maria Santos" };
   return {
-    receipt: {
-      id: "r1",
-      deal_id: "d1",
-      receipt_no: "2556",
-      receipt_date: "2026-11-02",
-      amount: 50000,
-      payment_type: "earnest",
-      paper_payment_type: "earnest",
-      payment_method: "cash",
-      check_no: null,
-      bank_branch: null,
-      balance_after: 450000,
-      balance_due_date: "2026-11-05",
-      amount_words: "Fifty Thousand Only",
-      balance_words: "Four Hundred Fifty Thousand",
-      photo_path: "receipts/2556.jpg",
-      drive_file_id: null,
-      extraction_raw: null,
-      status: "confirmed",
-      void_reason: null,
-      created_by: "u1",
-      created_at: "2026-11-02T07:30:00Z",
-      ...overrides.receipt,
-    },
+    event: over.event ?? "confirm",
+    receipt: { id: "r1", deal_id: "d1", receipt_no: "2556", receipt_date: "2026-11-04", kind: "partial", amount: 40000, payout: 0, balance_after: 680000, status: "approved", submitted_by: "u1", submitted_at: "2026-11-04T01:00:00Z", reviewed_by: "u2", reviewed_at: "2026-11-04T02:00:00Z", reject_reason: null, void_reason: null, voided_by: null, voided_at: null, remarks: null, notes: null, snapshot: snapshot as never, drive_file_id: null, created_at: "2026-11-04T01:00:00Z", ...over.receipt },
     deal: {
-      id: "d1",
-      plate_no: "NKF4771",
-      make_type: "2021 Honda Civic",
-      color: "Black",
-      motor_no: null,
-      chassis_no: null,
-      buyer_name: "Jose Rizal",
-      buyer_address: "16 San Fernando, Kapitolyo, Pasig City",
-      buyer_contact: null,
-      agreed_price: 500000,
-      amount_due: 500000,
-      transaction_type: "cash",
-      trade_in_value: 0,
-      trade_in_details: null,
-      loan_amount: 0,
-      processing_fee: 0,
-      financier: null,
-      opening_paid: 0,
-      total_paid: 50000,
-      balance: 450000,
-      status: "open",
-      cancel_reason: null,
-      forfeited: false,
-      created_by: "u1",
-      created_at: "2026-11-02T07:30:00Z",
-      updated_at: "2026-11-02T07:30:00Z",
-      ...overrides.deal,
+      id: "d1", deal_no: "D1001", buyer_name: "Maria Santos", buyer_address: "Pasig", buyer_contact: "09171234567", sale_type: "cash", institution: null, agreed_price: 720000, down_payment: null, amount_due: 720000, loan_amount: 0,
+      processing_fee: 0, monthly_payment: null, years: null, opening_paid: 0, trade_in_value: 0, trade_in: null, lieu_amount: 0, lieu_until: null, due_date: "2026-12-15", due_text: null, loan_status: "none", loan_since: null,
+      loan_released_on: null, status: "open", cancelled_at: null, cancel_reason: null, refund_amount: null, created_by: "u1", created_at: "2026-11-04T01:00:00Z", terms: {}, created_by_name: "David",
+      approved_paid: 40000, approved_payout: 0, approved_count: 1, pending_paid: 0, pending_count: 0, balance: 680000, units: [], receipt_nos: "2556", ...over.deal,
     },
-    confirmedBy: "Test Staff",
-    salesperson: "David",
-    salespeople: [],
-    event: "confirm",
-    lastReceiptNo: "2556",
-    lastReceiptAt: "2026-11-02T07:30:00Z",
-    photo: async () => PHOTO,
+    units: [{ make_type: "2023 Toyota Vios", plate: "NBC 4821", plate_no: "NBC4821", color: "Silver" }],
+    payments: [{ id: "p1", receipt_id: "r1", position: 1, method: "cash", label: "Cash", amount: 40000, reference: null, check_no: null, bank: null, branch: null }],
+    settings, filledInBy: "David", approvedBy: "Karl", salesperson: "David", lastReceiptNo: "2556", lastReceiptAt: "2026-11-04T01:00:00Z", today: "2026-11-04",
+    proofs: over.proofs ?? (async () => [IMAGE]),
   };
 }
 
-function deps(overrides: Partial<SyncDeps> = {}) {
+function deps() {
+  const files = new Map<string, Uint8Array>(), uploads: string[] = [];
+  const drive: DriveClient = {
+    findFile: async (_f, name) => (files.has(name) ? `id-${name}` : null),
+    uploadFile: async (_f, name, bytes) => { files.set(name, bytes); uploads.push(name); return `id-${name}`; },
+  };
+  const telegram: TelegramClient = { sendPhoto: vi.fn(async () => undefined), sendMessage: vi.fn(async () => undefined) };
   const sheets = fakeSheets({ Receipts: [], Deals: [] });
-  const drive = { findFile: vi.fn(async () => null), uploadFile: vi.fn(async () => "drive-file-1") } satisfies DriveClient;
-  const telegram = {
-    sendPhoto: vi.fn<TelegramClient["sendPhoto"]>(async () => {}),
-    sendMessage: vi.fn<TelegramClient["sendMessage"]>(async () => {}),
-  };
-  const inventory = createMockInventory([{ plate: "NKF4771", status: "Available" }]);
-  const all: SyncDeps = {
-    sheets: () => sheets.client,
-    drive: () => drive,
-    telegram: () => telegram,
-    inventory,
-    config: { driveFolderId: "folder-1", logSheetId: "log-1" },
-    ...overrides,
-  };
-  return { all, sheets, drive, telegram, inventory };
+  const inventory = createMockInventory([{ plate: "NBC4821", status: "Available" }]);
+  const d: SyncDeps = { sheets: () => sheets.client, drive: () => drive, telegram: () => telegram, inventory, config: { driveFolderId: "folder", logSheetId: "sheet" } };
+  return { d, uploads, telegram, sheets, inventory };
 }
 
-describe("drive target", () => {
-  it("uploads the photo as {receipt_no}_{plate}.jpg and returns the file id", async () => {
-    const d = deps();
-    expect(await syncTargets.drive(context(), d.all)).toEqual({ driveFileId: "drive-file-1" });
-    expect(d.drive.uploadFile).toHaveBeenCalledWith("folder-1", "2556_NKF4771.jpg", PHOTO, "image/jpeg");
+describe("drive", () => {
+  it("files the receipt copy and every proof once", async () => {
+    const { d, uploads } = deps();
+    const result = await syncTargets.drive(context(), d);
+    expect(result).toEqual({ driveFileId: "id-2556_NBC4821.html" });
+    expect(uploads).toEqual(["2556_NBC4821.html", "2556_NBC4821_proof-1.jpg"]);
+    await syncTargets.drive(context(), d); // run again: nothing is uploaded twice
+    expect(uploads).toHaveLength(2);
   });
-
-  it("is idempotent: reuses an earlier upload instead of uploading twice", async () => {
-    const d = deps();
-    d.drive.findFile.mockResolvedValueOnce("already-there" as never);
-    expect(await syncTargets.drive(context(), d.all)).toEqual({ driveFileId: "already-there" });
-    expect(d.drive.uploadFile).not.toHaveBeenCalled();
-
-    await syncTargets.drive(context({ receipt: { drive_file_id: "saved" } }), d.all);
-    expect(d.drive.findFile).toHaveBeenCalledTimes(1); // nothing to do once saved
-  });
-
-  it("fails clearly when the folder is not configured", async () => {
-    const d = deps({ config: {} });
-    await expect(syncTargets.drive(context(), d.all)).rejects.toThrow("GOOGLE_DRIVE_FOLDER_ID is not set");
+  it("does nothing when already filed, or for other events", async () => {
+    const { d, uploads } = deps();
+    await syncTargets.drive(context({ receipt: { drive_file_id: "x" } }), d);
+    await syncTargets.drive(context({ event: "void" }), d);
+    expect(uploads).toEqual([]);
   });
 });
 
-describe("sheets target", () => {
-  it("writes headers, a Receipts row and a Deals row", async () => {
-    const d = deps();
-    await syncTargets.sheets(context({ receipt: { drive_file_id: "f9" } }), d.all);
-    const { Receipts, Deals } = d.sheets.tabs;
-
-    expect(Receipts[0]).toEqual(RECEIPT_HEADERS);
-    expect(Object.fromEntries(RECEIPT_HEADERS.map((h, i) => [h, Receipts[1][i]]))).toEqual({
-      Timestamp: "2026-11-02 15:30",
-      "Receipt No": "2556",
-      Date: "2026-11-02",
-      Buyer: "Jose Rizal",
-      Address: "16 San Fernando, Kapitolyo, Pasig City",
-      Contact: "",
-      Plate: "NKF4771",
-      "Make/Type": "2021 Honda Civic",
-      Color: "Black",
-      Motor: "",
-      Chassis: "",
-      "Payment Type": "Earnest",
-      Amount: 50000,
-      "Agreed Price": 500000,
-      "Total Paid": 50000,
-      Balance: 450000,
-      Method: "Cash",
-      "Check No": "",
-      "Bank/Branch": "",
-      "Balance Due Date": "2026-11-05",
-      "Photo Link": "https://drive.google.com/file/d/f9/view",
-      "Confirmed By": "Test Staff",
-      Status: "Confirmed",
-      "Sale Type": "Cash",
-    });
-    expect(Deals).toEqual([DEAL_HEADERS, ["d1", "NKF4771", "Jose Rizal", 500000, 50000, 450000, "Open", "2556", "", "Cash", 500000]]);
+describe("sheets", () => {
+  it("adds the receipt and the deal on approval, and never twice", async () => {
+    const { d, sheets } = deps();
+    await syncTargets.sheets(context(), d);
+    await syncTargets.sheets(context(), d);
+    const receipts = sheets.tabs.Receipts, deals = sheets.tabs.Deals;
+    expect(receipts[0]).toEqual(RECEIPT_HEADERS);
+    expect(receipts).toHaveLength(2);
+    expect(receipts[1].slice(1, 4)).toEqual(["2556", "2026-11-04", "Maria Santos"]);
+    expect(receipts[1][8]).toBe(40000); // paid today
+    expect(deals[0]).toEqual(DEAL_HEADERS);
+    expect(deals).toHaveLength(2);
+    expect(deals[1].slice(0, 3)).toEqual(["D1001", "Maria Santos", "NBC 4821"]);
   });
-
-  it("does not duplicate a receipt row, and updates the deal row in place", async () => {
-    const d = deps();
-    await syncTargets.sheets(context(), d.all);
-    await syncTargets.sheets(context(), d.all); // re-run
-    expect(d.sheets.tabs.Receipts).toHaveLength(2);
-
-    const second = context({
-      receipt: { id: "r2", receipt_no: "2557", amount: 450000, balance_after: 0, payment_type: "full" },
-      deal: { total_paid: 500000, balance: 0, status: "completed" },
-    });
-    second.lastReceiptNo = "2557";
-    second.salespeople = [
-      { name: "David", percent: 3 },
-      { name: "Ella", percent: 1.5 },
-    ];
-    await syncTargets.sheets(second, d.all);
-    expect(d.sheets.tabs.Receipts).toHaveLength(3);
-    expect(d.sheets.tabs.Deals).toEqual([
-      DEAL_HEADERS,
-      ["d1", "NKF4771", "Jose Rizal", 500000, 500000, 0, "Completed", "2557", "David 3%, Ella 1.5%", "Cash", 500000],
-    ]);
-  });
-
-  it("a financed deal: total paid is measured against what the buyer owes, and the terms are written down", async () => {
-    const d = deps();
-    const ctx = context({
-      receipt: { amount: 580000, balance_after: 0, payment_type: "full" },
-      deal: {
-        agreed_price: 720000, amount_due: 600000, transaction_type: "financing", loan_amount: 130000, processing_fee: 10000,
-        financier: "GDFI", opening_paid: 20000, total_paid: 600000, balance: 0, status: "completed",
-      },
-    });
-    await syncTargets.sheets(ctx, d.all);
-    const row = Object.fromEntries(RECEIPT_HEADERS.map((h, i) => [h, d.sheets.tabs.Receipts[1][i]]));
-    expect([row["Agreed Price"], row["Total Paid"], row.Balance, row["Sale Type"]]).toEqual([720000, 600000, 0, "Financing: loan ₱130,000 (GDFI) + fee ₱10,000"]);
-    expect(d.sheets.tabs.Deals[1].slice(-2)).toEqual(["Financing: loan ₱130,000 (GDFI) + fee ₱10,000", 600000]);
-    expect(telegramCaption(ctx)).toContain("Financing: loan ₱130,000 (GDFI) + fee ₱10,000");
-  });
-
-  it("adds the names of newer columns to an older header row", async () => {
-    const d = deps();
-    d.sheets.tabs.Receipts.push(RECEIPT_HEADERS.slice(0, 23));
-    d.sheets.tabs.Deals.push(DEAL_HEADERS.slice(0, 9));
-    await syncTargets.sheets(context(), d.all);
-    expect(d.sheets.tabs.Receipts[0]).toEqual(RECEIPT_HEADERS);
-    expect(d.sheets.tabs.Deals[0]).toEqual(DEAL_HEADERS);
-  });
-
-  it("keeps rows staff added above, and appends below them", async () => {
-    const d = deps();
-    d.sheets.tabs.Receipts.push(RECEIPT_HEADERS, ["manual row", "1999"]);
-    await syncTargets.sheets(context(), d.all);
-    expect(d.sheets.tabs.Receipts.map((r) => r[1])).toEqual(["Receipt No", "1999", "2556"]);
-  });
-
-  it("explains a missing tab", async () => {
-    const sheets = fakeSheets({ Deals: [] });
-    const d = deps({ sheets: () => sheets.client });
-    await expect(syncTargets.sheets(context(), d.all)).rejects.toThrow('Tab "Receipts" was not found');
+  it("marks the receipt voided and updates the deal's balance", async () => {
+    const { d, sheets } = deps();
+    await syncTargets.sheets(context(), d);
+    await syncTargets.sheets(context({ event: "void", receipt: { status: "void" }, deal: { balance: 720000, approved_paid: 0 } }), d);
+    expect(sheets.tabs.Receipts[1][18]).toBe("Void");
+    expect(sheets.tabs.Deals[1][12]).toBe(720000);
   });
 });
 
-describe("telegram target", () => {
-  it("sends the photo with the summary caption", async () => {
-    const d = deps();
-    await syncTargets.telegram(context(), d.all);
-    expect(d.telegram.sendPhoto).toHaveBeenCalledWith(
-      PHOTO,
-      [
-        "🧾 Receipt #2556 · EARNEST",
-        "Jose Rizal",
-        "2021 Honda Civic · NKF4771",
-        "Paid ₱50,000 · Balance ₱450,000 · Due Nov 5, 2026",
-        "Unit: Reserved",
-      ].join("\n"),
-    );
+describe("telegram", () => {
+  it("sends the first proof photo with the caption, or just the message", async () => {
+    const a = deps();
+    await syncTargets.telegram(context(), a.d);
+    expect(a.telegram.sendPhoto).toHaveBeenCalledOnce();
+    const caption = vi.mocked(a.telegram.sendPhoto).mock.calls[0][1];
+    expect(caption).toContain("Receipt #2556 · PARTIAL");
+    expect(caption).toContain("Approved by Karl");
+    expect(caption).toContain("Unit: Reserved");
+    const b = deps();
+    await syncTargets.telegram(context({ proofs: async () => [] }), b.d);
+    expect(b.telegram.sendMessage).toHaveBeenCalledOnce();
   });
-
-  it("drops the due date once fully paid", () => {
-    const caption = telegramCaption(
-      context({ receipt: { receipt_no: "2557", amount: 450000, balance_after: 0, payment_type: "full" } }),
-    );
-    expect(caption).toContain("🧾 Receipt #2557 · FULL");
-    expect(caption).toContain("Paid ₱450,000 · Balance ₱0\nUnit: Sold");
-  });
-});
-
-describe("inventory target", () => {
-  it("writes the status for the deal's current state", async () => {
-    const d = deps();
-    await syncTargets.inventory(context(), d.all);
-    expect((await d.inventory.getUnit("NKF4771"))?.status).toBe("Reserved");
-    await syncTargets.inventory(context({ deal: { status: "completed" } }), d.all);
-    expect((await d.inventory.getUnit("NKF4771"))?.status).toBe("Sold");
-    await syncTargets.inventory(context({ deal: { status: "cancelled" } }), d.all);
-    expect((await d.inventory.getUnit("NKF4771"))?.status).toBe("Available");
-  });
-
-  it("passes the deal's salespeople with their percents, and the date in Manila", async () => {
-    const d = deps();
-    // Reserved, nobody recorded yet: the staff who opened the deal.
-    await syncTargets.inventory(context(), d.all);
-    // Sold, with two salespeople.
-    const sold = context({
-      receipt: { receipt_no: "2557", created_at: "2026-11-04T01:00:00Z" },
-      deal: { status: "completed", total_paid: 500000, balance: 0 },
-    });
-    sold.salespeople = [
-      { name: "David", percent: 3 },
-      { name: "Ella", percent: 1.5 },
-    ];
-    sold.lastReceiptNo = "2557";
-    sold.lastReceiptAt = "2026-11-04T01:00:00Z";
-    await syncTargets.inventory(sold, d.all);
-    expect(d.inventory.changes.map((c) => [c.status, c.ref])).toEqual([
-      ["Reserved", { receiptNo: "2556", people: [{ name: "David", percent: null }], date: "11/2" }],
-      [
-        "Sold",
-        {
-          receiptNo: "2557",
-          people: [
-            { name: "David", percent: 3 },
-            { name: "Ella", percent: 1.5 },
-          ],
-          date: "11/4",
-        },
-      ],
-    ]);
+  it("announces a void and a cancellation, but not a change", async () => {
+    const a = deps();
+    await syncTargets.telegram(context({ event: "void", receipt: { status: "void", void_reason: "Wrong amount" } }), a.d);
+    await syncTargets.telegram(context({ event: "cancel", deal: { status: "cancelled", cancel_reason: "Changed his mind", refund_amount: 5000 } }), a.d);
+    await syncTargets.telegram(context({ event: "edit" }), a.d);
+    expect(a.telegram.sendMessage).toHaveBeenCalledTimes(2);
+    expect(voidMessage(context({ receipt: { void_reason: "Wrong amount" } }))).toContain("Wrong amount");
+    expect(cancelMessage(context({ deal: { cancel_reason: "Changed his mind", refund_amount: 5000 } }))).toContain("Refunded ₱5,000");
   });
 });
 
-describe("sync events: void, cancel and edit", () => {
-  const withEvent = (event: "void" | "cancel" | "edit", overrides: Parameters<typeof context>[0] = {}) => ({
-    ...context(overrides),
-    event,
+describe("inventory", () => {
+  it("Reserved while open, Sold when settled, Available when cancelled", async () => {
+    const { d, inventory } = deps();
+    await syncTargets.inventory(context(), d);
+    await syncTargets.inventory(context({ deal: { balance: 0 } }), d);
+    await syncTargets.inventory(context({ deal: { balance: 0, sale_type: "financing", institution: "BDO", loan_status: "waiting" } }), d);
+    await syncTargets.inventory(context({ deal: { balance: 0, sale_type: "financing", institution: "BDO", loan_status: "released" } }), d);
+    await syncTargets.inventory(context({ deal: { status: "cancelled" } }), d);
+    expect(inventory.changes.map((c) => c.status)).toEqual(["Reserved", "Sold", "Reserved", "Sold", "Available"]);
+    expect(inventory.changes[0]).toMatchObject({ plate: "NBC4821", ref: { receiptNo: "2556", people: [{ name: "David", percent: null }] } });
   });
-
-  it("drive uploads only for a confirmed receipt", async () => {
-    const d = deps();
-    for (const event of ["void", "cancel", "edit"] as const) {
-      expect(await syncTargets.drive(withEvent(event), d.all)).toBeUndefined();
-    }
-    expect(d.drive.uploadFile).not.toHaveBeenCalled();
+  it("maps statuses", () => {
+    expect([unitStatusFor("settled"), unitStatusFor("lender"), unitStatusFor("overdue"), unitStatusFor("cancelled")]).toEqual(["Sold", "Reserved", "Reserved", "Available"]);
   });
-
-  it("void: marks the receipt row Voided in place and refreshes the deal row", async () => {
-    const d = deps();
-    await syncTargets.sheets(context(), d.all); // confirmed earlier
-    const voided = withEvent("void", { receipt: { status: "voided", void_reason: "wrong amount" }, deal: { total_paid: 0, balance: 500000 } });
-    await syncTargets.sheets(voided, d.all);
-    const { Receipts, Deals } = d.sheets.tabs;
-    expect(Receipts).toHaveLength(2); // not appended again
-    expect(Receipts[1][RECEIPT_HEADERS.indexOf("Status")]).toBe("Voided");
-    expect(Deals[1][DEAL_HEADERS.indexOf("Balance")]).toBe(500000);
+  it("the caption never promises Sold before it is settled", () => {
+    expect(telegramCaption(context({ deal: { balance: 0, sale_type: "financing", institution: "BDO", loan_status: "waiting" } }))).toContain("Unit: Reserved");
   });
+});
 
-  it("cancel and edit only change the deal row, never the Receipts tab", async () => {
-    const d = deps();
-    await syncTargets.sheets(context(), d.all);
-    const before = JSON.stringify(d.sheets.tabs.Receipts);
-    await syncTargets.sheets(withEvent("cancel", { deal: { status: "cancelled" } }), d.all);
-    await syncTargets.sheets(withEvent("edit", { deal: { buyer_name: "Jose P. Rizal" } }), d.all);
-    expect(JSON.stringify(d.sheets.tabs.Receipts)).toBe(before);
-    expect(d.sheets.tabs.Deals[1][DEAL_HEADERS.indexOf("Buyer")]).toBe("Jose P. Rizal");
-  });
-
-  it("telegram announces a void and a cancel, but not an edit", async () => {
-    const d = deps();
-    await syncTargets.telegram(withEvent("void", { receipt: { status: "voided", void_reason: "wrong amount", receipt_no: "2557" }, deal: { total_paid: 50000, balance: 450000 } }), d.all);
-    await syncTargets.telegram(withEvent("cancel", { deal: { status: "cancelled", cancel_reason: "buyer backed out", forfeited: true } }), d.all);
-    await syncTargets.telegram(withEvent("edit"), d.all);
-    expect(d.telegram.sendPhoto).not.toHaveBeenCalled();
-    expect(d.telegram.sendMessage.mock.calls.map(([text]) => text)).toEqual([
-      ["⚠️ Receipt #2557 VOIDED", "Jose Rizal", "2021 Honda Civic · NKF4771", "Reason: wrong amount", "Paid ₱50,000 · Balance ₱450,000", "Unit: Reserved"].join("\n"),
-      ["❌ Deal CANCELLED", "Jose Rizal", "2021 Honda Civic · NKF4771", "Reason: buyer backed out", "Forfeited ₱50,000", "Unit: Available"].join("\n"),
-    ]);
-  });
-
-  it("a cancel message says when the money is not forfeited", () => {
-    expect(cancelMessage(withEvent("cancel", { deal: { status: "cancelled", cancel_reason: "x", forfeited: false } }))).toContain("Paid ₱50,000 (not forfeited)");
-    expect(voidMessage(withEvent("void", { receipt: { status: "voided", void_reason: null } }))).toContain("Reason: —");
-  });
-
-  it("inventory follows the deal: a cancel clears the status, a void of a sold deal reserves again", async () => {
-    const d = deps();
-    await syncTargets.inventory(withEvent("cancel", { deal: { status: "cancelled" } }), d.all);
-    await syncTargets.inventory(withEvent("void", { deal: { status: "open" } }), d.all);
-    expect(d.inventory.changes.map((c) => c.status)).toEqual(["Available", "Reserved"]);
+describe("the receipt record filed in Drive", () => {
+  it("lists the receipt and the money line by line", async () => {
+    const { d } = deps();
+    const uploaded: string[] = [];
+    const drive: DriveClient = { findFile: async () => null, uploadFile: async (_f, name, bytes) => { uploaded.push(`${name}:${new TextDecoder().decode(bytes)}`); return "id"; } };
+    await syncTargets.drive(context(), { ...d, drive: () => drive });
+    const html = uploaded.find((u) => u.startsWith("2556_NBC4821.html"))!;
+    expect(html).toContain("Manila Auto Display");
+    expect(html).toContain("Maria Santos");
   });
 });

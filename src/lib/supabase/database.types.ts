@@ -39,555 +39,508 @@ export type Database = {
   }
   public: {
     Tables: {
-      audit_logs: {
-        Row: {
-          action: string
-          actor_id: string | null
-          after: Json | null
-          before: Json | null
-          created_at: string
-          entity: string
-          entity_id: string | null
-          id: string
-        }
-        Insert: {
-          action: string
-          actor_id?: string | null
-          after?: Json | null
-          before?: Json | null
-          created_at?: string
-          entity: string
-          entity_id?: string | null
-          id?: string
-        }
-        Update: {
-          action?: string
-          actor_id?: string | null
-          after?: Json | null
-          before?: Json | null
-          created_at?: string
-          entity?: string
-          entity_id?: string | null
-          id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "audit_logs_actor_id_fkey"
-            columns: ["actor_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      deal_salespeople: {
-        Row: {
-          commission_percent: number
-          created_at: string
-          deal_id: string
-          salesperson_id: string
-        }
-        Insert: {
-          commission_percent: number
-          created_at?: string
-          deal_id: string
-          salesperson_id: string
-        }
-        Update: {
-          commission_percent?: number
-          created_at?: string
-          deal_id?: string
-          salesperson_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "deal_salespeople_deal_id_fkey"
-            columns: ["deal_id"]
-            isOneToOne: false
-            referencedRelation: "deal_summaries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "deal_salespeople_deal_id_fkey"
-            columns: ["deal_id"]
-            isOneToOne: false
-            referencedRelation: "deals"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "deal_salespeople_salesperson_id_fkey"
-            columns: ["salesperson_id"]
-            isOneToOne: false
-            referencedRelation: "salespeople"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      deals: {
-        Row: {
-          agreed_price: number
-          balance: number
-          buyer_address: string | null
-          buyer_contact: string | null
-          buyer_name: string
-          cancel_reason: string | null
-          chassis_no: string | null
-          color: string | null
-          created_at: string
-          created_by: string
-          forfeited: boolean
-          id: string
-          make_type: string | null
-          motor_no: string | null
-          plate_no: string
-          status: string
-          total_paid: number
-          amount_due: number | null
-          financier: string | null
-          loan_amount: number
-          opening_paid: number
-          processing_fee: number
-          trade_in_details: string | null
-          trade_in_value: number
-          transaction_type: string
-          updated_at: string
-        }
-        Insert: {
-          agreed_price: number
-          balance: number
-          buyer_address?: string | null
-          buyer_contact?: string | null
-          buyer_name: string
-          cancel_reason?: string | null
-          chassis_no?: string | null
-          color?: string | null
-          created_at?: string
-          created_by: string
-          forfeited?: boolean
-          id?: string
-          make_type?: string | null
-          motor_no?: string | null
-          plate_no: string
-          status?: string
-          total_paid?: number
-          financier?: string | null
-          loan_amount?: number
-          opening_paid?: number
-          processing_fee?: number
-          trade_in_details?: string | null
-          trade_in_value?: number
-          transaction_type?: string
-          updated_at?: string
-        }
-        Update: {
-          agreed_price?: number
-          balance?: number
-          buyer_address?: string | null
-          buyer_contact?: string | null
-          buyer_name?: string
-          cancel_reason?: string | null
-          chassis_no?: string | null
-          color?: string | null
-          created_at?: string
-          created_by?: string
-          forfeited?: boolean
-          id?: string
-          make_type?: string | null
-          motor_no?: string | null
-          plate_no?: string
-          status?: string
-          total_paid?: number
-          financier?: string | null
-          loan_amount?: number
-          opening_paid?: number
-          processing_fee?: number
-          trade_in_details?: string | null
-          trade_in_value?: number
-          transaction_type?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "deals_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       profiles: {
         Row: {
-          created_at: string
-          full_name: string | null
           id: string
+          full_name: string | null
           role: string
+          created_at: string
         }
         Insert: {
-          created_at?: string
+          id?: string
           full_name?: string | null
-          id: string
           role?: string
+          created_at?: string
         }
         Update: {
-          created_at?: string
-          full_name?: string | null
           id?: string
+          full_name?: string | null
           role?: string
+          created_at?: string
         }
         Relationships: []
       }
-      receipt_drafts: {
+      deals: {
         Row: {
-          created_at: string
-          created_by: string
-          error: string | null
-          extraction: Json | null
           id: string
-          photo_path: string
+          deal_no: string
+          buyer_name: string
+          buyer_address: string | null
+          buyer_contact: string | null
+          sale_type: string
+          institution: string | null
+          agreed_price: number
+          down_payment: number | null
+          loan_amount: number
+          processing_fee: number
+          monthly_payment: number | null
+          years: number | null
+          opening_paid: number
+          trade_in_value: number
+          trade_in: Json | null
+          amount_due: number
+          lieu_amount: number
+          lieu_until: string | null
+          due_date: string | null
+          due_text: string | null
+          loan_status: string
+          loan_since: string | null
+          loan_released_on: string | null
           status: string
-          voice: Json | null
+          cancelled_at: string | null
+          cancel_reason: string | null
+          refund_amount: number | null
+          terms: Json
+          created_by: string
+          created_at: string
+          updated_at: string
         }
         Insert: {
-          created_at?: string
-          created_by?: string
-          error?: string | null
-          extraction?: Json | null
           id?: string
-          photo_path: string
+          deal_no?: string
+          buyer_name?: string
+          buyer_address?: string | null
+          buyer_contact?: string | null
+          sale_type?: string
+          institution?: string | null
+          agreed_price?: number
+          down_payment?: number | null
+          loan_amount?: number
+          processing_fee?: number
+          monthly_payment?: number | null
+          years?: number | null
+          opening_paid?: number
+          trade_in_value?: number
+          trade_in?: Json | null
+          amount_due?: number
+          lieu_amount?: number
+          lieu_until?: string | null
+          due_date?: string | null
+          due_text?: string | null
+          loan_status?: string
+          loan_since?: string | null
+          loan_released_on?: string | null
           status?: string
-          voice?: Json | null
+          cancelled_at?: string | null
+          cancel_reason?: string | null
+          refund_amount?: number | null
+          terms?: Json
+          created_by?: string
+          created_at?: string
+          updated_at?: string
         }
         Update: {
-          created_at?: string
-          created_by?: string
-          error?: string | null
-          extraction?: Json | null
           id?: string
-          photo_path?: string
+          deal_no?: string
+          buyer_name?: string
+          buyer_address?: string | null
+          buyer_contact?: string | null
+          sale_type?: string
+          institution?: string | null
+          agreed_price?: number
+          down_payment?: number | null
+          loan_amount?: number
+          processing_fee?: number
+          monthly_payment?: number | null
+          years?: number | null
+          opening_paid?: number
+          trade_in_value?: number
+          trade_in?: Json | null
+          amount_due?: number
+          lieu_amount?: number
+          lieu_until?: string | null
+          due_date?: string | null
+          due_text?: string | null
+          loan_status?: string
+          loan_since?: string | null
+          loan_released_on?: string | null
           status?: string
-          voice?: Json | null
+          cancelled_at?: string | null
+          cancel_reason?: string | null
+          refund_amount?: number | null
+          terms?: Json
+          created_by?: string
+          created_at?: string
+          updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "receipt_drafts_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
+      }
+      deal_units: {
+        Row: {
+          id: string
+          deal_id: string
+          position: number
+          make_type: string
+          plate_no: string
+          plate_display: string
+          motor_no: string | null
+          chassis_no: string | null
+          color: string | null
+          active: boolean
+        }
+        Insert: {
+          id?: string
+          deal_id?: string
+          position?: number
+          make_type?: string
+          plate_no?: string
+          plate_display?: string
+          motor_no?: string | null
+          chassis_no?: string | null
+          color?: string | null
+          active?: boolean
+        }
+        Update: {
+          id?: string
+          deal_id?: string
+          position?: number
+          make_type?: string
+          plate_no?: string
+          plate_display?: string
+          motor_no?: string | null
+          chassis_no?: string | null
+          color?: string | null
+          active?: boolean
+        }
+        Relationships: []
       }
       receipts: {
         Row: {
-          amount: number
-          amount_words: string | null
-          balance_after: number
-          balance_due_date: string | null
-          balance_words: string | null
-          bank_branch: string | null
-          check_no: string | null
-          created_at: string
-          created_by: string
-          deal_id: string
-          drive_file_id: string | null
-          extraction_raw: Json | null
           id: string
-          paper_payment_type: string | null
-          payment_method: string | null
-          payment_type: string
-          photo_path: string | null
-          receipt_date: string | null
+          deal_id: string
           receipt_no: string
+          receipt_date: string
+          kind: string
+          amount: number
+          payout: number
+          balance_after: number
           status: string
+          submitted_by: string
+          submitted_at: string
+          reviewed_by: string | null
+          reviewed_at: string | null
+          reject_reason: string | null
           void_reason: string | null
-        }
-        Insert: {
-          amount: number
-          amount_words?: string | null
-          balance_after: number
-          balance_due_date?: string | null
-          balance_words?: string | null
-          bank_branch?: string | null
-          check_no?: string | null
-          created_at?: string
-          created_by: string
-          deal_id: string
-          drive_file_id?: string | null
-          extraction_raw?: Json | null
-          id?: string
-          paper_payment_type?: string | null
-          payment_method?: string | null
-          payment_type: string
-          photo_path?: string | null
-          receipt_date?: string | null
-          receipt_no: string
-          status?: string
-          void_reason?: string | null
-        }
-        Update: {
-          amount?: number
-          amount_words?: string | null
-          balance_after?: number
-          balance_due_date?: string | null
-          balance_words?: string | null
-          bank_branch?: string | null
-          check_no?: string | null
-          created_at?: string
-          created_by?: string
-          deal_id?: string
-          drive_file_id?: string | null
-          extraction_raw?: Json | null
-          id?: string
-          paper_payment_type?: string | null
-          payment_method?: string | null
-          payment_type?: string
-          photo_path?: string | null
-          receipt_date?: string | null
-          receipt_no?: string
-          status?: string
-          void_reason?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "receipts_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "receipts_deal_id_fkey"
-            columns: ["deal_id"]
-            isOneToOne: false
-            referencedRelation: "deal_summaries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "receipts_deal_id_fkey"
-            columns: ["deal_id"]
-            isOneToOne: false
-            referencedRelation: "deals"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      salespeople: {
-        Row: {
-          active: boolean
-          aliases: string[]
+          voided_by: string | null
+          voided_at: string | null
+          remarks: string | null
+          notes: Json | null
+          snapshot: Json
+          drive_file_id: string | null
           created_at: string
-          id: string
-          name: string
         }
         Insert: {
-          active?: boolean
-          aliases?: string[]
-          created_at?: string
           id?: string
-          name: string
+          deal_id?: string
+          receipt_no?: string
+          receipt_date?: string
+          kind?: string
+          amount?: number
+          payout?: number
+          balance_after?: number
+          status?: string
+          submitted_by?: string
+          submitted_at?: string
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          reject_reason?: string | null
+          void_reason?: string | null
+          voided_by?: string | null
+          voided_at?: string | null
+          remarks?: string | null
+          notes?: Json | null
+          snapshot?: Json
+          drive_file_id?: string | null
+          created_at?: string
         }
         Update: {
-          active?: boolean
-          aliases?: string[]
-          created_at?: string
           id?: string
-          name?: string
+          deal_id?: string
+          receipt_no?: string
+          receipt_date?: string
+          kind?: string
+          amount?: number
+          payout?: number
+          balance_after?: number
+          status?: string
+          submitted_by?: string
+          submitted_at?: string
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          reject_reason?: string | null
+          void_reason?: string | null
+          voided_by?: string | null
+          voided_at?: string | null
+          remarks?: string | null
+          notes?: Json | null
+          snapshot?: Json
+          drive_file_id?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      receipt_payments: {
+        Row: {
+          id: string
+          receipt_id: string
+          position: number
+          method: string
+          label: string
+          amount: number
+          reference: string | null
+          check_no: string | null
+          bank: string | null
+          branch: string | null
+        }
+        Insert: {
+          id?: string
+          receipt_id?: string
+          position?: number
+          method?: string
+          label?: string
+          amount?: number
+          reference?: string | null
+          check_no?: string | null
+          bank?: string | null
+          branch?: string | null
+        }
+        Update: {
+          id?: string
+          receipt_id?: string
+          position?: number
+          method?: string
+          label?: string
+          amount?: number
+          reference?: string | null
+          check_no?: string | null
+          bank?: string | null
+          branch?: string | null
+        }
+        Relationships: []
+      }
+      attachments: {
+        Row: {
+          id: string
+          receipt_id: string
+          payment_id: string | null
+          purpose: string
+          storage_path: string
+          filename: string
+          mime_type: string | null
+          size_bytes: number | null
+          uploaded_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          receipt_id?: string
+          payment_id?: string | null
+          purpose?: string
+          storage_path?: string
+          filename?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          uploaded_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          receipt_id?: string
+          payment_id?: string | null
+          purpose?: string
+          storage_path?: string
+          filename?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          uploaded_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      app_settings: {
+        Row: {
+          id: number
+          config: Json
+          updated_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          config?: Json
+          updated_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          config?: Json
+          updated_by?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
       sync_jobs: {
         Row: {
-          attempts: number
-          created_at: string
-          event: string
           id: string
+          receipt_id: string
+          target: string
+          event: string
+          status: string
+          attempts: number
           last_error: string | null
           next_run_at: string
-          receipt_id: string
-          status: string
-          target: string
+          created_at: string
           updated_at: string
         }
         Insert: {
-          attempts?: number
-          created_at?: string
-          event?: string
           id?: string
+          receipt_id?: string
+          target?: string
+          event?: string
+          status?: string
+          attempts?: number
           last_error?: string | null
           next_run_at?: string
-          receipt_id: string
-          status?: string
-          target: string
+          created_at?: string
           updated_at?: string
         }
         Update: {
-          attempts?: number
-          created_at?: string
-          event?: string
           id?: string
+          receipt_id?: string
+          target?: string
+          event?: string
+          status?: string
+          attempts?: number
           last_error?: string | null
           next_run_at?: string
-          receipt_id?: string
-          status?: string
-          target?: string
+          created_at?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "sync_jobs_receipt_id_fkey"
-            columns: ["receipt_id"]
-            isOneToOne: false
-            referencedRelation: "receipt_list"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sync_jobs_receipt_id_fkey"
-            columns: ["receipt_id"]
-            isOneToOne: false
-            referencedRelation: "receipts"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: [{ foreignKeyName: "sync_jobs_receipt_id_fkey"; columns: ["receipt_id"]; isOneToOne: false; referencedRelation: "receipts"; referencedColumns: ["id"] }]
+      }
+      audit_logs: {
+        Row: {
+          id: string
+          actor_id: string | null
+          action: string
+          entity: string
+          entity_id: string | null
+          before: Json | null
+          after: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          actor_id?: string | null
+          action?: string
+          entity?: string
+          entity_id?: string | null
+          before?: Json | null
+          after?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          actor_id?: string | null
+          action?: string
+          entity?: string
+          entity_id?: string | null
+          before?: Json | null
+          after?: Json | null
+          created_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {
       deal_summaries: {
         Row: {
-          agreed_price: number | null
-          balance: number | null
+          id: string
+          deal_no: string
+          buyer_name: string
           buyer_address: string | null
           buyer_contact: string | null
-          buyer_name: string | null
+          sale_type: string
+          institution: string | null
+          agreed_price: number
+          down_payment: number | null
+          amount_due: number
+          loan_amount: number
+          processing_fee: number
+          monthly_payment: number | null
+          years: number | null
+          opening_paid: number
+          trade_in_value: number
+          trade_in: Json | null
+          lieu_amount: number
+          lieu_until: string | null
+          due_date: string | null
+          due_text: string | null
+          loan_status: string
+          loan_since: string | null
+          loan_released_on: string | null
+          status: string
+          cancelled_at: string | null
           cancel_reason: string | null
-          chassis_no: string | null
-          color: string | null
-          created_at: string | null
-          created_by: string | null
-          forfeited: boolean | null
-          id: string | null
-          last_receipt_date: string | null
-          last_receipt_no: string | null
-          make_type: string | null
-          motor_no: string | null
-          next_due_date: string | null
-          plate_no: string | null
-          receipt_count: number | null
-          status: string | null
-          total_paid: number | null
-          amount_due: number | null
-          financier: string | null
-          loan_amount: number | null
-          opening_paid: number | null
-          processing_fee: number | null
-          trade_in_details: string | null
-          trade_in_value: number | null
-          transaction_type: string | null
-          updated_at: string | null
+          refund_amount: number | null
+          created_by: string
+          created_at: string
+          terms: Json
+          created_by_name: string | null
+          approved_paid: number
+          approved_payout: number
+          approved_count: number
+          pending_paid: number
+          pending_count: number
+          balance: number
+          units: Json
+          receipt_nos: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "deals_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       receipt_list: {
         Row: {
-          amount: number | null
-          balance_after: number | null
-          balance_due_date: string | null
-          buyer_name: string | null
-          created_at: string | null
-          deal_id: string | null
-          deal_status: string | null
-          id: string | null
-          payment_method: string | null
-          payment_type: string | null
-          photo_path: string | null
-          plate_no: string | null
-          receipt_date: string | null
-          receipt_no: string | null
-          status: string | null
+          id: string
+          receipt_no: string
+          deal_id: string
+          deal_no: string
+          buyer_name: string
+          sale_type: string
+          receipt_date: string
+          kind: string
+          amount: number
+          payout: number
+          balance_after: number
+          status: string
+          submitted_by: string
+          submitted_by_name: string | null
+          submitted_at: string
+          reviewed_by: string | null
+          reviewed_by_name: string | null
+          reviewed_at: string | null
+          reject_reason: string | null
           void_reason: string | null
+          remarks: string | null
+          notes: Json | null
+          snapshot: Json
+          drive_file_id: string | null
+          created_at: string
+          payments: Json
+          payout_proofs: number
         }
-        Relationships: [
-          {
-            foreignKeyName: "receipts_deal_id_fkey"
-            columns: ["deal_id"]
-            isOneToOne: false
-            referencedRelation: "deal_summaries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "receipts_deal_id_fkey"
-            columns: ["deal_id"]
-            isOneToOne: false
-            referencedRelation: "deals"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Functions: {
-      cancel_deal: {
-        Args: {
-          p_actor: string
-          p_deal_id: string
-          p_forfeit: boolean
-          p_reason: string
-        }
-        Returns: Json
-      }
-      check_salespeople: { Args: { p_people: Json }; Returns: undefined }
-      claim_sync_jobs: {
-        Args: { p_limit?: number; p_receipt_id?: string }
-        Returns: {
-          attempts: number
-          created_at: string
-          event: string
-          id: string
-          last_error: string | null
-          next_run_at: string
-          receipt_id: string
-          status: string
-          target: string
-          updated_at: string
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "sync_jobs"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
-      confirm_receipt: {
-        Args: { p_actor: string; p_draft_id: string; p_payload: Json }
-        Returns: Json
-      }
-      is_admin: { Args: never; Returns: boolean }
-      parse_money: { Args: { p_text: string }; Returns: number }
-      parse_percent: { Args: { p_text: string }; Returns: number }
-      queue_sync: {
-        Args: { p_event: string; p_receipt_id: string; p_targets: string[] }
-        Returns: undefined
-      }
-      update_deal_details: {
-        Args: {
-          p_actor: string
-          p_deal_id: string
-          p_patch: Json
-          p_salespeople: Json
-        }
-        Returns: Json
-      }
-      void_receipt: {
-        Args: { p_actor: string; p_reason: string; p_receipt_id: string }
-        Returns: Json
-      }
+      submit_receipt: { Args: { p_actor: string; p_payload: Json; p_require_proofs?: boolean }; Returns: Json }
+      review_receipt: { Args: { p_actor: string; p_receipt_id: string; p_approve: boolean; p_reason?: string }; Returns: Json }
+      void_receipt: { Args: { p_actor: string; p_receipt_id: string; p_reason: string }; Returns: Json }
+      cancel_deal: { Args: { p_actor: string; p_deal_id: string; p_reason: string; p_refund?: number }; Returns: Json }
+      set_loan_status: { Args: { p_actor: string; p_deal_id: string; p_status: string; p_on?: string }; Returns: Json }
+      update_settings: { Args: { p_actor: string; p_config: Json }; Returns: undefined }
+      queue_sync: { Args: { p_receipt_id: string; p_event: string; p_targets: string[] }; Returns: undefined }
+      claim_sync_jobs: { Args: { p_limit?: number; p_receipt_id?: string }; Returns: Database["public"]["Tables"]["sync_jobs"]["Row"][] }
+      is_admin: { Args: Record<string, never>; Returns: boolean }
+      is_approver: { Args: Record<string, never>; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

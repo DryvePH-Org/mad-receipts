@@ -13,19 +13,21 @@ const createUserSchema = z.object({
   fullName: z.string().trim().min(1, "Enter the person's name.").max(100),
   email: z.email("Enter a valid email.").max(254),
   password,
+  role: z.enum(["sales", "approver", "admin"]),
 });
 
-// Creates a staff account. New users always start as staff (profile trigger).
-export async function createStaffUser(_prev: ActionResult, form: FormData): Promise<ActionResult> {
+// Creates an account with the chosen role (Sales, Approver or Admin).
+export async function createUser(_prev: ActionResult, form: FormData): Promise<ActionResult> {
   const actor = await requireAdmin();
 
   const parsed = createUserSchema.safeParse({
     fullName: form.get("fullName"),
     email: String(form.get("email") ?? "").trim().toLowerCase(),
     password: form.get("password"),
+    role: form.get("role"),
   });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
-  const { fullName, email } = parsed.data;
+  const { fullName, email, role } = parsed.data;
 
   const admin = createAdminClient();
   const { data, error } = await admin.auth.admin.createUser({
@@ -39,12 +41,13 @@ export async function createStaffUser(_prev: ActionResult, form: FormData): Prom
     return { ok: false, message: taken ? "That email already has an account." : "Could not create the user." };
   }
 
+  if (role !== "sales") await admin.from("profiles").update({ role }).eq("id", data.user.id);
   await admin.from("audit_logs").insert({
     actor_id: actor.id,
     action: "user.create",
     entity: "user",
     entity_id: data.user.id,
-    after: { email, full_name: fullName, role: "staff" },
+    after: { email, full_name: fullName, role },
   });
 
   revalidatePath("/admin/users");
@@ -76,4 +79,21 @@ export async function resetPassword(_prev: ActionResult, form: FormData): Promis
   });
 
   return { ok: true, message: "Password updated." };
+}
+
+const roleSchema = z.object({ userId: z.uuid(), role: z.enum(["sales", "approver", "admin"]) });
+
+/** Changes what someone may do. An Admin cannot take their own Admin role away (someone must stay in charge). */
+export async function changeRole(userId: string, role: string): Promise<{ ok: boolean; message: string }> {
+  const actor = await requireAdmin();
+  const parsed = roleSchema.safeParse({ userId, role });
+  if (!parsed.success) return { ok: false, message: "That role is not valid." };
+  if (parsed.data.userId === actor.id && parsed.data.role !== "admin") return { ok: false, message: "You cannot remove your own Admin role. Ask another Admin." };
+  const admin = createAdminClient();
+  const { data: before } = await admin.from("profiles").select("full_name, role").eq("id", parsed.data.userId).single();
+  const { error } = await admin.from("profiles").update({ role: parsed.data.role }).eq("id", parsed.data.userId);
+  if (error) return { ok: false, message: "Could not change the role." };
+  await admin.from("audit_logs").insert({ actor_id: actor.id, action: "user.role", entity: "user", entity_id: parsed.data.userId, before: { role: before?.role }, after: { full_name: before?.full_name, role: parsed.data.role } });
+  revalidatePath("/admin/users");
+  return { ok: true, message: "Role changed." };
 }

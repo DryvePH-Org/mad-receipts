@@ -18,11 +18,7 @@ export const createUserSchema = z.object({
   fullName: z.string().trim().min(1, "Enter the person's name.").max(100, "That name is too long."),
   email: z.email("Enter a valid email.").max(254),
   password: passwordSchema,
+  role: z.enum(["sales", "approver", "admin"]),
 });
 
 export const resetPasswordSchema = z.object({ password: passwordSchema });
-
-export const salespersonSchema = z.object({
-  name: z.string().trim().min(1, "Enter the name.").max(60, "That name is too long."),
-  aliases: z.string(),
-});

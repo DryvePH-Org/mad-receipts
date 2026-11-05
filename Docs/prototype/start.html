@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Start here — MAD Receipts prototype</title>
+<link rel="stylesheet" href="style.css"><link rel="stylesheet" href="paper-core.css">
+<style>.step-card{display:grid;grid-template-columns:2.4rem 1fr auto;gap:1rem;align-items:start;padding:1rem 1.25rem}.step-card .n{display:grid;place-items:center;width:2.4rem;height:2.4rem;border-radius:50%;background:var(--primary);color:var(--primary-fg);font-weight:600}.step-card h3{margin:0 0 .25rem;font-size:16px;font-weight:500}.step-card p{margin:0;color:var(--muted-fg);font-size:13px}.chk{display:grid;gap:.35rem;margin:0;padding-left:1.1rem;font-size:13px}</style></head>
+<body data-page="start">
+<div class="shell"><aside class="side" id="side"></aside><main id="main">
+<div class="head"><div><h1>See it in action</h1><p>A short walk through a financed sale, from the first receipt to a settled deal. Each step opens the right page and switches nothing by itself, so use the “Viewing as” box in the left menu when a step says so.</p></div><span class="tag proto">Prototype · demo data in this browser only</span></div>
+<div class="stack2" style="max-width:60rem">
+<div class="stats" style="grid-template-columns:repeat(3,1fr)">
+  <div class="stat"><small>Roles</small><b>3</b><span>Sales fills in · Approver approves · Admin manages</span></div>
+  <div class="stat"><small>Sample deals</small><b>9</b><span>One in each status, so every color is visible</span></div>
+  <div class="stat"><small>Math self-test</small><b id="mc">…</b><span><a href="math-check.html">Open the checks page</a></span></div>
+</div>
+<section class="card"><div class="step-card"><span class="n">1</span><div><h3>Fill in a receipt as Sales</h3><p>Choose “Sales” in the left menu. Open New receipt, tap “Fill with sample data” (or type your own), look at the Finish step, tick the check box and press “Send for approval”. Try a car that already has a deal, such as <b>NFB 6204</b> (the form will tell you and offer to continue that deal).</p></div><a class="btn primary" href="index.html">New receipt</a></div></section>
+<section class="card"><div class="step-card"><span class="n">2</span><div><h3>Approve it as the Approver</h3><p>Choose “Approver”. Open Approvals. Each receipt shows its proof files and the balance after it. Approve one, and reject another to see the reason box. Nothing goes to Drive, Sheets, the inventory or Telegram until it is approved.</p></div><a class="btn primary" href="approvals.html">Approvals</a></div></section>
+<section class="card"><div class="step-card"><span class="n">3</span><div><h3>Follow the deal as Admin</h3><p>Choose “Admin”. Open Transactions and click a deal. A financed car, such as <b>Bernadine Belir</b>, has its part paid but is <b>Waiting for lender</b>. Mark the loan as released and watch it become <b>Settled</b> and the inventory change from Reserved to Sold. You can also void a receipt or cancel a deal with a reason.</p></div><a class="btn primary" href="deals.html">Transactions</a></div></section>
+<section class="card"><div class="step-card"><span class="n">4</span><div><h3>Check reminders and the cash report</h3><p>Reminders lists overdue deals, deals due soon, loans waiting too long, and receipts waiting for approval, for whoever you are viewing as. The daily cash report adds up what each person collected by cash, check and e-wallet/bank, and how many payments have proof.</p></div><span style="display:grid;gap:.4rem"><a class="btn" href="reminders.html">Reminders</a><a class="btn" href="cash.html">Cash report</a></span></div></section>
+<section class="card"><header><div><h2>The money rules this prototype follows</h2><p>The same rules are written in the Finish step of the form</p></div></header>
+<ul class="chk"><li>The buyer owes us the <b>down payment</b> (or the whole price on a cash sale) <b>minus the trade-in</b>.</li><li>The <b>loan</b> is paid to us by the lender, so it is never in the buyer's balance.</li><li>The <b>processing fee</b> (7% of the loan by default, or any percent or amount) is owed to the lender, not to us.</li><li>A trade-in worth more than the buyer's share means <b>we pay the buyer</b>, recorded as a payout with proof.</li><li><b>In lieu of documents</b> is collateral: we hold the documents, no money moves.</li><li>Only <b>approved</b> receipts count in a deal's balance.</li><li>Always: price = trade-in + loan + received − payout + balance.</li></ul></section>
+</div></main></div>
+<script src="inventory.js"></script><script src="paper.js"></script><script src="store.js"></script><script src="shell.js"></script>
+<script src="checks.js"></script><script>document.getElementById("mc").textContent = MADCHECKS.summary();</script>
+</body></html>

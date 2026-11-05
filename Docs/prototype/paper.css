@@ -1,0 +1,18 @@
+/* Page chrome for the print pages. The paper itself is in paper-core.css. */
+* { box-sizing: border-box; }
+body { margin: 0; background: #e7e5e4; font-family: Geist, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color: #000; }
+.screen-bar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: .5rem; padding: .6rem 1rem; background: #fff; border-bottom: 1px solid #e5e5e5; font-size: 13px; }
+.screen-bar a, .screen-bar button { padding: .3rem .8rem; border-radius: .5rem; border: 1px solid #e5e5e5; background: #fff; font: inherit; font-weight: 500; text-decoration: none; color: #444; cursor: pointer; }
+.screen-bar a.on { background: #171717; color: #fff; border-color: #171717; }
+.screen-bar button.go { background: #171717; color: #fff; border-color: #171717; margin-left: auto; }
+.screen-bar span { color: #737373; }
+.desk { display: grid; justify-items: center; gap: 2rem; padding: 2rem 0 4rem; }
+body.bare { background: #fff; } body.bare .screen-bar { display: none; } body.bare .desk { padding: 0; gap: 0; } body.bare .paper { box-shadow: none; }
+@media print {
+  body { background: #fff; }
+  .screen-bar { display: none; }
+  .desk { padding: 0; gap: 0; display: block; }
+  .paper { box-shadow: none; break-after: page; }
+  .paper:last-child { break-after: auto; }
+  * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}

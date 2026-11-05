@@ -1,6 +1,6 @@
 # MAD Receipts
 
-Photograph a paper **Acknowledgement of Payment**, let AI read it, review, confirm, and sync it to Drive, Sheets, Telegram and the inventory sheet. Full spec: [`Docs/BUILD_PLAN (1).md`](Docs/BUILD_PLAN%20(1).md).
+Staff fill in an **Acknowledgement of Payment** by hand, attach proofs, and send it for approval. Approved receipts sync to Drive, Sheets, Telegram and the inventory sheet. The design prototype is in `Docs/prototype/`.
 
 ## Setup
 
@@ -72,7 +72,7 @@ folder only need to be ones *you* can edit.
 2. **Project Settings (gear) → Script properties → Add**:
    - `SECRET`: the value of `APPS_SCRIPT_SECRET` in your `.env.local`
    - `ALLOWED_SHEET_IDS`: the inventory sheet id and the receipts log sheet id, comma separated
-   - `ALLOWED_FOLDER_IDS`: the Drive folder id for receipt photos
+   - `ALLOWED_FOLDER_IDS`: the Drive folder id for receipt proofs and records
 3. **Deploy → New deployment → type: Web app**. *Execute as*: **Me**. *Who has access*: **Anyone**.
    Approve the permission screen (Advanced → Go to project) the first time.
 4. Copy the **Web app URL** (ends in `/exec`) into `APPS_SCRIPT_URL` in `.env.local`.
@@ -89,102 +89,45 @@ If *Anyone* isn't offered in step 3, the Workspace admin has restricted it; ask 
 3. Share the inventory sheet, the receipts log sheet and the Drive folder with that email as **Editor**.
    The Drive folder must be in a Shared drive (service accounts have no storage of their own).
 
-## How a sale is paid
+## How a receipt works
 
-Every deal has an agreed price and one of three ways of paying (chosen on the review screen, editable by an admin on an open deal):
+Staff fill in the form by hand (Buyer, Vehicle, Deal, Payment, Finish), attach a proof for every payment, check
+the live receipt preview and send it for approval. The Approver (never the person who wrote it) approves or
+rejects. Only approved receipts count in a deal's balance. Approving queues the Drive, Sheets, Telegram and
+inventory updates (see Background sync).
 
-| Type | The buyer owes MAD | Fields |
-|---|---|---|
-| **Cash** | the price | none |
-| **Financing** | price − loan + processing fee | loan amount, down payment (= price − loan, linked), processing fee, financing company |
-| **Trade-in** | price − trade-in value | value of the traded car, a description of it |
+**Money rules** (the database function `submit_receipt` is the authority, `src/lib/deal/math.ts` only mirrors it
+for the screen; `tests/deal-math.test.ts` and `tests/db/manual-entry.test.ts` check both against an independent calculator):
 
-`balance = what the buyer owes − everything paid`; at zero the deal is **Sold**. Money received before the app existed
-(for example a reservation) goes in **Paid before this receipt** on the deal's first receipt. The loan is paid by the
-financing company, so it is not part of the buyer's balance. Example, receipt 2540: price 720,000, loan 130,000 (GDFI),
-fee 10,000 → the buyer owes 600,000, and 20,000 paid earlier + 580,000 now settles it.
+- Buyer pays us = (down payment for financing, or the price for cash) − trade-in.
+- The trade-in is part of the down payment. If it is worth more than the buyer's share, we pay the buyer the
+  difference (needs a proof). Financing with a trade-in above the down payment is refused.
+- Loan = price − down payment, paid to us by the lender. It is never part of the buyer's balance.
+- Processing fee (financing only, default 7% of the loan, or any % or peso amount) is owed by the buyer to the
+  lender, not us. It is shown for information only.
+- "In lieu of documents" is collateral. No money moves.
+- Balance = amount due − earlier payments − paid today + payout. An overpayment cannot be saved.
 
-The photo suggests the type (a balance line like `Mad: 0  Gdfi: 130,000` means financing) and a voice note can say it
-("financing, loan one thirty thousand, GDFI, fee ten thousand"). Staff always see and can change it. A sale waiting on
-"approval of financing" with no loan amount stays **Cash** until the loan is known; the next receipt then switches it.
+**Roles:** Sales fills in receipts and sees deals; Approver approves and sees approvals, cash report and activity;
+Admin manages users, Settings (colors, banks, institutions, notes, phrases, required proofs...) and sync, and can
+void, cancel and mark loans released. Settings live in one document (`app_settings`) and change the form at once.
 
-## How the AI is kept honest
+**Pages:** Transactions (`/deals`), New receipt, Approvals, Reminders, Cash report, Activity, Settings, Users, Sync.
+`/print/<receipt id>` prints 3 copies by default.
 
-Only information that can be shown to be right goes into a receipt; anything else is left blank for staff.
+Removed from the first version: photo reading, voice entry and the salespeople/commission pages.
 
-- **Photo:** every photo is read twice, independently (full size, and a smaller copy with stricter instructions).
-  A field both readings agree on is filled in. A field they disagree on is left **blank** and both readings are
-  offered as one-tap choices ("The AI wasn't sure how to read this"). If the second reading cannot run, the first
-  stands. Limits: two readings that make the *same* mistake agree, so staff checking the paper stays the last guard;
-  and each photo now uses two vision calls (about 1 photo per minute on Groq's free tier).
-- **Voice:** the speech model reports how sure it was about each sentence. Unsure parts and known "hallucinations"
-  (words heard in silence) are ignored and shown to staff. Then every value the language model extracted (amounts,
-  plate, names, phone, dates, percents, sale type) is checked in plain code against the transcript, in English,
-  Tagalog and mixed speech ("limampung libo", "450K", "kalahating milyon", digits said one at a time). A value that
-  is not in the words is thrown away and listed as "I wasn't sure about…".
-- **Always:** typed values win, photo and voice disagreements are shown for staff to pick, amounts must agree with
-  the words and the arithmetic, the plate must exist in the inventory sheet, and nothing is saved until a person
-  confirms.
-
-## Voice note and salespeople
-
-On the review screen staff can record a **voice note** (or type it): the receipt details and who sold
-the car, each salesperson with their own commission percent, for example "Salesman David, 3 percent,
-Ella, 1 percent". Audio goes to Groq Whisper (`whisper-large-v3-turbo`, override with
-`GROQ_TRANSCRIPTION_MODEL`), the same Groq model reads the text into fields, and names are matched to
-the salespeople list. The audio is never stored, only the resulting fields.
-
-- **Cross-check:** the voice fills blank fields. Where the photo and the voice both have a value and
-  they differ, staff pick one before confirming. Anything typed by staff always wins.
-- **Salespeople list:** admins manage it at **Admin → Salespeople**, with nicknames and other spellings
-  that help the recording and the name matching. A voice note can only name people on this list.
-- **Optional until sold:** a voice note can be said on any receipt. A payment that completes the deal
-  needs at least one salesperson with a percent, from that receipt or an earlier one.
-- **Sheet text:** `RESERVED - DAVID ELLA 11/2` while open, `SOLD - DAVID 3% ELLA 1.5% 11/2` when sold.
-
-## Testing on the hosted project (before go-live)
-
-While the hosted Supabase holds no real data, database changes can be tested there instead of with Docker.
-Everything the tests create is marked (plates `ZZT…`, salespeople `ZZT …`, users `zzt-…@example.test`)
-and is removed before and after:
+## Testing
 
 ```bash
-ALLOW_HOSTED_TESTS=yes npm run test:hosted                  # confirm_receipt outcomes, access rules, admin functions, sync events
-node scripts/hosted-test-data.mjs seed /tmp/creds.json      # marked test users and deals, to click through the app
-node scripts/hosted-test-data.mjs clean                     # remove all of it
-npm run test:e2e                                            # browser tests (below)
+npm test                                         # unit tests + database tests (the real migrations, run in memory)
+ALLOW_HOSTED_TESTS=yes npm run test:hosted       # the real functions, access rules and storage on the hosted project
+npm run test:e2e                                 # Playwright (installed Chrome): fill in, approve, roles, settings
 ```
 
-**Money rules** (`tests/db`, run with the normal `npm test`): the project's real migrations are applied to a throwaway
-Postgres (PGlite, inside the test) and the deal, payment, void and edit rules are exercised, so database changes can be
-tested without Docker or the hosted project.
-
-**AI models:** the vision model (`GROQ_VISION_MODEL`) reads the photo. `openai/gpt-oss-120b` (override with
-`GROQ_REASONING_MODEL`) cannot see images, so it handles the text work: understanding voice notes and deciding the sale
-type from what was read.
-
-**Reading quality** (uses your real Groq quota, nothing is saved):
-`ALLOW_LIVE_TESTS=yes npm run test:live` checks the voice note against English, Tagalog and mixed sentences, and
-`node --env-file=.env.local scripts/eval-extraction.mjs <photo.jpg> <truth.json> <prompt.txt>` scores the photo prompt
-against a receipt whose true values you know. The photo prompt is in `src/lib/extraction/groq.ts`.
-
-**Browser tests** (`e2e/`, Playwright with your installed Chrome) start the app on port 3124 and a fake Groq
-on port 8766, so no AI, Google or Telegram call is made. They log in as marked test users, upload the sample
-photo from `Docs/`, review, confirm, and check that staff are kept out of the admin pages and that a repeated
-receipt number is refused. They clean their data before and after.
-
-The seed script refuses to run if the project already has real receipts. **Stop using this once you go live.**
-Then test against the local Docker copy (`npm run test:integration`) or a separate test project.
-
-## Testing locally without touching real services
-
-`.env.local` points at your real inventory sheet, Apps Script, Drive and Telegram. For a local test run
-with those switched off (so confirming a test receipt can't write to the real sheet or message the
-group), start the dev server with them emptied:
-
-```bash
-INVENTORY_SHEET_ID= APPS_SCRIPT_URL= APPS_SCRIPT_SECRET= TELEGRAM_BOT_TOKEN= TELEGRAM_CHAT_ID= npm run dev
-```
+The hosted and browser tests write only marked data (receipts `ZZT-HOSTED…` / `ZZT-E2E…`, users `zzt-…@example.test`)
+and remove it before and after. Run them only while the hosted project holds no real data, or against a test project.
+For local runs without touching real services, blank `GOOGLE_*`, `TELEGRAM_*` and `INVENTORY_SHEET_ID` in `.env.local`.
 
 ## Background sync
 
@@ -234,8 +177,8 @@ Caddyfile (backed up first, checked before it is applied, undone automatically i
    DOMAIN=invoice.dryveph.io bash deploy/vps-install.sh
    ```
 4. **Supabase** → Authentication → URL Configuration: set **Site URL** to `https://invoice.dryveph.io`.
-5. **Smoke test:** log in, upload a photo, confirm, check the Drive file, Sheets row, Telegram message and the
-   REMARKS cell. On a phone use **Add to Home Screen** and try the voice note (HTTPS is required).
+5. **Smoke test:** log in, create a receipt with a proof, approve it, check the Drive file, Sheets row, Telegram message and the
+   REMARKS cell. On a phone use **Add to Home Screen** (HTTPS is required).
 6. **Updates:** `bash /opt/mad-receipts/deploy/update.sh` (pulls, rebuilds and restarts only this app).
 7. **Undo everything:** `bash deploy/rollback.sh <the Caddyfile backup path printed by the installer>`.
 

@@ -1,0 +1,140 @@
+import { expect, test, type Browser, type Page } from "@playwright/test";
+import { PROOF, RECEIPT_PREFIX, adminClient, credentials } from "./support";
+
+const NO = (n: number) => `${RECEIPT_PREFIX}-${n}`;
+
+async function login(page: Page, who: keyof typeof credentials) {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(credentials[who].email);
+  await page.getByLabel("Password").fill(credentials[who].password);
+  await page.getByRole("button", { name: "Log in" }).click();
+  await page.waitForURL("**/deals");
+}
+async function as(browser: Browser, who: keyof typeof credentials) {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await login(page, who);
+  return page;
+}
+const next = (page: Page, to: string) => page.getByRole("button", { name: new RegExp(`Next: ${to}`) }).click();
+
+/** Fills the whole form for a financed sale with a trade-in, as Sales would. */
+async function fillFinanced(page: Page, no: string, plate: string) {
+  await page.goto("/new");
+  await page.getByLabel("Receipt No.").fill(no);
+  await page.getByLabel("Received from").fill("ZZT E2E Maria Santos");
+  await page.getByLabel("Contact no.").fill("09171234567");
+  await page.getByLabel("Postal address").fill("27 Maginhawa St., Quezon City");
+  await next(page, "Vehicle");
+  await page.getByRole("button", { name: "Not in the inventory? Type it yourself" }).click();
+  await page.getByLabel("Make / type").fill("2023 Toyota Vios 1.3 XLE");
+  await page.getByLabel("Plate number").fill(plate);
+  await page.getByLabel("Motor number").fill("2NZ5160482");
+  await page.getByLabel("Chassis number").fill("MR053REF7K4012345");
+  await page.getByRole("button", { name: "Silver Metallic" }).click();
+  await next(page, "Deal");
+  await page.getByLabel("Agreed price").fill("720000");
+  await page.getByRole("radio", { name: /Financing/ }).click();
+  await page.getByLabel("Institution").selectOption("BDO");
+  await page.getByLabel("Down payment or loan").fill("150000");
+  await page.getByRole("radio", { name: "Yes, trade-in" }).click();
+  await page.getByLabel("Unit", { exact: true }).fill("2008 Toyota Vios J");
+  await page.getByLabel("Trade-in value").fill("60000");
+}
+
+test("the whole flow: Sales fills in, the Approver approves, the numbers agree", async ({ browser }) => {
+  const sales = await as(browser, "sales");
+  await fillFinanced(sales, NO(1), "ZZT 1001");
+
+  // the money rules, live on the screen
+  await expect(sales.getByText("Buyer must pay us in cash")).toBeVisible();
+  await expect(sales.getByText("₱90,000").first()).toBeVisible(); // 150,000 down payment − 60,000 trade-in
+  await expect(sales.getByText("₱39,900", { exact: true })).toBeVisible(); // 7% of the ₱570,000 loan, owed to the lender, not to us
+  await next(sales, "Payment");
+  await sales.getByLabel("Cash amount").fill("40000");
+  await sales.getByLabel("Earlier payments").fill("10000");
+  await expect(sales.getByText("₱40,000").last()).toBeVisible(); // balance: 90,000 − 10,000 − 40,000
+
+  await sales.getByLabel("Due date").fill("2026-12-15"); // a balance is left, so a due date is needed
+
+  // sending without the proof is blocked
+  await next(sales, "Finish");
+  await sales.getByLabel(/I checked every field/).check();
+  await expect(sales.getByRole("button", { name: /Send for approval/ })).toBeDisabled();
+  await expect(sales.getByText("Photo of the cash")).toBeVisible();
+
+  // attach the proof, and it can be sent
+  await sales.getByRole("button", { name: "Back" }).click();
+  await sales.locator("#cash-proof input[type=file]").setInputFiles(PROOF);
+  await expect(sales.getByText("✓ 1 attached")).toBeVisible();
+  await next(sales, "Finish");
+  await sales.getByLabel(/I checked every field/).check();
+  await sales.getByRole("button", { name: /Send for approval/ }).click();
+  await expect(sales.getByRole("heading", { name: "Sent for approval" })).toBeVisible();
+
+  // nothing counts until it is approved
+  const admin = adminClient();
+  const { data: before } = await admin.from("deal_summaries").select("balance, approved_paid, pending_count, loan_amount, processing_fee").like("deal_no", "D%").eq("buyer_name", "ZZT E2E Maria Santos").single();
+  expect([Number(before?.approved_paid), Number(before?.pending_count), Number(before?.loan_amount), Number(before?.processing_fee)]).toEqual([0, 1, 570000, 39900]);
+
+  // the Sales person cannot approve their own receipt; the Approver can
+  const approver = await as(browser, "approver");
+  await approver.goto("/approvals");
+  await expect(approver.getByText(NO(1)).first()).toBeVisible();
+  await expect(approver.getByText("Balance after this receipt")).toBeVisible();
+  await approver.getByRole("button", { name: "Approve" }).first().click();
+  const read = async () => (await admin.from("deal_summaries").select("id, balance, approved_paid, opening_paid").eq("buyer_name", "ZZT E2E Maria Santos").single()).data;
+  await expect.poll(async () => Number((await read())?.approved_paid)).toBe(40000);
+  const after = await read();
+  expect([Number(after?.opening_paid), Number(after?.balance)]).toEqual([10000, 40000]); // 90,000 due − 10,000 earlier − 40,000
+  await sales.goto(`/deals/${after!.id}`);
+  await expect(sales.getByText("Adds up").first()).toBeVisible();
+  await expect(sales.getByText("Waiting for lender").first()).not.toBeVisible().catch(() => undefined);
+  await sales.close(); await approver.close();
+});
+
+test("the checks refuse a wrong or incomplete receipt", async ({ browser }) => {
+  const sales = await as(browser, "sales");
+  await sales.goto("/new");
+  await next(sales, "Vehicle");
+  await next(sales, "Deal");
+  await next(sales, "Payment");
+  await next(sales, "Finish");
+  await sales.getByLabel(/I checked every field/).check();
+  await expect(sales.getByText("Still to fill in:")).toBeVisible();
+  await expect(sales.getByRole("button", { name: /Send for approval/ })).toBeDisabled();
+  await sales.close();
+});
+
+test("people see only what their role allows", async ({ browser }) => {
+  const sales = await as(browser, "sales");
+  for (const path of ["/approvals", "/settings", "/cash", "/activity", "/admin/users"]) {
+    await sales.goto(path);
+    await expect(sales.getByText("You don't have access to this page."), path).toBeVisible();
+  }
+  await expect(sales.getByRole("link", { name: "Settings" })).toHaveCount(0);
+  await sales.close();
+
+  const admin = await as(browser, "admin");
+  await admin.goto("/settings");
+  await expect(admin.getByRole("heading", { name: "Settings" })).toBeVisible();
+  await admin.goto("/approvals");
+  await expect(admin.getByText("you can look but not approve", { exact: false })).toBeVisible();
+  await admin.close();
+});
+
+test("a color the Admin adds shows up in the form", async ({ browser }) => {
+  const admin = await as(browser, "admin");
+  await admin.goto("/settings");
+  await admin.getByLabel("New color name").first().fill("ZZT Gold");
+  await admin.getByRole("button", { name: "Add" }).first().click();
+  await expect(admin.getByText("Saved ✓")).toBeVisible();
+  const sales = await as(browser, "sales");
+  await sales.goto("/new");
+  await next(sales, "Vehicle");
+  await expect(sales.getByRole("button", { name: "ZZT Gold" })).toBeVisible();
+  // put the settings back
+  await admin.getByRole("button", { name: "Restore all defaults" }).click();
+  await admin.getByRole("button", { name: "Restore defaults" }).click();
+  await admin.close(); await sales.close();
+});

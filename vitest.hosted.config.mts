@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 // Tests against the HOSTED Supabase project, used while it holds no real data. They write only
-// clearly marked test rows (plates "ZZT…", salespeople "ZZT …") and clean up before and after.
+// clearly marked test rows (receipts "ZZT-HOSTED…", users "zzt-hosted-…") and clean up before and after.
 // Refuses to run unless ALLOW_HOSTED_TESTS=yes, so it is never started by accident.
 if (process.env.ALLOW_HOSTED_TESTS !== "yes") {
   throw new Error("Hosted tests are off. Run: ALLOW_HOSTED_TESTS=yes npm run test:hosted");

@@ -1,291 +1,130 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Camera } from "lucide-react";
-import { z } from "zod";
+import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
-import { PhotoViewer } from "@/components/photo-viewer";
-import { DueBadge } from "@/components/shared/due-badge";
-import { MoneyText } from "@/components/shared/money-text";
+import { LedgerView } from "@/components/deal/ledger-view";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { DealStatusBadge, Pill, ReceiptStatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
-import { formatDate, formatManilaDateTime, manilaToday } from "@/lib/dates";
-import { paymentTypeLabel, pesos } from "@/lib/deals";
-import { toCentavos } from "@/lib/rules/money";
-import { describeTerms, parseTerms, type TermsValues, type TransactionType } from "@/lib/rules/terms";
-import { createClient } from "@/lib/supabase/server";
-import { CancelDealDialog, EditDealDialog, VoidReceiptDialog } from "./admin-actions";
+import { getDeal, receiptsOfDeal } from "@/lib/data";
+import { formatDate, manilaToday } from "@/lib/dates";
+import { buildLedger, totals } from "@/lib/deal/math";
+import { dealStatusKey, relativeDay } from "@/lib/deal/status";
+import { KIND_LABELS } from "@/lib/deal/types";
+import { formatPeso } from "@/lib/rules/money";
+import { DealAdminActions, PrintReceiptButton } from "./deal-actions";
 
 export default function DealPage({ params }: PageProps<"/deals/[id]">) {
-  return (
-    <div className="space-y-6">
-      <Suspense fallback={<PageSkeleton />}>
-        <DealContent params={params} />
-      </Suspense>
-    </div>
-  );
+  return <Suspense fallback={<PageSkeleton />}><Content params={params} /></Suspense>;
 }
 
-const Detail = ({ label, value }: { label: string; value: string | null | undefined }) =>
-  value ? (
-    <div className="min-w-0">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="font-medium break-words">{value}</dd>
-    </div>
-  ) : null;
+function Kv({ rows }: { rows: [string, React.ReactNode][] }) {
+  return <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">{rows.map(([k, v]) => <div key={k} className="contents"><dt className="text-muted-foreground">{k}</dt><dd className="text-right font-medium">{v}</dd></div>)}</dl>;
+}
 
-async function DealContent({ params }: { params: PageProps<"/deals/[id]">["params"] }) {
-  const { id } = await params;
-  if (!z.uuid().safeParse(id).success) notFound();
-
+async function Content({ params }: { params: PageProps<"/deals/[id]">["params"] }) {
   const user = await requireUser();
-  const isAdmin = user.role === "admin";
-  const supabase = await createClient();
-
-  const [dealResult, receiptsResult, peopleResult, optionsResult] = await Promise.all([
-    supabase.from("deal_summaries").select("*").eq("id", id).maybeSingle(),
-    supabase.from("receipts").select("*").eq("deal_id", id).order("created_at", { ascending: false }),
-    supabase.from("deal_salespeople").select("salesperson_id, commission_percent, salespeople(name)").eq("deal_id", id),
-    isAdmin ? supabase.from("salespeople").select("id, name").eq("active", true).order("name") : null,
-  ]);
-  const deal = dealResult.data;
-  if (dealResult.error || receiptsResult.error) return <p className="text-destructive">Could not load this deal. Please try again.</p>;
-  if (!deal || !deal.id) notFound();
-
-  const receipts = receiptsResult.data;
-  const people = (peopleResult.data ?? [])
-    .map((p) => ({ salespersonId: p.salesperson_id, name: p.salespeople?.name ?? "", percent: Number(p.commission_percent) }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  // Photos open full size through short-lived signed links.
-  const paths = receipts.flatMap((r) => (r.photo_path ? [r.photo_path] : []));
-  const signed = paths.length ? await supabase.storage.from("receipt-photos").createSignedUrls(paths, 60 * 60) : null;
-  const photoUrl = new Map((signed?.data ?? []).flatMap((s) => (s.path && s.signedUrl ? [[s.path, s.signedUrl] as const] : [])));
-
+  const { id } = await params;
+  const deal = await getDeal(id);
+  if (!deal) notFound();
   const today = manilaToday();
-  const confirmed = receipts.filter((r) => r.status === "confirmed");
-  const latestId = confirmed[0]?.id; // receipts are newest first
-  const canVoid = isAdmin && deal.status !== "cancelled" && confirmed.length > 1;
-  const names = new Map(people.map((p) => [p.salespersonId, p.name]));
-  for (const o of optionsResult?.data ?? []) names.set(o.id, o.name);
-
-  const cents = (v: number | null) => toCentavos(v) ?? 0;
-  const termsValues: TermsValues = {
-    type: (["cash", "financing", "trade_in"].includes(deal.transaction_type ?? "") ? deal.transaction_type : "cash") as TransactionType,
-    loan: cents(deal.loan_amount) ? String(cents(deal.loan_amount) / 100) : "",
-    fee: cents(deal.processing_fee) ? String(cents(deal.processing_fee) / 100) : "",
-    financier: deal.financier ?? "",
-    tradeIn: cents(deal.trade_in_value) ? String(cents(deal.trade_in_value) / 100) : "",
-    tradeInDetails: deal.trade_in_details ?? "",
-    paidBefore: "",
-  };
-  const terms = parseTerms(termsValues, cents(deal.agreed_price)).terms;
-
-  const stateNote =
-    deal.status === "open"
-      ? "This car is reserved. The balance is still to be paid."
-      : deal.status === "completed"
-        ? "This car is sold. To correct a payment, void the latest receipt."
-        : "This deal is cancelled. Its receipts stay on record.";
+  const receipts = await receiptsOfDeal(deal.id);
+  const status = dealStatusKey({ status: deal.status, balance: deal.balance, due_date: deal.dueDate, sale_type: deal.saleType, loan_status: deal.loanStatus }, today);
+  const t = totals({ price: deal.price, sale: deal.saleType, dp: deal.downPayment, fee: deal.fee, tradeIn: deal.tradeIn, earlier: deal.openingPaid + deal.approvedPaid, today: 0, payout: deal.approvedPayout, lieu: deal.lieu, monthly: deal.monthly, years: deal.years });
+  const tradeText = [[deal.tradeInInfo?.year, deal.tradeInInfo?.unit].filter(Boolean).join(" "), deal.tradeInInfo?.plate].filter(Boolean).join(" · ");
+  const ledger = buildLedger(t, { units: deal.units.length, institution: deal.institution ?? "", tradeInText: tradeText, payRows: [], payoutProofs: 0, lieuUntilText: deal.lieuUntil ? formatDate(deal.lieuUntil) : "" });
+  const pct = t.due > 0 ? Math.max(0, Math.min(100, Math.round(((deal.openingPaid + deal.approvedPaid) / t.due) * 100))) : 100;
+  const isAdmin = user.role === "admin";
+  const invStatus = deal.status === "cancelled" ? "Available" : status === "settled" ? "Sold" : "Reserved";
 
   return (
-    <>
+    <div className="space-y-6">
       <PageHeader
-        title={
-          <span className="flex flex-wrap items-center gap-3">
-            {deal.plate_no}
-            <DealStatusBadge status={deal.status} />
-          </span>
-        }
-        description={[deal.buyer_name, deal.make_type].filter(Boolean).join(" · ")}
-        actions={
-          <Button variant="outline" nativeButton={false} render={<Link href="/deals" />}>
-            <ArrowLeft /> All deals
-          </Button>
-        }
+        title={<>{deal.buyerName} <span className="font-normal text-muted-foreground">· {deal.unitName}</span></>}
+        description={`Deal ${deal.dealNo} · ${deal.plates} · opened ${formatDate(deal.createdAt.slice(0, 10))} by ${deal.createdByName}`}
+        actions={<>
+          <Button variant="outline" nativeButton={false} render={<Link href="/deals" />}>All transactions</Button>
+          {deal.status === "open" && deal.balance > 0 && <Button nativeButton={false} render={<Link href={`/new?deal=${deal.id}`} />}><Plus /> Add a payment</Button>}
+        </>}
       />
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="min-w-0 space-y-6">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+        <div className="space-y-6">
           <Card>
+            <CardHeader><CardTitle className="flex items-center justify-between gap-3">Where the money stands <DealStatusBadge status={status} /></CardTitle>
+              <p className="text-sm text-muted-foreground">Only approved receipts are counted{deal.pendingPaid ? `. ${formatPeso(deal.pendingPaid)} is still waiting for approval.` : "."}</p></CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">{describeTerms(terms)}</p>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-3">
-                <div>
-                  <dt className="text-muted-foreground">Agreed price</dt>
-                  <dd className="text-base font-semibold sm:text-lg"><MoneyText value={deal.agreed_price} /></dd>
-                </div>
-                {terms.type === "trade_in" && (
-                  <div>
-                    <dt className="text-muted-foreground">Trade-in credit</dt>
-                    <dd className="text-base font-semibold sm:text-lg">− <MoneyText value={deal.trade_in_value} /></dd>
-                  </div>
-                )}
-                {terms.type === "financing" && (
-                  <>
-                    <div>
-                      <dt className="text-muted-foreground">Paid by {terms.financier ?? "the financing company"}</dt>
-                      <dd className="text-base font-semibold sm:text-lg">− <MoneyText value={deal.loan_amount} /></dd>
-                    </div>
-                    {terms.fee > 0 && (
-                      <div>
-                        <dt className="text-muted-foreground">Processing fee</dt>
-                        <dd className="text-base font-semibold sm:text-lg">+ <MoneyText value={deal.processing_fee} /></dd>
-                      </div>
-                    )}
-                  </>
-                )}
-                <div>
-                  <dt className="text-muted-foreground">Buyer owes MAD</dt>
-                  <dd className="text-base font-semibold sm:text-lg"><MoneyText value={deal.amount_due} /></dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Paid</dt>
-                  <dd className="text-base font-semibold sm:text-lg"><MoneyText value={deal.total_paid} /></dd>
-                  {(deal.opening_paid ?? 0) > 0 && (
-                    <dd className="text-xs text-muted-foreground">
-                      includes <MoneyText value={deal.opening_paid} /> paid before the first receipt
-                    </dd>
-                  )}
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Balance</dt>
-                  <dd className="text-base font-semibold sm:text-lg"><MoneyText value={deal.balance} /></dd>
-                </div>
-              </dl>
-              {deal.next_due_date && (
-                <p className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="text-muted-foreground">Next payment due {formatDate(deal.next_due_date)}</span>
-                  <DueBadge dueDate={deal.next_due_date} today={today} />
-                </p>
-              )}
-              {deal.status === "cancelled" && (
-                <p className="rounded-lg bg-muted p-3 text-sm">
-                  <span className="font-medium">Cancelled</span>
-                  {deal.cancel_reason && `: ${deal.cancel_reason}`}
-                  <span className="block text-muted-foreground">{deal.forfeited ? "The money was forfeited." : "The money was not forfeited."}</span>
-                </p>
-              )}
+              <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} /></div>
+              <LedgerView ledger={ledger} />
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>Receipts ({receipts.length})</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle>Receipts on this deal</CardTitle><p className="text-sm text-muted-foreground">{receipts.length} in all, in the order they were filled in.</p></CardHeader>
             <CardContent>
-              <ol className="divide-y">
-                {receipts.map((r) => {
-                  const url = r.photo_path ? photoUrl.get(r.photo_path) : undefined;
-                  const voided = r.status === "voided";
-                  return (
-                    <li key={r.id} className="flex gap-3 py-4 first:pt-0 last:pb-0">
-                      {url ? <PhotoViewer url={url} thumbnail /> : <div className="size-20 shrink-0 rounded-md border bg-muted" />}
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className={voided ? "font-semibold line-through" : "font-semibold"}>No. {r.receipt_no}</p>
-                          {voided ? <ReceiptStatusBadge status={r.status} /> : <Pill tone="grey">{paymentTypeLabel(r.payment_type)}</Pill>}
-                        </div>
-                        <p className="text-sm">
-                          <span className="font-medium"><MoneyText value={r.amount} /></span>
-                          {r.receipt_date && <span className="text-muted-foreground"> · {formatDate(r.receipt_date)}</span>}
-                          {r.payment_method && <span className="text-muted-foreground"> · {r.payment_method === "cash" ? "Cash" : "Check"}</span>}
-                        </p>
-                        <p className="text-sm text-muted-foreground">Balance after: {pesos(r.balance_after)}</p>
-                        {voided && r.void_reason && <p className="text-sm text-destructive">Voided: {r.void_reason}</p>}
-                        {canVoid && r.id === latestId && <div className="pt-1"><VoidReceiptDialog receiptId={r.id} receiptNo={r.receipt_no} /></div>}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ol>
-              <p className="pt-4 text-xs text-muted-foreground">
-                Deal opened {formatManilaDateTime(deal.created_at ?? receipts.at(-1)?.created_at ?? new Date().toISOString())} (Manila time).
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Buyer and vehicle</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <dl className="grid gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
-                <Detail label="Buyer" value={deal.buyer_name} />
-                <Detail label="Contact" value={deal.buyer_contact} />
-                <Detail label="Address" value={deal.buyer_address} />
-                <Detail label="Vehicle" value={deal.make_type} />
-                <Detail label="Color" value={deal.color} />
-                <Detail label="Motor No." value={deal.motor_no} />
-                <Detail label="Chassis No." value={deal.chassis_no} />
-              </dl>
+              <div className="overflow-x-auto rounded-lg ring-1 ring-foreground/10">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 text-left text-xs tracking-wide text-muted-foreground uppercase"><tr><th className="px-3 py-2">No.</th><th className="px-3 py-2">Date</th><th className="px-3 py-2">Paid through</th><th className="px-3 py-2 text-right">Amount</th><th className="px-3 py-2">Status</th><th className="px-3 py-2" /></tr></thead>
+                  <tbody>
+                    {receipts.map((r) => (
+                      <tr key={r.id} className="border-t align-top">
+                        <td className="px-3 py-2.5"><b className="font-mono">{r.receiptNo}</b><p className="text-xs text-muted-foreground">{KIND_LABELS[r.kind]}</p></td>
+                        <td className="px-3 py-2.5">{formatDate(r.date)}<p className="text-xs text-muted-foreground">by {r.submittedByName}</p></td>
+                        <td className="px-3 py-2.5">{r.payments.map((p) => <p key={p.id}>{p.label} {formatPeso(p.amount)}<span className="text-xs text-muted-foreground"> · {p.proofs} {p.proofs === 1 ? "proof" : "proofs"}</span></p>)}{r.payout > 0 && <p>Paid out {formatPeso(r.payout)}</p>}</td>
+                        <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{formatPeso(r.amount)}</td>
+                        <td className="px-3 py-2.5"><ReceiptStatusBadge status={r.status} />{r.status === "rejected" && <p className="text-xs text-muted-foreground">{r.rejectReason}</p>}{r.status === "void" && <p className="text-xs text-muted-foreground">{r.voidReason}</p>}{r.status === "approved" && r.reviewedByName && <p className="text-xs text-muted-foreground">by {r.reviewedByName}</p>}</td>
+                        <td className="px-3 py-2.5"><div className="flex justify-end gap-1.5"><PrintReceiptButton receiptId={r.id} />
+                          {isAdmin && r.status === "approved" && <DealAdminActions mode="receipt" dealId={deal.id} today={today} loanStatus={deal.loanStatus} institution="" loanAmount="" canCancel={false} receiptId={r.id} receiptNo={r.receiptNo} amountText={formatPeso(r.amount)} />}</div></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="min-w-0 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-sm text-muted-foreground">{stateNote}</p>
-              {deal.status === "open" && (
-                <Button className="w-full" nativeButton={false} render={<Link href="/upload" />}>
-                  <Camera /> Add a payment
-                </Button>
-              )}
-              {isAdmin && (
-                <>
-                  <EditDealDialog
-                    deal={{
-                      id: deal.id,
-                      buyer_name: deal.buyer_name ?? "",
-                      buyer_address: deal.buyer_address ?? "",
-                      buyer_contact: deal.buyer_contact ?? "",
-                      make_type: deal.make_type ?? "",
-                      color: deal.color ?? "",
-                      motor_no: deal.motor_no ?? "",
-                      chassis_no: deal.chassis_no ?? "",
-                      completed: deal.status === "completed",
-                      agreedPrice: toCentavos(deal.agreed_price) ?? 0,
-                      totalPaid: toCentavos(deal.total_paid) ?? 0,
-                      terms: termsValues,
-                    }}
-                    salespeople={people.map((p) => ({ salespersonId: p.salespersonId, percent: p.percent }))}
-                    options={optionsResult?.data ?? []}
-                    names={[...names]}
-                  />
-                  {deal.status === "open" && <CancelDealDialog dealId={deal.id} plate={deal.plate_no ?? ""} paid={pesos(deal.total_paid)} />}
-                </>
-              )}
+        <div className="space-y-6">
+          <Card size="sm">
+            <CardHeader><CardTitle className="flex items-center justify-between">Status <DealStatusBadge status={status} /></CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              <Kv rows={[
+                ["Balance", deal.status === "cancelled" ? "—" : formatPeso(Math.max(0, deal.balance))],
+                ["Due", deal.balance > 0 && deal.status !== "cancelled" ? (deal.dueDate ? `${formatDate(deal.dueDate)} (${relativeDay(deal.dueDate, today)})` : (deal.dueText ?? "No date")) : "—"],
+                ["Sale", deal.saleType === "financing" ? "Financing" : "Cash"], ["Salesperson", deal.createdByName],
+              ]} />
+              {deal.status === "cancelled" && <p className="text-sm text-muted-foreground">Cancelled {deal.cancelledAt ? formatDate(deal.cancelledAt.slice(0, 10)) : ""}: {deal.cancelReason} Refunded {formatPeso(deal.refund)}.</p>}
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Sold by</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {people.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No salesperson recorded yet. One is needed before the car is sold.</p>
-              ) : (
-                <ul className="-my-2 divide-y">
-                  {people.map((p) => (
-                    <li key={p.salespersonId} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                      <span className="min-w-0 truncate font-medium">{p.name}</span>
-                      <span className="shrink-0 tabular-nums">{Number(p.percent.toFixed(2))}% commission</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+          {deal.saleType === "financing" && (
+            <Card size="sm">
+              <CardHeader><CardTitle>The lender · {deal.institution}</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                <Kv rows={[["Loan", formatPeso(deal.loan)], ["Processing fee", formatPeso(deal.fee)], ["Loan status", deal.loanStatus === "released" ? <Pill key="l" tone="emerald">Released {deal.loanReleasedOn ? formatDate(deal.loanReleasedOn) : ""}</Pill> : <Pill key="l" tone="teal">Waiting{deal.loanSince ? ` since ${formatDate(deal.loanSince)}` : ""}</Pill>]]} />
+                <p className="text-xs text-muted-foreground">The fee is owed by the buyer to the lender, not to us. The loan is paid to us by the lender and is not in the buyer&apos;s balance.</p>
+                {isAdmin && deal.status === "open" ? <DealAdminActions mode="deal" dealId={deal.id} today={today} loanStatus={deal.loanStatus} institution={deal.institution ?? ""} loanAmount={formatPeso(deal.loan)} canCancel={false} carFreed={deal.balance <= 0} /> : deal.status === "open" && <p className="text-xs text-muted-foreground">Only the Admin can mark the loan as released.</p>}
+              </CardContent>
+            </Card>
+          )}
+
+          <Card size="sm">
+            <CardHeader><CardTitle>Inventory sheet</CardTitle><p className="text-sm text-muted-foreground">What the REMARKS column shows</p></CardHeader>
+            <CardContent className="space-y-2">
+              {deal.units.map((u) => <div key={u.plate_no} className="flex items-center justify-between gap-3 text-sm"><span><b className="font-medium">{u.make_type}</b><br /><span className="font-mono text-xs text-muted-foreground">{u.plate}</span></span><Pill tone={invStatus === "Sold" ? "zinc" : invStatus === "Reserved" ? "amber" : "emerald"}>{invStatus}</Pill></div>)}
+              <p className="text-xs text-muted-foreground">Reserved while anything is unpaid. It becomes Sold only when the buyer&apos;s part is paid{deal.saleType === "financing" ? " and the loan is released" : ""}. A cancelled deal frees the car again.</p>
             </CardContent>
           </Card>
+
+          {deal.lieu > 0 && (
+            <Card size="sm"><CardHeader><CardTitle>Documents held</CardTitle></CardHeader><CardContent className="text-sm text-muted-foreground">We hold the buyer&apos;s documents as collateral for {formatPeso(deal.lieu)} until {deal.lieuUntil ? `${formatDate(deal.lieuUntil)} (${relativeDay(deal.lieuUntil, today)})` : "the date given"}. No money moved, so the balance is not affected.</CardContent></Card>
+          )}
+
+          {isAdmin && deal.status === "open" && <DealAdminActions mode="deal" dealId={deal.id} today={today} loanStatus="none" institution="" loanAmount="" canCancel />}
         </div>
       </div>
-    </>
+    </div>
   );
 }

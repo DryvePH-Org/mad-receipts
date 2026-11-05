@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>New acknowledgement of payment — MAD Receipts prototype</title>
+<link rel="stylesheet" href="style.css"><link rel="stylesheet" href="paper-core.css">
+</head>
+<body data-page="new">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></symbol>
+  <symbol id="i-printer" viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2"/><rect x="6" y="14" width="12" height="8"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-car" viewBox="0 0 24 24"><path d="M3 17v-4l2-5h14l2 5v4M3 17h18M7 17v2M17 17v2"/><circle cx="7.5" cy="13" r="1"/><circle cx="16.5" cy="13" r="1"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M16 15h2"/></symbol>
+  <symbol id="i-bank" viewBox="0 0 24 24"><path d="M3 10 12 4l9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 20h18"/></symbol>
+  <symbol id="i-repeat" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8zM14 3v5h5M9 13h6M9 17h6"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2zM9 8h6M9 12h6"/></symbol>
+  <symbol id="i-bold" viewBox="0 0 24 24"><path d="M7 4h6a4 4 0 0 1 0 8H7zM7 12h7a4 4 0 0 1 0 8H7z"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+  <symbol id="i-cash" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></symbol>
+  <symbol id="i-coins" viewBox="0 0 24 24"><circle cx="9" cy="9" r="6"/><path d="M15.5 9.5A6 6 0 1 1 9.5 15.5M9 6.5v5M7.5 8h3"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11 12 3l9 8M5 10v10h14V10"/></symbol>
+  <symbol id="i-list2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3 2 21h20zM12 10v5M12 18h.01"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-11 11M22 2l-7 20-4-9-9-4z"/></symbol>
+  <symbol id="i-sound" viewBox="0 0 24 24"><path d="M3 10v4M7 7v10M11 4v16M15 8v8M19 11v2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+</svg>
+
+<div class="shell">
+<aside class="side" id="side"></aside>
+<main>
+<div class="head">
+  <div><h1>New acknowledgement of payment</h1><p>Five short steps. Each step shows only what it needs; extra parts open when you choose them.</p></div>
+  <div style="display:flex;gap:.5rem;align-items:center"><button type="button" class="btn sm" id="sample">Fill with sample data</button><span class="tag proto">Prototype · front end only, nothing is saved</span></div>
+</div>
+
+<div class="wizard">
+<input class="rc" type="radio" name="step" id="st1" checked><input class="rc" type="radio" name="step" id="st2"><input class="rc" type="radio" name="step" id="st3"><input class="rc" type="radio" name="step" id="st4"><input class="rc" type="radio" name="step" id="st5">
+<div class="steps">
+  <label for="st1"><b>1</b><span>Buyer<small>Who is paying</small></span></label>
+  <label for="st2"><b>2</b><span>Vehicle<small>What they buy</small></span></label>
+  <label for="st3"><b>3</b><span>Deal<small>Price, loan, trade-in</small></span></label>
+  <label for="st4"><b>4</b><span>Payment<small>Money received</small></span></label>
+  <label for="st5"><b>5</b><span>Finish<small>Check the math</small></span></label>
+</div>
+
+<div class="cols">
+<div class="stack">
+
+  <div id="deal-banner"></div>
+
+  <div class="voice">
+    <input class="rc" type="checkbox" id="mic-on">
+    <label class="mic" for="mic-on" title="Tap to talk"><svg class="i lg"><use href="#i-mic"/></svg></label>
+    <div class="idle grow"><b>Talk instead of typing</b><p id="voice-hint">Tap the microphone and say the details of this step. Spoken fields are marked “Heard” until you check them.</p></div>
+    <div class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="heard" id="voice-heard"></div>
+  </div>
+
+  <!-- STEP 1 BUYER -->
+  <div class="step p1">
+  <section class="card">
+    <header><span class="tile"><svg class="i lg"><use href="#i-user"/></svg></span><div><h2>Who is paying</h2><p>The buyer and how to reach them</p></div></header>
+    <div class="grid">
+      <div class="field s2"><label for="receiptNo">Receipt No.</label><div class="affix"><span>No.</span><input id="receiptNo" data-k="receiptNo" class="mono" type="text" inputmode="numeric" placeholder="2541"></div><p class="hint">Red number on the booklet.</p></div>
+      <div class="field s2"><label for="date">Date</label><input id="date" data-k="date" type="date"></div>
+      <div class="field s2"></div>
+      <div class="field s4"><label for="receivedFrom">Received from</label><input id="receivedFrom" data-k="receivedFrom" type="text" autocomplete="off" placeholder="Full name of the buyer"></div>
+      <div class="field s2"><label for="contact">Contact no.</label><div class="affix"><span>PH</span><input id="contact" data-k="contact" data-phone class="mono" type="tel" inputmode="numeric" placeholder="0917 123 4567"></div><p class="hint" data-hint="contact">11 digits, starting with 09</p></div>
+      <div class="field s6"><label for="address">Postal address</label><input id="address" data-k="address" type="text" placeholder="Street, barangay, city"></div>
+    </div>
+  </section>
+  </div>
+
+  <!-- STEP 2 VEHICLE -->
+  <div class="step p2">
+  <section class="card">
+    <header><span class="tile"><svg class="i lg"><use href="#i-car"/></svg></span><div><h2>How many units</h2><p>Each unit gets its own description card</p></div>
+      <div class="copies" style="margin-left:auto;display:flex"><button type="button" class="btn ghost icon" data-stepper="units" data-d="-1" aria-label="Fewer units"><svg class="i"><use href="#i-minus"/></svg></button><b id="units" style="min-width:3rem;text-align:center;font-weight:600;font-size:16px;align-self:center">1</b><button type="button" class="btn ghost icon" data-stepper="units" data-d="1" aria-label="More units"><svg class="i"><use href="#i-plus"/></svg></button></div></header>
+    <p class="hint" style="margin:0">Make and type come from the inventory. Pick the make and type first, then choose the plate from the cars of that type.</p>
+  </section>
+  <div id="units-box" style="display:contents"></div>
+  </div>
+
+  <!-- STEP 3 DEAL -->
+  <div class="step p3">
+  <section class="card">
+    <header><span class="tile"><svg class="i lg"><use href="#i-cash"/></svg></span><div><h2>Agreed price</h2><p>The full price of the unit<span id="price-units"></span></p></div></header>
+    <div class="grid"><div class="field s3"><label for="price">Agreed price</label><div class="affix money"><span>₱</span><input id="price" data-k="price" data-money inputmode="decimal" type="text" placeholder="0"></div><p class="hint" id="price-hint" data-def="Everything below is taken off this price.">Everything below is taken off this price.</p></div></div>
+  </section>
+
+  <section class="card">
+    <header><span class="tile"><svg class="i lg"><use href="#i-bank"/></svg></span><div><h2>How the unit is paid</h2><p>Cash or financing</p></div></header>
+    <div class="pick" style="grid-auto-columns:minmax(0,22rem)">
+      <div><input class="rc" type="radio" name="sale" id="sale-cash" value="cash" checked><label for="sale-cash"><span class="tile"><svg class="i lg"><use href="#i-cash"/></svg></span><span>Cash<small>The buyer pays the whole price</small></span></label></div>
+      <div><input class="rc" type="radio" name="sale" id="sale-fin" value="financing"><label for="sale-fin"><span class="tile"><svg class="i lg"><use href="#i-bank"/></svg></span><span>Financing<small>A lender pays the loan</small></span></label></div>
+    </div>
+    <p class="hint hide-fin" style="margin-top:1rem">Cash sale: nothing more to fill in here.</p>
+    <div class="when fin grid" style="margin-top:1.25rem">
+      <div class="field s3"><label>Institution</label><select data-k="institution" data-other><option value="">Choose…</option><option>Other…</option></select><input class="other-input" data-other-for="institution" type="text" placeholder="Type the institution" hidden></div>
+      <div class="field s3"><label>Monthly payment</label><div class="affix money"><span>₱</span><input type="text" data-k="monthly" data-money inputmode="decimal" placeholder="0"></div></div>
+      <div class="field s3"><label>Down payment or loan</label>
+        <span class="seg wide" style="margin-bottom:.5rem"><input class="rc" type="radio" name="dpMode" id="dpm-amount" value="amount" checked><label for="dpm-amount">DP ₱</label><input class="rc" type="radio" name="dpMode" id="dpm-percent" value="percent"><label for="dpm-percent">DP %</label><input class="rc" type="radio" name="dpMode" id="dpm-loan" value="loan"><label for="dpm-loan">Loan ₱</label></span>
+        <div class="affix money"><span id="dp-pre">₱</span><input type="text" data-k="dpIn" data-money inputmode="decimal" placeholder="0"></div>
+        <p class="hint" id="dp-hint">Type whichever you know. The others are worked out. Most lenders ask for about 20% down.</p></div>
+      <div class="field s3"><label>Processing fee</label>
+        <span class="seg wide" style="margin-bottom:.5rem"><input class="rc" type="radio" name="feeMode" id="fm-percent" value="percent" checked><label for="fm-percent">% of loan</label><input class="rc" type="radio" name="feeMode" id="fm-amount" value="amount"><label for="fm-amount">₱ amount</label></span>
+        <div class="affix money"><span id="fee-pre">%</span><input type="text" data-k="feeIn" data-money inputmode="decimal" placeholder="7"></div>
+        <p class="hint" id="fee-hint"></p>
+        <p class="hint" style="margin-top:.25rem"><button type="button" class="chip" data-stdfee style="padding:.15rem .6rem">Use the standard 7%</button></p></div>
+      <div class="s6"><div class="sum fin-out" id="fin-out"></div></div>
+      <div class="field s6"><label>Years to pay</label>
+        <div class="chips sq"><span id="years-chips" style="display:contents"></span>
+        <input class="other-input" data-other-radio="years" data-k="yearsOther" type="number" min="1" max="10" placeholder="Years" hidden style="width:6rem;margin:0 0 0 .5rem">
+        <span class="hint" id="term-total" style="margin:0 0 0 .75rem;align-self:center"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="card-trade">
+    <header><span class="tile"><svg class="i lg"><use href="#i-repeat"/></svg></span><div><h2>Trade-in</h2><p>Is the buyer handing in a car?</p></div></header>
+    <div class="seg"><input class="rc" type="radio" name="ti" id="ti-no" value="no" checked><label for="ti-no">No</label><input class="rc" type="radio" name="ti" id="ti-yes" value="yes"><label for="ti-yes"><svg class="i"><use href="#i-repeat"/></svg>Yes, trade-in</label></div>
+    <div class="when ti grid" style="margin-top:1.25rem">
+      <div class="field s2"><label>Year model</label><select data-k="tiYear" data-other><option value="">Choose…</option><option>2026</option><option>2025</option><option>2024</option><option>2023</option><option>2022</option><option>2021</option><option>2020</option><option>2019</option><option>2018</option><option>2017</option><option>2016</option><option>2015</option><option>2014</option><option>2013</option><option>2012</option><option>2011</option><option>2010</option><option>Other…</option></select><input class="other-input" data-other-for="tiYear" type="text" placeholder="Type the year" hidden></div>
+      <div class="field s4"><label>Unit</label><input type="text" data-k="tiUnit" placeholder="Make and model of the traded car"></div>
+      <div class="field s2"><label>Plate number</label><input class="mono" type="text" data-k="tiPlate" data-upper placeholder="ABC 1234"></div>
+      <div class="field s2"><label>Mileage</label><div class="affix"><input class="mono" type="text" data-k="tiMileage" inputmode="numeric" style="text-align:right" placeholder="0"><span>km</span></div></div>
+      <div class="field s2"><label>Trade-in value</label><div class="affix money"><span>₱</span><input type="text" data-k="tiValue" data-money inputmode="decimal" placeholder="0"></div></div>
+      <div class="s6"><div class="sum" style="background:transparent;box-shadow:inset 0 0 0 1px var(--border)"><div style="align-items:center"><span><b id="ti-title">Additional amount</b><br><small id="ti-formula">Worked out for you from the price and the trade-in value</small></span><b class="num" style="font-size:20px" id="ti-extra">₱0</b></div></div>
+      <p class="hint">The traded car is not cash. Its value is taken off what the buyer pays, so it is never part of the balance. If the car is worth more than the buyer’s share, the extra becomes what we pay the buyer.</p></div>
+    </div>
+  </section>
+
+  <section class="card" id="card-lieu">
+    <header><span class="tile"><svg class="i lg"><use href="#i-file"/></svg></span><div><h2>In lieu of documents</h2><p>We keep the buyer's documents until they pay</p></div></header>
+    <label class="sw"><input class="rc" type="checkbox" id="lieu-on"><span class="track"></span><span>Hold the documents as collateral<small>Like OR/CR: we do not hand them over until the amount is paid. No money moves now, so the balance does not change.</small></span></label>
+    <div class="when lieu grid" style="margin-top:1.25rem">
+      <div class="field s2"><label>Amount to be paid</label><div class="affix money"><span>₱</span><input type="text" data-k="lieuAmount" data-money inputmode="decimal" placeholder="0"></div><p class="hint">Part of the balance the documents secure</p></div>
+      <div class="field s2"><label>Pay on or before</label><input type="date" data-k="lieuUntil"></div>
+      <div class="field s2"><label>Documents held</label><div class="auto" style="font-weight:400">Until it is paid in full</div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <header><span class="tile"><svg class="i lg"><use href="#i-shield"/></svg></span><div><h2>What the buyer pays</h2><p>Worked out from the price, the loan and the trade-in</p></div></header>
+    <div id="deal-sum"></div><div id="warn3" class="inline-warn"></div>
+  </section>
+  </div>
+
+  <!-- STEP 4 PAYMENT -->
+  <div class="step p4">
+  <section class="card">
+    <header><span class="tile"><svg class="i lg"><use href="#i-coins"/></svg></span><div><h2>This payment</h2><p>What kind of payment, and how the money came in</p></div></header>
+    <div class="lbl">Kind of payment</div>
+    <div class="pick" style="margin-bottom:1.25rem">
+      <div><input class="rc" type="radio" name="kind" id="k-e" value="earnest"><label for="k-e"><span class="tile"><svg class="i lg"><use href="#i-coins"/></svg></span><span>Earnest money<small>Reserves the unit</small></span></label></div>
+      <div><input class="rc" type="radio" name="kind" id="k-p" value="partial" checked><label for="k-p"><span class="tile"><svg class="i lg"><use href="#i-cash"/></svg></span><span>Partial payment<small>Part of the amount due</small></span></label></div>
+      <div><input class="rc" type="radio" name="kind" id="k-f" value="full"><label for="k-f"><span class="tile"><svg class="i lg"><use href="#i-shield"/></svg></span><span>Full payment<small>Nothing is left</small></span></label></div>
+    </div>
+    <div class="method head"><span>Method</span><span>Amount</span><span>Reference</span><span></span></div>
+    <div class="method"><div class="name"><span class="tile"><svg class="i"><use href="#i-cash"/></svg></span>Cash</div><div class="affix money"><span>₱</span><input type="text" data-k="cash" data-money inputmode="decimal" placeholder="0"></div><span></span><span></span></div>
+    <div class="method sub-row proof-row"><span></span><div class="proof-box" data-proof data-src="cash" id="proof-cash" style="grid-column:2/4"><div class="pb-top"><label class="btn sm"><input type="file" accept="image/*,application/pdf" multiple hidden data-file><svg class="i"><use href="#i-plus"/></svg>Attach photo of the cash</label><span class="hint">Required when cash is entered</span><span class="pb-status"></span></div><div class="thumbs"></div></div><span></span></div>
+    <div id="pm-rows"></div>
+    <div class="chips add" style="margin-top:.75rem">
+      <span class="lbl" style="margin:0;align-self:center;font-weight:400;color:var(--muted-fg);font-size:13px">Also paid by:</span>
+      <button type="button" class="chip" data-add="check"><svg class="i"><use href="#i-plus"/></svg>Check</button><span id="wallet-chips" style="display:contents"></span><button type="button" class="chip" data-add=""><svg class="i"><use href="#i-pencil"/></svg>Other, type your own</button>
+    </div>
+    <p class="hint">Cash is always there. Tap a method to add a row, and use the bin to take one away. Names can be edited.</p>
+    <div class="method total"><span>Paid today</span><span class="num" id="paid-total">₱0</span></div>
+    <div class="field" style="margin-top:.75rem"><label>The sum of pesos <span class="opt">written out automatically</span></label><div class="auto"><span id="words-paid">—</span> <small>from the amount</small></div></div>
+  </section>
+
+  <section class="card">
+    <header><span class="tile"><svg class="i lg"><use href="#i-cash"/></svg></span><div><h2>Balance</h2><p>What is left after everything received</p></div></header>
+    <div class="grid">
+      <div class="field s3"><label for="earlier">Earlier payments <span class="opt">received before today</span></label><div class="affix money"><span>₱</span><input id="earlier" data-k="earlier" data-money inputmode="decimal" type="text" placeholder="0"></div></div>
+      <div class="s6 payout-box" id="payout-box" hidden>
+        <b>The buyer's car is worth more than their share</b>
+        <p class="hint" id="payout-hint" style="margin:.25rem 0 0"></p>
+        <div class="grid"><div class="field s3"><label for="payout">Paid out to the buyer</label><div class="affix money"><span>₱</span><input id="payout" data-k="payout" data-money inputmode="decimal" type="text" placeholder="0"></div></div>
+        <div class="field s3"><label>Proof of the payout</label><div class="proof-box" data-proof data-src="payout" id="proof-payout"><div class="pb-top"><label class="btn sm"><input type="file" accept="image/*,application/pdf" multiple hidden data-file><svg class="i"><use href="#i-plus"/></svg>Attach proof</label><span class="hint">Photo of the cash handed over, or the transfer receipt</span><span class="pb-status"></span></div><div class="thumbs"></div></div></div></div>
+      </div>
+      <div class="s6"><div id="pay-sum"></div></div>
+      <div class="field s6"><label>Balance of, in words</label><div class="auto"><span id="bal-words">—</span> <small>automatic</small></div></div>
+      <div class="field s6" id="due-field">
+        <label>Shall be given on or before
+          <span class="seg" style="margin-left:.5rem"><input class="rc" type="radio" name="due" id="due-date" value="date" checked><label for="due-date"><svg class="i"><use href="#i-cal"/></svg>Date</label><input class="rc" type="radio" name="due" id="due-text" value="text"><label for="due-text"><svg class="i"><use href="#i-pencil"/></svg>Words</label></span>
+        </label>
+        <div class="when due-date"><input type="date" data-k="dueDate" style="max-width:16rem"></div>
+        <div class="when due-text" style="gap:.6rem">
+          <input type="text" data-k="dueText" placeholder="e.g. upon release of OR/CR">
+          <div class="chips" id="due-chips"></div>
+        </div>
+        <p class="hint">Only needed while a balance is left. Pick a date, or switch to Words.</p>
+      </div>
+    </div>
+    <div id="warn4" class="inline-warn"></div>
+  </section>
+  </div>
+
+  <!-- STEP 5 FINISH -->
+  <div class="step p5">
+  <section class="card">
+    <header><span class="tile"><svg class="i lg"><use href="#i-coins"/></svg></span><div><h2>Payment details</h2><p>Every peso, in order. Compare it with the paper before saving.</p></div></header>
+    <details class="notes-fold" style="margin-bottom:1rem"><summary>How the math works <small>· the rules this page follows</small></summary>
+      <ol class="rules">
+        <li><b>Agreed price</b> is the full price of the unit (all units together).</li>
+        <li><b>Trade-in value</b> comes off the price. It is a car, not cash, so it is never part of the balance.</li>
+        <li><b>Loan</b> (financing) = price − down payment. The lender pays it to us, so it is not in the balance. If you know the loan instead, the down payment is worked out for you.</li>
+        <li><b>Processing fee</b> (financing only, usually 7% of the loan) is owed by the buyer to the lender, not to us. We only collect the down payment, so the fee is shown for information and never changes the balance.</li>
+        <li><b>Amount due from the buyer</b> = down payment (or the whole price on a cash sale) − trade-in. Below zero means we pay the buyer.</li>
+        <li><b>Balance</b> = amount due − earlier payments − payments today (+ any payout we made to the buyer).</li>
+        <li><b>In lieu of documents</b> is collateral: no money moves, so it is never in the math.</li>
+        <li><b>Proof:</b> price = trade-in + loan + received − payout + balance. If this does not add up, saving is blocked.</li>
+      </ol></details>
+    <span class="seg" style="margin-bottom:1rem"><input class="rc" type="radio" name="fv" id="fv-ledger" checked><label for="fv-ledger">Payment details</label><input class="rc" type="radio" name="fv" id="fv-sources"><label for="fv-sources">Who pays for the price</label></span>
+    <div id="ledger-box"></div>
+    <div id="sources-box"></div>
+  </section>
+
+  <section class="card" id="card-remarks">
+    <header><span class="tile"><svg class="i lg"><use href="#i-pencil"/></svg></span><div><h2>Remarks</h2><p>Only if there is something extra to write down</p></div></header>
+    <label class="sw"><input class="rc" type="checkbox" id="rem-on"><span class="track"></span><span>Add remarks<small>Type it, speak it, or tap a ready-made line</small></span></label>
+    <div class="when rem" style="margin-top:1.25rem">
+      <div class="editor">
+        <div class="bar"><button type="button" class="btn sm ghost" data-fmt="bold"><svg class="i"><use href="#i-bold"/></svg>Bold</button><button type="button" class="btn sm ghost" data-fmt="bullets"><svg class="i"><use href="#i-list"/></svg>Bullets</button><span class="sep"></span><button type="button" class="btn sm ghost" id="dictate"><svg class="i"><use href="#i-mic"/></svg>Dictate</button><span class="sep"></span><span style="font-size:12px;color:var(--muted-fg)">Select words and tap Bold · select lines and tap Bullets</span></div>
+        <textarea data-k="remarks" id="remarks" placeholder="Write anything the buyer and the office should remember…"></textarea>
+        <div class="foot"><span>Shown on the receipt exactly like this</span><span id="rem-count">0 characters</span></div>
+      </div>
+      <p class="lbl" style="margin:1rem 0 .5rem;font-weight:400;font-size:13px;color:var(--muted-fg)">Tap to add a line</p>
+      <div class="chips add" id="phrase-chips"></div>
+    </div>
+    <div class="sub">Standard notes</div>
+    <details class="notes-fold"><summary><svg class="i"><use href="#i-list"/></svg><span id="notes-count">3 standard notes will print</span> <small>· tap to review, edit or switch any off</small></summary>
+      <div id="notes"></div>
+      <button type="button" class="btn sm" id="add-note"><svg class="i"><use href="#i-plus"/></svg>Add a note</button>
+    </details>
+  </section>
+
+  <section class="card">
+    <header><span class="tile"><svg class="i lg"><use href="#i-shield"/></svg></span><div><h2>Check before saving</h2><p>Read it back against the buyer’s ID and the unit’s papers</p></div></header>
+    <div id="alerts"></div>
+    <div class="review" id="review" style="margin-top:.75rem"></div>
+    <label class="confirm"><input type="checkbox" id="confirm"><span>I checked every field above against the buyer and the paperwork.</span></label>
+  </section>
+  </div>
+
+  <!-- NAVIGATION -->
+  <div class="actions">
+    <div class="bar-step b1"><span class="hint" style="margin:0 auto 0 0">Step 1 of 5</span><label class="btn primary lg" for="st2">Next: Vehicle <svg class="i"><use href="#i-send"/></svg></label></div>
+    <div class="bar-step b2"><label class="btn lg" for="st1">Back</label><span class="hint" style="margin:0 auto 0 .5rem">Step 2 of 5</span><label class="btn primary lg" for="st3">Next: Deal <svg class="i"><use href="#i-send"/></svg></label></div>
+    <div class="bar-step b3"><label class="btn lg" for="st2">Back</label><div class="money-bit spacer" style="margin-left:.5rem"><div><small>Agreed price</small><b class="num" data-live="price">₱0</b></div><div><small id="due-small">Buyer pays us</small><b class="num" data-live="due">₱0</b></div></div><label class="btn primary lg" for="st4">Next: Payment <svg class="i"><use href="#i-send"/></svg></label></div>
+    <div class="bar-step b4"><label class="btn lg" for="st3">Back</label><div class="money-bit spacer" style="margin-left:.5rem"><div><small>Paid today</small><b class="num" data-live="today">₱0</b></div><div><small>Balance</small><b class="num" data-live="balance">₱0</b></div></div><label class="btn primary lg" for="st5">Next: Finish <svg class="i"><use href="#i-send"/></svg></label></div>
+    <div class="bar-step b5" style="position:relative"><label class="btn lg" for="st4">Back</label>
+      <div class="copies-panel" id="copy-panel"><b>Name each copy</b><div id="copy-names" style="display:grid;gap:.4rem"></div></div>
+      <button type="button" class="btn lg" id="copy-names-btn" style="margin-left:auto" title="Rename the copies"><svg class="i"><use href="#i-pencil"/></svg>Copy names</button>
+      <div class="copies"><button type="button" class="btn ghost icon sm" data-stepper="copies" data-d="-1" aria-label="Fewer copies"><svg class="i"><use href="#i-minus"/></svg></button><span id="copies-label">3 copies</span><button type="button" class="btn ghost icon sm" data-stepper="copies" data-d="1" aria-label="More copies"><svg class="i"><use href="#i-plus"/></svg></button></div>
+      <button type="button" class="btn lg" id="print"><svg class="i"><use href="#i-printer"/></svg>Print</button><button type="button" class="btn primary lg save" id="save" disabled><svg class="i"><use href="#i-send"/></svg>Send for approval</button></div>
+  </div>
+</div>
+
+<aside class="side-col">
+  <div class="card preview" id="pv">
+    <div class="top"><b>Live preview</b>
+      <span class="seg"><input class="rc" type="radio" name="pv" id="pv-form" value="form" checked><label for="pv-form">Form</label><input class="rc" type="radio" name="pv" id="pv-half" value="half"><label for="pv-half">Half</label><input class="rc" type="radio" name="pv" id="pv-slip" value="slip"><label for="pv-slip">Slip</label></span>
+    </div>
+    <div class="sheet-wrap" id="sheet-wrap"><div class="pv-box" id="pv-box"></div></div>
+    <div class="legend">This is how the receipt prints. It updates as you type, and Print uses the layout you pick here. <a href="prints.html">See all three</a>.</div>
+  </div>
+</aside>
+</div>
+</div>
+</main>
+</div>
+
+<dialog class="picker" id="picker">
+  <div class="pk-head">
+    <h2><span>Search the inventory</span><button type="button" class="btn ghost icon sm" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button></h2>
+    <div class="pk-tools">
+      <div class="affix"><span><svg class="i"><use href="#i-search"/></svg></span><input type="text" id="pk-q" placeholder="Search make, model, plate or color"></div>
+      <select id="pk-make"><option value="">All makes</option></select>
+      <span class="seg"><input class="rc" type="radio" name="pk-status" id="pk-avail" value="avail" checked><label for="pk-avail">Available</label><input class="rc" type="radio" name="pk-status" id="pk-all" value="all"><label for="pk-all">All</label></span>
+    </div>
+  </div>
+  <div class="pk-list" id="pk-list"></div>
+  <div class="pk-foot"><span id="pk-count"></span><button type="button" class="btn sm" id="pk-manual">Not here? Type it myself</button></div>
+</dialog>
+
+<dialog class="done" id="done">
+  <h2>Sent for approval</h2>
+  <p id="done-sub">The Approver will check it next.</p>
+  <ul class="prog" id="prog">
+    <li><span>Receipt saved</span><span class="st"></span></li>
+    <li><span>Sent to the Approver</span><span class="st"></span></li>
+    <li class="after"><span>Drive, Sheets, inventory sheet and Telegram</span><span class="st"></span></li>
+  </ul>
+  <div style="display:flex;gap:.5rem;justify-content:flex-end"><button type="button" class="btn lg" id="done-print"><svg class="i"><use href="#i-printer"/></svg>Print <span id="done-n">3</span> copies (unapproved)</button><a class="btn lg" id="done-deal" href="deals.html">Open the deal</a><button type="button" class="btn primary lg" id="done-new">New receipt</button></div>
+</dialog>
+<script src="inventory.js"></script>
+<script src="paper.js"></script>
+<script src="store.js"></script>
+<script src="shell.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

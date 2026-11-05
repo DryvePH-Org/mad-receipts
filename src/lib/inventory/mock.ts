@@ -1,4 +1,4 @@
-import { normalizePlate } from "@/lib/rules/validate";
+import { normalizePlate } from "@/lib/rules/plate";
 import type { InventoryAdapter, InventoryUnit, StatusRef, UnitStatus } from "./types";
 
 /** In-memory inventory for tests (and local development until the sheet is configured). */
@@ -12,6 +12,9 @@ export function createMockInventory(units: InventoryUnit[] = []): InventoryAdapt
   return {
     units: map,
     changes,
+    async listUnits() {
+      return [...map.values()].map((u) => ({ ...u }));
+    },
     async getUnit(plate) {
       const unit = map.get(normalizePlate(plate));
       return unit ? { ...unit } : null;

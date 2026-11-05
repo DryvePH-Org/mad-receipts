@@ -1,177 +1,64 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { Camera, Car, Search, SearchX } from "lucide-react";
+import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
-import { DueBadge } from "@/components/shared/due-badge";
-import { EmptyState } from "@/components/shared/empty-state";
-import { MoneyText } from "@/components/shared/money-text";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
-import { ResponsiveList } from "@/components/shared/responsive-list";
-import { DealStatusBadge } from "@/components/shared/status-badge";
-import { Pagination } from "@/components/pagination";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { NativeSelect } from "@/components/ui/native-select";
 import { requireUser } from "@/lib/auth";
-import { formatDate, manilaToday } from "@/lib/dates";
-import { normalizePlate } from "@/lib/rules/validate";
-import { pageNumber, pageRange, param, searchTerm } from "@/lib/search";
-import { createClient } from "@/lib/supabase/server";
+import { listDeals } from "@/lib/data";
+import { manilaToday, daysBetween } from "@/lib/dates";
+import { dealStatusKey } from "@/lib/deal/status";
+import { formatPeso } from "@/lib/rules/money";
+import { DealsBoard, type BoardDeal } from "./deals-board";
 
-const STATUSES = ["open", "completed", "cancelled"] as const;
-
-export default function DealsPage({ searchParams }: PageProps<"/deals">) {
+export default function DealsPage() {
   return (
     <div className="space-y-6">
-      <Suspense fallback={<PageSkeleton />}>
-        <DealsContent searchParams={searchParams} />
-      </Suspense>
+      <PageHeader
+        title="Transactions"
+        description="Every deal and its receipts. A financed car takes more than one receipt, so check here what is still unpaid."
+        actions={<Button nativeButton={false} render={<Link href="/new" />}><Plus /> New receipt</Button>}
+      />
+      <Suspense fallback={<PageSkeleton />}><Content /></Suspense>
     </div>
   );
 }
 
-async function DealsContent({ searchParams }: { searchParams: PageProps<"/deals">["searchParams"] }) {
+function Stat({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: string }) {
+  return (
+    <div className="rounded-xl p-4 ring-1 ring-foreground/10">
+      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</p>
+      <p className={`text-2xl font-semibold tracking-tight tabular-nums ${tone ?? ""}`}>{value}</p>
+      <p className="text-xs text-muted-foreground">{sub}</p>
+    </div>
+  );
+}
+
+async function Content() {
   await requireUser();
-  const sp = await searchParams;
-  const q = searchTerm(param(sp.q));
-  const status = STATUSES.find((s) => s === param(sp.status)) ?? "";
-  const page = pageNumber(sp.page);
-
-  const supabase = await createClient();
-  let query = supabase
-    .from("deal_summaries")
-    .select("*", { count: "exact" })
-    .order("created_at", { ascending: false })
-    .range(...pageRange(page));
-  if (status) query = query.eq("status", status);
-  if (q) {
-    const plate = normalizePlate(q);
-    query = query.or([plate && `plate_no.ilike.*${plate}*`, `buyer_name.ilike.*${q}*`].filter(Boolean).join(","));
-  }
-  const { data: deals, count, error } = await query;
-  if (error) return <p className="text-destructive">Could not load the deals. Please try again.</p>;
-
   const today = manilaToday();
-  const filtered = Boolean(q || status);
-
+  const deals = await listDeals();
+  const rows: (BoardDeal & { loan: number })[] = deals.map((d) => ({
+    id: d.id, dealNo: d.dealNo, unitName: d.unitName, plates: d.plates, buyerName: d.buyerName, createdByName: d.createdByName, saleType: d.saleType,
+    institution: d.institution, price: d.price, received: d.approvedPaid, balance: d.balance, dueDate: d.dueDate, dueText: d.dueText,
+    status: dealStatusKey({ status: d.status, balance: d.balance, due_date: d.dueDate, sale_type: d.saleType, loan_status: d.loanStatus }, today),
+    receiptCount: d.approvedCount + d.pendingCount, pendingCount: d.pendingCount, loan: d.loan,
+    searchText: `${d.unitName} ${d.plates} ${d.buyerName} ${d.createdByName} ${d.institution ?? ""} ${d.receiptNos} ${d.dealNo}`.toLowerCase(),
+  }));
+  const owe = rows.filter((r) => r.status !== "cancelled" && r.balance > 0);
+  const overdue = rows.filter((r) => r.status === "overdue");
+  const waiting = rows.filter((r) => r.status === "lender");
+  const pending = deals.reduce((n, d) => n + d.pendingCount, 0), pendingAmount = deals.reduce((n, d) => n + d.pendingPaid, 0);
+  const late = (lo: number, hi: number) => overdue.filter((r) => { const n = daysBetween(r.dueDate!, today); return n >= lo && n <= hi; }).reduce((s, r) => s + r.balance, 0);
   return (
     <>
-      <PageHeader
-        title="Deals"
-        description="Every car that is reserved, sold or cancelled, with what has been paid."
-        actions={
-          <Button nativeButton={false} render={<Link href="/upload" />}>
-            <Camera /> Upload receipt
-          </Button>
-        }
-      />
-
-      <Card>
-        <CardContent>
-          <form method="get" className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem_auto]">
-            <div className="relative">
-              <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-              <Input name="q" defaultValue={q} placeholder="Search plate or buyer" aria-label="Search plate or buyer" className="pl-8" />
-            </div>
-            <NativeSelect name="status" defaultValue={status} aria-label="Filter by status">
-              <option value="">All statuses</option>
-              <option value="open">Reserved</option>
-              <option value="completed">Sold</option>
-              <option value="cancelled">Cancelled</option>
-            </NativeSelect>
-            <Button type="submit">Search</Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      <p className="text-sm text-muted-foreground">
-        {count ?? 0} {count === 1 ? "deal" : "deals"}
-        {filtered && (
-          <>
-            {" · "}
-            <Link href="/deals" className="font-medium text-foreground underline">
-              Clear filters
-            </Link>
-          </>
-        )}
-      </p>
-
-      <ResponsiveList
-        rows={deals}
-        getRowKey={(d) => d.id ?? ""}
-        getRowHref={(d) => `/deals/${d.id}`}
-        empty={
-          <EmptyState
-            icon={filtered ? SearchX : Car}
-            title={filtered ? "No deals match" : "No deals yet"}
-            description={filtered ? "Try a different plate, name or status." : "A deal appears here when its first receipt is confirmed."}
-          />
-        }
-        columns={[
-          { key: "plate", header: "Plate", cell: (d) => d.plate_no },
-          {
-            key: "buyer",
-            header: "Buyer",
-            cell: (d) => (
-              <span className="block min-w-0">
-                <span className="block truncate">{d.buyer_name}</span>
-                {d.make_type && <span className="block truncate text-xs text-muted-foreground">{d.make_type}</span>}
-              </span>
-            ),
-          },
-          { key: "price", header: "Price", headerClassName: "text-right", className: "text-right", cell: (d) => <MoneyText value={d.agreed_price} /> },
-          { key: "paid", header: "Paid", headerClassName: "text-right", className: "text-right", cell: (d) => <MoneyText value={d.total_paid} /> },
-          { key: "balance", header: "Balance", headerClassName: "text-right", className: "text-right font-medium", cell: (d) => <MoneyText value={d.balance} /> },
-          { key: "status", header: "Status", cell: (d) => <DealStatusBadge status={d.status} /> },
-          {
-            key: "due",
-            header: "Next due",
-            cell: (d) =>
-              d.next_due_date ? (
-                <span className="flex items-center gap-2">
-                  <span className="text-muted-foreground">{formatDate(d.next_due_date)}</span>
-                  <DueBadge dueDate={d.next_due_date} today={today} />
-                </span>
-              ) : (
-                <span className="text-muted-foreground">—</span>
-              ),
-          },
-        ]}
-        renderCard={(d) => (
-          <Link href={`/deals/${d.id}`} className="block rounded-xl bg-card p-4 ring-1 ring-foreground/10 transition-colors active:bg-muted">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-lg font-semibold">{d.plate_no}</p>
-                <p className="truncate text-sm text-muted-foreground">{[d.make_type, d.buyer_name].filter(Boolean).join(" · ")}</p>
-              </div>
-              <DealStatusBadge status={d.status} />
-            </div>
-            <dl className="mt-3 grid grid-cols-3 gap-2 text-sm">
-              <div>
-                <dt className="text-muted-foreground">Price</dt>
-                <dd className="font-medium"><MoneyText value={d.agreed_price} /></dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Paid</dt>
-                <dd className="font-medium"><MoneyText value={d.total_paid} /></dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Balance</dt>
-                <dd className="font-medium"><MoneyText value={d.balance} /></dd>
-              </div>
-            </dl>
-            {d.next_due_date && (
-              <p className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-                <span className="text-muted-foreground">Due {formatDate(d.next_due_date)}</span>
-                <DueBadge dueDate={d.next_due_date} today={today} />
-              </p>
-            )}
-          </Link>
-        )}
-      />
-
-      <Pagination page={page} total={count ?? 0} path="/deals" params={{ q, status }} />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat label="Still to collect" value={formatPeso(owe.reduce((n, r) => n + r.balance, 0))} sub={`${owe.length} open ${owe.length === 1 ? "deal" : "deals"}`} />
+        <Stat label="Overdue" value={formatPeso(overdue.reduce((n, r) => n + r.balance, 0))} tone="text-destructive" sub={`${overdue.length} ${overdue.length === 1 ? "deal" : "deals"} · 1–30 days ${formatPeso(late(1, 30))} · 31–60 ${formatPeso(late(31, 60))} · 60+ ${formatPeso(late(61, 99999))}`} />
+        <Stat label="Waiting for the lender" value={String(waiting.length)} tone="text-teal-700" sub={`${formatPeso(waiting.reduce((n, r) => n + r.loan, 0))} in loans not released`} />
+        <Stat label="Waiting for approval" value={String(pending)} tone="text-violet-700" sub={`${formatPeso(pendingAmount)} in receipts`} />
+      </div>
+      <DealsBoard deals={rows} today={today} />
     </>
   );
 }

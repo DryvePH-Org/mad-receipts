@@ -29,7 +29,7 @@ function pickInventory(): InventoryAdapter {
 
   // Fail closed: without the sheet, no plate can be confirmed.
   const missing = () => Promise.reject(new Error("INVENTORY_SHEET_ID is not configured"));
-  return { getUnit: missing, setStatus: missing };
+  return { getUnit: missing, listUnits: missing, setStatus: missing };
 }
 
 export const inventory: InventoryAdapter = pickInventory();

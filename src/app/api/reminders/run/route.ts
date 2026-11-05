@@ -12,10 +12,11 @@ export async function POST(request: Request) {
   const today = manilaToday();
   const { data, error } = await createAdminClient()
     .from("deal_summaries")
-    .select("plate_no, buyer_name, balance, next_due_date")
+    .select("deal_no, buyer_name, balance, due_date, units")
     .eq("status", "open")
-    .lte("next_due_date", today)
-    .order("next_due_date", { ascending: true })
+    .gt("balance", 0)
+    .lte("due_date", today)
+    .order("due_date", { ascending: true })
     .limit(500);
   if (error) {
     console.error("[reminders] could not load deals");
@@ -24,8 +25,8 @@ export async function POST(request: Request) {
 
   const message = buildReminderMessage(
     data.flatMap((d) =>
-      d.plate_no && d.buyer_name && d.next_due_date && d.balance !== null
-        ? [{ plate_no: d.plate_no, buyer_name: d.buyer_name, balance: d.balance, due_date: d.next_due_date }]
+      d.due_date
+        ? [{ plate_no: (Array.isArray(d.units) ? (d.units as { plate: string }[]).map((u) => u.plate).join(", ") : "") || d.deal_no, buyer_name: d.buyer_name, balance: d.balance, due_date: d.due_date }]
         : [],
     ),
     today,

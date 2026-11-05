@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Math check — MAD Receipts prototype</title>
+<link rel="stylesheet" href="style.css"><link rel="stylesheet" href="paper-core.css"></head>
+<body data-page="check">
+<div class="shell"><aside class="side" id="side"></aside><main id="main"><div id="out"></div></main></div>
+<script src="inventory.js"></script><script src="paper.js"></script><script src="store.js"></script><script src="shell.js"></script><script src="checks.js"></script>
+<script>
+const rows = MADCHECKS.run(), bad = rows.filter((r) => !r.pass), groups = [...new Set(rows.map((r) => r.group))];
+const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+document.getElementById("out").innerHTML = `<div class="head"><div><h1>Math check</h1><p>A separate calculator, written from the rules in whole centavos, is compared with what the prototype shows: the form, the printed receipt, the deal pages and the cash report.</p></div><button class="btn" onclick="location.reload()">Run again</button></div>
+<div class="stats" style="grid-template-columns:repeat(3,1fr)"><div class="stat ${bad.length ? "red" : ""}"><small>Result</small><b style="color:${bad.length ? "#b91c1c" : "#15803d"}">${bad.length ? bad.length + " failed" : "All pass"}</b><span>${rows.length - bad.length} of ${rows.length} checks</span></div><div class="stat"><small>Scenarios</small><b>${rows.filter((r) => /scenarios/.test(r.group)).length}</b><span>20 named, 300 random</span></div><div class="stat"><small>Demo data checks</small><b>${rows.filter((r) => !/scenarios/.test(r.group)).length}</b><span>deals, receipts, statuses, cash report</span></div></div>
+<div class="stack2" style="max-width:70rem">${groups.map((g) => { const list = rows.filter((r) => r.group === g), fails = list.filter((r) => !r.pass), shown = /Random/.test(g) ? fails : list; return `<section class="card"><header><div><h2>${esc(g)}</h2><p>${list.length - fails.length} of ${list.length} pass</p></div><span class="${fails.length ? "todo" : "done"}" style="margin-left:auto">${fails.length ? fails.length + " failed" : "All pass"}</span></header><div class="tbl-wrap"><table class="tbl"><tbody>${shown.length ? shown.map((r) => `<tr><td style="width:2rem;color:${r.pass ? "#15803d" : "#b91c1c"};font-weight:700">${r.pass ? "✓" : "✕"}</td><td>${esc(r.name)}</td><td style="color:var(--muted-fg)">${esc(r.detail)}</td></tr>`).join("") : `<tr><td class="empty">Every random scenario matches. Only failures would be listed here.</td></tr>`}</tbody></table></div></section>`; }).join("")}</div>`;
+</script></body></html>

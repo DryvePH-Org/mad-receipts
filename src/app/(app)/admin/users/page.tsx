@@ -8,11 +8,12 @@ import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CreateUserForm } from "./create-user-form";
 import { ResetPasswordDialog } from "./reset-password-dialog";
+import { RoleSelect } from "./role-select";
 
 export default function UsersPage() {
   return (
     <div className="space-y-6">
-      <PageHeader title="Users" description="Create staff accounts and reset passwords. Nobody can sign up on their own." />
+      <PageHeader title="Users" description="Create accounts, choose each person's role and reset passwords. Nobody can sign up on their own." />
       <Suspense fallback={<PageSkeleton />}>
         <UsersContent />
       </Suspense>
@@ -34,7 +35,7 @@ async function UsersContent() {
   const users = authUsers.users
     .map((u) => {
       const profile = profileById.get(u.id);
-      return { id: u.id, email: u.email ?? "", name: profile?.full_name ?? u.email ?? "", role: profile?.role ?? "staff" };
+      return { id: u.id, email: u.email ?? "", name: profile?.full_name ?? u.email ?? "", role: profile?.role ?? "sales" };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -42,7 +43,7 @@ async function UsersContent() {
     <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
       <Card>
         <CardHeader>
-          <CardTitle>Add staff user</CardTitle>
+          <CardTitle>Add a user</CardTitle>
         </CardHeader>
         <CardContent>
           <CreateUserForm />
@@ -61,10 +62,10 @@ async function UsersContent() {
                   <p className="truncate font-medium">{u.name}</p>
                   <p className="truncate text-sm text-muted-foreground">{u.email}</p>
                   <div className="mt-1">
-                    {u.role === "admin" ? <Badge>Admin</Badge> : <Pill tone="grey">Staff</Pill>}
+                    {u.role === "admin" ? <Badge>Admin</Badge> : u.role === "approver" ? <Pill tone="purple">Approver</Pill> : <Pill tone="grey">Sales</Pill>}
                   </div>
                 </div>
-                <ResetPasswordDialog userId={u.id} name={u.name} />
+                <div className="flex items-center gap-2"><RoleSelect userId={u.id} role={u.role} /><ResetPasswordDialog userId={u.id} name={u.name} /></div>
               </li>
             ))}
           </ul>

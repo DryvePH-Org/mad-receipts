@@ -1,6 +1,6 @@
 import "server-only";
 import { columnLetter, createSheetsClient, tabRange, type SheetsClient } from "@/lib/google/sheets";
-import { normalizePlate } from "@/lib/rules/validate";
+import { normalizePlate } from "@/lib/rules/plate";
 import { applyStatus, readStatus } from "./remarks";
 import type { InventoryAdapter, InventoryUnit } from "./types";
 
@@ -98,6 +98,32 @@ export function createSheetInventory(
   }
 
   return {
+    async listUnits() {
+      const rows = await withFriendlyErrors(() => sheets().getValues(config.spreadsheetId, tabRange(config.tab)));
+      const headerIndex = rows.slice(0, HEADER_SEARCH_ROWS).findIndex((row) => row.some((cell) => header(cell) === header(config.plateColumn)));
+      if (headerIndex === -1) throw new InventoryError(`Column "${config.plateColumn}" was not found in the "${config.tab}" tab of the inventory sheet.`);
+      const headers = rows[headerIndex].map(header);
+      const plateCol = headers.indexOf(header(config.plateColumn)), statusCol = headers.indexOf(header(config.statusColumn));
+      const brandCol = headers.findIndex((h) => BRAND_HEADERS.includes(h));
+      const makeCol = headers.findIndex((h, i) => i !== brandCol && MAKE_HEADERS.includes(h));
+      const colorCol = headers.findIndex((h) => COLOR_HEADERS.includes(h));
+      const seen = new Set<string>(), units: InventoryUnit[] = [];
+      rows.slice(headerIndex + 1).forEach((row) => {
+        const plate = normalizePlate(row[plateCol]);
+        if (!plate || seen.has(plate)) return;
+        seen.add(plate);
+        const cell = (col: number) => (col >= 0 ? (row[col] ?? "").trim() : "");
+        const remarks = cell(statusCol);
+        const unit: InventoryUnit = { plate, status: readStatus(remarks) };
+        if (remarks) unit.remarks = remarks;
+        const makeType = [cell(brandCol), cell(makeCol)].filter(Boolean).join(" ");
+        if (makeType) unit.makeType = makeType;
+        if (cell(colorCol)) unit.color = cell(colorCol);
+        units.push(unit);
+      });
+      return units;
+    },
+
     async getUnit(plate) {
       if (!normalizePlate(plate)) return null;
       return (await findRow(plate))?.unit ?? null;
