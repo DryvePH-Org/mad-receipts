@@ -4,7 +4,10 @@ import type { SpeechSegment } from "./speech";
 // Groq's speech-to-text (Whisper) and text model (gpt-oss), called directly over HTTPS.
 const BASE = "https://api.groq.com/openai/v1";
 
-export const transcriptionModel = () => process.env.GROQ_TRANSCRIPTION_MODEL || "whisper-large-v3-turbo";
+// The full model hears Filipino and mixed speech better than the faster "turbo" one; it costs a few cents more per hour of audio.
+export const transcriptionModel = () => process.env.GROQ_TRANSCRIPTION_MODEL || "whisper-large-v3";
+/** Leave empty so Whisper decides per recording (best for Taglish); set GROQ_TRANSCRIPTION_LANGUAGE=tl or en to force one. */
+const transcriptionLanguage = () => process.env.GROQ_TRANSCRIPTION_LANGUAGE?.trim() || "";
 export const reasoningModel = () => process.env.GROQ_REASONING_MODEL || "openai/gpt-oss-120b";
 
 /** A problem with Groq that staff can act on; the message is safe to show them. */
@@ -49,6 +52,7 @@ export async function transcribe(bytes: Uint8Array, mimeType: string, prompt: st
   body.set("prompt", prompt.slice(0, 800));
   body.set("temperature", "0");
   body.set("response_format", "verbose_json");
+  if (transcriptionLanguage()) body.set("language", transcriptionLanguage());
   const r = (await call("/audio/transcriptions", { method: "POST", body })) as { text?: string; segments?: SpeechSegment[] };
   return { text: r.text ?? "", segments: r.segments ?? [] };
 }

@@ -11,7 +11,7 @@ const MAX_TRANSCRIPT_CHARS = 4000;
 
 /** The hint Whisper gets: the words it is likely to hear, so brands, banks and wallets are spelled right. */
 export const whisperHint = (v: VoiceVocabulary) =>
-  `Car sale receipt at Manila Auto Display, in English and Tagalog. Plate numbers, motor and chassis numbers are read letter by letter. Words: ${[...v.institutions, ...v.wallets, "plate number", "down payment", "processing fee", "trade-in", "earnest", "balance", "Toyota Vios", "Mitsubishi Xpander", "Honda City", "Ford Ranger"].slice(0, 40).join(", ")}.`;
+  `Manila Auto Display, benta ng sasakyan, English at Tagalog. "Buyer po si Maria Santos, Vios plate N K F 4771, price 720 thousand, down payment 150K, BDO financing, processing fee 7 percent, nag-GCash ng 50 thousand." Words: ${[...v.institutions.slice(0, 8), ...v.wallets.slice(0, 5), "down payment", "trade-in", "earnest", "balance", "chassis", "motor"].join(", ")}.`;
 
 /** Speech to text. Segments the model was not sure about (or that are probably noise) are dropped and reported. */
 export async function transcribeVoice(bytes: Uint8Array, mimeType: string, vocab: VoiceVocabulary): Promise<{ text: string; ignored: string[] }> {

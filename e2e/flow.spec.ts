@@ -155,7 +155,7 @@ test("voice fills the form and the math follows", async ({ browser }) => {
   const sales = await as(browser, "sales");
   // the voice reader itself is tested with the real Groq API (npm run test:live); here the answer is canned
   await sales.route("**/api/voice", (route) => route.fulfill({ json: { proposal: {
-    source: "typed", transcript: "canned note", unsure: ["the contact number"], unclear: [],
+    source: "typed", transcript: "canned note", unsure: ["the contact number"], unclear: [], conflicts: [],
     fields: {
       receipt_no: null, date: null, kind: null, buyer_name: "ZZT E2E Voice Buyer", buyer_address: "Pasig City", buyer_contact: null,
       units: [{ make_type: "2019 Ford Everest", plate: "ZZT 2002", motor: null, chassis: null, color: "Silver" }],

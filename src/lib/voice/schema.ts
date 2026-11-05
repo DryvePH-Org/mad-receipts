@@ -28,6 +28,8 @@ export const VoiceExtraction = z.object({
   wallets: list(z.object({ name: text, amount: num, ref: text })),
   check: obj(z.object({ amount: num, no: text, bank: text, branch: text })),
   due_date: date, due_text: text, remarks: text,
+  // For each value: the exact words from the transcript it came from ("price", "down_payment", "plate:0", "wallet:1"...).
+  quotes: list(z.object({ field: text, quote: text })),
 });
 export type VoiceExtraction = z.infer<typeof VoiceExtraction>;
 
@@ -40,4 +42,6 @@ export interface VoiceProposal {
   unsure: string[];
   /** Parts of the recording the speech model was not sure about. */
   unclear: string[];
+  /** Things that were said but do not agree with each other (for example the down payment and the loan do not add up to the price). */
+  conflicts: string[];
 }

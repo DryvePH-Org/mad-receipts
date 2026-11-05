@@ -26,10 +26,15 @@ Return ONLY a JSON object with exactly these keys (null when not said; [] for an
   "earlier_paid": 0, "cash_today": 0,
   "wallets": [ { "name": "GCash", "amount": 0, "ref": "reference number" } ],
   "check": { "amount": 0, "no": "...", "bank": "...", "branch": "..." },
-  "due_date": "YYYY-MM-DD", "due_text": "words such as 'upon approval of the loan'", "remarks": "anything else worth writing down"
+  "due_date": "YYYY-MM-DD", "due_text": "words such as 'upon approval of the loan'", "remarks": "anything else worth writing down",
+  "quotes": [ { "field": "price", "quote": "price seven hundred twenty thousand" } ]
 }
 
 Rules:
+- EVIDENCE: for every value you fill in, add an entry to "quotes" with the field name and the exact words from the transcript that the value came from (copy them, do not rewrite them). Field names: receipt_no, buyer_contact, price, down_payment, down_payment_percent, loan_amount, monthly, years, fee_value, trade_in_value, lieu_amount, earlier_paid, cash_today, check_amount, and plate:0, motor:0, chassis:0 (the number is the unit's position, starting at 0), wallet:0 (the number is the wallet's position). The quote for an amount must contain that amount and the word that says what it is (price, down payment, loan...). If you cannot quote it, leave the value null.
+- People correct themselves and repeat themselves, in English, Tagalog or a mix (Taglish). When something is said twice or changed ("price 700, sorry, 720 thousand", "ay mali, 150 pala", "I mean", "scratch that", "este", "hindi pala"), use the LAST version and quote the last version. Something repeated with the same value is one value, not two: do not make two units, two payments or two wallets out of a repeat. Ignore filler words (po, ano, yung, kasi, like, um, uh, tapos, basically).
+- Taglish is normal: "down payment po ay 150K", "nag-GCash siya ng 50 thousand", "kinsenas", "katapusan", "bukas", "next week" (use the dates rules below). English words inside Tagalog sentences keep their usual meaning. "Mil" or "libo" is thousand; "100K" and "100 thousand" and "isang daang libo" are all 100000. "Isa't kalahati" is 1.5; "dos mil" is 2000 but "dos milyon" is 2000000.
+- A number belongs to the thing it is said next to. Never move a number from one field to another. If two numbers could belong to a field and it is not clear which, leave the field null.
 - Put in a field only what was actually said. Anything not said is null. NEVER guess, calculate or invent a value. Do not work out a number that was not spoken (for example do not subtract the down payment from the price yourself).
 - Spoken numbers become plain numbers: "fifty thousand" or "limampung libo" is 50000. "K" or "k" is thousand ("450K" is 450000), "mil" or "libo" is thousand, "milyon" is million ("kalahating milyon" is 500000), "isa't kalahati" is 1.5. "porsyento" and "percent" mean percent.
 - price: "price", "agreed price", "presyo", "benta" is the agreed price of the car (all units together).
@@ -65,8 +70,8 @@ export async function interpretTranscript(
     const raw = await call(voicePrompt(vocab), `Today is ${manilaToday()} (Manila time).\n\nTranscript:\n${transcript}`);
     const parsed = VoiceExtraction.safeParse(parseJson(raw));
     if (!parsed.success) continue;
-    const { fields, unsure } = groundInTranscript(transcript, parsed.data);
-    return { source, transcript, fields, unsure, unclear };
+    const { fields, unsure, conflicts } = groundInTranscript(transcript, parsed.data);
+    return { source, transcript, fields, unsure, unclear, conflicts };
   }
   throw new VoiceError("I couldn't understand that recording. Try again, or type the details instead.");
 }

@@ -60,3 +60,11 @@ describe("digitStringsIn / compactSpoken", () => {
     expect(compactSpoken("plate NKF-4771")).toContain("NKF4771");
   });
 });
+
+describe("plate letters said as words", () => {
+  it("phonetic alphabet and 'as in'", () => {
+    expect(compactSpoken("plate november kilo foxtrot four seven seven one")).toContain("NKF4771");
+    expect(compactSpoken("N as in Nancy, K as in king, F as in Frank, 4771")).toContain("NKF4771");
+    expect(compactSpoken("lima")).toBe("5"); // Tagalog five, not the letter L
+  });
+});

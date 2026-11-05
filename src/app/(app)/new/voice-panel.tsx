@@ -24,6 +24,7 @@ export function VoicePanel({ apply }: { apply: (p: VoiceProposal, overwrite: boo
   const [note, setNote] = useState("");
   const [proposal, setProposal] = useState<VoiceProposal | null>(null);
   const [outcome, setOutcome] = useState<VoiceOutcome | null>(null);
+  const [heardText, setHeardText] = useState("");
   const recorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -40,6 +41,7 @@ export function VoicePanel({ apply }: { apply: (p: VoiceProposal, overwrite: boo
       const json = (await res.json().catch(() => ({}))) as { proposal?: VoiceProposal; error?: string };
       if (!res.ok || !json.proposal) { toast.error(json.error ?? "Couldn't read that. Try again, or type the details."); return; }
       setProposal(json.proposal);
+      setHeardText(json.proposal.transcript);
       const result = applyRef.current(json.proposal, false);
       setOutcome(result);
       if (!result.filled.length) toast.message("Nothing new to fill in from that. Check the words below.");
@@ -107,12 +109,18 @@ export function VoicePanel({ apply }: { apply: (p: VoiceProposal, overwrite: boo
 
           {proposal && outcome && (
             <div className="space-y-3 text-sm" aria-live="polite">
-              <p className="rounded-lg bg-muted p-3"><b className="font-medium">I heard:</b> <span className="text-muted-foreground">“{proposal.transcript}”</span></p>
+              <div className="space-y-2 rounded-lg bg-muted p-3">
+                <label htmlFor="heard-text" className="font-medium">I heard (fix any word that is wrong, then read it again):</label>
+                <textarea id="heard-text" value={heardText} onChange={(e) => setHeardText(e.target.value)} rows={4} maxLength={4000}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50" />
+                {heardText.trim() !== proposal.transcript.trim() && <Button type="button" size="sm" variant="outline" disabled={state === "reading"} onClick={() => { const body = new FormData(); body.set("text", heardText); void send(body); }}><Wand2 /> Read the corrected words</Button>}
+              </div>
               {outcome.filled.length > 0 && <p><b className="font-medium text-emerald-800 dark:text-emerald-300">Filled in:</b> {outcome.filled.join(", ")}. <span className="text-muted-foreground">Check each one against the paper.</span></p>}
               {outcome.kept.length > 0 && (
                 <p className="rounded-lg bg-amber-50 p-3 text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">You had already typed {outcome.kept.join(", ")}, so I left {outcome.kept.length === 1 ? "it" : "them"} alone.{" "}
                   <button type="button" className="underline" onClick={() => setOutcome(applyRef.current(proposal, true))}>Use what I heard instead</button></p>
               )}
+              {proposal.conflicts.map((c) => <p key={c} className="rounded-lg bg-amber-50 p-3 text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">{c}</p>)}
               {outcome.notes.map((n) => <p key={n} className="rounded-lg bg-amber-50 p-3 text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">{n}</p>)}
               {proposal.unsure.length > 0 && <p className="rounded-lg bg-amber-50 p-3 text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">I couldn’t be sure about {proposal.unsure.join(", ")}, so {proposal.unsure.length === 1 ? "it is" : "they are"} left blank. Please type {proposal.unsure.length === 1 ? "it" : "them"}.</p>}
               {proposal.unclear.length > 0 && <p className="text-xs text-muted-foreground">Parts I couldn’t hear clearly were ignored: “{proposal.unclear.join("”, “")}”.</p>}

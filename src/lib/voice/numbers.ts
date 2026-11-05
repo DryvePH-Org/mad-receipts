@@ -179,8 +179,21 @@ function numbersGroups(words: string[]): (number | null)[] {
 }
 
 /** The text with spoken digits turned into digits and everything but letters and digits removed: "N K F four seven" -> "NKF47". */
+const NATO: Record<string, string> = {
+  alpha: "A", alfa: "A", bravo: "B", charlie: "C", delta: "D", echo: "E", foxtrot: "F", golf: "G", hotel: "H", india: "I", juliet: "J", juliett: "J",
+  kilo: "K", mike: "M", november: "N", oscar: "O", papa: "P", quebec: "Q", romeo: "R", sierra: "S", tango: "T", uniform: "U", victor: "V",
+  whiskey: "W", xray: "X", yankee: "Y", zulu: "Z",
+};
+
+/** "N as in Nancy" and "november kilo foxtrot" are plate letters said as words: turn them into the letters. */
+function spellOut(text: string): string {
+  return text
+    .replace(/\b([a-z])\s+(?:as in|as in the|for)\s+[a-z]+/gi, "$1")
+    .replace(/\b(alpha|alfa|bravo|charlie|delta|echo|foxtrot|golf|hotel|india|juliett?|kilo|mike|november|oscar|papa|quebec|romeo|sierra|tango|uniform|victor|whiskey|xray|yankee|zulu)\b/gi, (w) => NATO[w.toLowerCase()]);
+}
+
 export function compactSpoken(text: string): string {
-  return tokens(text)
+  return tokens(spellOut(text))
     .map((w) => {
       const v = unitValue(w);
       return v !== null && Number.isInteger(v) && v < 10 && w !== "0" ? String(v) : /^\d+$/.test(w) ? w : w;

@@ -115,11 +115,17 @@ void, cancel and mark loans released. Settings live in one document (`app_settin
 `/print/<receipt id>` prints 3 copies by default.
 
 **Voice entry** ("Fill it by voice" on the form): staff speak (English, Tagalog or mixed) or type a note. Groq Whisper
-(`whisper-large-v3-turbo`) turns it into text, dropping segments it was unsure about; Groq `openai/gpt-oss-120b` reads the
+(`whisper-large-v3`) turns it into text, dropping segments it was unsure about; Groq `openai/gpt-oss-120b` reads the
 text into fields; then plain code checks every value against the words that were really said and blanks anything that
 is not there (`src/lib/voice/grounding.ts`). The form is filled only where it is empty, so what staff typed wins, and
 anything blanked or in conflict is listed for them. A plate found in the inventory brings its make, type and color; a
 plate that is a different car in the inventory is flagged, not swapped. Needs `GROQ_API_KEY` on the server.
+Accuracy safeguards: the model must quote the exact words behind every value and the quote must really be in the
+transcript, contain that number and the word naming it (price, down payment...); self-corrections ("sorry, 720") use the
+last version and are flagged; a repeated car or payment counts once; numbers that disagree (down payment + loan ≠ price)
+are flagged; plate letters said as words ("november kilo foxtrot", "N as in Nancy") are understood; and staff can edit the
+heard text and read it again. `npm run test:live` scores 17 messy English/Tagalog/Taglish cases: right, blank (left for
+staff, fine) or wrong (never fine). Last run: 53 right, 2 blank, 0 wrong.
 
 Removed from the first version: photo reading and the salespeople/commission pages.
 
