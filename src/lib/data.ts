@@ -194,14 +194,6 @@ export async function receiptsOnDay(day: string): Promise<ReceiptView[]> {
 }
 
 /** Signed links to the proof files of a receipt, grouped by payment (or the payout). */
-export async function proofLinks(receiptId: string): Promise<{ paymentId: string | null; purpose: string; filename: string; mime: string | null; url: string }[]> {
-  const supabase = await createClient();
-  const { data } = await supabase.from("attachments").select("payment_id, purpose, filename, mime_type, storage_path").eq("receipt_id", receiptId);
-  if (!data?.length) return [];
-  const { data: urls } = await supabase.storage.from("payment-proofs").createSignedUrls(data.map((a) => a.storage_path), 3600);
-  return data.flatMap((a, i) => (urls?.[i]?.signedUrl ? [{ paymentId: a.payment_id, purpose: a.purpose, filename: a.filename, mime: a.mime_type, url: urls[i].signedUrl }] : []));
-}
-
 export interface ActivityEntry {
   id: string;
   action: string;
@@ -240,13 +232,3 @@ export async function remindersFor(user: CurrentUser): Promise<Notification[]> {
   );
   return notificationsFor(list, user);
 }
-
-/** The red numbers in the menu. */
-export const getBadges = cache(async (user: CurrentUser): Promise<{ approvals: number; reminders: number }> => {
-  const supabase = await createClient();
-  const [{ count }, reminders] = await Promise.all([
-    user.role === "sales" ? Promise.resolve({ count: 0 }) : supabase.from("receipts").select("id", { count: "exact", head: true }).eq("status", "pending"),
-    remindersFor(user).catch(() => []),
-  ]);
-  return { approvals: count ?? 0, reminders: reminders.length };
-});

@@ -23,11 +23,8 @@ supabase db push --db-url "postgresql://postgres.<project-ref>:<password>@<poole
 **Local development** (needs Docker):
 
 ```bash
-supabase start      # applies migrations + supabase/seed.sql (local test accounts)
+supabase start      # applies the migrations
 npm run db:types    # regenerate src/lib/supabase/database.types.ts after schema changes
-npm run test:integration   # sync runner against the local database
-docker exec -i supabase_db_AutomatedSalesInvoice psql -U postgres -q < supabase/tests/phase2_constraints.sql
-docker exec -i supabase_db_AutomatedSalesInvoice psql -U postgres -q < supabase/tests/phase7_confirm_receipt.sql
 ```
 
 To run the app against local Supabase, set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` from `supabase status` in your shell before `npm run dev` (shell variables win over `.env.local`).
