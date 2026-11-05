@@ -131,8 +131,7 @@ Two dashboards, **Buy** and **Sell / Online marketing**, read live from the team
 
 - **Buy** (buying sheet): purchases today, holds (HOLD tab; rows marked X are settled), payables (balance to the seller plus bank payoff on held units),
   purchases paid from MAD Bank (the sheet has no bank balance), the purchaser scoreboard, sources, and the monthly history next to the team's own BUYING SUMMARY.
-- **Sell** (sales sheet, the `MonYYYY_Sold` and `_Entries` tabs, found by name so a new month's tab is picked up by itself): released today, **pending sales** (one list that
-  also covers reserves, with plain-English money: selling price, paid at reservation, the lender's loan, what the buyer still owes), a deadline alert (the cleaning date when written,
+- **Sell** (sales sheet, the `MonYYYY_Sold` and `_Entries` tabs, found by name so a new month's tab is picked up by itself): released today, **reserves** (only a reservation paid so far) and **pending sales** (paid in part or in full, not released), each its own list, with plain-English money: selling price, paid at reservation, the lender's loan, what the buyer still owes), a deadline alert (the cleaning date when written,
   otherwise the reservation plus the allowed days), every released sale by month, the salesperson scoreboard, leads by status, and sales history.
   **How a car's state is decided:** the sheet is a ledger. When a reserved car is paid and released, staff add a NEW row and the old RESERVATION row stays behind (the consolidated
   Jan-Sept tab holds later releases too). So the state is the furthest the car got (released or cancelled, then paid, then reserved), rows are matched by plate and buyer, and a reservation

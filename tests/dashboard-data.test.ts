@@ -133,6 +133,7 @@ describe("the sales sheet", () => {
     const d = buildSellDashboard({ today: "2026-11-05", sold: [{ tab: "Nov2026_Sold", rows: soldTab, order: 11 }, { tab: "Jan-Sept2026_Sold", rows: soldTab, order: -1 }], entries: [{ tab: "Nov2026_Entries", rows: entryTab }], goals: { buyGoal: 60, sellGoal: 60, pendingDays: 14, months: { "2026-11": { sell: 55 } } } });
     expect(d.releasedToday.map((s) => s.plate)).toEqual(["BBB2222"]);
     expect(d.pending).toHaveLength(3);
+    expect(d.reserves.length + d.pendingSales.length).toBe(3); // every open sale is one or the other
     expect(d.overdue).toHaveLength(3);
     expect(d).toMatchObject({ goal: 55, releasedThisMonth: 1 }); // this month has its own target
     expect(d.released.map((s) => s.plate)).toEqual(["BBB2222"]);

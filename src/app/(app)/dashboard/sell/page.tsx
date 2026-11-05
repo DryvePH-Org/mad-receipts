@@ -26,10 +26,10 @@ async function Content() {
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
         <Stat href="#released" label="Released this month" value={`${d.releasedThisMonth}/${d.goal}`} sub={`${pct}% of the goal`} />
         <Stat href="#today" label="Released today" value={String(d.releasedToday.length)} sub={peso(d.releasedToday.reduce((n, s) => n + (s.agreedPrice ?? 0), 0))} />
-        <Stat href="#pending" label="Pending sales" value={String(d.pending.length)} tone="text-violet-700" sub={`${peso(d.pending.reduce((n, s) => n + (s.agreedPrice ?? 0), 0))} still to release`} />
-        <Stat href="#pending" label="Overdue" value={`${d.overdue.length}/${d.pending.length}`} tone={d.overdue.length ? "text-destructive" : undefined} sub="pending sales past their deadline" />
-        <Stat href="#pending" label="Paid at reservation" value={peso(d.pending.reduce((n, s) => n + (s.reservation ?? 0), 0))} sub="held on the pending sales" />
-      </div>
+        <Stat href="#pending" label="Pending sales" value={String(d.pendingSales.length)} tone="text-violet-700" sub={`${peso(d.pendingSales.reduce((n, s) => n + (s.agreedPrice ?? 0), 0))} still to release`} />
+        <Stat href="#reserves" label="Reserves" value={String(d.reserves.length)} sub={`${peso(d.reserves.reduce((n, s) => n + (s.reservation ?? 0), 0))} paid as reservation`} />
+        <Stat href="#pending" label="Overdue" value={`${d.overdue.length}/${d.pending.length}`} tone={d.overdue.length ? "text-destructive" : undefined} sub="reserves and pending sales past their deadline" />
+              </div>
 
       {d.overdue.length > 0 && (
         <div role="alert" className="flex gap-3 rounded-xl bg-red-50 p-4 text-sm text-red-900 dark:bg-red-500/10 dark:text-red-200">
@@ -46,8 +46,12 @@ async function Content() {
         )}
       </Section>
 
-      <Section id="pending" title="Pending sales and reserves" count={d.pending.length} hint="Reserved or paid, but not released yet. Selling price − paid at reservation − the lender's loan = what the buyer still owes. The loan is paid by the lender when it is released, so it is not owed by the buyer.">
-        <PendingBoard rows={d.pending} />
+      <Section id="reserves" title="Reserves" count={d.reserves.length} hint="Only a reservation has been paid so far. When the buyer pays in full or the loan is in, it moves to Pending sales.">
+        <PendingBoard rows={d.reserves} />
+      </Section>
+
+      <Section id="pending" title="Pending sales" count={d.pendingSales.length} hint="Paid in full or in part, but not released yet. Selling price − paid at reservation − the lender's loan = what the buyer still owes. The loan is paid by the lender when it is released, so it is not owed by the buyer.">
+        <PendingBoard rows={d.pendingSales} />
       </Section>
 
       <Section id="released" title="Released sales" count={d.releasedThisMonth} hint="Every released unit, from the sheet's newest row for each car. Pick a month, then search or filter.">

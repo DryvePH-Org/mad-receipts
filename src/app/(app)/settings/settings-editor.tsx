@@ -169,7 +169,7 @@ export function SettingsEditor({ initial }: { initial: AppSettings }) {
             <Card><CardHeader><CardTitle>Dashboard targets</CardTitle><p className="text-sm text-muted-foreground">The number after the slash on the Approver&apos;s dashboards, like 2/60</p></CardHeader>
               <CardContent className="space-y-5">
                 <div className="grid gap-4 sm:grid-cols-3">
-                  {([["buyGoal", "Units to buy each month", "units"], ["sellGoal", "Units to release each month", "units"], ["pendingDays", "A reservation may stay open", "days"]] as const).map(([k, label, unit]) => (
+                  {([["buyGoal", "Units to buy each month", "units"], ["sellGoal", "Units to release each month", "units"], ["pendingDays", "Days before a reservation is late", "days"]] as const).map(([k, label, unit]) => (
                     <div key={k} className="space-y-1.5"><Label htmlFor={`dash-${k}`}>{label}</Label><div className="flex"><Input id={`dash-${k}`} defaultValue={cfg.dashboard[k]} inputMode="numeric" className="rounded-r-none text-right" onBlur={(e) => { const v = parseInt(e.target.value, 10); if (v > 0) set("dashboard", { ...cfg.dashboard, [k]: v }); else e.target.value = String(cfg.dashboard[k]); }} /><span className="grid place-items-center rounded-r-lg border border-l-0 bg-muted px-2.5 text-xs text-muted-foreground">{unit}</span></div></div>
                   ))}
                   <p className="text-xs text-muted-foreground sm:col-span-3">The first two apply to every month unless you set a different target below. When a reservation has no cleaning date in the sheet, it counts as late this many days after it was made.</p>

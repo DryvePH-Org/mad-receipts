@@ -20,7 +20,7 @@ test("the Approver sees the Buy and Sell dashboards; Sales and Documentation do 
   await expect(approver).toHaveURL(/\/dashboard\/buy/);
   for (const title of ["For purchase today", "Hold (pending)", "Purchases", "MAD Bank", "Payables", "Scoreboard", "Monthly purchase history"]) await expect(approver.getByText(new RegExp(`^${title.replace(/[()]/g, "\\$&")}`)).first()).toBeVisible({ timeout: 60_000 });
   await approver.getByRole("link", { name: "Sell / Online marketing" }).click();
-  for (const title of ["Sales as of today", "Pending sales and reserves", "Released sales", "Scoreboard", "Sales history"]) await expect(approver.getByText(new RegExp(`^${title.replace(/[()]/g, "\\$&")}`)).first()).toBeVisible({ timeout: 60_000 });
+  for (const title of ["Sales as of today", "Reserves", "Pending sales", "Released sales", "Scoreboard", "Sales history"]) await expect(approver.getByText(new RegExp(`^${title.replace(/[()]/g, "\\$&")}`)).first()).toBeVisible({ timeout: 60_000 });
   // the big numbers show how far each is from its goal, like 1/50
   await expect(approver.getByText(/^\d+\/\d+$/).first()).toBeVisible();
   // searching and filtering narrow a list, and say how many are shown
@@ -54,6 +54,6 @@ test("the Approver sees the Buy and Sell dashboards; Sales and Documentation do 
   }
   const admin = await as(browser, "admin");
   await admin.goto("/dashboard/sell");
-  await expect(admin.getByText(/^Pending sales and reserves/).first()).toBeVisible({ timeout: 60_000 });
+  await expect(admin.getByText(/^Reserves/).first()).toBeVisible({ timeout: 60_000 });
   await admin.close();
 });

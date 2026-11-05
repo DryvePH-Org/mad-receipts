@@ -105,6 +105,9 @@ export const isReleased = (s: Sale) => !isCancelled(s) && !!s.releaseDate;
 /** Pending = sold or reserved but not yet released, and not cancelled. */
 export const isPending = (s: Sale) => !isCancelled(s) && !s.releaseDate;
 
+/** A reserve: the buyer only put down a reservation and has not paid in full yet. Anything further along is a pending sale. */
+export const isReserve = (s: Sale) => /reserv/i.test(s.status) && !s.full;
+
 export type Alert = "overdue" | "due-today" | "soon" | "none";
 /** How long a reservation may stay open when the sheet gives no date: DASHBOARD_PENDING_DAYS, default 14. */
 export const PENDING_DAYS = Number(process.env.DASHBOARD_PENDING_DAYS) || 14;
@@ -198,7 +201,10 @@ export interface SellDashboard {
   releasedToday: Sale[];
   /** every released sale (newest first), for searching and filtering */
   released: Sale[];
+  /** every open sale: reserves and pending sales together */
   pending: Pending[];
+  reserves: Pending[];
+  pendingSales: Pending[];
   overdue: Pending[];
   score: SellScore[];
   history: { month: string; released: number; amount: number; goal: number }[];
@@ -225,7 +231,7 @@ export function buildSellDashboard(input: { today: string; sold: { tab: string; 
     today: input.today, goal: goalFor(goals, month, "sell"),
     releasedThisMonth: releasedAll.filter((s) => s.releaseDate!.startsWith(month)).length,
     releasedToday: releasedAll.filter((s) => s.releaseDate === input.today),
-    released: releasedAll, pending, overdue: pending.filter((p) => p.alert === "overdue"),
+    released: releasedAll, pending, reserves: pending.filter(isReserve), pendingSales: pending.filter((p) => !isReserve(p)), overdue: pending.filter((p) => p.alert === "overdue"),
     score: scoreboard(entries, sales, input.today),
     history: [...history].map(([m, h]) => ({ month: m, ...h, goal: goalFor(goals, m, "sell") })).sort((a, b) => b.month.localeCompare(a.month)),
     entryStatuses: [...statuses].map(([status, count]) => ({ status, count })).sort((a, b) => b.count - a.count),
