@@ -4,6 +4,7 @@ import {
   Coins,
   FolderCheck,
   History,
+  LayoutDashboard,
   Receipt,
   RefreshCw,
   Settings,
@@ -30,6 +31,7 @@ const MONEY: Role[] = ["sales", "admin", "approver"];
 
 // Menus are data, not markup: the sidebar, the phone tab bar and its "More" sheet all read this.
 export const NAV_ITEMS: NavItem[] = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, group: "Operations", roles: ["admin", "approver"] },
   { href: "/new", label: "New receipt", icon: Receipt, group: "Operations", roles: MONEY },
   { href: "/deals", label: "Transactions", icon: Car, group: "Operations", roles: ALL },
   { href: "/approvals", label: "Approvals", icon: ShieldCheck, group: "Operations", roles: ["admin", "approver"], badge: "approvals" },

@@ -8,7 +8,8 @@ const W = "#f5f5f4", PW = "#ece9e2", K = "#18181b", SV = "#c0c4c8", G = "#78716c
 
 export const DEFAULT_SETTINGS = {
   colors: {
-    common: [["White", W], ["Pearl White", PW], ["Black", K], ["Silver", SV], ["Gray", G], ["Red", R], ["Blue", B], ["Brown", BR], ["Beige", "#d6c7a1"]] as Color[],
+    // The colors cars are most often sold in, named the way the dealers and the makers name them
+    common: [["Pearl White", PW], ["Super White", W], ["Jet Black Mica", K], ["Silver Metallic", SV], ["Graphite Gray", G], ["Gunmetal Gray", "#52525b"], ["Red Mica", R], ["Maroon", "#7f1d1d"], ["Blue Metallic", B], ["Navy Blue", "#1e3a8a"], ["Bronze Metallic", BR], ["Champagne Gold", "#d6c7a1"], ["Orange", "#f97316"], ["Green Metallic", GR]] as Color[],
     brands: {
       Toyota: [["Super White II", W], ["Platinum White Pearl Mica", PW], ["Attitude Black Mica", K], ["Silver Metallic", SV], ["Gray Metallic", G], ["Super Red", R], ["Red Mica Metallic", R], ["Grayish Blue Mica Metallic", B], ["Bronze Mica Metallic", BR], ["Alumina Jade Metallic", GR]],
       Mitsubishi: [["Quartz White Pearl", PW], ["White Diamond", PW], ["Jet Black Mica", K], ["Sterling Silver Metallic", SV], ["Cool Silver", SV], ["Titanium Gray", G], ["Red Metallic", R]],

@@ -62,7 +62,9 @@ function UnitCard({ ctx, i }: { ctx: Ctx; i: number }) {
   const usedElsewhere = new Set(s.units.filter((_, j) => j !== i).map((x) => x.plate.replace(/[^A-Za-z0-9]/g, "").toUpperCase()));
   const same = inventory.filter((x) => x.makeType === u.makeType);
   const brand = brandOf(settings.colors.brands, u.makeType), brandColors = brand ? settings.colors.brands[brand] : [];
-  const allColors = [...brandColors, ...settings.colors.common];
+  // a common color the brand already lists under its own name is shown once, with the brand's colors
+  const commonColors = settings.colors.common.filter(([c]) => !brandColors.some(([b]) => b.toLowerCase() === c.toLowerCase()));
+  const allColors = [...brandColors, ...commonColors];
   const customColor = u.color !== "" && !allColors.some(([c]) => c === u.color);
   const showOther = otherColor || customColor;
   const chip = ([c, hex]: [string, string]) => <Chip key={c} selected={u.color === c} dot={hex} onClick={() => { update({ color: u.color === c ? "" : c }); setOtherColor(false); }}>{c}</Chip>;
@@ -73,7 +75,7 @@ function UnitCard({ ctx, i }: { ctx: Ctx; i: number }) {
     const group = inventory.filter((x) => x.makeType === makeType && x.status === "Available");
     const unit = only ?? (group.length === 1 ? group[0] : null);
     setManual(false); setTypedPlate(false);
-    update(unit ? { makeType, plate: unit.plate, color: unit.color ?? "" } : { makeType, plate: u.makeType === makeType ? u.plate : "", color: u.makeType === makeType ? u.color : "" });
+    update(unit ? { makeType, plate: unit.plate, color: unit.color ?? "", ...(unit.motor ? { motor: unit.motor.toUpperCase() } : {}), ...(unit.chassis ? { chassis: unit.chassis.toUpperCase() } : {}) } : { makeType, plate: u.makeType === makeType ? u.plate : "", color: u.makeType === makeType ? u.color : "" });
   }
 
   return (
@@ -88,7 +90,7 @@ function UnitCard({ ctx, i }: { ctx: Ctx; i: number }) {
           <button type="button" className="mt-1.5 text-xs underline" onClick={() => (manual ? setPicker(true) : setManual(true))}>{manual ? "Pick from the inventory instead" : "Not in the inventory? Type it yourself"}</button></FormField></div>
         <div className="sm:col-span-2"><FormField id={unitFieldId(i, "plate")} label="Plate number" error={bad(ctx, unitFieldId(i, "plate")) ? "Required" : undefined} hint={manual || typedPlate ? (plateOk ? "Letters and numbers" : "Check the format, e.g. ABC 1234") : "Only plates of this make and type"}>
           {!manual && !typedPlate ? (
-            <NativeSelect id={unitFieldId(i, "plate")} value={u.plate} disabled={!u.makeType} onChange={(e) => { if (e.target.value === "__type") { setTypedPlate(true); update({ plate: "" }); } else { const x = same.find((y) => y.plate === e.target.value); update({ plate: e.target.value, color: x?.color || u.color }); } }}>
+            <NativeSelect id={unitFieldId(i, "plate")} value={u.plate} disabled={!u.makeType} onChange={(e) => { if (e.target.value === "__type") { setTypedPlate(true); update({ plate: "" }); } else { const x = same.find((y) => y.plate === e.target.value); update({ plate: e.target.value, color: x?.color || u.color, ...(x?.motor ? { motor: x.motor.toUpperCase() } : {}), ...(x?.chassis ? { chassis: x.chassis.toUpperCase() } : {}) }); } }}>
               <option value="">{u.makeType ? "Choose the plate…" : "Pick the make / type first"}</option>
               {same.map((x) => <option key={x.plate} value={x.plate} disabled={(x.status !== "Available" || usedElsewhere.has(x.plate.replace(/[^A-Za-z0-9]/g, ""))) && x.plate !== u.plate}>{x.plate}{x.color ? ` · ${x.color}` : ""}{x.status !== "Available" ? ` · ${x.status}` : ""}</option>)}
               {u.plate && !same.some((x) => x.plate === u.plate) && <option value={u.plate}>{u.plate}</option>}
@@ -100,8 +102,8 @@ function UnitCard({ ctx, i }: { ctx: Ctx; i: number }) {
         <div className="space-y-2 sm:col-span-6" id={unitFieldId(i, "color")} tabIndex={-1}>
           <Label>Color{bad(ctx, unitFieldId(i, "color")) && <span className="ml-2 text-xs font-normal text-destructive">Required</span>}</Label>
           {brandColors.length > 0 && <><p className="text-xs text-muted-foreground">{brand} factory colors</p><div className="flex flex-wrap gap-1.5">{brandColors.map(chip)}</div></>}
-          <p className="text-xs text-muted-foreground">{brandColors.length ? "Other common colors" : "Common colors"}</p>
-          <div className="flex flex-wrap gap-1.5">{settings.colors.common.map(chip)}<Chip dashed selected={showOther} onClick={() => setOtherColor(!otherColor)}><Pencil className="size-3.5" />Other, type your own</Chip></div>
+          <p className="text-xs text-muted-foreground">{brandColors.length ? "Other common car colors" : "Common car colors"}</p>
+          <div className="flex flex-wrap gap-1.5">{commonColors.map(chip)}<Chip dashed selected={showOther} onClick={() => setOtherColor(!otherColor)}><Pencil className="size-3.5" />Other, type your own</Chip></div>
           {showOther && <Input aria-label="Color name" className="max-w-sm" value={customColor ? u.color : ""} onChange={(e) => update({ color: e.target.value })} placeholder="Type the color name" />}
           <p className="text-xs text-muted-foreground">{brand ? `Names are the ones ${brand} uses. If the car papers say something else, choose Other and type it.` : "Pick the make and type to see that brand's factory color names."}</p>
         </div>

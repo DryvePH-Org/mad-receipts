@@ -102,7 +102,7 @@ export function SettingsEditor({ initial }: { initial: AppSettings }) {
         <div className="space-y-5">
           <p className="text-sm text-muted-foreground">Colors appear as choices on every vehicle card. Brand colors show up when the car&apos;s make matches the brand name. Make and type come from the inventory sheet, so they are not edited here.</p>
           <div className="grid gap-5 lg:grid-cols-2">
-            <ColorList title="Common colors" hint="Always shown, for any car" items={cfg.colors.common} onChange={(common) => setColors({ ...cfg.colors, common })} />
+            <ColorList title="Common car colors" hint="The colors cars are most often sold in. Shown for every car, after its brand's own colors" items={cfg.colors.common} onChange={(common) => setColors({ ...cfg.colors, common })} />
             {Object.entries(cfg.colors.brands).map(([brand, list]) => (
               <ColorList key={brand} hint="Factory colors for this brand" items={list as Color[]}
                 title={<Input defaultValue={brand} aria-label="Brand name" className="h-8 w-48 border-transparent font-medium hover:border-input" onBlur={(e) => { const t = e.target.value.trim(); if (t && t !== brand && !cfg.colors.brands[t]) setColors({ ...cfg.colors, brands: Object.fromEntries(Object.entries(cfg.colors.brands).map(([k, v]) => [k === brand ? t : k, v])) }); else e.target.value = brand; }} />}

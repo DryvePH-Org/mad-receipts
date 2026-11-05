@@ -26,9 +26,9 @@ export default function DealsPage() {
 
 function Stat({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: string }) {
   return (
-    <div className="rounded-xl p-4 ring-1 ring-foreground/10">
-      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</p>
-      <p className={`text-2xl font-semibold tracking-tight tabular-nums ${tone ?? ""}`}>{value}</p>
+    <div className="rounded-xl p-3 ring-1 ring-foreground/10 sm:p-4">
+      <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase sm:text-xs">{label}</p>
+      <p className={`text-xl sm:text-2xl font-semibold tracking-tight tabular-nums ${tone ?? ""}`}>{value}</p>
       <p className="text-xs text-muted-foreground">{sub}</p>
     </div>
   );
@@ -52,7 +52,7 @@ async function Content() {
   const late = (lo: number, hi: number) => overdue.filter((r) => { const n = daysBetween(r.dueDate!, today); return n >= lo && n <= hi; }).reduce((s, r) => s + r.balance, 0);
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <Stat label="Still to collect" value={formatPeso(owe.reduce((n, r) => n + r.balance, 0))} sub={`${owe.length} open ${owe.length === 1 ? "deal" : "deals"}`} />
         <Stat label="Overdue" value={formatPeso(overdue.reduce((n, r) => n + r.balance, 0))} tone="text-destructive" sub={`${overdue.length} ${overdue.length === 1 ? "deal" : "deals"} · 1–30 days ${formatPeso(late(1, 30))} · 31–60 ${formatPeso(late(31, 60))} · 60+ ${formatPeso(late(61, 99999))}`} />
         <Stat label="Waiting for the lender" value={String(waiting.length)} tone="text-teal-700" sub={`${formatPeso(waiting.reduce((n, r) => n + r.loan, 0))} in loans not released`} />

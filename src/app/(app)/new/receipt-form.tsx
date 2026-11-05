@@ -100,14 +100,14 @@ export function ReceiptForm({ userId, today, settings, inventory, liveDeals, con
 
   return (
     <div className="space-y-5">
-      <ol className="grid grid-cols-2 gap-2 sm:grid-cols-5" aria-label="Steps">
+      <ol className="grid grid-cols-5 gap-1.5 sm:gap-2" aria-label="Steps">
         {STEPS.map(([name, hint], i) => {
           const n = i + 1, done = visited.has(n) && n !== step && n < 5 && stepMissing(n) === 0, active = n === step;
           return (
             <li key={name}><button type="button" onClick={() => show(n)} aria-current={active ? "step" : undefined}
-              className={cn("flex w-full items-center gap-2.5 rounded-lg border p-2.5 text-left transition-colors", active ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted")}>
+              className={cn("flex w-full flex-col items-center gap-1 rounded-lg border p-1.5 text-center transition-colors sm:flex-row sm:gap-2.5 sm:p-2.5 sm:text-left", active ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted")}>
               <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-xs font-semibold", active ? "bg-primary-foreground/20" : done ? "bg-emerald-100 text-emerald-800" : "bg-muted")}>{done ? <Check className="size-3.5" /> : n}</span>
-              <span className="min-w-0 text-sm font-medium">{name}<small className={cn("block truncate text-xs font-normal", active ? "text-primary-foreground/70" : "text-muted-foreground")}>{hint}</small></span></button></li>
+              <span className="min-w-0 text-[11px] leading-tight font-medium sm:text-sm">{name}<small className={cn("hidden truncate text-xs font-normal sm:block", active ? "text-primary-foreground/70" : "text-muted-foreground")}>{hint}</small></span></button></li>
           );
         })}
       </ol>
@@ -140,15 +140,15 @@ export function ReceiptForm({ userId, today, settings, inventory, liveDeals, con
         </aside>
       </div>
 
-      <div className="sticky bottom-20 z-10 flex flex-wrap items-center gap-3 rounded-xl bg-background/95 p-3 shadow-lg ring-1 ring-foreground/15 backdrop-blur lg:bottom-4">
-        <Button variant="outline" size="lg" onClick={() => show(step - 1)} disabled={step === 1}><ChevronLeft /> Back</Button>
-        <div className="mr-auto flex gap-6 text-sm">
+      <div className="sticky bottom-20 z-10 flex items-center gap-2 rounded-xl bg-background/95 p-2 shadow-lg ring-1 ring-foreground/15 backdrop-blur sm:gap-3 sm:p-3 lg:bottom-4">
+        <Button variant="outline" size="lg" aria-label="Back" onClick={() => show(step - 1)} disabled={step === 1}><ChevronLeft /><span className="max-sm:hidden"> Back</span></Button>
+        <div className="mr-auto flex min-w-0 gap-3 text-xs sm:gap-6 sm:text-sm">
           {step >= 3 && <div><small className="block text-[11px] tracking-wide text-muted-foreground uppercase">{step === 3 ? "Agreed price" : "Paid today"}</small><b className="tabular-nums">{formatPeso(step === 3 ? t.price : t.today)}</b></div>}
           {step >= 3 && <div><small className="block text-[11px] tracking-wide text-muted-foreground uppercase">{step === 3 ? (t.due < 0 ? "We pay the buyer" : "Buyer pays us") : "Balance"}</small><b className="tabular-nums">{step === 3 ? formatPeso(Math.abs(t.due)) : balanceText}</b></div>}
           {step < 3 && <span className="self-center text-muted-foreground">Step {step} of 5</span>}
         </div>
-        {step < 5 ? <Button size="lg" onClick={() => show(step + 1)}>Next: {STEPS[step][0]} <ChevronRight /></Button>
-          : <Button size="lg" disabled={!canSend} onClick={send} title={missing.length ? "Fill in the missing fields first" : !confirmed ? "Tick the box to confirm you checked everything" : undefined}>{pending ? <Loader2 className="animate-spin" /> : <Send />} Send for approval</Button>}
+        {step < 5 ? <Button size="lg" onClick={() => show(step + 1)}><span className="max-sm:hidden">Next: {STEPS[step][0]}</span><span className="sm:hidden">Next</span> <ChevronRight /></Button>
+          : <Button size="lg" disabled={!canSend} onClick={send} title={missing.length ? "Fill in the missing fields first" : !confirmed ? "Tick the box to confirm you checked everything" : undefined}>{pending ? <Loader2 className="animate-spin" /> : <Send />} <span className="max-sm:hidden">Send for approval</span><span className="sm:hidden">Send</span></Button>}
       </div>
 
       <ResponsiveDialog open={!!result} onOpenChange={() => undefined} title="Sent for approval" description={result ? `Receipt ${result.receiptNo} · ${formatPeso(t.today)} from ${s.receivedFrom} · deal ${result.dealNo}. The Approver will check it next.` : undefined}>

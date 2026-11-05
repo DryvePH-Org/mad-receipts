@@ -16,6 +16,9 @@ export interface InventoryUnit {
   remarks?: string;
   makeType?: string;
   color?: string;
+  /** Only when the sheet has such columns; the stock sheet usually does not. */
+  motor?: string;
+  chassis?: string;
 }
 
 /** What gets written into the sheet with a status. */

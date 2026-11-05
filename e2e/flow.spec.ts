@@ -173,7 +173,7 @@ test("voice fills the form and the math follows", async ({ browser }) => {
   await expect(sales.getByText(/couldn.t be sure about the contact number/)).toBeVisible();
   await expect(sales.getByLabel("Received from")).toHaveValue("ZZT E2E Voice Buyer");
   await next(sales, "Vehicle");
-  await expect(sales.getByRole("button", { name: "Silver" })).toBeVisible();
+  await expect(sales.getByLabel("Color name")).toHaveValue("Silver"); // not one of the listed colors, so it is kept as said
   await next(sales, "Deal");
   await expect(sales.getByLabel("Agreed price")).toHaveValue("720,000");
   await expect(sales.getByText("₱189,900").first()).toBeVisible(); // 150,000 down payment + 39,900 standard fee

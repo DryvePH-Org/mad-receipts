@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { cn } from "@/lib/utils";
 
-export interface InvUnit { plate: string; makeType?: string; color?: string; status: "Available" | "Reserved" | "Sold" }
+export interface InvUnit { plate: string; makeType?: string; color?: string; motor?: string; chassis?: string; status: "Available" | "Reserved" | "Sold" }
 
 /** The inventory sheet's cars, grouped by make and type. Pick a group, then the plate. */
 export function InventoryPicker({ open, onOpenChange, units, onPick }: { open: boolean; onOpenChange: (o: boolean) => void; units: InvUnit[]; onPick: (makeType: string, onlyUnit: InvUnit | null) => void }) {

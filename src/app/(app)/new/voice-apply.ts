@@ -48,7 +48,7 @@ export function applyVoice(form: FormState, fin: FinUi, v: VoiceExtraction, o: {
       while (f.units.length <= i) f.units.push(emptyUnit());
       const cur: UnitInput = f.units[i], label = (x: string) => (v.units.length > 1 ? `unit ${i + 1}: ${x}` : x);
       const colors = [...o.settings.colors.common, ...Object.values(o.settings.colors.brands).flat()].map(([c]) => c);
-      const color = hu.color ? colors.find((c) => key(c) === key(hu.color!)) ?? hu.color : null;
+      const color = hu.color ? colors.find((c) => key(c) === key(hu.color!)) ?? hu.color.replace(/\b\w/g, (m) => m.toUpperCase()) : null; // an unlisted color stays as said, capitalised
       // The plate decides: a plate in the inventory brings its make, type and color with it.
       let inv = hu.plate ? o.inventory.find((x) => norm(x.plate) === norm(hu.plate!)) : undefined;
       // If the plate is in the inventory as a different car than the one said, do not quietly swap it: keep what was said and point it out.

@@ -32,7 +32,7 @@ async function Content({ searchParams }: { searchParams: PageProps<"/cash">["sea
   const recs = (await receiptsOnDay(day)).filter((r) => r.status === "approved" || withPending);
   const people = [...new Set(recs.map((r) => r.submittedByName))];
   const proofOk = recs.reduce((n, r) => n + r.payments.filter((p) => p.proofs > 0).length, 0), proofAll = recs.reduce((n, r) => n + r.payments.length, 0);
-  const stat = (label: string, value: string, sub: string, bad?: boolean) => <div className="rounded-xl p-4 ring-1 ring-foreground/10"><p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</p><p className={`text-2xl font-semibold tabular-nums ${bad ? "text-destructive" : ""}`}>{value}</p><p className="text-xs text-muted-foreground">{sub}</p></div>;
+  const stat = (label: string, value: string, sub: string, bad?: boolean) => <div className="rounded-xl p-3 ring-1 ring-foreground/10 sm:p-4"><p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase sm:text-xs">{label}</p><p className={`text-xl sm:text-2xl font-semibold tabular-nums ${bad ? "text-destructive" : ""}`}>{value}</p><p className="text-xs text-muted-foreground">{sub}</p></div>;
   return (
     <>
       <form className="flex flex-wrap items-end gap-3 print:hidden" method="get">
@@ -44,7 +44,7 @@ async function Content({ searchParams }: { searchParams: PageProps<"/cash">["sea
       <p className="hidden text-sm print:block">{formatDate(day)}</p>
       {recs.length === 0 ? <p className="rounded-xl border p-10 text-center text-muted-foreground">No receipts on {formatDate(day)}. Try another day.</p> : (
         <div className="space-y-5">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             {stat("Cash to turn in", formatPeso(sum(recs, 0)), "physical cash only")}
             {stat("Checks", formatPeso(sum(recs, 1)), `${recs.filter((r) => r.payments.some((p) => kind(p.label) === 1)).length} receipts`)}
             {stat("E-wallet and bank", formatPeso(sum(recs, 2)), "GCash, Maya, transfers")}

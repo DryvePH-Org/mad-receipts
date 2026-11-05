@@ -116,6 +116,27 @@ A fourth role, **Documentation**, watches each car's papers. Every car has a Dri
 - Needs the updated Apps Script (above), `GROQ_VISION_MODEL`, and migration 17. `DOCS_MOCK=1` and `DOCS_FAKE_READER=1` switch
   to a stand-in Drive and a file-name reader for development and the browser tests.
 
+## Vehicle details and layout
+
+- **Make, type, plate and color** come from the inventory sheet when a unit is picked. **Motor and chassis numbers** are filled in only if the inventory
+  sheet has columns for them (headers like MOTOR NO. / CHASSIS NUMBER); the stock tab has none, so they stay empty to be typed from the CR. They are never taken from the Drive papers.
+- **Colors:** each car shows its brand's own colors first, then the colors cars are most often sold in (Pearl White, Jet Black Mica, Silver Metallic, Graphite Gray, Red Mica...). The Admin edits both lists in Settings.
+- **Phones and tablets:** every page is checked at 375, 768 and 1280 px by `e2e/responsive.spec.ts` (nothing may push the page sideways; wide tables scroll inside their box).
+
+## Dashboard (Approver and Admin)
+
+Two dashboards, **Buy** and **Sell / Online marketing**, read live from the team's two Google Sheets every time the page opens (kept for 30 seconds;
+"Refresh now" reads again). Nothing is typed in the app. The sheets must stay shared as "anyone with the link can view": the app reads them as plain CSV
+(`src/lib/dashboard/sheets.ts`), no key needed. Their ids are in that file as defaults and can be overridden with `DASHBOARD_BUY_SHEET_ID` / `DASHBOARD_SELL_SHEET_ID`.
+
+- **Buy** (buying sheet): purchases today, holds (HOLD tab; rows marked X are settled), payables (balance to the seller plus bank payoff on held units),
+  purchases paid from MAD Bank (the sheet has no bank balance), the purchaser scoreboard, sources, and the monthly history next to the team's own BUYING SUMMARY.
+- **Sell** (sales sheet, the `MonYYYY_Sold` and `_Entries` tabs, found by name so a new month's tab is picked up by itself): released today, accumulated pending sales
+  with a deadline alert (the cleaning date when written, otherwise the reservation plus `DASHBOARD_PENDING_DAYS`, default 14), reserves, the salesperson scoreboard, leads by status, sales history.
+- Staff type these sheets by hand, so reading is forgiving: "₱458,000", "Php20,000", "400K", "290+20k", "October 14", "11/03/2026" all work, and a car price typed
+  without its K ("460") or with a typo ("1,030M") is read as thousands.
+- Only the Approver and Admin see it. `npm run test:live` reads the real sheets and prints counts.
+
 ## How a receipt works
 
 Staff fill in the form by hand (Buyer, Vehicle, Deal, Payment, Finish), attach a proof for every payment, check

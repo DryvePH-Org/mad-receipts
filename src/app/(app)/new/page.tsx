@@ -31,6 +31,6 @@ async function Content({ searchParams }: { searchParams: PageProps<"/new">["sear
     id: found.id, dealNo: found.dealNo, buyerName: found.buyerName, receiptCount: found.approvedCount + found.pendingCount,
     committed: found.openingPaid + found.approvedPaid + found.pendingPaid, terms: found.terms,
   } : null;
-  const invUnits: InvUnit[] = units.map((u) => ({ plate: u.plate, makeType: u.makeType, color: u.color, status: u.status }));
+  const invUnits: InvUnit[] = units.map((u) => ({ plate: u.plate, makeType: u.makeType, color: u.color, motor: u.motor, chassis: u.chassis, status: u.status }));
   return <ReceiptForm userId={user.id} today={manilaToday()} settings={settings} inventory={invUnits} liveDeals={live} continueDeal={cont} />;
 }
