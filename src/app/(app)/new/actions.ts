@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/auth";
+import { after } from "next/server";
+import { requireRole } from "@/lib/auth";
 import { getSettings } from "@/lib/data";
 import { friendlyError } from "@/lib/deal/errors";
 import { formStateSchema } from "@/lib/deal/form-schema";
@@ -10,6 +11,7 @@ import { missingFields, totalsOf } from "@/lib/deal/validate";
 import type { FormState } from "@/lib/deal/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
+import { processDueJobs } from "@/lib/sync/process";
 
 export type SubmitResult =
   | { ok: true; dealId: string; receiptId: string; dealNo: string; receiptNo: string; balanceAfter: string }
@@ -20,7 +22,7 @@ export type SubmitResult =
  * also recomputes every number from the raw amounts: nothing is trusted from the screen.
  */
 export async function submitReceipt(input: unknown, dealId: string | null): Promise<SubmitResult> {
-  const user = await requireUser();
+  const user = await requireRole("sales", "admin", "approver");
   const parsed = formStateSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "The form could not be read. Reload the page and try again." };
   const state = parsed.data as FormState;
@@ -40,5 +42,7 @@ export async function submitReceipt(input: unknown, dealId: string | null): Prom
   const r = data as { deal_id: string; receipt_id: string; deal_no: string; receipt_no: string; balance_after: string | number };
   revalidatePath("/deals");
   revalidatePath("/approvals");
+  // The first receipt of a deal queues "find the car's document folder by plate"; run it now instead of waiting for the next cron.
+  after(() => processDueJobs({ receiptId: r.receipt_id }).catch((e) => console.error(`[sync] after submit failed: ${e instanceof Error ? e.message : "unknown"}`)));
   return { ok: true, dealId: r.deal_id, receiptId: r.receipt_id, dealNo: r.deal_no, receiptNo: r.receipt_no, balanceAfter: String(r.balance_after) };
 }

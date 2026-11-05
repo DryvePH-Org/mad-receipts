@@ -3,8 +3,8 @@ import { cache } from "react";
 import { forbidden, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-/** Sales fill in receipts, the Approver approves every one, the Admin manages everything else. */
-export type Role = "sales" | "admin" | "approver";
+/** Sales fill in receipts, the Approver approves every one, Documentation watches the car papers, the Admin manages everything else. */
+export type Role = "sales" | "admin" | "approver" | "documentation";
 
 export interface CurrentUser {
   id: string;
@@ -29,7 +29,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     email: user.email ?? "",
     fullName: profile?.full_name ?? null,
     // No profile row means no elevated rights.
-    role: profile?.role === "admin" ? "admin" : profile?.role === "approver" ? "approver" : "sales",
+    role: profile?.role === "admin" ? "admin" : profile?.role === "approver" ? "approver" : profile?.role === "documentation" ? "documentation" : "sales",
   };
 });
 

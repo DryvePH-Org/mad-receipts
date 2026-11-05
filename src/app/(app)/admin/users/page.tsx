@@ -62,7 +62,7 @@ async function UsersContent() {
                   <p className="truncate font-medium">{u.name}</p>
                   <p className="truncate text-sm text-muted-foreground">{u.email}</p>
                   <div className="mt-1">
-                    {u.role === "admin" ? <Badge>Admin</Badge> : u.role === "approver" ? <Pill tone="purple">Approver</Pill> : <Pill tone="grey">Sales</Pill>}
+                    {u.role === "admin" ? <Badge>Admin</Badge> : u.role === "approver" ? <Pill tone="purple">Approver</Pill> : u.role === "documentation" ? <Pill tone="blue">Documentation</Pill> : <Pill tone="grey">Sales</Pill>}
                   </div>
                 </div>
                 <div className="flex items-center gap-2"><RoleSelect userId={u.id} role={u.role} /><ResetPasswordDialog userId={u.id} name={u.name} /></div>

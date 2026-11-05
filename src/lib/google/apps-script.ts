@@ -18,7 +18,7 @@ export function scriptError(message: string, code?: number): Error {
   return Object.assign(new Error(message), { code });
 }
 
-async function call<T>(action: string, params: Record<string, unknown> = {}): Promise<T> {
+export async function appsScriptCall<T>(action: string, params: Record<string, unknown> = {}): Promise<T> {
   const url = process.env.APPS_SCRIPT_URL;
   const secret = process.env.APPS_SCRIPT_SECRET;
   if (!url || !secret) {
@@ -54,21 +54,21 @@ async function call<T>(action: string, params: Record<string, unknown> = {}): Pr
 export function createAppsScriptSheetsClient(): SheetsClient {
   return {
     getValues: (spreadsheetId, range) =>
-      call<string[][]>("sheets.get", { spreadsheetId, range }),
+      appsScriptCall<string[][]>("sheets.get", { spreadsheetId, range }),
     async updateValues(spreadsheetId, range, values: CellValue[][]) {
-      await call("sheets.update", { spreadsheetId, range, values });
+      await appsScriptCall("sheets.update", { spreadsheetId, range, values });
     },
     async appendValues(spreadsheetId, range, values: CellValue[][]) {
-      await call("sheets.append", { spreadsheetId, range, values });
+      await appsScriptCall("sheets.append", { spreadsheetId, range, values });
     },
   };
 }
 
 export function createAppsScriptDriveClient(): DriveClient {
   return {
-    findFile: (folderId, name) => call<string | null>("drive.find", { folderId, name }),
+    findFile: (folderId, name) => appsScriptCall<string | null>("drive.find", { folderId, name }),
     uploadFile: (folderId, name, bytes, mimeType) =>
-      call<string>("drive.upload", {
+      appsScriptCall<string>("drive.upload", {
         folderId,
         name,
         mimeType,
@@ -78,4 +78,4 @@ export function createAppsScriptDriveClient(): DriveClient {
 }
 
 /** Round trip to the script, to check the URL and secret. */
-export const pingAppsScript = () => call<string>("ping");
+export const pingAppsScript = () => appsScriptCall<string>("ping");

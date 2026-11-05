@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
-import { requireUser } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { getDeal, getSettings, listDeals } from "@/lib/data";
 import { manilaToday } from "@/lib/dates";
 import { inventory } from "@/lib/inventory";
@@ -19,7 +19,7 @@ export default function NewReceiptPage({ searchParams }: PageProps<"/new">) {
 }
 
 async function Content({ searchParams }: { searchParams: PageProps<"/new">["searchParams"] }) {
-  const user = await requireUser();
+  const user = await requireRole("sales", "admin", "approver");
   const wanted = param((await searchParams).deal);
   const [settings, deals, units] = await Promise.all([getSettings(), listDeals(), inventory.listUnits().catch(() => [])]);
   const live: LiveDeal[] = deals.filter((d) => d.status === "open" && d.balance > 0).map((d) => ({

@@ -33,6 +33,7 @@ export function CreateUserForm() {
         <NativeSelect id="role" {...register("role")}>
           <option value="sales">Sales</option>
           <option value="approver">Approver</option>
+          <option value="documentation">Documentation</option>
           <option value="admin">Admin</option>
         </NativeSelect>
       </FormField>

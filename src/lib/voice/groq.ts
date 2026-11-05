@@ -25,6 +25,9 @@ async function call(path: string, init: RequestInit): Promise<unknown> {
     try {
       const res = await fetch(`${BASE}${path}`, { ...init, headers: { ...init.headers, Authorization: `Bearer ${key()}` }, signal: AbortSignal.timeout(60_000) });
       if (res.status === 429) {
+        const body = (await res.clone().json().catch(() => null)) as { error?: { message?: string } } | null;
+        // The free plan also has a budget per day: waiting a minute will not help, so say so.
+        if (/per day|TPD|RPD/i.test(body?.error?.message ?? "")) throw new GroqError("The AI reading limit for today is used up. It continues tomorrow, or add credit on the Groq account to lift the limit.");
         // The free plan allows only a few calls a minute: wait the time Groq asks for (briefly), once.
         const wait = Number(res.headers.get("retry-after")) || 0;
         if (attempt === 1 && wait > 0 && wait <= 20) { await new Promise((r) => setTimeout(r, wait * 1000)); continue; }
@@ -68,5 +71,36 @@ export async function chatJson(system: string, user: string): Promise<string> {
       messages: [{ role: "system", content: system }, { role: "user", content: user }],
     }),
   })) as { choices?: { message?: { content?: string } }[] };
+  return r.choices?.[0]?.message?.content ?? "";
+}
+
+/** The vision model that looks at a photo (set GROQ_VISION_MODEL). */
+export const visionModel = () => {
+  const model = process.env.GROQ_VISION_MODEL?.trim().split(/\s+/)[0];
+  if (!model) throw new GroqError("Reading pictures is not set up on this server yet (GROQ_VISION_MODEL is missing).");
+  return model;
+};
+
+/** A picture and some instructions in, one JSON object out, from the vision model. */
+export async function visionJson(system: string, user: string, imageDataUrl: string): Promise<string> {
+  // Reading a document does not need the model to "think" first: switching that off cuts the tokens (and the time, and the cost) a lot.
+  // GROQ_VISION_REASONING can change it, or be empty to leave the model's default.
+  const effort = process.env.GROQ_VISION_REASONING === undefined ? "none" : process.env.GROQ_VISION_REASONING.trim();
+  const body = (withEffort: boolean) => JSON.stringify({
+    model: visionModel(), temperature: 0, max_completion_tokens: 900, response_format: { type: "json_object" },
+    ...(withEffort && effort ? { reasoning_effort: effort } : {}),
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: [{ type: "text", text: user }, { type: "image_url", image_url: { url: imageDataUrl } }] },
+    ],
+  });
+  type Answer = { choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } };
+  const ask = (withEffort: boolean) => call("/chat/completions", { method: "POST", headers: { "Content-Type": "application/json" }, body: body(withEffort) }) as Promise<Answer>;
+  // A model that does not know the setting answers 400; ask again without it.
+  const r = await ask(true).catch((e: unknown) => (/Groq 400/.test(String((e as Error)?.message)) ? ask(false) : Promise.reject(e)));
+  if (r.usage) {
+    const { prompt_tokens: input, completion_tokens: output, total_tokens: all } = r.usage;
+    console.info(`[vision] usage in=${input} out=${output} total=${all}`);
+  }
   return r.choices?.[0]?.message?.content ?? "";
 }

@@ -378,6 +378,132 @@ export type Database = {
         }
         Relationships: []
       }
+      unit_folders: {
+        Row: {
+          plate_no: string
+          plate_display: string
+          folder_id: string | null
+          folder_name: string | null
+          folder_url: string | null
+          location: string
+          match_status: string
+          candidates: Json
+          case_type: string | null
+          case_source: string
+          deal_id: string | null
+          scanned_at: string | null
+          moved_at: string | null
+          moved_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          plate_no?: string
+          plate_display?: string
+          folder_id?: string | null
+          folder_name?: string | null
+          folder_url?: string | null
+          location?: string
+          match_status?: string
+          candidates?: Json
+          case_type?: string | null
+          case_source?: string
+          deal_id?: string | null
+          scanned_at?: string | null
+          moved_at?: string | null
+          moved_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          plate_no?: string
+          plate_display?: string
+          folder_id?: string | null
+          folder_name?: string | null
+          folder_url?: string | null
+          location?: string
+          match_status?: string
+          candidates?: Json
+          case_type?: string | null
+          case_source?: string
+          deal_id?: string | null
+          scanned_at?: string | null
+          moved_at?: string | null
+          moved_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [{ foreignKeyName: "unit_folders_deal_id_fkey"; columns: ["deal_id"]; isOneToOne: false; referencedRelation: "deals"; referencedColumns: ["id"] }]
+      }
+      folder_files: {
+        Row: {
+          id: string
+          plate_no: string
+          drive_file_id: string
+          filename: string
+          mime_type: string | null
+          size_bytes: number | null
+          drive_url: string | null
+          source: string
+          uploaded_by: string | null
+          read_status: string
+          read_error: string | null
+          read_at: string | null
+          doc_types: string[]
+          doc_types_source: string
+          details: Json
+          flags: string[]
+          confidence: number | null
+          duplicate_of: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          plate_no?: string
+          drive_file_id?: string
+          filename?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          drive_url?: string | null
+          source?: string
+          uploaded_by?: string | null
+          read_status?: string
+          read_error?: string | null
+          read_at?: string | null
+          doc_types?: string[]
+          doc_types_source?: string
+          details?: Json
+          flags?: string[]
+          confidence?: number | null
+          duplicate_of?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          plate_no?: string
+          drive_file_id?: string
+          filename?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          drive_url?: string | null
+          source?: string
+          uploaded_by?: string | null
+          read_status?: string
+          read_error?: string | null
+          read_at?: string | null
+          doc_types?: string[]
+          doc_types_source?: string
+          details?: Json
+          flags?: string[]
+          confidence?: number | null
+          duplicate_of?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [{ foreignKeyName: "folder_files_plate_no_fkey"; columns: ["plate_no"]; isOneToOne: false; referencedRelation: "unit_folders"; referencedColumns: ["plate_no"] }]
+      }
       sync_jobs: {
         Row: {
           id: string

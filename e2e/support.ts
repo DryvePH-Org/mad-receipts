@@ -6,6 +6,7 @@ export const credentials = {
   sales: { email: "zzt-e2e-sales@example.test", password: `Zz1-${"e2e-sales-pass"}`, role: "sales" },
   approver: { email: "zzt-e2e-approver@example.test", password: `Zz1-${"e2e-approver-pass"}`, role: "approver" },
   admin: { email: "zzt-e2e-admin@example.test", password: `Zz1-${"e2e-admin-pass"}`, role: "admin" },
+  docs: { email: "zzt-e2e-docs@example.test", password: `Zz1-${"e2e-docs-pass"}`, role: "documentation" },
 } as const;
 
 export const RECEIPT_PREFIX = "ZZT-E2E";
@@ -18,6 +19,10 @@ function env() {
     if (m) out[m[1]] = m[2].trim();
   }
   return out;
+}
+
+export function cronSecret() {
+  return env().CRON_SECRET ?? "";
 }
 
 export function adminClient() {
@@ -43,6 +48,7 @@ export async function cleanup() {
     await admin.from("audit_logs").delete().in("entity_id", dealIds);
     await admin.from("deals").delete().in("id", dealIds);
   }
+  await admin.from("unit_folders").delete().like("plate_no", "ZZT%"); // the car folders the browser tests linked (their files go too)
   const { data: list } = await admin.auth.admin.listUsers({ perPage: 200 });
   for (const user of list?.users ?? []) {
     if (!user.email?.startsWith("zzt-e2e-")) continue;
@@ -52,4 +58,11 @@ export async function cleanup() {
     await admin.from("app_settings").delete().eq("updated_by", user.id); // settings the test Admin saved
     await admin.auth.admin.deleteUser(user.id);
   }
+}
+
+export async function userId(email: string): Promise<string> {
+  const { data } = await adminClient().auth.admin.listUsers({ perPage: 200 });
+  const user = data.users.find((u) => u.email === email);
+  if (!user) throw new Error(`No test user ${email}`);
+  return user.id;
 }

@@ -11,13 +11,13 @@ import type { Tables } from "@/lib/supabase/database.types";
 import type { TelegramClient } from "@/lib/telegram";
 import { receiptRecordHtml } from "./receipt-record";
 
-export type SyncTarget = "drive" | "sheets" | "telegram" | "inventory";
+export type SyncTarget = "drive" | "sheets" | "telegram" | "inventory" | "docs";
 
-/** Why a job runs: a receipt was approved, a receipt was voided, a deal was cancelled or changed (loan released). */
-export type SyncEvent = "confirm" | "void" | "cancel" | "edit";
+/** Why a job runs: an AR was created ("submit"), a receipt was approved, a receipt was voided, a deal was cancelled or changed (loan released). */
+export type SyncEvent = "submit" | "confirm" | "void" | "cancel" | "edit";
 
 /** Drive runs first so the Sheets row can carry the link. */
-export const TARGET_ORDER: SyncTarget[] = ["drive", "sheets", "telegram", "inventory"];
+export const TARGET_ORDER: SyncTarget[] = ["drive", "sheets", "telegram", "inventory", "docs"];
 
 export interface ProofBytes { name: string; mime: string; bytes: Uint8Array }
 
@@ -45,6 +45,8 @@ export interface SyncDeps {
   telegram: () => TelegramClient;
   inventory: InventoryAdapter;
   config: { driveFolderId?: string; logSheetId?: string };
+  /** Finds the car's document folder by plate and links it to the deal. */
+  docsLink?: (plate: string, dealId: string) => Promise<unknown>;
 }
 
 export interface SyncResult { driveFileId?: string }
@@ -76,6 +78,13 @@ export function unitStatusFor(status: DealStatusKey): "Available" | "Reserved" |
 
 /** Each target is safe to run again: it checks for its own earlier result first. */
 export const syncTargets: Record<SyncTarget, (ctx: SyncContext, deps: SyncDeps) => Promise<SyncResult | void>> = {
+  async docs(ctx, deps) {
+    // Only when the AR is created. Each plate of the deal gets its folder linked (or flagged when none or several match).
+    if (ctx.event !== "submit") return;
+    if (!deps.docsLink) throw new Error("The documents folders are not set up");
+    for (const unit of ctx.units) await deps.docsLink(unit.plate, ctx.deal.id);
+  },
+
   async drive(ctx, deps) {
     if (ctx.event !== "confirm" || ctx.receipt.drive_file_id) return; // filed once
     const folderId = required(deps.config.driveFolderId, "GOOGLE_DRIVE_FOLDER_ID");

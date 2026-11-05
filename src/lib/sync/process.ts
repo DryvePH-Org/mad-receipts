@@ -1,4 +1,5 @@
 import "server-only";
+import { linkFolder } from "@/lib/docs/service";
 import { createDriveClient } from "@/lib/google/drive";
 import { createSheetsClient } from "@/lib/google/sheets";
 import { inventory } from "@/lib/inventory";
@@ -28,6 +29,7 @@ export function defaultSyncDeps(): SyncDeps {
   return {
     sheets: memo(createSheetsClient), drive: memo(createDriveClient), telegram: memo(createTelegramClient), inventory,
     config: { driveFolderId: process.env.GOOGLE_DRIVE_FOLDER_ID, logSheetId: process.env.GOOGLE_SHEET_ID },
+    docsLink: (plate, dealId) => linkFolder(plate, dealId),
   };
 }
 

@@ -125,7 +125,7 @@ export function buildNotifications(
 }
 
 /** What one person should see: the Admin everything, the Approver approval items and red alerts, Sales their own deals. */
-export function notificationsFor(list: Notification[], user: { id: string; role: "sales" | "admin" | "approver" }): Notification[] {
+export function notificationsFor(list: Notification[], user: { id: string; role: "sales" | "admin" | "approver" | "documentation" }): Notification[] {
   if (user.role === "admin") return list;
   if (user.role === "approver") return list.filter((n) => n.audience.role === "approver" || n.level === "red");
   return list.filter((n) => n.audience.userId === user.id);

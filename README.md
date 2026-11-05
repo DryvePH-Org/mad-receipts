@@ -70,11 +70,18 @@ folder only need to be ones *you* can edit.
    - `SECRET`: the value of `APPS_SCRIPT_SECRET` in your `.env.local`
    - `ALLOWED_SHEET_IDS`: the inventory sheet id and the receipts log sheet id, comma separated
    - `ALLOWED_FOLDER_IDS`: the Drive folder id for receipt proofs and records
+   - `DOC_AVAILABLE_ID` and `DOC_SOLD_ID`: the ids of the **Available Units** and **Sold Units** folders
+     (the car-documents module; the id is the long text at the end of the folder's web address)
 3. **Deploy → New deployment → type: Web app**. *Execute as*: **Me**. *Who has access*: **Anyone**.
    Approve the permission screen (Advanced → Go to project) the first time.
 4. Copy the **Web app URL** (ends in `/exec`) into `APPS_SCRIPT_URL` in `.env.local`.
 5. Check it: opening the URL in a browser should show `MAD Receipts bridge is running`.
-6. After you edit `Code.gs`, redeploy: **Deploy → Manage deployments → Edit → New version**.
+   For the car-documents version also paste [`apps-script/appsscript.json`](apps-script/appsscript.json): Project
+   Settings → tick **Show "appsscript.json" manifest file in editor**, open it and replace its content. It lists the
+   permissions the script needs, including the one for Google's image previews.
+6. After you edit `Code.gs`, redeploy: **Deploy → Manage deployments → Edit → New version**. The car-documents
+   version asks for one more permission (it fetches Google's preview of HEIC photos and scanned PDFs): approve it
+   once (Advanced → Go to project → Allow). The web app URL stays the same.
 
 The script only reaches the sheet and folder ids you list, and refuses any request without the secret.
 If *Anyone* isn't offered in step 3, the Workspace admin has restricted it; ask them to allow it.
@@ -85,6 +92,29 @@ If *Anyone* isn't offered in step 3, the Workspace admin has restricted it; ask 
 2. Put `client_email` in `GOOGLE_SERVICE_ACCOUNT_EMAIL` and `private_key` in `GOOGLE_PRIVATE_KEY` (one line, keep the `\n`s).
 3. Share the inventory sheet, the receipts log sheet and the Drive folder with that email as **Editor**.
    The Drive folder must be in a Shared drive (service accounts have no storage of their own).
+
+## Car documents (the Documentation role)
+
+A fourth role, **Documentation**, watches each car's papers. Every car has a Drive folder named like
+`14 Toyota Vios (AAX-3622)` in **Available units**; when the car is sold the folder moves to **Sold units**.
+
+- **Link by plate:** when an AR is created, the plate is searched in the folder names (dashes, spaces and case ignored).
+  One match links it; none or several are flagged for Documentation to fix. "Refresh from Drive" also lists every folder.
+- **Reading:** each photo (HEIC and scanned PDFs through Google's own preview) is read by the Groq vision model, which can
+  find more than one document in a photo (an OR and a CR are often photographed together). IDs are tied to a person by
+  name: the registered owner on the CR, the secretary or representative on the secretary's certificate, or the buyer on the deal.
+  Deeds are "seller to dealership" or "signed with the buyer" by who the buyer on them is. Plates, motor and chassis numbers
+  and names that disagree between documents are flagged, two photos of one document are marked, and a person can change
+  anything. Nothing is deleted or renamed.
+- **Checklist by case** (suggested from the papers, changeable): Clean = OR, CR, owner ID, deed. Encumbered = Clean + cancellation of
+  chattel mortgage + promissory note. Repo bank = Clean + RCM + promissory note + secretary's certificate + secretary's ID.
+  Company = OR, CR, representative's ID, deed, secretary's certificate, secretary's ID, board resolution. For every case, before
+  moving to Sold: the AR (the receipt the app already has), the buyer's ID and the deed signed with the buyer.
+- **Move to Sold** always asks first and lists whatever is missing; it moves the whole folder.
+- **Sales upload** (`Upload documents`): type the plate, confirm the car and buyer, take photos. Only a plate that has an AR is
+  accepted. Each photo is filed in that car's folder and read at once. This is optional: it never blocks printing an AR.
+- Needs the updated Apps Script (above), `GROQ_VISION_MODEL`, and migration 17. `DOCS_MOCK=1` and `DOCS_FAKE_READER=1` switch
+  to a stand-in Drive and a file-name reader for development and the browser tests.
 
 ## How a receipt works
 
@@ -135,7 +165,7 @@ Removed from the first version: photo reading and the salespeople/commission pag
 npm test                                         # unit tests + database tests (the real migrations, run in memory)
 ALLOW_HOSTED_TESTS=yes npm run test:hosted       # the real functions, access rules and storage on the hosted project
 npm run test:e2e                                 # Playwright (installed Chrome): fill in, approve, roles, settings, voice
-npm run test:live                                # the real Groq API (voice) and a read-only look at the real inventory sheet
+npm run test:live                                # the real Groq API (voice), the real inventory sheet and the real car-document folders (read-only)
 ```
 
 The hosted and browser tests write only marked data (receipts `ZZT-HOSTED…` / `ZZT-E2E…`, users `zzt-…@example.test`)

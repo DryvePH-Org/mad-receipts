@@ -2,16 +2,18 @@ import {
   Bell,
   Car,
   Coins,
+  FolderCheck,
   History,
   Receipt,
   RefreshCw,
   Settings,
   ShieldCheck,
+  Upload,
   Users,
   type LucideIcon,
 } from "lucide-react";
 
-export type Role = "sales" | "admin" | "approver";
+export type Role = "sales" | "admin" | "approver" | "documentation";
 
 export interface NavItem {
   href: string;
@@ -23,14 +25,17 @@ export interface NavItem {
   badge?: "approvals" | "reminders";
 }
 
-const ALL: Role[] = ["sales", "admin", "approver"];
+const ALL: Role[] = ["sales", "admin", "approver", "documentation"];
+const MONEY: Role[] = ["sales", "admin", "approver"];
 
 // Menus are data, not markup: the sidebar, the phone tab bar and its "More" sheet all read this.
 export const NAV_ITEMS: NavItem[] = [
-  { href: "/new", label: "New receipt", icon: Receipt, group: "Operations", roles: ALL },
+  { href: "/new", label: "New receipt", icon: Receipt, group: "Operations", roles: MONEY },
   { href: "/deals", label: "Transactions", icon: Car, group: "Operations", roles: ALL },
   { href: "/approvals", label: "Approvals", icon: ShieldCheck, group: "Operations", roles: ["admin", "approver"], badge: "approvals" },
-  { href: "/reminders", label: "Reminders", icon: Bell, group: "Operations", roles: ALL, badge: "reminders" },
+  { href: "/reminders", label: "Reminders", icon: Bell, group: "Operations", roles: MONEY, badge: "reminders" },
+  { href: "/documents", label: "Car documents", icon: FolderCheck, group: "Operations", roles: ["admin", "documentation"] },
+  { href: "/upload-documents", label: "Upload documents", icon: Upload, group: "Operations", roles: ["sales", "admin", "approver"] },
   { href: "/cash", label: "Daily cash report", icon: Coins, group: "Operations", roles: ["admin", "approver"] },
   { href: "/activity", label: "Activity log", icon: History, group: "Operations", roles: ["admin", "approver"] },
   { href: "/settings", label: "Settings", icon: Settings, group: "Administration", roles: ["admin"] },
@@ -38,7 +43,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/admin/sync", label: "Sync jobs", icon: RefreshCw, group: "Administration", roles: ["admin"] },
 ];
 
-export const ROLE_LABELS: Record<Role, string> = { sales: "Sales", admin: "Admin", approver: "Approver" };
+export const ROLE_LABELS: Record<Role, string> = { sales: "Sales", admin: "Admin", approver: "Approver", documentation: "Documentation" };
 
 /** The menu items this role may see. (The pages and the database enforce access too.) */
 export const navFor = (role: Role): NavItem[] => NAV_ITEMS.filter((item) => item.roles.includes(role));

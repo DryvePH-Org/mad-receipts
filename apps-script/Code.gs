@@ -11,6 +11,9 @@
  *    ALLOWED_FOLDER_IDS. Nothing else in your Drive or Sheets is reachable through it.
  *  - It never inserts, deletes or reformats rows or cells. It only reads, writes the cells it is
  *    told to write, appends rows, and creates files in the allowed folder.
+ *  - The car-documents actions (docs.*) only work inside the two folders named by the
+ *    DOC_AVAILABLE_ID and DOC_SOLD_ID script properties. They can list, read previews, add files and
+ *    move a car folder from Available to Sold. They never delete or rename anything.
  *
  * Setup: see "Google Apps Script bridge" in README.md.
  */
@@ -61,6 +64,20 @@ function handle_(req) {
       return driveFind_(req);
     case 'drive.upload':
       return driveUpload_(req);
+    case 'docs.listFolders':
+      return docsListFolders_(req);
+    case 'docs.findFolder':
+      return docsFindFolder_(req);
+    case 'docs.listFiles':
+      return docsListFiles_(req);
+    case 'docs.upload':
+      return docsUpload_(req);
+    case 'docs.preview':
+      return docsPreview_(req);
+    case 'docs.move':
+      return withLock_(function () {
+        return docsMove_(req);
+      });
     default:
       throw httpError_(400, 'Unknown action');
   }
@@ -176,6 +193,164 @@ function driveUpload_(req) {
     String(req.name)
   );
   return DriveApp.getFolderById(req.folderId).createFile(blob).getId();
+}
+
+
+// ---- Car documents (Available units / Sold units) ----
+
+var PREVIEW_MAX_BYTES = 4 * 1024 * 1024;
+var DIRECT_TYPES = /^image\/(jpeg|png|webp)$/;
+
+function docRoot_(which) {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty(which === 'sold' ? 'DOC_SOLD_ID' : 'DOC_AVAILABLE_ID');
+  if (!id) throw httpError_(400, 'Set the ' + (which === 'sold' ? 'DOC_SOLD_ID' : 'DOC_AVAILABLE_ID') + ' script property');
+  return id;
+}
+
+function normPlate_(text) {
+  return String(text || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+/** Which root ('available' or 'sold') the folder sits under (up to 4 levels deep), or null. */
+function rootOf_(folder) {
+  var available = docRoot_('available');
+  var sold = docRoot_('sold');
+  var current = folder;
+  for (var depth = 0; depth < 5 && current; depth++) {
+    var id = current.getId();
+    if (id === available) return 'available';
+    if (id === sold) return 'sold';
+    var parents = current.getParents();
+    current = parents.hasNext() ? parents.next() : null;
+  }
+  return null;
+}
+
+function carFolder_(folderId) {
+  var folder = DriveApp.getFolderById(String(folderId));
+  var root = rootOf_(folder);
+  if (!root) throw httpError_(403, 'That folder is not inside the Available or Sold folder');
+  return { folder: folder, root: root };
+}
+
+function folderRow_(folder, root) {
+  return { id: folder.getId(), name: folder.getName(), url: folder.getUrl(), root: root };
+}
+
+/** Every car folder directly inside Available or Sold. */
+function docsListFolders_(req) {
+  var which = req.root === 'sold' ? 'sold' : 'available';
+  var out = [];
+  var it = DriveApp.getFolderById(docRoot_(which)).getFolders();
+  while (it.hasNext() && out.length < 3000) out.push(folderRow_(it.next(), which));
+  return out;
+}
+
+/** Car folders whose name holds this plate (dashes, spaces and case ignored), in Available and Sold. */
+function docsFindFolder_(req) {
+  var plate = normPlate_(req.plate);
+  if (plate.length < 5) throw httpError_(400, 'That plate is too short to search');
+  var digits = (plate.match(/\d+/g) || []).sort(function (a, b) { return b.length - a.length; })[0] || '';
+  var out = [];
+  ['available', 'sold'].forEach(function (which) {
+    var parent = DriveApp.getFolderById(docRoot_(which));
+    var it = digits.length >= 3
+      ? parent.searchFolders("title contains '" + digits + "'")
+      : parent.getFolders();
+    while (it.hasNext()) {
+      var folder = it.next();
+      if (normPlate_(folder.getName()).indexOf(plate) !== -1) out.push(folderRow_(folder, which));
+    }
+  });
+  return out.slice(0, 10);
+}
+
+/** Files in a car folder, and in its sub-folders one level down (named "Sub/File"). */
+function docsListFiles_(req) {
+  var info = carFolder_(req.folderId);
+  var out = [];
+  function add(folder, prefix) {
+    var files = folder.getFiles();
+    while (files.hasNext() && out.length < 300) {
+      var f = files.next();
+      out.push({
+        id: f.getId(),
+        name: prefix + f.getName(),
+        mimeType: f.getMimeType(),
+        size: f.getSize(),
+        createdAt: f.getDateCreated().toISOString(),
+        url: f.getUrl(),
+      });
+    }
+  }
+  add(info.folder, '');
+  var subs = info.folder.getFolders();
+  while (subs.hasNext()) {
+    var sub = subs.next();
+    add(sub, sub.getName() + '/');
+  }
+  return { root: info.root, files: out };
+}
+
+function docsUpload_(req) {
+  var info = carFolder_(req.folderId);
+  var base64 = String(req.base64 || '');
+  if (!base64) throw httpError_(400, 'The file is empty');
+  if (base64.length > MAX_BASE64_CHARS) throw httpError_(413, 'The file is too large');
+  var blob = Utilities.newBlob(
+    Utilities.base64Decode(base64),
+    String(req.mimeType || 'image/jpeg'),
+    String(req.name)
+  );
+  var file = info.folder.createFile(blob);
+  return { id: file.getId(), url: file.getUrl() };
+}
+
+/**
+ * A picture the app can read: the file itself when it is a normal image of a sensible size,
+ * otherwise Google's own JPEG preview (this is how HEIC photos and scanned PDFs become readable).
+ */
+function docsPreview_(req) {
+  var file = DriveApp.getFileById(String(req.fileId));
+  var parents = file.getParents();
+  if (!parents.hasNext() || !rootOf_(parents.next())) {
+    throw httpError_(403, 'That file is not inside the Available or Sold folder');
+  }
+  var mime = file.getMimeType();
+  if (DIRECT_TYPES.test(mime) && file.getSize() <= PREVIEW_MAX_BYTES) {
+    return { mimeType: mime, base64: Utilities.base64Encode(file.getBlob().getBytes()), via: 'file' };
+  }
+  var token = ScriptApp.getOAuthToken();
+  var meta = JSON.parse(
+    UrlFetchApp.fetch(
+      'https://www.googleapis.com/drive/v3/files/' + file.getId() + '?fields=thumbnailLink&supportsAllDrives=true',
+      { headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true }
+    ).getContentText() || '{}'
+  );
+  if (!meta.thumbnailLink) throw httpError_(422, 'Google has no preview for this file (yet)');
+  var size = Math.max(600, Math.min(2000, Number(req.size) || 1600));
+  var image = UrlFetchApp.fetch(String(meta.thumbnailLink).replace(/=s\d+$/, '=s' + size), {
+    headers: { Authorization: 'Bearer ' + token },
+    muteHttpExceptions: true,
+  });
+  if (image.getResponseCode() !== 200) throw httpError_(422, 'Could not get a preview of this file');
+  return { mimeType: 'image/jpeg', base64: Utilities.base64Encode(image.getContent()), via: 'preview' };
+}
+
+/** Moves a car folder from Available to Sold. Refuses when Sold already has a folder with that name. */
+function docsMove_(req) {
+  var info = carFolder_(req.folderId);
+  if (info.root !== 'available') throw httpError_(409, 'That folder is already in Sold');
+  if (info.folder.getParents().next().getId() !== docRoot_('available')) {
+    throw httpError_(409, 'Only a folder directly inside Available can be moved');
+  }
+  var sold = DriveApp.getFolderById(docRoot_('sold'));
+  if (sold.getFoldersByName(info.folder.getName()).hasNext()) {
+    throw httpError_(409, 'Sold already has a folder named "' + info.folder.getName() + '"');
+  }
+  info.folder.moveTo(sold);
+  return folderRow_(info.folder, 'sold');
 }
 
 // ---- Helpers ----

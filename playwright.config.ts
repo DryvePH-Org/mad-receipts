@@ -28,6 +28,8 @@ export default defineConfig({
         TELEGRAM_BOT_TOKEN: "",
         TELEGRAM_CHAT_ID: "",
         INVENTORY_SHEET_ID: "",
+        DOCS_MOCK: "1", // a stand-in Drive with a few car folders
+        DOCS_FAKE_READER: "1", // the picture reader decides from the file name: nothing is sent to Groq
       },
     },
   ],

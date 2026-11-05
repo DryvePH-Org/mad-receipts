@@ -13,7 +13,7 @@ const createUserSchema = z.object({
   fullName: z.string().trim().min(1, "Enter the person's name.").max(100),
   email: z.email("Enter a valid email.").max(254),
   password,
-  role: z.enum(["sales", "approver", "admin"]),
+  role: z.enum(["sales", "approver", "documentation", "admin"]),
 });
 
 // Creates an account with the chosen role (Sales, Approver or Admin).
@@ -81,7 +81,7 @@ export async function resetPassword(_prev: ActionResult, form: FormData): Promis
   return { ok: true, message: "Password updated." };
 }
 
-const roleSchema = z.object({ userId: z.uuid(), role: z.enum(["sales", "approver", "admin"]) });
+const roleSchema = z.object({ userId: z.uuid(), role: z.enum(["sales", "approver", "documentation", "admin"]) });
 
 /** Changes what someone may do. An Admin cannot take their own Admin role away (someone must stay in charge). */
 export async function changeRole(userId: string, role: string): Promise<{ ok: boolean; message: string }> {
