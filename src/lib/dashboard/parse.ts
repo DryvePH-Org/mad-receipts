@@ -61,6 +61,12 @@ export const people = (text: string | null | undefined): string[] =>
 /** The year in a tab name ("NOVEMBER 2026", "Nov2026_Sold"), or the fallback. */
 export const yearOfTab = (name: string, fallback: number) => Number(/(20\d{2})/.exec(name)?.[1]) || fallback;
 
+/** "NOVEMBER 2026" or "Nov2026_Sold" → "2026-11" (the month by its first three letters), or null. */
+export function tabMonthKey(tab: string, fallbackYear: number): string | null {
+  const i = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].indexOf(tab.trim().slice(0, 3).toLowerCase());
+  return i < 0 ? null : `${yearOfTab(tab, fallbackYear)}-${String(i + 1).padStart(2, "0")}`;
+}
+
 /** Index of the first header cell that matches one of the names (case and spacing ignored), or -1. */
 export function findColumn(header: string[], ...names: (string | RegExp)[]): number {
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");

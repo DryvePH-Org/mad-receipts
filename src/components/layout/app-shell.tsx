@@ -4,6 +4,7 @@ import { SidebarNav } from "@/components/layout/sidebar-nav";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import type { CurrentUser } from "@/lib/auth";
+import { ROLE_LABELS } from "@/lib/navigation";
 
 /**
  * Wraps every signed-in page. From 1024 px: a fixed sidebar. Below that: a top bar and a bottom
@@ -23,7 +24,7 @@ export function AppShell({ user, children }: { user: CurrentUser; children: Reac
           <Brand tagline={false} />
           <div className="flex min-w-0 items-center gap-1">
             <span className="max-w-32 truncate text-sm font-medium sm:max-w-48">{name}</span>
-            <Badge variant={user.role === "admin" ? "default" : "secondary"}>{user.role === "admin" ? "Admin" : "Staff"}</Badge>
+            <Badge variant={user.role === "admin" ? "default" : "secondary"}>{ROLE_LABELS[user.role]}</Badge>
             <ThemeToggle />
           </div>
         </header>

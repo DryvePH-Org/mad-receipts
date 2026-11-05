@@ -43,6 +43,8 @@ export const DEFAULT_SETTINGS = {
   },
   required: { contact: true, address: true, motor: true, chassis: true, color: true, proofs: true },
   sections: { trade: true, lieu: true, remarks: true },
+  // the Approver's dashboards: units to buy and to sell each month, and how long a reservation may stay open when the sheet gives no date
+  dashboard: { buyGoal: 60, sellGoal: 60, pendingDays: 14, months: {} as Record<string, { buy?: number; sell?: number }> },
   reminders: { before7: true, before3: true, dueDay: true, overdueDaily: true, lenderDays: 14, approvalHours: 24, telegram: true, inApp: true },
 };
 
@@ -70,6 +72,11 @@ export const settingsSchema = z.object({
   company: z.object({ name: z.string().trim().min(1), tagline: z.string().trim().min(1), address: z.string() }).catch(D.company),
   required: z.object({ contact: flag(true), address: flag(true), motor: flag(true), chassis: flag(true), color: flag(true), proofs: flag(true) }).catch(D.required),
   sections: z.object({ trade: flag(true), lieu: flag(true), remarks: flag(true) }).catch(D.sections),
+  dashboard: z.object({
+    buyGoal: z.number().int().min(1).max(1000).catch(60), sellGoal: z.number().int().min(1).max(1000).catch(60), pendingDays: z.number().int().min(1).max(365).catch(14),
+    // a different target for one month, e.g. "2026-12": { buy: 70 }; a month without one uses buyGoal / sellGoal
+    months: z.record(z.string().regex(/^\d{4}-\d{2}$/), z.object({ buy: z.number().int().min(1).max(1000).optional(), sell: z.number().int().min(1).max(1000).optional() })).catch({}),
+  }).catch(D.dashboard),
   reminders: z.object({
     before7: flag(true), before3: flag(true), dueDay: flag(true), overdueDaily: flag(true),
     lenderDays: z.number().int().min(1).max(365).catch(14), approvalHours: z.number().int().min(1).max(720).catch(24),
@@ -78,6 +85,11 @@ export const settingsSchema = z.object({
 });
 
 export type AppSettings = z.infer<typeof settingsSchema>;
+
+/** The target for one month ("2026-11"): its own if the Admin set one, otherwise the default. */
+export function goalFor(d: AppSettings["dashboard"], month: string, kind: "buy" | "sell"): number {
+  return d.months[month]?.[kind] ?? (kind === "buy" ? d.buyGoal : d.sellGoal);
+}
 
 /** The stored document (or nothing) turned into complete, safe settings. */
 export function parseSettings(raw: unknown): AppSettings {

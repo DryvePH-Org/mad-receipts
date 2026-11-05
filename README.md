@@ -131,8 +131,16 @@ Two dashboards, **Buy** and **Sell / Online marketing**, read live from the team
 
 - **Buy** (buying sheet): purchases today, holds (HOLD tab; rows marked X are settled), payables (balance to the seller plus bank payoff on held units),
   purchases paid from MAD Bank (the sheet has no bank balance), the purchaser scoreboard, sources, and the monthly history next to the team's own BUYING SUMMARY.
-- **Sell** (sales sheet, the `MonYYYY_Sold` and `_Entries` tabs, found by name so a new month's tab is picked up by itself): released today, accumulated pending sales
-  with a deadline alert (the cleaning date when written, otherwise the reservation plus `DASHBOARD_PENDING_DAYS`, default 14), reserves, the salesperson scoreboard, leads by status, sales history.
+- **Sell** (sales sheet, the `MonYYYY_Sold` and `_Entries` tabs, found by name so a new month's tab is picked up by itself): released today, **pending sales** (one list that
+  also covers reserves, with plain-English money: selling price, paid at reservation, the lender's loan, what the buyer still owes), a deadline alert (the cleaning date when written,
+  otherwise the reservation plus the allowed days), every released sale by month, the salesperson scoreboard, leads by status, and sales history.
+  **How a car's state is decided:** the sheet is a ledger. When a reserved car is paid and released, staff add a NEW row and the old RESERVATION row stays behind (the consolidated
+  Jan-Sept tab holds later releases too). So the state is the furthest the car got (released or cancelled, then paid, then reserved), rows are matched by plate and buyer, and a reservation
+  is dead when the car was later released to a different buyer. Only still-open sales count as pending or overdue.
+- **Targets and big numbers:** numbers like 2/60 compare with targets the Admin sets in Settings → Fields and rules → Dashboard targets. The usual target is 60 units to buy and 60 to release
+  each month; any month can have its own (for example December at 40), and the history table shows each month against its own target.
+- **Search, filters and details** on the pending, released, hold and purchases lists; on a phone each row becomes a card. Click a row for every field, the full row history
+  and a link to that row in the sheet. The number cards jump to their list.
 - Staff type these sheets by hand, so reading is forgiving: "₱458,000", "Php20,000", "400K", "290+20k", "October 14", "11/03/2026" all work, and a car price typed
   without its K ("460") or with a typo ("1,030M") is read as thousands.
 - Only the Approver and Admin see it. `npm run test:live` reads the real sheets and prints counts.

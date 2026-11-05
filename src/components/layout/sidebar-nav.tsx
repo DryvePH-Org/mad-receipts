@@ -10,7 +10,7 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/lib/auth-actions";
-import { isActivePath, navGroups, type Role } from "@/lib/navigation";
+import { isActivePath, navGroups, ROLE_LABELS, type Role } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -77,7 +77,7 @@ function View({ role, name, pathname }: Props & { pathname: string | null }) {
           <div className="min-w-0">
             <p className="truncate text-sm font-medium">{name}</p>
             <Badge variant={role === "admin" ? "default" : "secondary"} className="mt-0.5">
-              {role === "admin" ? "Admin" : "Staff"}
+              {ROLE_LABELS[role]}
             </Badge>
           </div>
           <div className="flex items-center">

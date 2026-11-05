@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildBuyDashboard, parseBuyingSummary, parseHolds, parsePurchases, sourceGroup } from "@/lib/dashboard/buy";
-import { buildSellDashboard, kindOf, parseEntries, parseSold, pendingWithAlerts, scoreboard } from "@/lib/dashboard/sell";
+import { buildSellDashboard, currentSales, kindOf, parseEntries, parseSold, pendingWithAlerts, scoreboard, waitingFor } from "@/lib/dashboard/sell";
 
 const row = (len: number, cells: Record<number, string>) => Array.from({ length: len }, (_, i) => cells[i] ?? "");
 
@@ -63,7 +63,7 @@ describe("the buying sheet", () => {
     expect(d.scoreboard.find((s) => s.name === "KAREN")).toMatchObject({ bought: 1.5 }); // one alone, one shared with Justine
     expect(d.scoreboard.find((s) => s.name === "JUSTINE")).toMatchObject({ bought: 0.5 });
     expect(d.sources).toEqual(expect.arrayContaining([{ source: "Agents", count: 1 }, { source: "FB Marketplace", count: 1 }]));
-    expect(d.history).toEqual([{ month: "NOVEMBER 2026", count: 2, total: 1650000, bought: 2, entries: 11, batting: "18.18%" }]);
+    expect(d.history).toEqual([{ month: "NOVEMBER 2026", count: 2, total: 1650000, bought: 2, entries: 11, batting: "18.18%", goal: 60 }]);
   });
   it("copes with a month that has no tab yet and no hold tab", () => {
     const d = buildBuyDashboard({ today: "2026-12-01", month: null, monthTabs: [], holdRows: null, summaryRows: null });
@@ -129,13 +129,80 @@ describe("the sales sheet", () => {
     expect(david).toMatchObject({ entriesToday: 1, entriesMonth: 2, releasedMonth: 0 });
     expect(ella).toMatchObject({ entriesToday: 1, releasedToday: 1, releasedMonth: 1, conversion: 100 });
   });
-  it("builds today, pending, reserves, history and lead statuses; a sale in two tabs counts once", () => {
-    const d = buildSellDashboard({ today: "2026-11-05", sold: [{ tab: "Nov2026_Sold", rows: soldTab }, { tab: "Jan-Sept2026_Sold", rows: soldTab }], entries: [{ tab: "Nov2026_Entries", rows: entryTab }] });
+  it("builds today, pending, released, history, goal and lead statuses; a sale in two tabs counts once", () => {
+    const d = buildSellDashboard({ today: "2026-11-05", sold: [{ tab: "Nov2026_Sold", rows: soldTab, order: 11 }, { tab: "Jan-Sept2026_Sold", rows: soldTab, order: -1 }], entries: [{ tab: "Nov2026_Entries", rows: entryTab }], goals: { buyGoal: 60, sellGoal: 60, pendingDays: 14, months: { "2026-11": { sell: 55 } } } });
     expect(d.releasedToday.map((s) => s.plate)).toEqual(["BBB2222"]);
     expect(d.pending).toHaveLength(3);
     expect(d.overdue).toHaveLength(3);
-    expect(d.reserves.map((s) => s.plate).sort()).toEqual(["AAA1111", "CCC3333", "EEE5555"]);
-    expect(d.history).toEqual([{ month: "2026-11", released: 1, amount: 640000 }]);
+    expect(d).toMatchObject({ goal: 55, releasedThisMonth: 1 }); // this month has its own target
+    expect(d.released.map((s) => s.plate)).toEqual(["BBB2222"]);
+    expect(d.history).toEqual([{ month: "2026-11", released: 1, amount: 640000, goal: 55 }]);
     expect(d.entryStatuses).toEqual(expect.arrayContaining([{ status: "FOLLOW UP", count: 1 }, { status: "DEAL CLOSED", count: 1 }]));
+  });
+});
+
+// The sheet is a ledger: a paid car gets a NEW row in the month it is released and the old RESERVATION row stays behind.
+describe("a car's real state is its newest row", () => {
+  const sale = (plate: string, status: string, buyer: string, extra: Record<number, string> = {}) => sold({ 7: plate, 10: "₱500,000", 12: "₱20,000", 13: "September 20", 26: status, 27: buyer, ...extra });
+  const tab = (rows: string[][]) => [soldHeader, ...rows];
+  const run = (tabs: { tab: string; order: number; rows: string[][] }[]) => buildSellDashboard({ today: "2026-11-05", sold: tabs.map((t) => ({ ...t, rows: tab(t.rows) })), entries: [] });
+
+  it("a reservation in September that was released in October is released, not pending or overdue", () => {
+    const d = run([
+      { tab: "Sept2026_Sold", order: 9, rows: [sale("AAA1111", "RESERVATION", "ANA CRUZ")] },
+      { tab: "Oct2026_Sold", order: 10, rows: [sale("AAA1111", "FULLY PAID", "ANA CRUZ", { 22: "₱0", 23: "October 5" })] },
+    ]);
+    expect(d.pending).toEqual([]);
+    expect(d.overdue).toEqual([]);
+    expect(d.released.map((s) => [s.plate, s.releaseDate])).toEqual([["AAA1111", "2026-10-05"]]);
+  });
+  it("a reservation that was cancelled later is neither pending nor released", () => {
+    const d = run([{ tab: "Aug2026_Sold", order: 8, rows: [sale("BBB2222", "RESERVATION", "BEN REYES")] }, { tab: "Sept2026_Sold", order: 9, rows: [sale("BBB2222", "CANCELLED", "BEN REYES")] }]);
+    expect(d.pending).toEqual([]);
+    expect(d.released).toEqual([]);
+  });
+  it("the same reservation carried over to the next month counts once, as the newer row", () => {
+    const d = run([{ tab: "Oct2026_Sold", order: 10, rows: [sale("CCC3333", "RESERVATION", "CARLA DIAZ")] }, { tab: "Nov2026_Sold", order: 11, rows: [sale("CCC3333", "RESERVATION", "CARLA DIAZ")] }, { tab: "Jan-Sept2026_Sold", order: -1, rows: [sale("CCC3333", "RESERVATION", "CARLA DIAZ")] }]);
+    expect(d.pending.map((p) => [p.plate, p.tab])).toEqual([["CCC3333", "Nov2026_Sold"]]);
+  });
+  it("the consolidated Jan-Sept tab can hold the later release of an August reservation", () => {
+    const d = run([
+      { tab: "Aug2026_Sold", order: 8, rows: [sale("IIII9999".slice(0, 7), "RESERVATION", "ISA PAZ", { 13: "August 28" })] },
+      { tab: "Jan-Sept2026_Sold", order: -1, rows: [sale("IIII999", "RESERVATION", "ISA PAZ", { 13: "August 28" }), sale("IIII999", "FULLY PAID", "ISA PAZ", { 13: "August 28", 22: "₱0", 23: "September 2" })] },
+    ]);
+    expect(d.pending).toEqual([]);
+    expect(d.released.map((s) => [s.plate, s.releaseDate])).toEqual([["IIII999", "2026-09-02"]]);
+  });
+  it("a reservation is dead when the car was later released to a different buyer", () => {
+    const d = run([
+      { tab: "Aug2026_Sold", order: 8, rows: [sale("JJJ1010", "RESERVATION", "JEN MAGNO", { 13: "August 12" })] },
+      { tab: "Sept2026_Sold", order: 9, rows: [sale("JJJ1010", "FULLY PAID", "SHEENA DAYAO", { 13: "September 1", 22: "₱0", 23: "September 20" })] },
+    ]);
+    expect(d.pending).toEqual([]);
+    expect(d.released.map((s) => s.buyer)).toEqual(["SHEENA DAYAO"]);
+  });
+  it("a reservation made AFTER an earlier buyer's release is not dead (the car came back and was resold)", () => {
+    const d = run([
+      { tab: "June2026_Sold", order: 6, rows: [sale("KKK1111", "FULLY PAID", "KIM LEE", { 13: "May 20", 22: "₱0", 23: "June 3" })] },
+      { tab: "Oct2026_Sold", order: 10, rows: [sale("KKK1111", "RESERVATION", "LEO SIA", { 13: "October 3" })] },
+    ]);
+    expect(d.pending.map((p) => p.buyer)).toEqual(["LEO SIA"]);
+  });
+  it("the same car sold to two different buyers is two sales; the first stays released", () => {
+    const all = [
+      ...parseSold(tab([sale("DDD4444", "FULLY PAID", "DAN LIM", { 23: "June 3" })]), "June2026_Sold", 6),
+      ...parseSold(tab([sale("DDD4444", "RESERVATION", "EVA SY")]), "Oct2026_Sold", 10),
+    ];
+    expect(currentSales(all).map((s) => [s.buyer, s.status])).toEqual([["DAN LIM", "FULLY PAID"], ["EVA SY", "RESERVATION"]]);
+  });
+  it("a name spelled a little differently in the newer row is still the same buyer", () => {
+    const all = [...parseSold(tab([sale("EEE5555", "RESERVATION", "MARIA LEONILA LIM")]), "Sept2026_Sold", 9), ...parseSold(tab([sale("EEE5555", "FULLY PAID", "LIM, MARIA LEONILA", { 23: "October 9" })]), "Oct2026_Sold", 10)];
+    expect(currentSales(all)).toHaveLength(1);
+    expect(currentSales(all)[0].status).toBe("FULLY PAID");
+  });
+  it("a reservation nobody closed stays pending, and says what it is waiting for", () => {
+    const d = run([{ tab: "Nov2026_Sold", order: 11, rows: [sale("FFF6666", "RESERVATION", "FAYE GO", { 22: "₱25,000", 18: "GDFI", 19: "₱455,000" }), sale("GGG7777", "RESERVATION", "GIL TAN", { 22: "₱0", 18: "BDO", 19: "₱480,000" }), sale("HHH8888", "RESERVATION", "HAL UY", { 22: "₱0" })] }]);
+    expect(d.pending.map((p) => waitingFor(p).label)).toEqual(expect.arrayContaining(["Waiting for the buyer's balance", "Waiting for the loan from BDO", "Paid, waiting for release"]));
+    expect(waitingFor(d.pending.find((p) => p.plate === "FFF6666")!).owes).toBe(25000);
   });
 });

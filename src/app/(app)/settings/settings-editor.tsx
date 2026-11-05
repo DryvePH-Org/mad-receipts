@@ -166,6 +166,38 @@ export function SettingsEditor({ initial }: { initial: AppSettings }) {
                 <Switch checked={cfg.sections.lieu} onChange={(v) => set("sections", { ...cfg.sections, lieu: v })} label="In lieu of documents" />
                 <Switch checked={cfg.sections.remarks} onChange={(v) => set("sections", { ...cfg.sections, remarks: v })} label="Remarks" />
               </CardContent></Card>
+            <Card><CardHeader><CardTitle>Dashboard targets</CardTitle><p className="text-sm text-muted-foreground">The number after the slash on the Approver&apos;s dashboards, like 2/60</p></CardHeader>
+              <CardContent className="space-y-5">
+                <div className="grid gap-4 sm:grid-cols-3">
+                  {([["buyGoal", "Units to buy each month", "units"], ["sellGoal", "Units to release each month", "units"], ["pendingDays", "A reservation may stay open", "days"]] as const).map(([k, label, unit]) => (
+                    <div key={k} className="space-y-1.5"><Label htmlFor={`dash-${k}`}>{label}</Label><div className="flex"><Input id={`dash-${k}`} defaultValue={cfg.dashboard[k]} inputMode="numeric" className="rounded-r-none text-right" onBlur={(e) => { const v = parseInt(e.target.value, 10); if (v > 0) set("dashboard", { ...cfg.dashboard, [k]: v }); else e.target.value = String(cfg.dashboard[k]); }} /><span className="grid place-items-center rounded-r-lg border border-l-0 bg-muted px-2.5 text-xs text-muted-foreground">{unit}</span></div></div>
+                  ))}
+                  <p className="text-xs text-muted-foreground sm:col-span-3">The first two apply to every month unless you set a different target below. When a reservation has no cleaning date in the sheet, it counts as late this many days after it was made.</p>
+                </div>
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium">A different target for one month</h4>
+                  {Object.entries(cfg.dashboard.months).sort(([x], [y]) => y.localeCompare(x)).map(([m, v]) => {
+                    const put = (patch: { buy?: number; sell?: number }) => set("dashboard", { ...cfg.dashboard, months: { ...cfg.dashboard.months, [m]: { ...v, ...patch } } });
+                    const num = (kind: "buy" | "sell", label: string) => (
+                      <div className="space-y-1"><Label htmlFor={`m-${m}-${kind}`} className="text-xs text-muted-foreground">{label}</Label>
+                        <Input id={`m-${m}-${kind}`} defaultValue={v[kind] ?? ""} placeholder={String(kind === "buy" ? cfg.dashboard.buyGoal : cfg.dashboard.sellGoal)} inputMode="numeric" className="w-24 text-right"
+                          onBlur={(e) => { const n = parseInt(e.target.value, 10); if (n > 0 && n <= 1000) put({ [kind]: n }); else { e.target.value = ""; const rest = kind === "buy" ? { sell: v.sell } : { buy: v.buy }; set("dashboard", { ...cfg.dashboard, months: { ...cfg.dashboard.months, [m]: rest } }); } }} /></div>
+                    );
+                    return (
+                      <div key={m} className="flex flex-wrap items-end gap-3 rounded-lg border p-2.5">
+                        <p className="min-w-32 flex-1 self-center font-medium">{new Date(`${m}-01T00:00:00Z`).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}</p>
+                        {num("buy", "Buy")}{num("sell", "Release")}
+                        <Button variant="ghost" size="icon" aria-label={`Remove the target for ${m}`} onClick={() => { set("dashboard", { ...cfg.dashboard, months: Object.fromEntries(Object.entries(cfg.dashboard.months).filter(([k]) => k !== m)) }); }}><Trash2 /></Button>
+                      </div>
+                    );
+                  })}
+                  <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); const m = new FormData(e.currentTarget).get("month")?.toString() ?? ""; if (/^\d{4}-\d{2}$/.test(m) && !cfg.dashboard.months[m]) { set("dashboard", { ...cfg.dashboard, months: { ...cfg.dashboard.months, [m]: { buy: cfg.dashboard.buyGoal, sell: cfg.dashboard.sellGoal } } }); e.currentTarget.reset(); } }}>
+                    <div className="space-y-1"><Label htmlFor="new-month" className="text-xs text-muted-foreground">Month</Label><Input id="new-month" name="month" type="month" required className="w-44" /></div>
+                    <Button type="submit"><Plus /> Add a month</Button>
+                  </form>
+                  <p className="text-xs text-muted-foreground">A month you add starts at the usual targets. Change the numbers, then press Save. Leave a box empty to use the usual target for that one.</p>
+                </div>
+              </CardContent></Card>
             <Card><CardHeader><CardTitle>Financing rules</CardTitle><p className="text-sm text-muted-foreground">Used for the default fee and the warnings. Staff can still type any other fee percent.</p></CardHeader>
               <CardContent className="grid gap-4 sm:grid-cols-2">
                 {([["feeStd", "Standard processing fee", "% of the loan"], ["minDownPct", "Lowest usual down payment", "% of the price"]] as const).map(([k, label, unit]) => (

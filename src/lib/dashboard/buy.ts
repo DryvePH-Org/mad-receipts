@@ -1,4 +1,5 @@
-import { clean, findColumn, parseMoney, parsePrice, parseSheetDate, people, plateKey, yearOfTab } from "./parse";
+import { DEFAULT_SETTINGS, goalFor, type AppSettings } from "@/lib/deal/settings";
+import { clean, findColumn, parseMoney, parsePrice, parseSheetDate, people, plateKey, tabMonthKey, yearOfTab } from "./parse";
 
 // The BUY side: the monthly purchase tabs, the HOLD tab and the buying summary of the buying sheet.
 
@@ -18,6 +19,14 @@ export interface Purchase {
   bank: string;
   payoff: string;
   hold: number | null;
+  color: string;
+  mileage: string;
+  fuel: string;
+  transmission: string;
+  /** the date written in the reservation column, as typed */
+  reservation: string;
+  /** opens the sheet on this row */
+  link: string | null;
 }
 
 const isPlate = (v: string) => v.length >= 5 && /\d/.test(v) && /[A-Z]/.test(v);
@@ -26,7 +35,7 @@ const isPlate = (v: string) => v.length >= 5 && /\d/.test(v) && /[A-Z]/.test(v);
  * The purchases of one monthly tab. The tab has a small table on the left (counts by source) and the purchased units on the right,
  * under headers like BRAND / TYPE / PLATE NUMBER / REAL BUYING. Older months use other headers (Unit, Price), so columns are found by name.
  */
-export function parsePurchases(rows: string[][], tab: string): Purchase[] {
+export function parsePurchases(rows: string[][], tab: string, linkOf?: (row: number) => string | null): Purchase[] {
   const hi = rows.slice(0, 6).findIndex((r) => r.some((c) => /plate/i.test(c)));
   if (hi < 0) return [];
   const h = rows[hi].map(clean);
@@ -34,13 +43,14 @@ export function parsePurchases(rows: string[][], tab: string): Purchase[] {
     plate: findColumn(h, /plate/i), brand: findColumn(h, "brand"), type: findColumn(h, "type"), unit: findColumn(h, "unit"), mileage: findColumn(h, "mileage"),
     price: findColumn(h, "real buying", "price"), fee: findColumn(h, "buying agent"), source: findColumn(h, "source"), appraiser: findColumn(h, "appraiser"),
     team: findColumn(h, "buying team"), bank: findColumn(h, "bank"), payoff: findColumn(h, /payoff/i), hold: findColumn(h, /hold amount/i),
+    color: findColumn(h, "color"), fuel: findColumn(h, /gas/i), trans: findColumn(h, "transmission"), reservation: findColumn(h, "reservation"),
   };
   if (col.plate < 0) return [];
   const year = yearOfTab(tab, new Date().getFullYear());
   const first = (col.brand >= 0 ? col.brand : col.unit) - 2; // the date sits just before the unit, after the row number
   const last = (col.mileage >= 0 ? col.mileage : col.plate) + 2;
   const out: Purchase[] = [];
-  for (const row of rows.slice(hi + 1)) {
+  for (const [offset, row] of rows.slice(hi + 1).entries()) {
     const cell = (i: number) => (i >= 0 ? clean(row[i]) : "");
     const plate = plateKey(cell(col.plate));
     if (!isPlate(plate)) continue;
@@ -51,6 +61,7 @@ export function parsePurchases(rows: string[][], tab: string): Purchase[] {
     out.push({
       tab, date, unit, plate, price: parsePrice(cell(col.price)), priceText: cell(col.price), agentFee: parseMoney(cell(col.fee)), source: cell(col.source),
       appraiser: cell(col.appraiser).toUpperCase(), team: people(cell(col.team)), bank: cell(col.bank), payoff: cell(col.payoff), hold: parseMoney(cell(col.hold)),
+      color: cell(col.color), mileage: cell(col.mileage), fuel: cell(col.fuel), transmission: cell(col.trans), reservation: cell(col.reservation), link: linkOf?.(hi + offset + 2) ?? null,
     });
   }
   return out;
@@ -72,10 +83,11 @@ export interface Hold {
   remarks: string;
   /** "X" in the first column means settled */
   settled: boolean;
+  link: string | null;
 }
 
 /** The HOLD tab: money held on a unit while papers, a bank payoff or a balance are settled. Rows marked X are settled. */
-export function parseHolds(rows: string[][]): Hold[] {
+export function parseHolds(rows: string[][], linkOf?: (row: number) => string | null): Hold[] {
   const hi = rows.slice(0, 4).findIndex((r) => r.some((c) => /plate/i.test(c)));
   if (hi < 0) return [];
   const h = rows[hi].map(clean);
@@ -86,14 +98,14 @@ export function parseHolds(rows: string[][]): Hold[] {
   };
   const year = new Date().getFullYear();
   const out: Hold[] = [];
-  for (const row of rows.slice(hi + 1)) {
+  for (const [offset, row] of rows.slice(hi + 1).entries()) {
     const cell = (i: number) => (i >= 0 ? clean(row[i]) : "");
     const plate = plateKey(cell(col.plate));
     if (!isPlate(plate) || /^borrow/i.test(cell(col.unit))) continue;
     out.push({
       since: parseSheetDate(cell(col.date), year), unit: cell(col.unit), plate, purchaser: people(cell(col.who)), holdAmount: parseMoney(cell(col.hold)), lacking: cell(col.lacking),
       bank: cell(col.bank), out: parseSheetDate(cell(col.out), year), agreedPrice: parseMoney(cell(col.price)), payoff: parseMoney(cell(col.payoff)),
-      balanceToClient: parseMoney(cell(col.balance)), remarks: cell(col.remarks), settled: clean(row[0]).toUpperCase() === "X",
+      balanceToClient: parseMoney(cell(col.balance)), remarks: cell(col.remarks), settled: clean(row[0]).toUpperCase() === "X", link: linkOf?.(hi + offset + 2) ?? null,
     });
   }
   return out;
@@ -121,6 +133,8 @@ export function parseBuyingSummary(rows: string[][]): MonthSummary[] {
 
 export interface BuyDashboard {
   today: string;
+  /** the target of units to buy this month (set by the Admin) */
+  goal: number;
   /** units bought (or reserved for purchase) today */
   todayPurchases: Purchase[];
   /** this month so far */
@@ -130,7 +144,10 @@ export interface BuyDashboard {
   madBank: { total: number; count: number; items: Purchase[] };
   scoreboard: { name: string; bought: number; amount: number }[];
   sources: { source: string; count: number }[];
-  history: { month: string; count: number; total: number; bought: number | null; entries: number | null; batting: string }[];
+  history: { month: string; count: number; total: number; bought: number | null; entries: number | null; batting: string; goal: number }[];
+  /** every purchase of the year's tabs, newest tab first, for searching and filtering */
+  purchases: (Purchase & { monthLabel: string })[];
+  purchaseTabs: string[];
 }
 
 /** "AGENT: BYD BGC - X", "FAST CASH AUTO" ... → the group the team reports on. */
@@ -151,10 +168,11 @@ export function sourceGroup(text: string): string {
 
 const monthKey = (iso: string | null) => (iso ? iso.slice(0, 7) : "");
 
-export function buildBuyDashboard(input: { today: string; month: { tab: string; rows: string[][] } | null; monthTabs: { tab: string; rows: string[][] }[]; holdRows: string[][] | null; summaryRows: string[][] | null }): BuyDashboard {
-  const purchases = input.month ? parsePurchases(input.month.rows, input.month.tab) : [];
+export function buildBuyDashboard(input: { today: string; month: { tab: string; rows: string[][]; linkOf?: (row: number) => string | null } | null; monthTabs: { tab: string; rows: string[][]; linkOf?: (row: number) => string | null }[]; holdRows: string[][] | null; holdLinkOf?: (row: number) => string | null; summaryRows: string[][] | null; goals?: AppSettings["dashboard"] }): BuyDashboard {
+  const goals = input.goals ?? DEFAULT_SETTINGS.dashboard;
+  const purchases = input.month ? parsePurchases(input.month.rows, input.month.tab, input.month.linkOf) : [];
   const total = (list: Purchase[]) => list.reduce((n, p) => n + (p.price ?? 0), 0);
-  const holds = (input.holdRows ? parseHolds(input.holdRows) : []).filter((x) => !x.settled && !x.out);
+  const holds = (input.holdRows ? parseHolds(input.holdRows, input.holdLinkOf) : []).filter((x) => !x.settled && !x.out);
 
   const payables = holds
     .filter((x) => (x.balanceToClient ?? 0) > 0 || (x.payoff ?? 0) > 0)
@@ -175,21 +193,23 @@ export function buildBuyDashboard(input: { today: string; month: { tab: string; 
 
   const summary = input.summaryRows ? parseBuyingSummary(input.summaryRows) : [];
   const byMonth = new Map<string, MonthSummary>(summary.map((s) => [s.month.slice(0, 3).toUpperCase(), s]));
-  const history = input.monthTabs.map(({ tab, rows }) => {
-    const list = parsePurchases(rows, tab);
+  const all: (Purchase & { monthLabel: string })[] = [];
+  const history = input.monthTabs.map(({ tab, rows, linkOf }) => {
+    const list = parsePurchases(rows, tab, linkOf);
+    all.unshift(...list.map((p) => ({ ...p, monthLabel: tab })));
     const s = byMonth.get(tab.trim().slice(0, 3).toUpperCase());
-    return { month: tab, count: list.length, total: total(list), bought: s?.bought ?? null, entries: s?.entries ?? null, batting: s?.batting ?? "" };
+    return { month: tab, count: list.length, total: total(list), bought: s?.bought ?? null, entries: s?.entries ?? null, batting: s?.batting ?? "", goal: goalFor(goals, tabMonthKey(tab, Number(input.today.slice(0, 4))) ?? input.today.slice(0, 7), "buy") };
   });
 
   return {
-    today: input.today,
+    today: input.today, goal: goalFor(goals, input.today.slice(0, 7), "buy"),
     todayPurchases: purchases.filter((p) => p.date === input.today),
     month: input.month ? { tab: input.month.tab, count: purchases.length, total: total(purchases), purchases } : null,
     holds, payables,
     madBank: { total: total(madItems), count: madItems.length, items: madItems },
     scoreboard: [...credit].map(([name, c]) => ({ name, bought: Math.round(c.bought * 10) / 10, amount: c.amount })).sort((a, b) => b.bought - a.bought || b.amount - a.amount),
     sources: [...sources].map(([source, count]) => ({ source, count })).sort((a, b) => b.count - a.count),
-    history,
+    history, purchases: all, purchaseTabs: [...input.monthTabs].reverse().map((t) => t.tab),
   };
 }
 

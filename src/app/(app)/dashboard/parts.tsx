@@ -6,20 +6,23 @@ import { cn } from "@/lib/utils";
 export const peso = (n: number | null | undefined) => (n === null || n === undefined ? "—" : `₱${Math.round(n).toLocaleString("en-US")}`);
 export const names = (list: string[]) => (list.length ? list.map((n) => n.charAt(0) + n.slice(1).toLowerCase()).join(" / ") : "—");
 
-export function Stat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
-  return (
-    <div className="rounded-xl p-3 ring-1 ring-foreground/10 sm:p-4">
+/** A number card. With `href` it jumps to the section that lists what is behind the number. */
+export function Stat({ label, value, sub, tone, href }: { label: string; value: string; sub?: string; tone?: string; href?: string }) {
+  const box = "block rounded-xl p-3 ring-1 ring-foreground/10 sm:p-4";
+  const body = (
+    <>
       <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase sm:text-xs">{label}</p>
       <p className={cn("text-xl font-semibold tracking-tight tabular-nums sm:text-2xl", tone)}>{value}</p>
       {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
-    </div>
+    </>
   );
+  return href ? <a href={href} className={cn(box, "transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring")}>{body}</a> : <div className={box}>{body}</div>;
 }
 
 /** A titled block with an optional count, and a sentence saying what it shows. */
-export function Section({ title, count, hint, children }: { title: string; count?: number; hint?: string; children: ReactNode }) {
+export function Section({ id, title, count, hint, children }: { id?: string; title: string; count?: number; hint?: string; children: ReactNode }) {
   return (
-    <Card>
+    <Card id={id} className="scroll-mt-20">
       <CardHeader>
         <CardTitle className="flex items-baseline gap-2">{title}{count !== undefined && <span className="text-sm font-normal text-muted-foreground tabular-nums">{count}</span>}</CardTitle>
         {hint && <p className="text-sm text-muted-foreground">{hint}</p>}

@@ -23,15 +23,26 @@ async function fetchText(url: string): Promise<string> {
 }
 
 /** The tab names of a sheet, in order. Google quietly serves the FIRST tab for a name it does not know, so names are checked first. */
-export async function listTabs(sheetId: string): Promise<string[]> {
+export async function listTabInfo(sheetId: string): Promise<{ name: string; gid: string }[]> {
   "use cache";
   cacheLife({ stale: 60, revalidate: 300, expire: 3600 });
   cacheTag(DASHBOARD_TAG);
   const html = await fetchText(`https://docs.google.com/spreadsheets/d/${sheetId}/htmlview`);
-  const names = [...html.matchAll(/items\.push\(\{name:\s*"((?:[^"\\]|\\.)*)"/g)].map((m) => { try { return JSON.parse(`"${m[1]}"`) as string; } catch { return m[1]; } });
-  if (names.length === 0) throw new SheetError('Could not read the tabs of the sheet. Check that it is shared as "Anyone with the link can view".');
-  return names;
+  const tabs = [...html.matchAll(/items\.push\(\{name:\s*"((?:[^"\\]|\\.)*)"[^}]*?gid:\s*"(\d+)"/g)].map((m) => {
+    let name = m[1];
+    try { name = JSON.parse(`"${m[1]}"`) as string; } catch { /* keep the raw text */ }
+    return { name, gid: m[2] };
+  });
+  if (tabs.length === 0) throw new SheetError('Could not read the tabs of the sheet. Check that it is shared as "Anyone with the link can view".');
+  return tabs;
 }
+
+export async function listTabs(sheetId: string): Promise<string[]> {
+  return (await listTabInfo(sheetId)).map((t) => t.name);
+}
+
+/** A link that opens the sheet on one row of one tab. */
+export const rowLink = (sheetId: string, gid: string | undefined, row: number) => (gid ? `https://docs.google.com/spreadsheets/d/${sheetId}/edit#gid=${gid}&range=A${row}` : null);
 
 /** Every cell of one tab, as the sheet shows it. */
 export async function readTab(sheetId: string, tab: string): Promise<string[][]> {

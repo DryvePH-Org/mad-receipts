@@ -18,9 +18,29 @@ test("the Approver sees the Buy and Sell dashboards; Sales and Documentation do 
   await approver.getByRole("link", { name: "Dashboard" }).click();
   await expect(approver.getByRole("heading", { name: "Dashboard" })).toBeVisible();
   await expect(approver).toHaveURL(/\/dashboard\/buy/);
-  for (const title of ["For purchase today", "Hold (pending)", "MAD Bank", "Payables", "Scoreboard", "Monthly purchase history"]) await expect(approver.getByText(new RegExp(`^${title.replace(/[()]/g, "\\$&")}`)).first()).toBeVisible({ timeout: 60_000 });
+  for (const title of ["For purchase today", "Hold (pending)", "Purchases", "MAD Bank", "Payables", "Scoreboard", "Monthly purchase history"]) await expect(approver.getByText(new RegExp(`^${title.replace(/[()]/g, "\\$&")}`)).first()).toBeVisible({ timeout: 60_000 });
   await approver.getByRole("link", { name: "Sell / Online marketing" }).click();
-  for (const title of ["Sales as of today", "Accumulated pending sales", "Reserves", "Scoreboard", "Sales history"]) await expect(approver.getByText(new RegExp(`^${title.replace(/[()]/g, "\\$&")}`)).first()).toBeVisible({ timeout: 60_000 });
+  for (const title of ["Sales as of today", "Pending sales and reserves", "Released sales", "Scoreboard", "Sales history"]) await expect(approver.getByText(new RegExp(`^${title.replace(/[()]/g, "\\$&")}`)).first()).toBeVisible({ timeout: 60_000 });
+  // the big numbers show how far each is from its goal, like 1/50
+  await expect(approver.getByText(/^\d+\/\d+$/).first()).toBeVisible();
+  // searching and filtering narrow a list, and say how many are shown
+  const search = approver.getByRole("textbox", { name: "Search" }).first();
+  await search.fill("zzzz-nothing-matches");
+  await expect(approver.getByText("Nothing matches. Clear the search or a filter.").first()).toBeVisible();
+  await approver.getByRole("button", { name: "Clear" }).first().click();
+  await expect(approver.getByText(/^Showing \d+ of \d+/).first()).toBeVisible();
+  // clicking a row opens its details, with a link back to the sheet row; Escape closes it
+  const row = approver.getByRole("button", { name: /^Details:/ }).first();
+  if (await row.count()) {
+    await row.click();
+    await expect(approver.getByRole("dialog").getByText("Money")).toBeVisible();
+    await expect(approver.getByRole("dialog").getByRole("link", { name: "Open this row in the sheet" })).toBeVisible();
+    await approver.keyboard.press("Escape");
+    await expect(approver.getByRole("dialog")).toHaveCount(0);
+  }
+  // a stat card jumps to its list
+  await approver.getByRole("link", { name: /^Pending sales/ }).click();
+  await expect(approver).toHaveURL(/#pending$/);
   await approver.getByRole("button", { name: "Refresh now" }).click();
   await expect(approver.getByText(/Refreshed/)).toBeVisible({ timeout: 30_000 });
   await approver.close();
@@ -34,6 +54,6 @@ test("the Approver sees the Buy and Sell dashboards; Sales and Documentation do 
   }
   const admin = await as(browser, "admin");
   await admin.goto("/dashboard/sell");
-  await expect(admin.getByText(/^Accumulated pending sales/).first()).toBeVisible({ timeout: 60_000 });
+  await expect(admin.getByText(/^Pending sales and reserves/).first()).toBeVisible({ timeout: 60_000 });
   await admin.close();
 });
