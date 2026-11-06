@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
-import { requireRole } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { listUploadTargets } from "@/lib/docs/data";
 import { UploadFlow } from "./upload-flow";
 
@@ -15,7 +15,7 @@ export default function UploadDocumentsPage() {
 }
 
 async function Content() {
-  await requireRole("sales", "admin", "approver");
+  await requireModule("upload");
   const targets = await listUploadTargets();
   return <UploadFlow targets={targets} />;
 }

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { Button } from "@/components/ui/button";
-import { requireRole } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { listActivity, type ActivityEntry } from "@/lib/data";
 import { formatManilaDateTime } from "@/lib/dates";
 import { formatPeso } from "@/lib/rules/money";
@@ -43,7 +43,7 @@ function describe(e: ActivityEntry): string {
 }
 
 async function Content({ searchParams }: { searchParams: PageProps<"/activity">["searchParams"] }) {
-  await requireRole("admin", "approver");
+  await requireModule("activity");
   const type = param((await searchParams).type);
   const list = await listActivity(TYPES.some(([k]) => k === type) ? type : undefined);
   const dealId = (e: ActivityEntry) => (e.entity === "deal" ? e.entityId : obj(obj(e.after).receipt).deal_id);

@@ -8,7 +8,7 @@ import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { DealStatusBadge, Pill, ReceiptStatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { requireUser } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { getDeal, receiptsOfDeal } from "@/lib/data";
 import { formatDate, manilaToday } from "@/lib/dates";
 import { buildLedger, totals } from "@/lib/deal/math";
@@ -26,7 +26,7 @@ function Kv({ rows }: { rows: [string, React.ReactNode][] }) {
 }
 
 async function Content({ params }: { params: PageProps<"/deals/[id]">["params"] }) {
-  const user = await requireUser();
+  const user = await requireModule("deals");
   const { id } = await params;
   const deal = await getDeal(id);
   if (!deal) notFound();

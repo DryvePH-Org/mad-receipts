@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NAV_ITEMS, isActivePath, navFor, navGroups, tabBarItems } from "@/lib/navigation";
+import { NAV_ITEMS, effectiveModules, isActivePath, navFor, navGroups, roleModules, tabBarItems } from "@/lib/navigation";
 
 describe("navigation", () => {
   it("each role sees its own pages", () => {
@@ -32,5 +32,27 @@ describe("navigation", () => {
     expect(isActivePath("/deals", "/dealsheet")).toBe(false);
     expect(isActivePath("/admin/users", "/admin/sync")).toBe(false);
     expect(isActivePath("/deals", null)).toBe(false);
+  });
+
+  it("a person's modules are the role's, plus granted ones, minus hidden ones", () => {
+    expect(effectiveModules("sales")).toEqual(roleModules("sales"));
+    // extra access, but only for modules that do not depend on the role's database rights
+    expect(effectiveModules("sales", ["dashboard", "documents"])).toEqual(expect.arrayContaining(["dashboard", "documents", "new"]));
+    expect(effectiveModules("sales", ["approvals", "cash", "settings", "users", "sync", "activity"])).toEqual(roleModules("sales"));
+    expect(effectiveModules("documentation", ["upload"])).toContain("upload");
+    // hiding works on any module and wins over a grant
+    expect(effectiveModules("sales", [], ["reminders"])).not.toContain("reminders");
+    expect(effectiveModules("sales", ["dashboard"], ["dashboard"])).not.toContain("dashboard");
+    // an Admin always keeps Users and Settings
+    expect(effectiveModules("admin", [], ["users", "settings", "sync", "cash"])).toEqual(expect.arrayContaining(["users", "settings"]));
+    expect(effectiveModules("admin", [], ["users", "settings", "sync", "cash"])).not.toEqual(expect.arrayContaining(["sync"]));
+    // junk is ignored
+    expect(effectiveModules("sales", ["nonsense"], ["alsoNonsense"])).toEqual(roleModules("sales"));
+  });
+
+  it("the menu follows the modules a person has", () => {
+    const mods = effectiveModules("sales", ["dashboard"], ["reminders"]);
+    expect(navFor("sales", mods).map((i) => i.href)).toEqual(["/dashboard", "/new", "/deals", "/upload-documents"]);
+    expect(tabBarItems("sales", mods).tabs.map((i) => i.label)).toEqual(["Dashboard", "New receipt", "Transactions", "Upload documents"]);
   });
 });

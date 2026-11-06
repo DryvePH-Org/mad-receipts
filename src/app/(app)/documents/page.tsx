@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
-import { requireRole } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { listCarRows } from "@/lib/docs/data";
 import { CarsBoard } from "./cars-board";
 
@@ -15,7 +15,7 @@ export default function DocumentsPage() {
 }
 
 async function Content() {
-  await requireRole("admin", "documentation");
+  await requireModule("documents");
   const rows = await listCarRows();
   return <CarsBoard rows={rows} />;
 }

@@ -227,6 +227,12 @@ Roles are `staff` (upload and confirm) and `admin` (everything). Public signups 
 ### Add staff
 
 Log in as admin → tap the **Admin** badge (or open `/admin/users`) → **Add staff user**. Give them the temporary password. Use **Reset password** if they forget it.
+Log in as Admin → **Users** → **Add a user** (the form opens in a box). Per person you can also: change the role, **Reset password**, **Disable** the account (it cannot log in; nothing is deleted) and open **Access**.
+
+**Access (module control).** A person's modules are their role's, plus modules the Admin adds for them, minus modules the Admin hides. Hiding always wins. Only modules that do not depend on the role's
+database rights can be added to someone (Dashboard, Car documents, Upload documents, Reminders); Approvals, Cash report, Activity log, Settings, Users and Sync jobs come only with the role. Any module can be hidden.
+An Admin always keeps Users and Settings, nobody can change their own access, and the only Admin cannot be demoted or disabled. Every change is in the activity log. Every page, action and upload route checks the
+person's modules (`requireModule`), not only the menu. This needs migration `20261106000018_module_access.sql`; until it is applied the Users page says so and roles keep working.
 
 ## Deploying (Hostinger VPS that already runs other projects)
 

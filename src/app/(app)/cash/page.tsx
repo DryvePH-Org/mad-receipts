@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { ReceiptStatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
-import { requireRole } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { receiptsOnDay, type ReceiptView } from "@/lib/data";
 import { formatDate, manilaToday } from "@/lib/dates";
 import { formatPeso } from "@/lib/rules/money";
@@ -24,7 +24,7 @@ const kind = (label: string) => (label === "Cash" ? 0 : label === "Check" ? 1 : 
 const sum = (rs: ReceiptView[], k: number) => rs.reduce((n, r) => n + r.payments.filter((p) => kind(p.label) === k).reduce((a, p) => a + p.amount, 0), 0);
 
 async function Content({ searchParams }: { searchParams: PageProps<"/cash">["searchParams"] }) {
-  await requireRole("admin", "approver");
+  await requireModule("cash");
   const sp = await searchParams;
   const raw = param(sp.day);
   const day = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : manilaToday();

@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
-import { requireRole } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { formatDate } from "@/lib/dates";
 import { getSettings } from "@/lib/data";
 import { getBuyDashboard } from "@/lib/dashboard";
@@ -13,7 +13,7 @@ export default function BuyDashboardPage() {
 }
 
 async function Content() {
-  await requireRole("admin", "approver");
+  await requireModule("dashboard");
   const settings = await getSettings();
   let b;
   try { b = await getBuyDashboard(settings.dashboard); } catch (e) {

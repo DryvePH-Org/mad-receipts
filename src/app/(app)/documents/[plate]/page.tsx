@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
-import { requireRole } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { getCarDetail } from "@/lib/docs/data";
 import { CarView, type CarViewData } from "./car-view";
 
@@ -11,7 +11,7 @@ export default function CarPage({ params }: PageProps<"/documents/[plate]">) {
 }
 
 async function Content({ params }: { params: PageProps<"/documents/[plate]">["params"] }) {
-  await requireRole("admin", "documentation");
+  await requireModule("documents");
   const { plate } = await params;
   const detail = await getCarDetail(plate);
   if (!detail) notFound();

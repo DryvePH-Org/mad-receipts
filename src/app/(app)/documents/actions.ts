@@ -2,14 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireRole } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { chooseFolder, defaultDocsDeps, docsErrorText, linkFolder, moveToSold, readPending, refreshFolders, scanFolder, setCase, setFileTypes, type MoveResult, type ReadProgress } from "@/lib/docs/service";
 import { CASES, CHOOSABLE, type CaseType, type DocType } from "@/lib/docs/types";
 import { normalizePlate } from "@/lib/rules/plate";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type Done = { ok: true; message: string } | { ok: false; message: string };
-const roles = ["admin", "documentation"] as const;
 const plateSchema = z.string().min(5).max(20);
 
 async function guard<T>(fn: () => Promise<T>, fail: (message: string) => T): Promise<T> {
@@ -21,7 +20,7 @@ async function guard<T>(fn: () => Promise<T>, fail: (message: string) => T): Pro
 
 /** Reads the Available and Sold folders so every car has a row. */
 export async function refreshFoldersAction(): Promise<Done> {
-  await requireRole(...roles);
+  await requireModule("documents");
   return guard<Done>(async () => {
     const r = await refreshFolders();
     revalidatePath("/documents");
@@ -31,7 +30,7 @@ export async function refreshFoldersAction(): Promise<Done> {
 
 /** Looks at the folder's files again (new photos added in Drive show up and wait to be read). */
 export async function rescanAction(plate: string): Promise<Done> {
-  await requireRole(...roles);
+  await requireModule("documents");
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { ok: false, message: "Bad plate." };
   return guard<Done>(async () => {
@@ -43,7 +42,7 @@ export async function rescanAction(plate: string): Promise<Done> {
 
 /** Reads the next couple of photos. The page calls this again until nothing is waiting. */
 export async function readNextAction(plate: string, retryFailed = false): Promise<ReadProgress> {
-  await requireRole(...roles);
+  await requireModule("documents");
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { read: 0, remaining: 0, waitSeconds: null, error: "Bad plate." };
   return guard<ReadProgress>(async () => {
@@ -54,7 +53,7 @@ export async function readNextAction(plate: string, retryFailed = false): Promis
 }
 
 export async function setFileTypesAction(fileId: string, types: string[] | null): Promise<Done> {
-  const user = await requireRole(...roles);
+  const user = await requireModule("documents");
   const id = z.uuid().safeParse(fileId);
   if (!id.success) return { ok: false, message: "Bad file." };
   const chosen = types ? types.filter((t): t is DocType => (CHOOSABLE as string[]).includes(t)) : null;
@@ -67,7 +66,7 @@ export async function setFileTypesAction(fileId: string, types: string[] | null)
 }
 
 export async function setCaseAction(plate: string, value: string): Promise<Done> {
-  const user = await requireRole(...roles);
+  const user = await requireModule("documents");
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { ok: false, message: "Bad plate." };
   const caseType = value === "auto" ? null : (CASES as readonly string[]).includes(value) ? (value as CaseType) : undefined;
@@ -81,7 +80,7 @@ export async function setCaseAction(plate: string, value: string): Promise<Done>
 
 /** Searches Drive for this plate's folder again. */
 export async function relinkAction(plate: string): Promise<Done> {
-  await requireRole(...roles);
+  await requireModule("documents");
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { ok: false, message: "Bad plate." };
   return guard<Done>(async () => {
@@ -94,7 +93,7 @@ export async function relinkAction(plate: string): Promise<Done> {
 }
 
 export async function chooseFolderAction(plate: string, folderId: string): Promise<Done> {
-  await requireRole(...roles);
+  await requireModule("documents");
   const p = plateSchema.safeParse(plate);
   if (!p.success || !folderId) return { ok: false, message: "Bad request." };
   return guard<Done>(async () => {
@@ -105,7 +104,7 @@ export async function chooseFolderAction(plate: string, folderId: string): Promi
 }
 
 export async function moveToSoldAction(plate: string, confirmIncomplete: boolean): Promise<MoveResult> {
-  const user = await requireRole(...roles);
+  const user = await requireModule("documents");
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { ok: false, error: "Bad plate." };
   return guard<MoveResult>(async () => {

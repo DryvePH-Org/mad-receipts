@@ -5,15 +5,18 @@ import { Pill } from "@/components/shared/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireAdmin } from "@/lib/auth";
+import type { Role } from "@/lib/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { CreateUserForm } from "./create-user-form";
+import { AccessDialog } from "./access-dialog";
+import { ActiveToggle } from "./active-toggle";
+import { AddUserButton } from "./add-user-button";
 import { ResetPasswordDialog } from "./reset-password-dialog";
 import { RoleSelect } from "./role-select";
 
 export default function UsersPage() {
   return (
     <div className="space-y-6">
-      <PageHeader title="Users" description="Create accounts, choose each person's role and reset passwords. Nobody can sign up on their own." />
+      <PageHeader title="Users" description="Create accounts, choose each person's role and the modules they can open, reset passwords and disable accounts. Nobody can sign up on their own." actions={<AddUserButton />} />
       <Suspense fallback={<PageSkeleton />}>
         <UsersContent />
       </Suspense>
@@ -21,56 +24,63 @@ export default function UsersPage() {
   );
 }
 
+/** An account is switched off while its ban date is in the future. */
+const isBanned = (until?: string | null) => !!until && Date.parse(until) > Date.now();
+
 async function UsersContent() {
-  await requireAdmin();
+  const me = await requireAdmin();
 
   const admin = createAdminClient();
-  const [{ data: authUsers, error }, { data: profiles }] = await Promise.all([
+  const [{ data: authUsers, error }, base, extra] = await Promise.all([
     admin.auth.admin.listUsers({ perPage: 1000 }),
     admin.from("profiles").select("id, full_name, role"),
+    admin.from("profiles").select("id, module_grants, module_denies"),
   ]);
   if (error) return <p className="text-destructive">Could not load users.</p>;
 
-  const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
+  const profileById = new Map((base.data ?? []).map((p) => [p.id, p]));
+  // Without the latest database update the access columns do not exist: the page still works, without the Access buttons.
+  const accessReady = !extra.error;
+  const accessById = new Map((extra.data ?? []).map((p) => [p.id, p]));
   const users = authUsers.users
     .map((u) => {
-      const profile = profileById.get(u.id);
-      return { id: u.id, email: u.email ?? "", name: profile?.full_name ?? u.email ?? "", role: profile?.role ?? "sales" };
+      const profile = profileById.get(u.id), access = accessById.get(u.id);
+      return {
+        id: u.id, email: u.email ?? "", name: profile?.full_name ?? u.email ?? "", role: (profile?.role ?? "sales") as Role,
+        grants: access?.module_grants ?? [], denies: access?.module_denies ?? [],
+        disabled: isBanned(u.banned_until),
+      };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
-      <Card>
-        <CardHeader>
-          <CardTitle>Add a user</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <CreateUserForm />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>All users ({users.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="-my-2 divide-y">
-            {users.map((u) => (
-              <li key={u.id} className="flex items-center justify-between gap-3 py-3">
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{u.name}</p>
-                  <p className="truncate text-sm text-muted-foreground">{u.email}</p>
-                  <div className="mt-1">
-                    {u.role === "admin" ? <Badge>Admin</Badge> : u.role === "approver" ? <Pill tone="purple">Approver</Pill> : u.role === "documentation" ? <Pill tone="blue">Documentation</Pill> : <Pill tone="grey">Sales</Pill>}
-                  </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>All users ({users.length})</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {!accessReady && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">Per-person access needs the latest database update (migration 18). Roles still work.</p>}
+        <ul className="-my-2 divide-y">
+          {users.map((u) => (
+            <li key={u.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+              <div className="min-w-0">
+                <p className="truncate font-medium">{u.name}</p>
+                <p className="truncate text-sm text-muted-foreground">{u.email}</p>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {u.role === "admin" ? <Badge>Admin</Badge> : u.role === "approver" ? <Pill tone="purple">Approver</Pill> : u.role === "documentation" ? <Pill tone="blue">Documentation</Pill> : <Pill tone="grey">Sales</Pill>}
+                  {u.disabled && <Pill tone="red">Disabled</Pill>}
                 </div>
-                <div className="flex items-center gap-2"><RoleSelect userId={u.id} role={u.role} /><ResetPasswordDialog userId={u.id} name={u.name} /></div>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
-    </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <RoleSelect userId={u.id} role={u.role} />
+                {accessReady && <AccessDialog userId={u.id} name={u.name} role={u.role} grants={u.grants} denies={u.denies} locked={u.id === me.id} />}
+                <ResetPasswordDialog userId={u.id} name={u.name} />
+                <ActiveToggle userId={u.id} name={u.name} active={!u.disabled} self={u.id === me.id} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   );
 }

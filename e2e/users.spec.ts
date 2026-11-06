@@ -1,0 +1,29 @@
+import { expect, test } from "@playwright/test";
+import { credentials } from "./support";
+
+test("Users: adding a person is behind a button, and the page offers disable and access controls", async ({ browser }) => {
+  const page = await (await browser.newContext()).newPage();
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(credentials.admin.email);
+  await page.getByLabel("Password").fill(credentials.admin.password);
+  await page.getByRole("button", { name: "Log in" }).click();
+  await page.waitForURL("**/deals");
+  await page.goto("/admin/users");
+  await expect(page.getByText(/^All users/)).toBeVisible({ timeout: 30_000 });
+  // the form is not on the page until the button is pressed
+  await expect(page.getByLabel("Temporary password")).toHaveCount(0);
+  await page.getByRole("button", { name: "Add a user" }).click();
+  await expect(page.getByRole("dialog").getByLabel("Temporary password")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  // you cannot disable yourself, but you can disable others
+  await expect(page.getByRole("button", { name: "Disable" }).first()).toBeVisible();
+  // per-person access (shown once the latest database update is applied)
+  const access = page.getByRole("button", { name: /^Access/ }).first();
+  if (await access.count()) {
+    await access.click();
+    await expect(page.getByRole("dialog").getByText("Cannot open").first().or(page.getByRole("dialog").getByText("Can open").first())).toBeVisible();
+    await expect(page.getByRole("dialog").getByText("Only with the role").first()).toBeVisible();
+  }
+  await page.close();
+});

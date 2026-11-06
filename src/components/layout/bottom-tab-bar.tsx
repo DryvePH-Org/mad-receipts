@@ -8,11 +8,13 @@ import { InstallButton } from "@/components/pwa/install-button";
 import { ResponsiveDialog } from "@/components/shared/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/lib/auth-actions";
-import { isActivePath, tabBarItems, type Role } from "@/lib/navigation";
+import { isActivePath, tabBarItems, type ModuleId, type Role } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 interface Props {
   role: Role;
+  /** the menu items this person has: their role's, plus or minus what the Admin changed */
+  modules: ModuleId[];
   name: string;
 }
 
@@ -35,9 +37,9 @@ function ActiveView(props: Props) {
 const tab =
   "flex h-full w-full flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors outline-none focus-visible:bg-muted";
 
-function View({ role, name, pathname }: Props & { pathname: string | null }) {
+function View({ role, modules, name, pathname }: Props & { pathname: string | null }) {
   const [moreOpen, setMoreOpen] = useState(false);
-  const { tabs, more } = tabBarItems(role);
+  const { tabs, more } = tabBarItems(role, modules);
   const moreActive = more.some((item) => isActivePath(item.href, pathname));
 
   return (

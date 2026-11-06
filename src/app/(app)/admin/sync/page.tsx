@@ -7,7 +7,7 @@ import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { ResponsiveList } from "@/components/shared/responsive-list";
 import { SyncStatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, requireModule } from "@/lib/auth";
 import { formatManilaDateTime } from "@/lib/dates";
 import { param } from "@/lib/search";
 import { createClient } from "@/lib/supabase/server";
@@ -39,6 +39,7 @@ export default function SyncPage({ searchParams }: PageProps<"/admin/sync">) {
 
 async function SyncContent({ searchParams }: { searchParams: PageProps<"/admin/sync">["searchParams"] }) {
   await requireAdmin();
+  await requireModule("sync");
   const showAll = param((await searchParams).show) === "all";
 
   const supabase = await createClient();

@@ -16,7 +16,7 @@ export function AppShell({ user, children }: { user: CurrentUser; children: Reac
   return (
     <div className="min-h-svh bg-background">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r bg-sidebar lg:block print:hidden">
-        <SidebarNav role={user.role} name={name} />
+        <SidebarNav role={user.role} modules={user.modules} name={name} />
       </aside>
 
       <div className="lg:pl-64 print:pl-0">
@@ -34,7 +34,7 @@ export function AppShell({ user, children }: { user: CurrentUser; children: Reac
         </main>
       </div>
 
-      <BottomTabBar role={user.role} name={name} />
+      <BottomTabBar role={user.role} modules={user.modules} name={name} />
     </div>
   );
 }

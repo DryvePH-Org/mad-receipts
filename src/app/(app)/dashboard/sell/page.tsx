@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { TriangleAlert } from "lucide-react";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
-import { requireRole } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { getSettings } from "@/lib/data";
 import { getSellDashboard } from "@/lib/dashboard";
 import { SELL_SHEET_ID, SheetError, sheetUrl } from "@/lib/dashboard/sheets";
@@ -14,7 +14,7 @@ export default function SellDashboardPage() {
 }
 
 async function Content() {
-  await requireRole("admin", "approver");
+  await requireModule("dashboard");
   const settings = await getSettings();
   let d;
   try { d = await getSellDashboard(settings.dashboard); } catch (e) {
