@@ -61,7 +61,7 @@ export default function LoginPage() {
           <span className="flex size-9 items-center justify-center rounded-lg bg-primary-foreground text-primary">
             <Receipt className="size-5" aria-hidden />
           </span>
-          <span className="text-sm font-semibold">MAD</span>
+          <span className="text-sm font-semibold">MAD Receipts</span>
         </div>
 
         <div className="relative max-w-md space-y-8">

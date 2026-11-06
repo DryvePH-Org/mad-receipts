@@ -26,8 +26,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
-      # Type-checking the whole app (Google APIs + petty cash) needs more than Node's default memory on small machines.
-      - run: npm run typecheck
+      - run: npx next typegen && npx tsc --noEmit
       - run: npm test
       - name: Build (only the two public values are needed)
         run: npm run build

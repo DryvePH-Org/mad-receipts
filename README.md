@@ -1,13 +1,6 @@
-# MAD
+# MAD Receipts
 
-One web app for Manila Auto Display, with two sections:
-
-- **Invoice**: staff fill in an **Acknowledgement of Payment** by hand, attach proofs, and send it for approval. Approved
-  receipts sync to Drive, Sheets, Telegram and the inventory sheet. The design prototype is in `Docs/prototype/`.
-- **PCF** (petty cash fund): vouchers, approvals, replenishments, cash counts and reports, under `/pcf`
-  (see [PCF section](#pcf-section-petty-cash) below).
-
-Live at https://invoice.dryveph.io.
+Staff fill in an **Acknowledgement of Payment** by hand, attach proofs, and send it for approval. Approved receipts sync to Drive, Sheets, Telegram and the inventory sheet. The design prototype is in `Docs/prototype/`.
 
 ## Setup
 
@@ -82,7 +75,7 @@ folder only need to be ones *you* can edit.
 3. **Deploy → New deployment → type: Web app**. *Execute as*: **Me**. *Who has access*: **Anyone**.
    Approve the permission screen (Advanced → Go to project) the first time.
 4. Copy the **Web app URL** (ends in `/exec`) into `APPS_SCRIPT_URL` in `.env.local`.
-5. Check it: opening the URL in a browser should show `MAD bridge is running`.
+5. Check it: opening the URL in a browser should show `MAD Receipts bridge is running`.
    For the car-documents version also paste [`apps-script/appsscript.json`](apps-script/appsscript.json): Project
    Settings → tick **Show "appsscript.json" manifest file in editor**, open it and replace its content. It lists the
    permissions the script needs, including the one for Google's image previews.
@@ -194,31 +187,6 @@ staff, fine) or wrong (never fine). Last run: 53 right, 2 blank, 0 wrong.
 
 Removed from the first version: photo reading and the salespeople/commission pages.
 
-## PCF section (petty cash)
-
-The former PCF web app lives here under `/pcf`: vouchers with receipt photos (and AI reading of receipts and paper
-vouchers), pre-approval of large vouchers, release first and review after, flagging and voiding, replenishments, cash
-counts, reports with CSV export, the audit trail and fund custodians. How each role uses it:
-[`Docs/pcf/USER_GUIDE.md`](Docs/pcf/USER_GUIDE.md).
-
-- **Who gets it.** Each person has a **PCF role** next to their Invoice role (`profiles.pcf_role`: Custodian, Approver,
-  Accounting, Admin, or none), set on the **Users** page. An Admin without one is a PCF admin. The menu shows the **PCF**
-  group only to people with a PCF role, and an Admin can hide single PCF pages from a person with **Access**. Custodians
-  get **Assign funds** on the Users page. A custodian who still holds a fund cannot be disabled or given another PCF role
-  until the fund is reassigned.
-- **Database.** Migrations `20261106000019_petty_cash.sql` (all of PCF's tables, rules and functions, built from its
-  phase 1-19 migrations; changes are marked `MERGE`) and `20261106000020_pcf_module_access.sql`. The database checks the
-  PCF role itself (`app_role()`), so access does not depend on the menu.
-- **Code.** Pages in `src/app/(app)/pcf`, logic in `src/lib/pcf` (server actions in `src/lib/pcf/actions`), components in
-  `src/components/pcf`. `src/lib/pcf/auth.ts` adapts the MAD sign-in to what the PCF code expects.
-- **Email is off.** PCF can email approvers, custodians and accounting (and send a daily summary) through Resend, but
-  only once `RESEND_API_KEY` is set. Until then nothing is sent or logged, and the daily summary job does nothing.
-  To switch it on later: set `RESEND_API_KEY`, `RESEND_FROM` and `APP_URL`; sends then appear in **PCF → Email log**.
-- **Google Drive copies** of voucher photos go through the same Apps Script bridge (`pcf.upload`). Set
-  `PCF_DRIVE_FOLDER_ID` and add that folder id to the script's `ALLOWED_FOLDER_IDS`. Without it photos stay in
-  Supabase Storage only.
-- **Receipt reading** uses the same `GROQ_API_KEY` and `GROQ_VISION_MODEL` as the car documents.
-
 ## Testing
 
 ```bash
@@ -226,11 +194,7 @@ npm test                                         # unit tests + database tests (
 ALLOW_HOSTED_TESTS=yes npm run test:hosted       # the real functions, access rules and storage on the hosted project
 npm run test:e2e                                 # Playwright (installed Chrome): fill in, approve, roles, settings, voice
 npm run test:live                                # the real Groq API (voice), the real inventory sheet and the real car-document folders (read-only)
-npm run test:pcf-db                              # PCF: vouchers, replenishments, access rules and functions on the TEST project
 ```
-
-`test:pcf-db` reads `.env.test.local` (the separate `mad-app-test` Supabase project) and refuses to run unless it
-points there. Seed that project once with `supabase/pcf-test-seed.sql` (test users `admin|custodian|approver|accounting@pcf.local`).
 
 The hosted and browser tests write only marked data (receipts `ZZT-HOSTED…` / `ZZT-E2E…`, users `zzt-…@example.test`)
 and remove it before and after. Run them only while the hosted project holds no real data, or against a test project.
@@ -278,14 +242,10 @@ Caddyfile (backed up first, checked before it is applied, undone automatically i
 
 **Before anything:** take a snapshot in hPanel → VPS → Snapshots (it keeps one copy; a new one replaces it).
 
-**Server already running under the old name?** The app used to be installed as `mad-receipts` in `/opt/mad-receipts`.
-Run the one-time switch-over once (it keeps the site up and undoes itself if anything fails):
-`cd /opt/mad-receipts && git pull --ff-only && bash deploy/switch-to-mad-app.sh`.
-
 1. **DNS:** an `A` record `invoice` → the VPS IP (already done for `invoice.dryveph.io`).
 2. **Get the code** (SSH as root, or hPanel → VPS → Browser terminal):
    ```bash
-   git clone https://github.com/DryvePH-Org/mad-app.git /opt/mad-app && cd /opt/mad-app
+   git clone https://github.com/DryvePH-Org/mad-receipts.git /opt/mad-receipts && cd /opt/mad-receipts
    cp .env.example .env && nano .env      # fill in the values; add: CRON_SECRET=<output of: openssl rand -hex 24>
    chmod 600 .env
    ```
@@ -296,11 +256,11 @@ Run the one-time switch-over once (it keeps the site up and undoes itself if any
 4. **Supabase** → Authentication → URL Configuration: set **Site URL** to `https://invoice.dryveph.io`.
 5. **Smoke test:** log in, create a receipt with a proof, approve it, check the Drive file, Sheets row, Telegram message and the
    REMARKS cell. On a phone use **Add to Home Screen** (HTTPS is required).
-6. **Updates:** `bash /opt/mad-app/deploy/update.sh` (pulls, rebuilds and restarts only this app).
+6. **Updates:** `bash /opt/mad-receipts/deploy/update.sh` (pulls, rebuilds and restarts only this app).
 7. **Undo everything:** `bash deploy/rollback.sh <the Caddyfile backup path printed by the installer>`.
 
-Background jobs run from `/etc/cron.d/mad-app` (sync every 5 minutes; reminder and PCF daily summary at 8:00 AM Manila).
-Logs: `docker logs -f mad-app`. Status: `docker ps`.
+Background jobs run from `/etc/cron.d/mad-receipts` (sync every 5 minutes, reminder daily 8:00 AM Manila).
+Logs: `docker logs -f mad-receipts`. Status: `docker ps`.
 
 ### Automatic deploys (GitHub Actions)
 Every push to `main` runs **CI** (lint, typecheck, unit tests, production build). Only if it passes, **Deploy** logs in to
@@ -310,8 +270,8 @@ one deploy runs at a time. Pull requests run CI but never deploy. One-time setup
 
 1. On the server, allow the key (replace `<PUBLIC KEY>` with the line from `deploy_key.pub`):
    ```bash
-   cd /opt/mad-app && git pull
-   mkdir -p ~/.ssh && echo 'restrict,command="/opt/mad-app/deploy/ci-deploy.sh" <PUBLIC KEY>' >> ~/.ssh/authorized_keys
+   cd /opt/mad-receipts && git pull
+   mkdir -p ~/.ssh && echo 'restrict,command="/opt/mad-receipts/deploy/ci-deploy.sh" <PUBLIC KEY>' >> ~/.ssh/authorized_keys
    ```
 2. In GitHub → repo → Settings → Secrets and variables → Actions, add `DEPLOY_SSH_KEY` (the private key file),
    `DEPLOY_KNOWN_HOSTS` (the server's host key line) and `DEPLOY_HOST` (the server IP).
@@ -330,7 +290,7 @@ one deploy runs at a time. Pull requests run CI but never deploy. One-time setup
 Admin → **Sync jobs** shows what is waiting or failed, with **Retry now** and **Run due jobs now**.
 
 ### Rotate keys
-Edit `/opt/mad-app/.env`, then `docker compose up -d` in that folder (rebuild with `update.sh` if a
+Edit `/opt/mad-receipts/.env`, then `docker compose up -d` in that folder (rebuild with `update.sh` if a
 `NEXT_PUBLIC_*` value changed). For the Apps Script secret, change the script property too.
 
 _Deploys are automatic: pushes to `main` that pass CI go live._

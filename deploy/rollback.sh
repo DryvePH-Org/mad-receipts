@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Removes MAD from the server and restores the Caddyfile to how it was before.
+# Removes MAD Receipts from the server and restores the Caddyfile to how it was before.
 # Usage: bash deploy/rollback.sh /path/to/Caddyfile.bak-YYYYMMDD-HHMMSS
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -9,5 +9,5 @@ SRC=$(docker inspect "$CADDY" --format '{{range .Mounts}}{{if eq .Destination "/
 cp -p "$BACKUP" "$SRC"
 docker exec "$CADDY" caddy reload --config /etc/caddy/Caddyfile
 docker compose down
-rm -f /etc/cron.d/mad-app
-echo "MAD is stopped and the Caddyfile is restored. Its folder and .env are kept."
+rm -f /etc/cron.d/mad-receipts
+echo "MAD Receipts is stopped and the Caddyfile is restored. Its folder and .env are kept."

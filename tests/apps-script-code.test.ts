@@ -151,7 +151,7 @@ describe("access control", () => {
     expect(raw.ok).toBe(false);
     expect(JSON.parse((s.sandbox.doGet as () => { text: string })().text)).toEqual({
       ok: true,
-      data: "MAD bridge is running",
+      data: "MAD Receipts bridge is running",
     });
   });
 });

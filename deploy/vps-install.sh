@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Adds MAD to a VPS that already runs other Docker projects behind a Caddy container.
+# Adds MAD Receipts to a VPS that already runs other Docker projects behind a Caddy container.
 # It never touches the other projects' containers, volumes or data. Its only edit to anything shared is ONE
 # site block in the Caddyfile, with a backup, a validity check before applying, and an automatic undo on failure.
 #
-# Run as root from /opt/mad-app:   DOMAIN=invoice.dryveph.io bash deploy/vps-install.sh
+# Run as root from /opt/mad-receipts:   DOMAIN=invoice.dryveph.io bash deploy/vps-install.sh
 set -euo pipefail
 : "${DOMAIN:?Set DOMAIN, e.g. DOMAIN=invoice.dryveph.io}"
 cd "$(dirname "$0")/.."
@@ -32,8 +32,8 @@ NET=$(docker inspect "$CADDY" --format '{{range $k,$v := .NetworkSettings.Networ
 [ -n "$NET" ] || die "Could not find the Caddy container's network."
 echo "Caddy's Docker network: $NET"
 
-if grep -q "BEGIN mad-app" "$CADDYFILE_SRC"; then
-  echo "The Caddyfile already has the MAD block; leaving it as is."
+if grep -q "BEGIN mad-receipts" "$CADDYFILE_SRC"; then
+  echo "The Caddyfile already has the MAD Receipts block; leaving it as is."
 elif grep -Eq "^[[:space:]]*(https?://)?${DOMAIN//./\\.}[[:space:],{]" "$CADDYFILE_SRC"; then
   die "$DOMAIN is already used in the Caddyfile by something else. Nothing was changed."
 fi
@@ -57,17 +57,17 @@ echo "Backup: $BACKUP"
 say "5/7 Starting the app (it publishes no ports)"
 docker compose up -d
 for i in $(seq 1 30); do
-  [ "$(docker inspect -f '{{.State.Health.Status}}' mad-app 2>/dev/null)" = "healthy" ] && break
+  [ "$(docker inspect -f '{{.State.Health.Status}}' mad-receipts 2>/dev/null)" = "healthy" ] && break
   sleep 2
 done
-[ "$(docker inspect -f '{{.State.Health.Status}}' mad-app)" = "healthy" ] || { docker logs --tail 40 mad-app; die "The app did not become healthy. The Caddyfile was not changed."; }
+[ "$(docker inspect -f '{{.State.Health.Status}}' mad-receipts)" = "healthy" ] || { docker logs --tail 40 mad-receipts; die "The app did not become healthy. The Caddyfile was not changed."; }
 
 say "6/7 Adding ONE site block to Caddy, checking it, then reloading without a restart"
-if ! grep -q "BEGIN mad-app" "$CADDYFILE_SRC"; then
+if ! grep -q "BEGIN mad-receipts" "$CADDYFILE_SRC"; then
   {
-    printf '\n# BEGIN mad-app (added by deploy/vps-install.sh; delete these lines to remove)\n'
-    printf '%s {\n\tencode zstd gzip\n\trequest_body {\n\t\tmax_size 12MB\n\t}\n\treverse_proxy mad-app:3000\n}\n' "$DOMAIN"
-    printf '# END mad-app\n'
+    printf '\n# BEGIN mad-receipts (added by deploy/vps-install.sh; delete these lines to remove)\n'
+    printf '%s {\n\tencode zstd gzip\n\trequest_body {\n\t\tmax_size 12MB\n\t}\n\treverse_proxy mad-receipts:3000\n}\n' "$DOMAIN"
+    printf '# END mad-receipts\n'
   } >> "$CADDYFILE_SRC"
 fi
 undo() { cp -p "$BACKUP" "$CADDYFILE_SRC"; docker exec "$CADDY" caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || true; die "$1 The Caddyfile was restored from the backup."; }
@@ -75,11 +75,16 @@ docker exec "$CADDY" caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&
 docker exec "$CADDY" caddy reload --config /etc/caddy/Caddyfile || undo "Caddy could not reload."
 
 say "7/7 Scheduled jobs (host cron) and checks"
-sed "s|@DIR@|$PWD|g" deploy/crontab > /etc/cron.d/mad-app
-chmod 644 /etc/cron.d/mad-app
+cat > /etc/cron.d/mad-receipts <<CRON
+# Background sync every 5 minutes; balance reminder daily at 8:00 AM Manila time (00:00 UTC).
+CRON_TZ=UTC
+*/5 * * * * root $PWD/deploy/run-cron.sh /api/sync/run
+0 0 * * * root $PWD/deploy/run-cron.sh /api/reminders/run
+CRON
+chmod 644 /etc/cron.d/mad-receipts
 
 echo; echo "Other projects still running:"
-docker ps --format '  {{.Names}}\t{{.Status}}' | grep -v mad-app || true
+docker ps --format '  {{.Names}}\t{{.Status}}' | grep -v mad-receipts || true
 echo
 echo "Done. Give HTTPS a minute to be issued, then open https://$DOMAIN"
 echo "To undo the Caddy change: cp -p $BACKUP $CADDYFILE_SRC && docker exec $CADDY caddy reload --config /etc/caddy/Caddyfile"
