@@ -89,3 +89,11 @@ export function parseCsv(text: string): string[][] {
   if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
   return rows;
 }
+
+/** What a dashboard says about how complete and fresh its numbers are. */
+export interface DataNotes {
+  /** tabs that exist but could not be read: their numbers are missing from the page */
+  failed: string[];
+  /** set when some of the data is an older copy, because Google could not be reached: when that copy was read (ISO) */
+  staleSince: string | null;
+}

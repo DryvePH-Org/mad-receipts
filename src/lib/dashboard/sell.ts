@@ -193,6 +193,7 @@ export function waitingFor(s: Sale): { label: string; owes: number } {
 }
 
 export interface SellDashboard {
+  notes: import("./parse").DataNotes;
   today: string;
   /** the goal of units released each month */
   /** the target of units released this month (set by the Admin) */
@@ -228,6 +229,7 @@ export function buildSellDashboard(input: { today: string; sold: { tab: string; 
   const statuses = new Map<string, number>();
   for (const e of entries) if (e.date?.startsWith(month)) statuses.set(e.status || "NO STATUS", (statuses.get(e.status || "NO STATUS") ?? 0) + 1);
   return {
+    notes: { failed: [], staleSince: null },
     today: input.today, goal: goalFor(goals, month, "sell"),
     releasedThisMonth: releasedAll.filter((s) => s.releaseDate!.startsWith(month)).length,
     releasedToday: releasedAll.filter((s) => s.releaseDate === input.today),

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { DataNotes } from "@/lib/dashboard/parse";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
@@ -48,6 +49,18 @@ export function Grid({ head, rows, right = [] }: { head: string[]; rows: ReactNo
           ))}
         </TableBody>
       </Table>
+    </div>
+  );
+}
+
+/** Says so when some numbers are missing or old, so a gap is never mistaken for a zero. Shows nothing when all is well. */
+export function DataBanner({ notes, url }: { notes: DataNotes; url: string }) {
+  if (!notes.failed.length && !notes.staleSince) return null;
+  const at = notes.staleSince ? new Date(notes.staleSince).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Manila" }) : "";
+  return (
+    <div role="alert" className="space-y-1 rounded-xl bg-amber-50 p-4 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+      {notes.failed.length > 0 && <p><b className="font-medium">Some of the sheet could not be read</b> ({notes.failed.join(", ")}), so the numbers below may be too low. Press Refresh now, or <a href={url} target="_blank" rel="noreferrer" className="underline">check the sheet</a>.</p>}
+      {notes.staleSince && <p><b className="font-medium">Google Sheets could not be reached.</b> Part of this page is the last good copy, read at {at}. It may be out of date.</p>}
     </div>
   );
 }

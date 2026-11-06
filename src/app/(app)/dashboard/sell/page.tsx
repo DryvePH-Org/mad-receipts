@@ -7,7 +7,7 @@ import { getSellDashboard } from "@/lib/dashboard";
 import { SELL_SHEET_ID, SheetError, sheetUrl } from "@/lib/dashboard/sheets";
 import { formatDate } from "@/lib/dates";
 import { PendingBoard, ReleasedBoard } from "../boards";
-import { Empty, Grid, names, peso, Section, SheetProblem, Stat } from "../parts";
+import { DataBanner, Empty, Grid, names, peso, Section, SheetProblem, Stat } from "../parts";
 
 export default function SellDashboardPage() {
   return <Suspense fallback={<PageSkeleton />}><Content /></Suspense>;
@@ -23,6 +23,7 @@ async function Content() {
   const pct = Math.round((d.releasedThisMonth / d.goal) * 100);
   return (
     <div className="space-y-6">
+      <DataBanner notes={d.notes} url={sheetUrl(SELL_SHEET_ID)} />
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
         <Stat href="#released" label="Released this month" value={`${d.releasedThisMonth}/${d.goal}`} sub={`${pct}% of the goal`} />
         <Stat href="#today" label="Released today" value={String(d.releasedToday.length)} sub={peso(d.releasedToday.reduce((n, s) => n + (s.agreedPrice ?? 0), 0))} />
