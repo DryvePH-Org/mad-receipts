@@ -74,10 +74,6 @@ async function loadTabInfo(sheetId: string): Promise<{ name: string; gid: string
   return tabs;
 }
 
-export async function listTabs(sheetId: string): Promise<string[]> {
-  return (await listTabInfo(sheetId)).map((t) => t.name);
-}
-
 /** A link that opens the sheet on one row of one tab. */
 export const rowLink = (sheetId: string, gid: string | undefined, row: number) => (gid ? `https://docs.google.com/spreadsheets/d/${sheetId}/edit#gid=${gid}&range=A${row}` : null);
 
@@ -110,7 +106,6 @@ export async function readTabs(sheetId: string, wanted: string[]): Promise<{ tab
   };
 }
 
-export const noNotes: DataNotes = { failed: [], staleSince: null };
 export function mergeNotes(...all: DataNotes[]): DataNotes {
   const since = all.map((n) => n.staleSince).filter((x): x is string => !!x).sort();
   return { failed: all.flatMap((n) => n.failed), staleSince: since[0] ?? null };

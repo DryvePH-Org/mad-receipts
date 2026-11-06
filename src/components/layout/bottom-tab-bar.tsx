@@ -79,23 +79,31 @@ function View({ role, modules, name, pathname }: Props & { pathname: string | nu
 
       <ResponsiveDialog open={moreOpen} onOpenChange={setMoreOpen} title="More" description={name}>
         <div className="space-y-4">
-          {more.length > 0 && (
-            <ul className="divide-y rounded-lg border">
-              {more.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    onClick={() => setMoreOpen(false)}
-                    aria-current={isActivePath(item.href, pathname) ? "page" : undefined}
-                    className="flex items-center gap-3 px-3 py-3 text-sm font-medium"
-                  >
-                    <item.icon className="size-5 text-muted-foreground" aria-hidden />
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
+          {/* Grouped like the sidebar: Invoice, PCF, Administration. */}
+          {(["Invoice", "PCF", "Administration"] as const).map((group) => {
+            const items = more.filter((item) => item.group === group);
+            if (items.length === 0) return null;
+            return (
+              <section key={group} className="space-y-1.5">
+                <h3 className="px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">{group}</h3>
+                <ul className="divide-y rounded-lg border">
+                  {items.map((item) => (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        onClick={() => setMoreOpen(false)}
+                        aria-current={isActivePath(item.href, pathname) ? "page" : undefined}
+                        className="flex items-center gap-3 px-3 py-3 text-sm font-medium"
+                      >
+                        <item.icon className="size-5 text-muted-foreground" aria-hidden />
+                        {item.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
           <InstallButton className="w-full" />
           <form action={logout}>
             <Button type="submit" variant="outline" className="w-full">

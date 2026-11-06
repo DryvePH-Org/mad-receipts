@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { ADMIN_FLOOR, GRANTABLE, isModuleId, type ModuleId } from "@/lib/navigation";
+import { heldFunds, heldFundsMessage } from "@/lib/pcf/held-funds";
+import { queueNotification } from "@/lib/pcf/notifications/deliver";
+import { notifyUserAccessChanged, notifyUserRoleChanged } from "@/lib/pcf/notifications/events";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type ActionResult = { ok: boolean; message: string } | null;
@@ -140,9 +143,45 @@ export async function setUserActive(userId: string, active: boolean): Promise<{ 
   const admin = createAdminClient();
   const { data: target } = await admin.from("profiles").select("full_name, role").eq("id", id.data).single();
   if (!active && target?.role === "admin" && (await adminCount(admin)) <= 1) return { ok: false, message: "That is the only Admin." };
+  // A PCF custodian must hand over their funds first, so no fund is left without its custodian.
+  if (!active) {
+    const held = await heldFunds(id.data);
+    if (held.length > 0) return { ok: false, message: heldFundsMessage(held.map((f) => f.name)) };
+  }
   const { error } = await admin.auth.admin.updateUserById(id.data, { ban_duration: active ? "none" : "876000h" });
   if (error) return { ok: false, message: active ? "Could not enable the account." : "Could not disable the account." };
+  // PCF checks this flag in the database too.
+  await admin.from("profiles").update({ is_active: active }).eq("id", id.data);
+  const { data: pcf } = await admin.from("profiles").select("pcf_role").eq("id", id.data).single();
+  if (pcf?.pcf_role) queueNotification("user.access_changed", () => notifyUserAccessChanged(id.data, active, actor.id));
   await admin.from("audit_logs").insert({ actor_id: actor.id, action: active ? "user.enable" : "user.disable", entity: "user", entity_id: id.data, after: { full_name: target?.full_name } });
   revalidatePath("/admin/users");
   return { ok: true, message: active ? "Account enabled." : "Account disabled. They can no longer log in." };
+}
+
+const pcfRoleSchema = z.object({ userId: z.uuid(), pcfRole: z.enum(["none", "custodian", "approver", "accounting", "admin"]) });
+
+/**
+ * Sets someone's PCF role ("none" takes PCF away; an Admin without one is a PCF admin anyway).
+ * Nobody changes their own, and a custodian keeps the role until their funds are handed to someone else.
+ */
+export async function changePcfRole(userId: string, pcfRole: string): Promise<{ ok: boolean; message: string }> {
+  const actor = await requireAdmin();
+  const parsed = pcfRoleSchema.safeParse({ userId, pcfRole });
+  if (!parsed.success) return { ok: false, message: "That PCF role is not valid." };
+  if (parsed.data.userId === actor.id) return { ok: false, message: "You cannot change your own PCF role. Ask another Admin." };
+  const next = parsed.data.pcfRole === "none" ? null : parsed.data.pcfRole;
+  const admin = createAdminClient();
+  const { data: before, error: readError } = await admin.from("profiles").select("full_name, pcf_role").eq("id", parsed.data.userId).single();
+  if (readError || !before) return { ok: false, message: "Could not read that user. Has the PCF database update been applied?" };
+  if (before.pcf_role === "custodian" && next !== "custodian") {
+    const held = await heldFunds(parsed.data.userId);
+    if (held.length > 0) return { ok: false, message: heldFundsMessage(held.map((f) => f.name)) };
+  }
+  const { error } = await admin.from("profiles").update({ pcf_role: next }).eq("id", parsed.data.userId);
+  if (error) return { ok: false, message: "Could not change the PCF role." };
+  await admin.from("audit_logs").insert({ actor_id: actor.id, action: "user.pcf_role", entity: "user", entity_id: parsed.data.userId, before: { pcf_role: before.pcf_role }, after: { full_name: before.full_name, pcf_role: next } });
+  if (next) queueNotification("user.role_changed", () => notifyUserRoleChanged(parsed.data.userId, next, actor.id));
+  revalidatePath("/admin/users");
+  return { ok: true, message: next ? "PCF role changed." : "PCF access removed." };
 }

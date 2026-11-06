@@ -162,3 +162,14 @@
   html, body { background: #fff; }
   * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }
+
+/* PCF: a line moving up and down over a voucher photo while it is being read. */
+@keyframes pcf-scan-line {
+  0% { top: 0; }
+  50% { top: calc(100% - 3px); }
+  100% { top: 0; }
+}
+.pcf-scan-line { animation: pcf-scan-line 1.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .pcf-scan-line { animation: none; top: 50%; }
+}

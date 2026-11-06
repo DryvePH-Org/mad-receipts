@@ -1,17 +1,19 @@
 {
-  "name": "mad-receipts",
+  "name": "mad-app",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "NODE_OPTIONS=--max-old-space-size=4096 next build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
     "db:types": "supabase gen types typescript --linked > src/lib/supabase/database.types.ts",
     "test:hosted": "vitest run --config vitest.hosted.config.mts",
     "test:e2e": "playwright test",
-    "test:live": "vitest run --config vitest.live.config.mts"
+    "test:live": "vitest run --config vitest.live.config.mts",
+    "test:pcf-db": "vitest run --config vitest.pcf-db.config.mts",
+    "typecheck": "next typegen && NODE_OPTIONS=--max-old-space-size=4096 tsc --noEmit"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
@@ -21,6 +23,8 @@
     "browser-image-compression": "^2.0.2",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.1",
+    "date-fns": "^4.4.0",
+    "date-fns-tz": "^3.2.0",
     "googleapis": "^189.0.0",
     "lucide-react": "^1.66.0",
     "next": "16.4.3",
@@ -28,6 +32,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-hook-form": "^7.91.0",
+    "recharts": "^3.10.1",
     "server-only": "^0.0.1",
     "shadcn": "^4.23.0",
     "sonner": "^2.0.8",

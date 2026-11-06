@@ -14,8 +14,8 @@ describe("navigation", () => {
   });
 
   it("groups the sidebar into Operations and Administration (Sales have no Administration)", () => {
-    expect(navGroups("admin").map((g) => [g.label, g.items.length])).toEqual([["Operations", 9], ["Administration", 3]]);
-    expect(navGroups("sales").map((g) => g.label)).toEqual(["Operations"]);
+    expect(navGroups("admin").map((g) => [g.label, g.items.length])).toEqual([["Invoice", 9], ["Administration", 3]]);
+    expect(navGroups("sales").map((g) => g.label)).toEqual(["Invoice"]);
   });
 
   it("the phone tab bar shows four items and puts the rest in More", () => {
@@ -32,6 +32,10 @@ describe("navigation", () => {
     expect(isActivePath("/deals", "/dealsheet")).toBe(false);
     expect(isActivePath("/admin/users", "/admin/sync")).toBe(false);
     expect(isActivePath("/deals", null)).toBe(false);
+    // the petty cash home is not highlighted on a petty cash page that has its own item
+    expect(isActivePath("/pcf", "/pcf")).toBe(true);
+    expect(isActivePath("/pcf", "/pcf/vouchers/new")).toBe(false);
+    expect(isActivePath("/pcf/vouchers", "/pcf/vouchers/new")).toBe(true);
   });
 
   it("a person's modules are the role's, plus granted ones, minus hidden ones", () => {
