@@ -14,7 +14,8 @@ import type { Ledger, Totals } from "@/lib/deal/math";
 import type { AppSettings } from "@/lib/deal/settings";
 import { unitFieldId, type Missing, type Warning } from "@/lib/deal/validate";
 import { KIND_LABELS, type FormState, type MethodRow, type PaymentKind, type UnitInput } from "@/lib/deal/types";
-import { formatPeso } from "@/lib/rules/money";
+import { formatDate } from "@/lib/dates";
+import { formatPeso, toCentavos } from "@/lib/rules/money";
 import { cn } from "@/lib/utils";
 import { brandOf, emptyMethod, emptyUnit, prettyPhone, switchDpMode, switchFeeMode, type DpMode, type FeeMode, type FinUi } from "./form-state";
 import { Chip, PickCards, Seg, Switch } from "./form-parts";
@@ -26,6 +27,10 @@ export interface Ctx {
   s: FormState; t: Totals; ledger: Ledger; sources: { rows: { label: string; note: string; amount: number }[]; total: number; proves: boolean };
   set: (p: Partial<FormState>) => void; fin: FinUi; setFin: (f: FinUi) => void; settings: AppSettings; userId: string; inventory: InvUnit[];
   missing: Missing[]; warnings: Warning[]; linked: boolean; go: (target: string, step: number) => void; dpResolved: { dpC: number };
+  /** earnest money: no earlier payments, shown as 0 until the user unlocks it */
+  earlierLocked: boolean; unlockEarlier: () => void;
+  /** full payment: cash is exactly what is left, until the user unlocks it */
+  cashAuto: boolean; unlockCash: () => void;
 }
 
 const bad = (ctx: Ctx, id: string) => ctx.missing.some((m) => m.target === id);
@@ -238,13 +243,19 @@ export function StepPayment({ ctx }: { ctx: Ctx }) {
     <>
       <Card><Title icon={<HandCoins className="size-4" />} title="This payment" desc="What kind of payment, and how the money came in" />
         <CardContent className="space-y-5">
+          {s.hasLieu && (
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-muted px-3 py-2 text-sm"><ShieldCheck className="size-4 shrink-0" aria-hidden /><b>In lieu of documents</b>
+              <span>{s.lieuAmount ? <b className="tabular-nums">{formatPeso(toCentavos(s.lieuAmount) ?? 0)}</b> : "no amount yet"}{s.lieuUntil ? ` to be paid on or before ${formatDate(s.lieuUntil)}` : ""}.</span>
+              <span className="text-xs text-muted-foreground">We hold the buyer&apos;s documents until then. It is not part of the math.</span></p>
+          )}
           <PickCards label="Kind of payment" value={s.kind} onChange={(kind: PaymentKind) => set({ kind })} options={[
             { value: "earnest", title: KIND_LABELS.earnest, hint: "Reserves the unit", icon: <Coins className="size-5" /> },
             { value: "partial", title: KIND_LABELS.partial, hint: "Part of the amount due", icon: <Banknote className="size-5" /> },
             { value: "full", title: KIND_LABELS.full, hint: "Nothing is left", icon: <ShieldCheck className="size-5" /> }]} />
           <div className="space-y-3">
             <div className="grid grid-cols-[7rem_1fr] items-center gap-3"><span className="flex items-center gap-2 font-medium"><Banknote className="size-4" aria-hidden /> Cash</span>
-              <MoneyInput id="cash" aria-label="Cash amount" value={s.cash} onChange={(v) => set({ cash: v })} invalid={bad(ctx, "cash")} /></div>
+              <MoneyInput id="cash" aria-label="Cash amount" value={s.cash} onChange={(v) => set({ cash: v })} invalid={bad(ctx, "cash")} disabled={ctx.cashAuto} /></div>
+            {ctx.cashAuto && <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground sm:pl-[7.75rem]">Full payment: cash is exactly what is left to pay, so nothing is left over.<Button type="button" variant="outline" size="sm" onClick={ctx.unlockCash}><Pencil className="size-3.5" /> Edit</Button></p>}
             <div className="sm:pl-[7.75rem]"><ProofBox id="cash-proof" userId={userId} files={s.cashProofs} onChange={(f) => set({ cashProofs: f })} label="Attach photo of the cash" hint="Required when cash is entered" need={proofs && !!t.today && !!s.cash && s.cashProofs.length === 0 || bad(ctx, "cash-proof")} /></div>
             {s.methods.map((m, i) => (
               <div key={i} className="space-y-2 border-t pt-3">
@@ -275,7 +286,7 @@ export function StepPayment({ ctx }: { ctx: Ctx }) {
 
       <Card><Title icon={<Banknote className="size-4" />} title="Balance" desc="What is left after everything received" />
         <CardContent className="space-y-5">
-          <div className="max-w-xs"><FormField id="earlier" label="Earlier payments" hint={ctx.linked ? "Every receipt already on this deal, counted for you." : "Received before today, for example on a paper receipt."}><MoneyInput id="earlier" value={s.earlier} onChange={(v) => set({ earlier: v })} disabled={ctx.linked} /></FormField></div>
+          <div className="max-w-xs"><FormField id="earlier" label="Earlier payments" hint={ctx.linked ? "Every receipt already on this deal, counted for you." : ctx.earlierLocked ? "Earnest money is the first payment, so nothing was paid before. Press Edit if something was." : "Received before today, for example on a paper receipt."}><div className="flex gap-2"><MoneyInput id="earlier" value={s.earlier} onChange={(v) => set({ earlier: v })} disabled={ctx.linked || ctx.earlierLocked} />{ctx.earlierLocked && <Button type="button" variant="outline" onClick={ctx.unlockEarlier}><Pencil className="size-4" /> Edit</Button>}</div></FormField></div>
           {t.due < 0 && (
             <div className="space-y-3 rounded-lg bg-amber-50 p-4 text-amber-950 dark:bg-amber-500/10 dark:text-amber-100">
               <p className="font-medium">The buyer&apos;s car is worth more than their share</p>

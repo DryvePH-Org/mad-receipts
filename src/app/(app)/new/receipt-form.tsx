@@ -32,7 +32,7 @@ function initial(settings: AppSettings, today: string, cont: ContinueDeal | null
   if (!cont) return { form: base, fin: emptyFin() };
   const t = cont.terms;
   const form: FormState = {
-    ...base, ...t, receiptNo: "", date: today, kind: "partial", earlier: String(cont.committed / 100), cash: "", cashProofs: [], methods: [], payout: "", payoutProofs: [],
+    ...base, ...t, receiptNo: "", date: today, kind: "partial", earlier: prettyMoney(String(cont.committed / 100)), cash: "", cashProofs: [], methods: [], payout: "", payoutProofs: [],
     units: t.units?.length ? t.units : base.units, ti: { ...base.ti, ...t.ti }, notes: t.notes?.length ? t.notes : base.notes,
   };
   return { form, fin: { ...emptyFin(), dpIn: prettyMoney(form.dp), feeMode: "amount", feeIn: prettyMoney(form.fee), feeTouched: true } };
@@ -50,21 +50,34 @@ export function ReceiptForm({ userId, today, settings, inventory, liveDeals, con
   const [result, setResult] = useState<Extract<SubmitResult, { ok: true }> | null>(null);
   const [layout, setLayout] = useState<PaperLayout>("form");
   const linked = continueDeal?.id ?? null;
+  // Earnest money has no earlier payments and a full payment is exactly what is left: both are filled in for the user, and can be unlocked.
+  const [earlierUnlocked, setEarlierUnlocked] = useState(false);
+  const [cashUnlocked, setCashUnlocked] = useState(false);
+  const earlierLocked = !linked && form.kind === "earnest" && !earlierUnlocked;
+  const cashAuto = form.kind === "full" && !cashUnlocked;
 
   const resolved = resolveFinance(form.price, fin);
-  const s: FormState = useMemo(() => ({ ...form, dp: form.sale === "financing" ? resolved.dp : "", fee: form.sale === "financing" ? resolved.fee : "" }), [form, resolved.dp, resolved.fee]);
+  const base: FormState = useMemo(() => ({ ...form, earlier: earlierLocked ? "0" : form.earlier, dp: form.sale === "financing" ? resolved.dp : "", fee: form.sale === "financing" ? resolved.fee : "" }), [form, resolved.dp, resolved.fee, earlierLocked]);
+  // what is left to pay once everything but cash is counted: a full payment is exactly that
+  const leftC = useMemo(() => Math.max(0, workOut({ ...base, cash: "" }).t.balance), [base]);
+  const leftText = leftC > 0 ? (leftC / 100).toLocaleString("en-US", { maximumFractionDigits: 2 }) : "";
+  const s: FormState = useMemo(() => (cashAuto ? { ...base, cash: leftText } : base), [base, cashAuto, leftText]);
   const { t, ledger, sources } = useMemo(() => workOut(s), [s]);
   const dup = !linked ? liveDeals.find((d) => s.units.some((u) => norm(u.plate) && d.plateNos.includes(norm(u.plate)))) : undefined;
   const missing = useMemo(() => missingFields(s, t, settings, { continuing: !!linked, duplicateDeal: dup?.dealNo }), [s, t, settings, linked, dup]);
   const warnings = useMemo(() => warningsFor(s, t, settings), [s, t, settings]);
 
-  const set = (p: Partial<FormState>) => { setForm((f) => ({ ...f, ...p })); setConfirmed(false); };
+  const set = (p: Partial<FormState>) => {
+    if (p.kind && p.kind !== form.kind) { setEarlierUnlocked(false); setCashUnlocked(false); }
+    setForm((f) => ({ ...f, ...p })); setConfirmed(false);
+  };
   function show(n: number) { setStep(n); setVisited((v) => new Set([...v, ...Array.from({ length: n }, (_, i) => i + 1)])); window.scrollTo({ top: 0 }); }
   function go(target: string, to: number) {
     show(to);
     setTimeout(() => { const el = document.getElementById(target); if (el) { el.scrollIntoView({ block: "center" }); el.focus({ preventScroll: true }); } }, 80);
   }
-  const ctx: Ctx = { s, t, ledger, sources, set, fin, setFin: (f) => { setFin(f); setConfirmed(false); }, settings, userId, inventory, missing, warnings, linked: !!linked, go, dpResolved: { dpC: resolved.dpC } };
+  const ctx: Ctx = { s, t, ledger, sources, set, fin, setFin: (f) => { setFin(f); setConfirmed(false); }, settings, userId, inventory, missing, warnings, linked: !!linked, go, dpResolved: { dpC: resolved.dpC },
+    earlierLocked, unlockEarlier: () => setEarlierUnlocked(true), cashAuto, unlockCash: () => { setForm((f) => ({ ...f, cash: leftText })); setCashUnlocked(true); setConfirmed(false); } };
 
   // What the voice reader heard goes into the form; what staff already typed stays (unless they ask otherwise).
   function heard(p: VoiceProposal, overwrite: boolean): VoiceOutcome {

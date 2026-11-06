@@ -93,8 +93,10 @@ test("the whole flow: Sales fills in, the Approver approves, the numbers agree",
   const approver = await as(browser, "approver");
   await approver.goto("/approvals");
   await expect(approver.getByText(NO(1)).first()).toBeVisible();
-  await expect(approver.getByText("Balance after this receipt")).toBeVisible();
-  await approver.getByRole("button", { name: "Approve" }).first().click();
+  // other people's receipts may be waiting too: work only on this test's own card
+  const card = approver.locator("div.ring-1").filter({ hasText: NO(1) }).filter({ has: approver.getByRole("button", { name: "Approve" }) }).first();
+  await expect(card.getByText("Balance after this receipt")).toBeVisible();
+  await card.getByRole("button", { name: "Approve" }).click();
   const read = async () => (await admin.from("deal_summaries").select("id, balance, approved_paid, opening_paid").eq("buyer_name", "ZZT E2E Maria Santos").single()).data;
   await expect.poll(async () => Number((await read())?.approved_paid)).toBe(40000);
   const after = await read();
@@ -103,6 +105,43 @@ test("the whole flow: Sales fills in, the Approver approves, the numbers agree",
   await expect(sales.getByText("Adds up").first()).toBeVisible();
   await expect(sales.getByText("Waiting for lender").first()).not.toBeVisible().catch(() => undefined);
   await sales.close(); await approver.close();
+});
+
+test("continuing a deal fills in at once; earnest money and a full payment work themselves out", async ({ browser }) => {
+  const sales = await as(browser, "sales");
+  // a car that already has an open deal offers to continue it, and the deal's details are there at once, with no refresh
+  await sales.goto("/new");
+  await sales.getByLabel("Received from").fill("ZZT E2E Someone Else");
+  await next(sales, "Vehicle");
+  await sales.getByRole("button", { name: "Not in the inventory? Type it yourself" }).click();
+  await sales.getByLabel("Plate number").fill("ZZT 1001");
+  await sales.getByRole("button", { name: "Continue this deal" }).click();
+  await expect(sales.getByText(/^Continuing deal/)).toBeVisible();
+  await expect(sales.getByLabel("Earlier payments")).toHaveValue("50,000"); // 10,000 earlier + 40,000 on the first receipt
+  await sales.getByRole("button", { name: "Buyer" }).first().click();
+  await expect(sales.getByLabel("Received from")).toHaveValue("ZZT E2E Maria Santos");
+  await next(sales, "Vehicle");
+  await next(sales, "Deal");
+  await expect(sales.getByLabel("Agreed price")).toHaveValue("720,000");
+  await next(sales, "Payment");
+  // a full payment is exactly what is left: 129,900 − 50,000
+  await sales.getByRole("radio", { name: /Full payment/ }).click();
+  await expect(sales.getByLabel("Cash amount")).toBeDisabled();
+  await expect(sales.getByLabel("Cash amount")).toHaveValue("79,900");
+  await sales.getByRole("button", { name: "Edit" }).click();
+  await expect(sales.getByLabel("Cash amount")).toBeEnabled();
+  // on a new deal, earnest money has nothing before it, until Edit is pressed
+  await sales.goto("/new");
+  await sales.getByLabel("Receipt No.").fill("ZZT-E2E-EARNEST");
+  await next(sales, "Vehicle");
+  await next(sales, "Deal");
+  await next(sales, "Payment");
+  await sales.getByRole("radio", { name: /Earnest/ }).click();
+  await expect(sales.getByLabel("Earlier payments")).toBeDisabled();
+  await expect(sales.getByLabel("Earlier payments")).toHaveValue("0");
+  await sales.getByRole("button", { name: "Edit" }).click();
+  await expect(sales.getByLabel("Earlier payments")).toBeEnabled();
+  await sales.close();
 });
 
 test("the checks refuse a wrong or incomplete receipt", async ({ browser }) => {
