@@ -8,11 +8,13 @@ import { InstallButton } from "@/components/pwa/install-button";
 import { ResponsiveDialog } from "@/components/shared/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/lib/auth-actions";
-import { isActivePath, tabBarItems, type Role } from "@/lib/navigation";
+import { isActivePath, tabBarItems, type ModuleId, type Role } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 interface Props {
   role: Role;
+  /** the menu items this person has: their role's, plus or minus what the Admin changed */
+  modules: ModuleId[];
   name: string;
 }
 
@@ -35,9 +37,9 @@ function ActiveView(props: Props) {
 const tab =
   "flex h-full w-full flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors outline-none focus-visible:bg-muted";
 
-function View({ role, name, pathname }: Props & { pathname: string | null }) {
+function View({ role, modules, name, pathname }: Props & { pathname: string | null }) {
   const [moreOpen, setMoreOpen] = useState(false);
-  const { tabs, more } = tabBarItems(role);
+  const { tabs, more } = tabBarItems(role, modules);
   const moreActive = more.some((item) => isActivePath(item.href, pathname));
 
   return (
@@ -77,23 +79,31 @@ function View({ role, name, pathname }: Props & { pathname: string | null }) {
 
       <ResponsiveDialog open={moreOpen} onOpenChange={setMoreOpen} title="More" description={name}>
         <div className="space-y-4">
-          {more.length > 0 && (
-            <ul className="divide-y rounded-lg border">
-              {more.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    onClick={() => setMoreOpen(false)}
-                    aria-current={isActivePath(item.href, pathname) ? "page" : undefined}
-                    className="flex items-center gap-3 px-3 py-3 text-sm font-medium"
-                  >
-                    <item.icon className="size-5 text-muted-foreground" aria-hidden />
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
+          {/* Grouped like the sidebar: Invoice, PCF, Administration. */}
+          {(["Invoice", "PCF", "Administration"] as const).map((group) => {
+            const items = more.filter((item) => item.group === group);
+            if (items.length === 0) return null;
+            return (
+              <section key={group} className="space-y-1.5">
+                <h3 className="px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">{group}</h3>
+                <ul className="divide-y rounded-lg border">
+                  {items.map((item) => (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        onClick={() => setMoreOpen(false)}
+                        aria-current={isActivePath(item.href, pathname) ? "page" : undefined}
+                        className="flex items-center gap-3 px-3 py-3 text-sm font-medium"
+                      >
+                        <item.icon className="size-5 text-muted-foreground" aria-hidden />
+                        {item.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
           <InstallButton className="w-full" />
           <form action={logout}>
             <Button type="submit" variant="outline" className="w-full">

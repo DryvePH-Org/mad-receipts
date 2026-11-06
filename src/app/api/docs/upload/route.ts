@@ -1,7 +1,6 @@
 import { loadCar, docsErrorText, uploadPhoto } from "@/lib/docs/service";
 import { lookupForSales, salesViewOf } from "@/lib/docs/sales";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth";
 
 const MAX_BYTES = 6 * 1024 * 1024;
 const ALLOWED = /^image\/(jpeg|png|webp)$/;
@@ -9,11 +8,9 @@ const fail = (error: string, status: number) => Response.json({ error }, { statu
 
 /** One document photo from Sales: filed in the car's Drive folder by plate, read, and the checklist updates. */
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return fail("Not logged in", 401);
-  const { data: profile } = await createAdminClient().from("profiles").select("role").eq("id", user.id).single();
-  if (!profile || !["sales", "admin", "approver"].includes(profile.role)) return fail("Your role cannot upload documents here.", 403);
+  if (!user.modules.includes("upload")) return fail("You do not have the Upload documents module.", 403);
 
   const form = await request.formData().catch(() => null);
   const plate = String(form?.get("plate") ?? "").slice(0, 20);

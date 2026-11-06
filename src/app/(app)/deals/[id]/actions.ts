@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, requireModule } from "@/lib/auth";
 import { friendlyError } from "@/lib/deal/errors";
 import { toCentavos, fromCentavos } from "@/lib/rules/money";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -17,6 +17,7 @@ function syncSoon() {
 
 export async function voidReceipt(receiptId: string, reason: string): Promise<AdminResult> {
   const user = await requireAdmin();
+  await requireModule("deals");
   if (!uuid(receiptId)) return { ok: false, error: "That receipt was not found." };
   const { error } = await createAdminClient().rpc("void_receipt", { p_actor: user.id, p_receipt_id: receiptId, p_reason: reason });
   if (error) return { ok: false, error: friendlyError(error.message) };
@@ -27,6 +28,7 @@ export async function voidReceipt(receiptId: string, reason: string): Promise<Ad
 
 export async function cancelDeal(dealId: string, reason: string, refundText: string): Promise<AdminResult> {
   const user = await requireAdmin();
+  await requireModule("deals");
   if (!uuid(dealId)) return { ok: false, error: "That deal was not found." };
   const refund = refundText.trim() ? toCentavos(refundText) : 0;
   if (refund === null) return { ok: false, error: "The refund is not a valid amount." };
@@ -40,6 +42,7 @@ export async function cancelDeal(dealId: string, reason: string, refundText: str
 
 export async function setLoanStatus(dealId: string, status: "waiting" | "released", on: string): Promise<AdminResult> {
   const user = await requireAdmin();
+  await requireModule("deals");
   if (!uuid(dealId)) return { ok: false, error: "That deal was not found." };
   const { error } = await createAdminClient().rpc("set_loan_status", { p_actor: user.id, p_deal_id: dealId, p_status: status, p_on: status === "released" && /^\d{4}-\d{2}-\d{2}$/.test(on) ? on : undefined });
   if (error) return { ok: false, error: friendlyError(error.message) };

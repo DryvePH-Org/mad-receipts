@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS, goalFor, type AppSettings } from "@/lib/deal/settings";
-import { clean, findColumn, parseMoney, parsePrice, parseSheetDate, people, plateKey, tabMonthKey, yearOfTab } from "./parse";
+import { type DataNotes, clean, findColumn, parseMoney, parsePrice, parseSheetDate, people, plateKey, tabMonthKey, yearOfTab } from "./parse";
 
 // The BUY side: the monthly purchase tabs, the HOLD tab and the buying summary of the buying sheet.
 
@@ -132,6 +132,7 @@ export function parseBuyingSummary(rows: string[][]): MonthSummary[] {
 // ---- what the dashboard shows ----
 
 export interface BuyDashboard {
+  notes: DataNotes;
   today: string;
   /** the target of units to buy this month (set by the Admin) */
   goal: number;
@@ -202,7 +203,7 @@ export function buildBuyDashboard(input: { today: string; month: { tab: string; 
   });
 
   return {
-    today: input.today, goal: goalFor(goals, input.today.slice(0, 7), "buy"),
+    notes: { failed: [], staleSince: null }, today: input.today, goal: goalFor(goals, input.today.slice(0, 7), "buy"),
     todayPurchases: purchases.filter((p) => p.date === input.today),
     month: input.month ? { tab: input.month.tab, count: purchases.length, total: total(purchases), purchases } : null,
     holds, payables,

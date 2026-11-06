@@ -1,5 +1,5 @@
 /**
- * MAD Receipts bridge: a Google Apps Script web app.
+ * MAD bridge: a Google Apps Script web app.
  *
  * It lets the app use Google Sheets and Drive through YOUR Google account, without a Google Cloud
  * project or service account key. The app (server side only) sends JSON with a secret; this script
@@ -14,6 +14,8 @@
  *  - The car-documents actions (docs.*) only work inside the two folders named by the
  *    DOC_AVAILABLE_ID and DOC_SOLD_ID script properties. They can list, read previews, add files and
  *    move a car folder from Available to Sold. They never delete or rename anything.
+ *  - Petty cash voucher photos (pcf.upload) go into a folder listed in ALLOWED_FOLDER_IDS, under
+ *    "<fund> / <year-month>" subfolders it creates there. Photos only.
  *
  * Setup: see "Google Apps Script bridge" in README.md.
  */
@@ -22,7 +24,7 @@ var MAX_BASE64_CHARS = 14 * 1024 * 1024; // ~10 MB file
 
 function doGet() {
   // Lets you open the web app URL in a browser to check it is deployed. Reveals nothing.
-  return json_({ ok: true, data: 'MAD Receipts bridge is running' });
+  return json_({ ok: true, data: 'MAD bridge is running' });
 }
 
 function doPost(e) {
@@ -77,6 +79,10 @@ function handle_(req) {
     case 'docs.move':
       return withLock_(function () {
         return docsMove_(req);
+      });
+    case 'pcf.upload':
+      return withLock_(function () {
+        return pcfUpload_(req);
       });
     default:
       throw httpError_(400, 'Unknown action');
@@ -351,6 +357,38 @@ function docsMove_(req) {
   }
   info.folder.moveTo(sold);
   return folderRow_(info.folder, 'sold');
+}
+
+// ---- Petty cash voucher photos ----
+
+var PCF_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+/** Saves one voucher photo under <allowed folder>/<fund>/<year-month> and returns its id and link. */
+function pcfUpload_(req) {
+  allowed_('ALLOWED_FOLDER_IDS', req.folderId);
+  var mimeType = String(req.mimeType || '');
+  if (PCF_TYPES.indexOf(mimeType) === -1) throw httpError_(400, 'Only photos can be saved');
+  var base64 = String(req.base64 || '');
+  if (!base64) throw httpError_(400, 'The file is empty');
+  if (base64.length > MAX_BASE64_CHARS) throw httpError_(413, 'The file is too large');
+  var folder = DriveApp.getFolderById(req.folderId);
+  var names = Array.isArray(req.folders) ? req.folders.slice(0, 4) : [];
+  for (var i = 0; i < names.length; i++) {
+    var name = cleanName_(names[i]);
+    var found = folder.getFoldersByName(name);
+    folder = found.hasNext() ? found.next() : folder.createFolder(name);
+  }
+  var file = folder.createFile(Utilities.newBlob(Utilities.base64Decode(base64), mimeType, cleanName_(req.name)));
+  return { id: file.getId(), url: file.getUrl() };
+}
+
+function cleanName_(value) {
+  var text = String(value || 'untitled')
+    .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g, '')
+    .replace(/[\\\/:*?"<>|]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text.substring(0, 80) || 'untitled';
 }
 
 // ---- Helpers ----

@@ -1,4 +1,4 @@
-# MAD Receipts as a small container. Built on the server by compose.yaml.
+# MAD as a small container. Built on the server by compose.yaml.
 FROM node:22-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./

@@ -9,7 +9,7 @@ import { createUserSchema } from "@/lib/forms";
 import { useActionForm } from "@/lib/use-action-form";
 import { createUser } from "./actions";
 
-export function CreateUserForm() {
+export function CreateUserForm({ onDone }: { onDone?: () => void } = {}) {
   const { form, onSubmit, serverError, pending } = useActionForm({
     schema: createUserSchema,
     defaultValues: { fullName: "", email: "", password: "", role: "sales" as const },
@@ -17,6 +17,7 @@ export function CreateUserForm() {
     onSuccess: (message) => {
       toast.success(message);
       form.reset();
+      onDone?.();
     },
   });
   const { register, formState: { errors } } = form;

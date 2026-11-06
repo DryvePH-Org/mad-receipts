@@ -1,0 +1,6 @@
+# Installed as /etc/cron.d/mad-app by deploy/vps-install.sh and on every deploy by deploy/update.sh (@DIR@ = /opt/mad-app).
+# Background sync every 5 minutes; balance reminder and the petty cash daily summary at 8:00 AM Manila time (00:00 UTC).
+CRON_TZ=UTC
+*/5 * * * * root @DIR@/deploy/run-cron.sh /api/sync/run
+0 0 * * * root @DIR@/deploy/run-cron.sh /api/reminders/run
+0 0 * * * root @DIR@/deploy/run-cron.sh /api/pcf/digest/run

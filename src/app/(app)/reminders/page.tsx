@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { Button } from "@/components/ui/button";
-import { requireUser } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { remindersFor } from "@/lib/data";
 import type { Notification } from "@/lib/deal/status";
 import { ROLE_LABELS } from "@/lib/navigation";
@@ -41,7 +41,7 @@ function Group({ title, items }: { title: string; items: Notification[] }) {
 }
 
 async function Content() {
-  const user = await requireUser();
+  const user = await requireModule("reminders");
   const list = await remindersFor(user);
   return (
     <div className="space-y-6">

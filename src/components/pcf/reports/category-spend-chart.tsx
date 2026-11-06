@@ -1,0 +1,51 @@
+"use client";
+
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+
+import { formatPHP } from "@/lib/pcf/money";
+
+export function CategorySpendChart({
+  data,
+}: {
+  data: { name: string; total: number }[];
+}) {
+  return (
+    <ResponsiveContainer width="100%" height={280}>
+      <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+        <XAxis
+          dataKey="name"
+          tick={{ fontSize: 12, fill: "var(--color-muted-foreground)" }}
+          interval={0}
+          angle={-20}
+          textAnchor="end"
+          height={60}
+        />
+        <YAxis
+          tick={{ fontSize: 12, fill: "var(--color-muted-foreground)" }}
+          tickFormatter={(value: number) => formatPHP(value)}
+          width={80}
+        />
+        <Tooltip
+          formatter={(value) => formatPHP(Number(value))}
+          contentStyle={{
+            background: "var(--color-popover)",
+            color: "var(--color-popover-foreground)",
+            border: "1px solid var(--color-border)",
+            borderRadius: 8,
+            fontSize: 12,
+          }}
+        />
+        <Bar dataKey="total" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}

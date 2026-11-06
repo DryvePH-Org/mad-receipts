@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { Button } from "@/components/ui/button";
-import { requireUser } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { listDeals } from "@/lib/data";
 import { manilaToday, daysBetween } from "@/lib/dates";
 import { dealStatusKey } from "@/lib/deal/status";
@@ -35,7 +35,7 @@ function Stat({ label, value, sub, tone }: { label: string; value: string; sub: 
 }
 
 async function Content() {
-  await requireUser();
+  await requireModule("deals");
   const today = manilaToday();
   const deals = await listDeals();
   const rows: (BoardDeal & { loan: number })[] = deals.map((d) => ({

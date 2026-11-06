@@ -9,8 +9,8 @@ export function Brand({ className, tagline = true }: { className?: string; tagli
         <Receipt className="size-5" aria-hidden />
       </span>
       <span className="leading-tight">
-        <span className="block text-sm font-semibold">MAD Receipts</span>
-        {tagline && <span className="block text-xs text-muted-foreground">Receipt ledger</span>}
+        <span className="block text-sm font-semibold">MAD</span>
+        {tagline && <span className="block text-xs text-muted-foreground">Invoice · PCF</span>}
       </span>
     </span>
   );

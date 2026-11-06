@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { forbidden, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { effectiveModules, effectivePcfRole, type ModuleId, type PcfRole } from "@/lib/navigation";
 
 /** Sales fill in receipts, the Approver approves every one, Documentation watches the car papers, the Admin manages everything else. */
 export type Role = "sales" | "admin" | "approver" | "documentation";
@@ -11,6 +12,13 @@ export interface CurrentUser {
   email: string;
   fullName: string | null;
   role: Role;
+  /** the PCF (petty cash) role that counts (null: no PCF). An Admin is a PCF admin unless given another one. */
+  pcfRole: PcfRole | null;
+  /** the modules this person has: their role's, plus or minus what the Admin changed for them */
+  modules: ModuleId[];
+  /** what the Admin added or hid for this person, for the Users page */
+  grants: string[];
+  denies: string[];
 }
 
 // The logged-in user and their role, verified with the auth server.
@@ -24,12 +32,25 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   const { data: profile } = await supabase.from("profiles").select("full_name, role").eq("id", user.id).single();
 
+  // The per-person changes live in two extra columns. If they cannot be read (the migration is not applied yet), the role's own modules apply.
+  const { data: extra } = await supabase.from("profiles").select("module_grants, module_denies").eq("id", user.id).single();
+  // PCF columns, read the same careful way (none until the PCF migration is applied).
+  const { data: pcf } = await supabase.from("profiles").select("pcf_role, is_active").eq("id", user.id).single();
+  const grants = Array.isArray(extra?.module_grants) ? (extra.module_grants as string[]) : [];
+  const denies = Array.isArray(extra?.module_denies) ? (extra.module_denies as string[]) : [];
+  const role: Role = profile?.role === "admin" ? "admin" : profile?.role === "approver" ? "approver" : profile?.role === "documentation" ? "documentation" : "sales";
+  const pcfRole = pcf ? effectivePcfRole(role, pcf.pcf_role, pcf.is_active) : null;
+
   return {
     id: user.id,
     email: user.email ?? "",
     fullName: profile?.full_name ?? null,
     // No profile row means no elevated rights.
-    role: profile?.role === "admin" ? "admin" : profile?.role === "approver" ? "approver" : profile?.role === "documentation" ? "documentation" : "sales",
+    role,
+    pcfRole,
+    modules: effectiveModules(role, grants, denies, pcfRole),
+    grants,
+    denies,
   };
 });
 
@@ -46,6 +67,17 @@ export async function requireRole(...roles: Role[]): Promise<CurrentUser> {
   return user;
 }
 
+/** 403 unless the signed-in user has this module (their role's, plus or minus what the Admin changed). Use it on every page and action of a module. */
+export async function requireModule(id: ModuleId): Promise<CurrentUser> {
+  const user = await requireUser();
+  if (!user.modules.includes(id)) forbidden();
+  return user;
+}
+
 // For every admin page, admin server action and admin API route: 403 unless admin.
 export const requireAdmin = () => requireRole("admin");
-export const requireApprover = () => requireRole("approver");
+export const requireApprover = async () => {
+  const user = await requireRole("approver");
+  if (!user.modules.includes("approvals")) forbidden();
+  return user;
+};

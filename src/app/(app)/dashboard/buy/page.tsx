@@ -1,19 +1,19 @@
 import { Suspense } from "react";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
-import { requireRole } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { formatDate } from "@/lib/dates";
 import { getSettings } from "@/lib/data";
 import { getBuyDashboard } from "@/lib/dashboard";
 import { BUY_SHEET_ID, SheetError, sheetUrl } from "@/lib/dashboard/sheets";
 import { HoldBoard, PurchasesBoard } from "../boards";
-import { Empty, Grid, names, peso, Section, SheetProblem, Stat } from "../parts";
+import { DataBanner, Empty, Grid, names, peso, Section, SheetProblem, Stat } from "../parts";
 
 export default function BuyDashboardPage() {
   return <Suspense fallback={<PageSkeleton />}><Content /></Suspense>;
 }
 
 async function Content() {
-  await requireRole("admin", "approver");
+  await requireModule("dashboard");
   const settings = await getSettings();
   let b;
   try { b = await getBuyDashboard(settings.dashboard); } catch (e) {
@@ -22,6 +22,7 @@ async function Content() {
   const held = b.holds.reduce((n, h) => n + (h.holdAmount ?? 0), 0), owed = b.payables.reduce((n, p) => n + p.total, 0);
   return (
     <div className="space-y-6">
+      <DataBanner notes={b.notes} url={sheetUrl(BUY_SHEET_ID)} />
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
         <Stat href="#purchases" label="Bought this month" value={`${b.month?.count ?? 0}/${b.goal}`} sub={b.month ? `${Math.round(((b.month.count ?? 0) / b.goal) * 100)}% of the goal · ${peso(b.month.total)}` : "No tab for this month yet"} />
         <Stat href="#today" label="Purchases today" value={String(b.todayPurchases.length)} sub={peso(b.todayPurchases.reduce((n, p) => n + (p.price ?? 0), 0))} />
@@ -67,10 +68,10 @@ async function Content() {
         )}
       </Section>
 
-      <Section title="Monthly purchase history" hint="Units from each month's tab against that month's target (set by the Admin in Settings), next to the team's own BUYING SUMMARY.">
+      <Section title="Monthly purchase history" hint="Units from each month's tab (a dash means that tab has no unit list) against that month's target (set by the Admin in Settings), next to the team's own BUYING SUMMARY.">
         {b.history.length === 0 ? <Empty>No monthly tabs found.</Empty> : (
           <Grid head={["Month", "Units in the tab", "Of the target", "Amount", "Bought (summary)", "Entries", "Batting average"]} right={[1, 2, 3, 4, 5, 6]}
-            rows={[...b.history].reverse().map((h) => [h.month, String(h.count), `${h.count}/${h.goal}`, peso(h.total), h.bought === null ? "—" : String(h.bought), h.entries === null ? "—" : String(h.entries), h.batting || "—"])} />
+            rows={[...b.history].reverse().map((h) => [h.month, h.count ? String(h.count) : "—", h.count ? `${h.count}/${h.goal}` : "—", h.count ? peso(h.total) : "—", h.bought === null ? "—" : String(h.bought), h.entries === null ? "—" : String(h.entries), h.batting || "—"])} />
         )}
       </Section>
     </div>

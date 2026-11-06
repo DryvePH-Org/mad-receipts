@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { requireRole } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { getSettings } from "@/lib/data";
 import { friendlyError } from "@/lib/deal/errors";
 import { formStateSchema } from "@/lib/deal/form-schema";
@@ -22,7 +22,7 @@ export type SubmitResult =
  * also recomputes every number from the raw amounts: nothing is trusted from the screen.
  */
 export async function submitReceipt(input: unknown, dealId: string | null): Promise<SubmitResult> {
-  const user = await requireRole("sales", "admin", "approver");
+  const user = await requireModule("new");
   const parsed = formStateSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "The form could not be read. Reload the page and try again." };
   const state = parsed.data as FormState;

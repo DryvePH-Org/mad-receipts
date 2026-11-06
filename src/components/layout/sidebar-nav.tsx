@@ -10,11 +10,13 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/lib/auth-actions";
-import { isActivePath, navGroups, ROLE_LABELS, type Role } from "@/lib/navigation";
+import { isActivePath, navGroups, ROLE_LABELS, type ModuleId, type Role } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 interface Props {
   role: Role;
+  /** the menu items this person has: their role's, plus or minus what the Admin changed */
+  modules: ModuleId[];
   name: string;
 }
 
@@ -32,7 +34,7 @@ function ActiveView(props: Props) {
   return <View {...props} pathname={usePathname()} />;
 }
 
-function View({ role, name, pathname }: Props & { pathname: string | null }) {
+function View({ role, modules, name, pathname }: Props & { pathname: string | null }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-16 shrink-0 items-center px-5">
@@ -40,7 +42,7 @@ function View({ role, name, pathname }: Props & { pathname: string | null }) {
       </div>
 
       <nav aria-label="Primary" className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
-        {navGroups(role).map((group) => (
+        {navGroups(role, modules).map((group) => (
           <div key={group.label}>
             <p className="px-3 pb-2 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
               {group.label}

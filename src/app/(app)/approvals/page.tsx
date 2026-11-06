@@ -5,7 +5,7 @@ import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ReceiptStatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
-import { requireRole } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { getDeal, pendingReceipts, recentlyDecided } from "@/lib/data";
 import { formatDate } from "@/lib/dates";
 import { KIND_LABELS } from "@/lib/deal/types";
@@ -23,7 +23,7 @@ export default function ApprovalsPage() {
 }
 
 async function Content() {
-  const user = await requireRole("admin", "approver");
+  const user = await requireModule("approvals");
   const [pending, decided] = await Promise.all([pendingReceipts(), recentlyDecided()]);
   const deals = new Map((await Promise.all([...new Set(pending.map((r) => r.dealId))].map((id) => getDeal(id)))).flatMap((d) => (d ? [[d.id, d] as const] : [])));
   return (
