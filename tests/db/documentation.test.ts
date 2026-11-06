@@ -53,8 +53,39 @@ describe("the car-documents tables", () => {
     };
     expect((await as(docs, "select count(*)::int as n from public.unit_folders")).rows[0]).toEqual({ n: 1 });
     await expect(as(docs, "insert into public.unit_folders (plate_no, plate_display) values ('ZZZ1', 'ZZZ1')")).rejects.toThrow();
-    await expect(as(docs, "update public.unit_folders set case_type = 'clean'")).resolves.toBeTruthy(); // RLS hides the row from updates: 0 rows changed
+    await expect(as(docs, "update public.unit_folders set case_type = 'clean'")).rejects.toThrow(/permission denied/); // signed-in people may only read
     expect((await db.query<{ case_type: string | null }>("select case_type from public.unit_folders where plate_no = 'AAX3622'")).rows[0].case_type).toBeNull();
+  });
+  it("are locked down to reading: the signed-out role can do nothing and signed-in people can only read", async () => {
+    await db.query(`insert into public.unit_folders (plate_no, plate_display, folder_id, folder_name) values ('LOCK001', 'LOCK-001', 'f2', 'lock folder')`);
+    await db.query(`insert into public.folder_files (plate_no, drive_file_id, filename) values ('LOCK001', 'lock-file', 'IMG_2.HEIC')`);
+    const run = async (role: string, id: string | null, sql: string) => {
+      await db.exec(`set role ${role}; select set_config('request.jwt.claim.sub', '${id ?? ""}', false);`);
+      try { return await db.query(sql); } finally { await db.exec("reset role;"); }
+    };
+    for (const table of ["unit_folders", "folder_files"]) {
+      // the signed-out role: nothing at all, not even reading
+      for (const sql of [`select * from public.${table}`, `delete from public.${table}`, `truncate public.${table}`])
+        await expect(run("anon", null, sql), `anon: ${sql}`).rejects.toThrow(/permission denied/);
+      // signed-in people: reading only
+      expect((await run("authenticated", docs, `select count(*)::int as n from public.${table}`)).rows[0]).toMatchObject({ n: expect.any(Number) });
+      for (const sql of [`delete from public.${table}`, `truncate public.${table}`])
+        await expect(run("authenticated", docs, sql), `signed in: ${sql}`).rejects.toThrow(/permission denied/);
+    }
+    await expect(run("anon", null, "insert into public.unit_folders (plate_no, plate_display) values ('ZZ1', 'ZZ1')")).rejects.toThrow(/permission denied/);
+    await expect(run("authenticated", docs, "insert into public.folder_files (plate_no, drive_file_id, filename) values ('LOCK001', 'x', 'x')")).rejects.toThrow(/permission denied/);
+    await expect(run("authenticated", docs, "update public.folder_files set read_status = 'done'")).rejects.toThrow(/permission denied/);
+    await db.query(`delete from public.unit_folders where plate_no = 'LOCK001'`);
+  });
+  it("show exactly these permissions in the catalog: signed-out none, signed-in select only, the server everything", async () => {
+    const perms = async (table: string, role: string) =>
+      (await db.query<{ p: string }>(`select p from unnest(array['select','insert','update','delete','truncate','references','trigger']) p where has_table_privilege('${role}', 'public.${table}', p) order by 1`)).rows.map((r) => r.p);
+    for (const table of ["unit_folders", "folder_files"]) {
+      expect(await perms(table, "anon"), `${table} anon`).toEqual([]);
+      expect(await perms(table, "authenticated"), `${table} authenticated`).toEqual(["select"]);
+      // the server's own key (service role) keeps full use, which is how the app reads and writes these tables
+      expect(await perms(table, "service_role"), `${table} service_role`).toEqual(["delete", "insert", "references", "select", "trigger", "truncate", "update"]);
+    }
   });
   it("keep plate numbers in one clean form and refuse a bad case or location", async () => {
     await expect(db.query(`insert into public.unit_folders (plate_no, plate_display) values ('aax-3622', 'x')`)).rejects.toThrow();
