@@ -262,6 +262,14 @@ Caddyfile (backed up first, checked before it is applied, undone automatically i
 Background jobs run from `/etc/cron.d/mad-receipts` (sync every 5 minutes, reminder daily 8:00 AM Manila).
 Logs: `docker logs -f mad-receipts`. Status: `docker ps`.
 
+### If the server was renamed to `mad-app` (and PCF moved out again)
+
+For a short time the app ran as `mad-app` in `/opt/mad-app` with petty cash (PCF) merged in. PCF is a separate project again.
+To put the server back to the names used here, once: `cd /opt/mad-app && git pull --ff-only && bash deploy/switch-to-mad-receipts.sh`
+(the site stays up; it undoes itself if anything fails). To remove the PCF tables from this app's Supabase database, run
+`deploy/remove-pcf-from-mad.sql` once in the Supabase SQL Editor, then `supabase migration repair --status reverted 20261106000019 20261106000020 --linked`
+(the file explains what it deletes).
+
 ### Automatic deploys (GitHub Actions)
 Every push to `main` runs **CI** (lint, typecheck, unit tests, production build). Only if it passes, **Deploy** logs in to
 the server and runs `deploy/update.sh`, which pulls, rebuilds, waits for the app to be healthy, and **goes back to the
