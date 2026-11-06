@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Cron endpoints authenticate with CRON_SECRET inside the route, not a session.
-const CRON_PATHS = ["/api/sync/run", "/api/reminders/run", "/api/pcf/digest/run"];
+const CRON_PATHS = ["/api/sync/run", "/api/reminders/run"];
 
 // Refreshes the Supabase session cookie on every request, then:
 // logged out → /login (API routes get 401); logged in on /login → /.

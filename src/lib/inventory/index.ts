@@ -1,11 +1,18 @@
 import "server-only";
 import { createMockInventory } from "./mock";
-import { createSheetInventory } from "./sheet";
+import { createSheetInventory, InventoryError } from "./sheet";
 import type { InventoryAdapter } from "./types";
 
 export type { InventoryAdapter, InventoryUnit, UnitStatus } from "./types";
 export { UNIT_STATUS } from "./types";
 export { InventoryError } from "./sheet";
+
+const GENERIC_ERROR = "Couldn't check the inventory sheet right now. Try again in a moment.";
+
+/** Message to show staff for an inventory failure. */
+export function inventoryErrorMessage(err: unknown): string {
+  return err instanceof InventoryError ? err.message : GENERIC_ERROR;
+}
 
 function pickInventory(): InventoryAdapter {
   if (process.env.INVENTORY_SHEET_ID) return createSheetInventory();

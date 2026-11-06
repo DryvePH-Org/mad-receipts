@@ -1,11 +1,11 @@
-# MAD on a VPS that already runs other projects.
+# MAD Receipts on a VPS that already runs other projects.
 # Rules that keep projects from colliding:
-#  - its own compose project name, container, image and folder (/opt/mad-app)
+#  - its own compose project name, container, image and folder (/opt/mad-receipts)
 #  - NO published ports: nothing outside the Docker network can reach it directly
 #  - HTTPS comes from the Caddy that already owns ports 80/443 (deploy/vps-install.sh adds one site block)
 #  - memory and log size are capped so it cannot starve its neighbours
 # Secrets are read from .env in this folder (copy .env.example). It is never committed.
-name: mad-app
+name: mad-receipts
 
 services:
   app:
@@ -14,8 +14,8 @@ services:
       args:
         NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-    image: mad-app/app:latest
-    container_name: mad-app
+    image: mad-receipts/app:latest
+    container_name: mad-receipts
     restart: unless-stopped
     env_file: .env
     environment:
@@ -25,7 +25,7 @@ services:
     networks:
       default: {}
       proxy:
-        aliases: [mad-app]
+        aliases: [mad-receipts]
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
