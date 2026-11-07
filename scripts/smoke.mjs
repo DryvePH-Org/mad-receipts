@@ -29,8 +29,8 @@ try {
     const r = await fetch(base + p, { redirect: "manual" });
     check(r.status === 307 && (r.headers.get("location") ?? "").endsWith("/login"), `${p} sends a signed-out visitor to /login`);
   }
-  for (const p of ["/api/voice", "/api/docs/upload"]) {
-    const r = await fetch(base + p, { method: "POST", redirect: "manual" });
+  for (const p of ["/api/voice", "/api/docs/upload", "/api/pulse"]) {
+    const r = await fetch(base + p, { method: p === "/api/pulse" ? "GET" : "POST", redirect: "manual" });
     check(r.status === 401, `${p} refuses a signed-out request (401)`);
   }
   for (const p of ["/api/sync/run", "/api/reminders/run"]) {

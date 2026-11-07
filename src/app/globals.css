@@ -162,3 +162,9 @@
   html, body { background: #fff; }
   * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }
+
+/* the thin moving bar at the top while a screen reloads its data */
+@keyframes live-bar {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}

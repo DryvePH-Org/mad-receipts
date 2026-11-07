@@ -207,6 +207,14 @@ A failed job retries after 1 min, 5 min, 15 min, then 1 h, and stops after 5 att
 itself is never affected. The receipts log sheet needs two tabs named **Receipts** and **Deals**;
 header rows are written automatically when a tab is empty.
 
+## Staying up to date, and the receipt form's feedback
+
+- **Live screens:** Transactions, Approvals, Reminders, Cash report, Activity and the admin pages ask `/api/pulse` (one tiny query: counts and latest times of receipts and deals) every 8 seconds and when the tab is
+  revisited. Only when the answer changes does the screen reload its data, with a thin bar at the top and a small "Updating… / Updated" note. The form pages are left alone, and typing is kept.
+- **The receipt form is calm at the start:** nothing is red when it opens. Missing fields show in colour only for steps you have been past (or on the last step). The first **Next** on a step with something missing shows
+  what and where (and stays); pressing it again moves on. The step bar shows an amber count on steps you left with something open, and the bottom bar says how many are left or "✓ This step is done".
+- **In lieu of documents** (amount and date) shows beside the payment, beside the balance, and on the Finish step, for reference. It is never part of the math.
+
 ## Delete data (testing and clean starts)
 
 Settings → **Delete data** (Admin only) has buttons that wipe data, each only after typing its exact words (checked again on the server): **Delete all transactions** (deals, receipts, payments, proof photos,

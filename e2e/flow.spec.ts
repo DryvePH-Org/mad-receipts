@@ -16,7 +16,13 @@ async function as(browser: Browser, who: keyof typeof credentials) {
   await login(page, who);
   return page;
 }
-const next = (page: Page, to: string) => page.getByRole("button", { name: new RegExp(`Next: ${to}`) }).click();
+// The first Next on a step with something missing shows what is missing; a second one moves on.
+const next = async (page: Page, to: string) => {
+  const btn = page.getByRole("button", { name: new RegExp(`Next: ${to}`) });
+  await btn.click();
+  await page.waitForTimeout(150);
+  if (await btn.count()) await btn.click();
+};
 
 /** Fills the whole form for a financed sale with a trade-in, as Sales would. */
 async function fillFinanced(page: Page, no: string, plate: string) {
@@ -88,6 +94,10 @@ test("the whole flow: Sales fills in, the Approver approves, the numbers agree",
   expect([Number(before?.approved_paid), Number(before?.pending_count), Number(before?.loan_amount), Number(before?.processing_fee)]).toEqual([0, 1, 570000, 39900]);
 
   // the Sales person cannot approve their own receipt; the Approver can
+  // Sales keeps looking at Transactions while the Approver works
+  await sales.goto("/deals");
+  const salesRow = sales.getByRole("row").filter({ hasText: "ZZT E2E Maria Santos" });
+  await expect(salesRow).toContainText(/waiting approval/i);
   const approver = await as(browser, "approver");
   await approver.goto("/approvals");
   await expect(approver.getByText(NO(1)).first()).toBeVisible();
@@ -98,12 +108,15 @@ test("the whole flow: Sales fills in, the Approver approves, the numbers agree",
   // the screen reflects it at once, with no refresh: the card leaves the waiting list and shows under "Recently decided"
   await expect(card).toHaveCount(0, { timeout: 15_000 });
   await expect(approver.getByRole("row").filter({ hasText: NO(1) })).toBeVisible({ timeout: 15_000 });
+  // the other person's screen updates by itself, with no reload (a small check runs every few seconds)
+  await expect(salesRow).not.toContainText(/waiting approval/i, { timeout: 30_000 });
+  await expect(salesRow).toContainText("₱40,000");
   // moving to other pages by the menu (no reload) shows it everywhere too
   await approver.getByRole("link", { name: "Transactions" }).first().click();
   await expect(approver.getByText("ZZT E2E Maria Santos").first()).toBeVisible({ timeout: 15_000 });
-  const dealRow = approver.locator("tr, li, article, div.ring-1").filter({ hasText: "ZZT E2E Maria Santos" }).first();
-  await expect(dealRow).toContainText("40,000");
-  await expect(dealRow).not.toContainText(/waiting for approval/i);
+  const dealRow = approver.getByRole("row").filter({ hasText: "ZZT E2E Maria Santos" });
+  await expect(dealRow).toContainText("₱40,000");
+  await expect(dealRow).not.toContainText(/waiting approval/i);
   const read = async () => (await admin.from("deal_summaries").select("id, balance, approved_paid, opening_paid").eq("buyer_name", "ZZT E2E Maria Santos").single()).data;
   await expect.poll(async () => Number((await read())?.approved_paid)).toBe(40000);
   const after = await read();
@@ -148,6 +161,32 @@ test("continuing a deal fills in at once; earnest money and a full payment work 
   await expect(sales.getByLabel("Earlier payments")).toHaveValue("0");
   await sales.getByRole("button", { name: "Edit" }).click();
   await expect(sales.getByLabel("Earlier payments")).toBeEnabled();
+  await sales.close();
+});
+
+test("nothing is red when the form opens; what is missing shows when you try to move on; in-lieu shows in Payment and Finish", async ({ browser }) => {
+  const sales = await as(browser, "sales");
+  await sales.goto("/new");
+  await expect(sales.getByText("Required", { exact: true })).toHaveCount(0); // calm at the start
+  await expect(sales.getByText(/\d+ to fill in/)).toBeVisible();
+  await sales.getByRole("button", { name: /Next: Vehicle/ }).click();
+  await expect(sales.getByText("Required", { exact: true }).first()).toBeVisible(); // now it says what is missing, and stays on this step
+  await expect(sales.getByText(/or press Next again to continue/)).toBeVisible();
+  await sales.getByRole("button", { name: /Next: Vehicle/ }).click(); // pressing again moves on
+  await expect(sales.getByRole("button", { name: /Next: Deal/ })).toBeVisible();
+  await expect(sales.locator("ol[aria-label=Steps] li").first().locator("b")).toBeVisible(); // the step you left shows how many are still open
+  // in lieu of documents is shown beside the payment and on the last step
+  await sales.getByRole("button", { name: /Deal\s+Price/ }).click();
+  const lieu = sales.getByText("Hold the documents as collateral");
+  if (await lieu.count()) {
+    await lieu.click();
+    await sales.getByLabel("Amount to be paid").fill("25000");
+    await sales.getByLabel("Pay on or before").fill("2026-12-20");
+    await sales.getByRole("button", { name: /Payment\s+Money/ }).click();
+    await expect(sales.locator("p", { hasText: "In lieu of documents" }).first()).toContainText("₱25,000");
+    await sales.getByRole("button", { name: /Finish\s+Check/ }).click();
+    await expect(sales.locator("p", { hasText: "In lieu of documents" }).first()).toContainText("25,000");
+  }
   await sales.close();
 });
 

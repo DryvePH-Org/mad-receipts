@@ -28,12 +28,23 @@ export interface Ctx {
   set: (p: Partial<FormState>) => void; fin: FinUi; setFin: (f: FinUi) => void; settings: AppSettings; userId: string; inventory: InvUnit[];
   missing: Missing[]; warnings: Warning[]; linked: boolean; go: (target: string, step: number) => void; dpResolved: { dpC: number };
   /** earnest money: no earlier payments, shown as 0 until the user unlocks it */
+  /** the steps whose missing fields are shown in colour: only after the person has been past them */
+  revealed: ReadonlySet<number>;
   earlierLocked: boolean; unlockEarlier: () => void;
   /** full payment: cash is exactly what is left, until the user unlocks it */
   cashAuto: boolean; unlockCash: () => void;
 }
 
-const bad = (ctx: Ctx, id: string) => ctx.missing.some((m) => m.target === id);
+const bad = (ctx: Ctx, id: string) => ctx.missing.some((m) => m.target === id && ctx.revealed.has(m.step));
+/** The in-lieu-of-documents amount and date, for reference next to the money. It is collateral: not part of the math. */
+function LieuNote({ s }: { s: FormState }) {
+  if (!s.hasLieu) return null;
+  return (
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-muted px-3 py-2 text-sm"><ShieldCheck className="size-4 shrink-0" aria-hidden /><b>In lieu of documents</b>
+      <span>{s.lieuAmount ? <b className="tabular-nums">{formatPeso(toCentavos(s.lieuAmount) ?? 0)}</b> : "no amount yet"}{s.lieuUntil ? ` to be paid on or before ${formatDate(s.lieuUntil)}` : ""}.</span>
+      <span className="text-xs text-muted-foreground">We hold the buyer&apos;s documents until then. It is not part of the math.</span></p>
+  );
+}
 const Warn = ({ list }: { list: string[] }) => (<>{list.map((w) => <p key={w} className="flex gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200"><TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />{w}</p>)}</>);
 const Title = ({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) => (
   <CardHeader><div className="flex items-center gap-3"><span className="grid size-8 place-items-center rounded-lg bg-muted">{icon}</span><div><CardTitle>{title}</CardTitle><p className="text-sm text-muted-foreground">{desc}</p></div></div></CardHeader>
@@ -240,11 +251,7 @@ export function StepPayment({ ctx }: { ctx: Ctx }) {
     <>
       <Card><Title icon={<HandCoins className="size-4" />} title="This payment" desc="What kind of payment, and how the money came in" />
         <CardContent className="space-y-5">
-          {s.hasLieu && (
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-muted px-3 py-2 text-sm"><ShieldCheck className="size-4 shrink-0" aria-hidden /><b>In lieu of documents</b>
-              <span>{s.lieuAmount ? <b className="tabular-nums">{formatPeso(toCentavos(s.lieuAmount) ?? 0)}</b> : "no amount yet"}{s.lieuUntil ? ` to be paid on or before ${formatDate(s.lieuUntil)}` : ""}.</span>
-              <span className="text-xs text-muted-foreground">We hold the buyer&apos;s documents until then. It is not part of the math.</span></p>
-          )}
+          <LieuNote s={s} />
           <PickCards label="Kind of payment" value={s.kind} onChange={(kind: PaymentKind) => set({ kind })} options={[
             { value: "earnest", title: KIND_LABELS.earnest, hint: "Reserves the unit", icon: <Coins className="size-5" /> },
             { value: "partial", title: KIND_LABELS.partial, hint: "Part of the amount due", icon: <Banknote className="size-5" /> },
@@ -292,6 +299,7 @@ export function StepPayment({ ctx }: { ctx: Ctx }) {
                 <div className="space-y-2"><Label>Proof of the payout</Label><ProofBox id="payout-proof" userId={userId} files={s.payoutProofs} onChange={(f) => set({ payoutProofs: f })} label="Attach proof" hint="Cash handed over, or the transfer receipt" need={proofs && t.payout > 0 && s.payoutProofs.length === 0} /></div></div>
             </div>
           )}
+          <LieuNote s={s} />
           {t.price ? <LedgerView ledger={ctx.ledger} showInfo={false} /> : <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">Enter the agreed price first (step 3).</p>}
           <div className="space-y-1"><Label>Balance of, in words <span className="font-normal text-muted-foreground">automatic</span></Label><p className="rounded-lg bg-muted px-3 py-2 font-medium">{t.balance > 0 ? words(t.balance) : t.price ? (t.balance === 0 ? (t.due < 0 ? "Nil, settled with the buyer" : "Nil, paid in full") : `No balance: ${b.label.toLowerCase()} ${formatPeso(b.amount)}`) : "Fill in the agreed price"}</p></div>
           {(t.balance > 0 || !t.price) && (
@@ -371,8 +379,9 @@ export function StepFinish({ ctx, confirmed, onConfirm }: { ctx: Ctx; confirmed:
 
       <Card><Title icon={<ShieldCheck className="size-4" />} title="Check before saving" desc="Read it back against the buyer's ID and the unit's papers" />
         <CardContent className="space-y-3">
-          {ctx.missing.length > 0 && <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive"><p className="flex gap-2"><TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden /><span><b>Still to fill in:</b> {ctx.missing.map((m, i) => <span key={m.label}>{i > 0 && ", "}<button type="button" className="font-semibold underline" onClick={() => ctx.go(m.target, m.step)}>{m.label}</button></span>)}.</span></p></div>}
+          {ctx.missing.length > 0 && <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100"><p className="flex gap-2"><TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden /><span><b>Still to fill in:</b> {ctx.missing.map((m, i) => <span key={m.label}>{i > 0 && ", "}<button type="button" className="font-semibold underline" onClick={() => ctx.go(m.target, m.step)}>{m.label}</button></span>)}.</span></p></div>}
           <Warn list={ctx.warnings.map((w) => w.text)} />
+          <LieuNote s={s} />
           {ctx.missing.length === 0 && ctx.warnings.length === 0 && <p className="flex gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200"><CircleCheck className="mt-0.5 size-4 shrink-0" aria-hidden />Everything is filled in, and the price, trade-in, loan and payments add up.</p>}
           <div className="grid gap-x-6 sm:grid-cols-3">
             {cell("Receipt no.", s.receiptNo)}{cell("Received from", s.receivedFrom)}{cell("Contact", s.contact)}

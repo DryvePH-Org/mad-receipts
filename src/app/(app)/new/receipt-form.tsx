@@ -46,6 +46,8 @@ export function ReceiptForm({ userId, today, settings, inventory, liveDeals, con
   const [step, setStep] = useState(continueDeal ? 4 : 1);
   const [visited, setVisited] = useState<Set<number>>(new Set(continueDeal ? [1, 2, 3, 4] : [1]));
   const [confirmed, setConfirmed] = useState(false);
+  // Missing fields show in colour only for steps the person has been past (or on the last step): nothing is red the moment the form opens.
+  const [passed, setPassed] = useState<Set<number>>(new Set());
   const [pending, start] = useTransition();
   const [result, setResult] = useState<Extract<SubmitResult, { ok: true }> | null>(null);
   const [layout, setLayout] = useState<PaperLayout>("form");
@@ -71,12 +73,13 @@ export function ReceiptForm({ userId, today, settings, inventory, liveDeals, con
     if (p.kind && p.kind !== form.kind) { setEarlierUnlocked(false); setCashUnlocked(false); }
     setForm((f) => ({ ...f, ...p })); setConfirmed(false);
   };
-  function show(n: number) { setStep(n); setVisited((v) => new Set([...v, ...Array.from({ length: n }, (_, i) => i + 1)])); window.scrollTo({ top: 0 }); }
+  function show(n: number) { if (n !== step) setPassed((p) => new Set([...p, step])); setStep(n); setVisited((v) => new Set([...v, ...Array.from({ length: n }, (_, i) => i + 1)])); window.scrollTo({ top: 0 }); }
   function go(target: string, to: number) {
     show(to);
     setTimeout(() => { const el = document.getElementById(target); if (el) { el.scrollIntoView({ block: "center" }); el.focus({ preventScroll: true }); } }, 80);
   }
-  const ctx: Ctx = { s, t, ledger, sources, set, fin, setFin: (f) => { setFin(f); setConfirmed(false); }, settings, userId, inventory, missing, warnings, linked: !!linked, go, dpResolved: { dpC: resolved.dpC },
+  const revealed: ReadonlySet<number> = step === 5 ? new Set([1, 2, 3, 4, 5]) : passed;
+  const ctx: Ctx = { s, t, ledger, sources, set, fin, setFin: (f) => { setFin(f); setConfirmed(false); }, settings, userId, inventory, missing, warnings, linked: !!linked, go, dpResolved: { dpC: resolved.dpC }, revealed,
     earlierLocked, unlockEarlier: () => setEarlierUnlocked(true), cashAuto, unlockCash: () => { setForm((f) => ({ ...f, cash: leftText })); setCashUnlocked(true); setConfirmed(false); } };
 
   // What the voice reader heard goes into the form; what staff already typed stays (unless they ask otherwise).
@@ -108,6 +111,17 @@ export function ReceiptForm({ userId, today, settings, inventory, liveDeals, con
 
   const stepMissing = (n: number) => missing.filter((m) => m.step === n).length;
   const body = [<StepBuyer key={1} ctx={ctx} />, <StepVehicles key={2} ctx={ctx} />, <StepDeal key={3} ctx={ctx} />, <StepPayment key={4} ctx={ctx} />, <StepFinish key={5} ctx={ctx} confirmed={confirmed} onConfirm={setConfirmed} />][step - 1];
+  const hereMissing = missing.filter((m) => m.step === step);
+  // The first Next on a step with something missing shows what and where; the second one moves on.
+  function next() {
+    if (hereMissing.length > 0 && !passed.has(step)) {
+      setPassed((p) => new Set([...p, step]));
+      const el = document.getElementById(hereMissing[0].target);
+      if (el) { el.scrollIntoView({ block: "center", behavior: "smooth" }); el.focus({ preventScroll: true }); }
+      return;
+    }
+    show(step + 1);
+  }
   const canSend = missing.length === 0 && confirmed && !pending;
   const balanceText = t.balance < 0 ? `− ${formatPeso(-t.balance)}` : formatPeso(t.balance);
 
@@ -115,12 +129,12 @@ export function ReceiptForm({ userId, today, settings, inventory, liveDeals, con
     <div className="space-y-5">
       <ol className="grid grid-cols-5 gap-1.5 sm:gap-2" aria-label="Steps">
         {STEPS.map(([name, hint], i) => {
-          const n = i + 1, done = visited.has(n) && n !== step && n < 5 && stepMissing(n) === 0, active = n === step;
+          const n = i + 1, done = visited.has(n) && n !== step && n < 5 && stepMissing(n) === 0, left = revealed.has(n) && n !== step && n < 5 ? stepMissing(n) : 0, active = n === step;
           return (
             <li key={name}><button type="button" onClick={() => show(n)} aria-current={active ? "step" : undefined}
               className={cn("flex w-full flex-col items-center gap-1 rounded-lg border p-1.5 text-center transition-colors sm:flex-row sm:gap-2.5 sm:p-2.5 sm:text-left", active ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted")}>
               <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-xs font-semibold", active ? "bg-primary-foreground/20" : done ? "bg-emerald-100 text-emerald-800" : "bg-muted")}>{done ? <Check className="size-3.5" /> : n}</span>
-              <span className="min-w-0 text-[11px] leading-tight font-medium sm:text-sm">{name}<small className={cn("hidden truncate text-xs font-normal sm:block", active ? "text-primary-foreground/70" : "text-muted-foreground")}>{hint}</small></span></button></li>
+              <span className="min-w-0 text-[11px] leading-tight font-medium sm:text-sm">{name}{left > 0 && <b className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900" title={`${left} still to fill in`}>{left}</b>}<small className={cn("hidden truncate text-xs font-normal sm:block", active ? "text-primary-foreground/70" : "text-muted-foreground")}>{hint}</small></span></button></li>
           );
         })}
       </ol>
@@ -159,8 +173,9 @@ export function ReceiptForm({ userId, today, settings, inventory, liveDeals, con
           {step >= 3 && <div><small className="block text-[11px] tracking-wide text-muted-foreground uppercase">{step === 3 ? "Agreed price" : "Paid today"}</small><b className="tabular-nums">{formatPeso(step === 3 ? t.price : t.today)}</b></div>}
           {step >= 3 && <div><small className="block text-[11px] tracking-wide text-muted-foreground uppercase">{step === 3 ? (t.due < 0 ? "We pay the buyer" : "Buyer pays us") : "Balance"}</small><b className="tabular-nums">{step === 3 ? formatPeso(Math.abs(t.due)) : balanceText}</b></div>}
           {step < 3 && <span className="self-center text-muted-foreground">Step {step} of 5</span>}
+          {step < 5 && (hereMissing.length > 0 ? <span className={cn("self-center rounded-full px-2.5 py-1 text-xs font-medium", revealed.has(step) ? "bg-amber-100 text-amber-900" : "bg-muted text-muted-foreground")} role="status">{hereMissing.length} to fill in{revealed.has(step) ? ", or press Next again to continue" : ""}</span> : <span className="self-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800" role="status">✓ This step is done</span>)}
         </div>
-        {step < 5 ? <Button size="lg" onClick={() => show(step + 1)}><span className="max-sm:hidden">Next: {STEPS[step][0]}</span><span className="sm:hidden">Next</span> <ChevronRight /></Button>
+        {step < 5 ? <Button size="lg" onClick={next}><span className="max-sm:hidden">Next: {STEPS[step][0]}</span><span className="sm:hidden">Next</span> <ChevronRight /></Button>
           : <Button size="lg" disabled={!canSend} onClick={send} title={missing.length ? "Fill in the missing fields first" : !confirmed ? "Tick the box to confirm you checked everything" : undefined}>{pending ? <Loader2 className="animate-spin" /> : <Send />} <span className="max-sm:hidden">Send for approval</span><span className="sm:hidden">Send</span></Button>}
       </div>
 
