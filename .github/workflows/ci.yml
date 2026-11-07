@@ -1,4 +1,6 @@
-# Every push and pull request: lint, typecheck, unit tests and a production build.
+# Every push and pull request: lint, typecheck, unit tests (including the database tests, which run every migration), a production
+# build, and a smoke test of that build (protected pages and APIs refuse signed-out visitors, safety headers are on).
+# The browser tests (npm run test:e2e) need the real Supabase project, so they are run by hand before a release, not here.
 # A push to main that passes also deploys to the server (see deploy.yml).
 name: CI
 
@@ -33,3 +35,11 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      - name: Smoke test the production build (no secrets needed)
+        run: npm run test:smoke
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      - name: Known vulnerabilities in what the app ships (reported, does not block)
+        run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true

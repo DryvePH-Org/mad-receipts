@@ -11,6 +11,7 @@
     "db:types": "supabase gen types typescript --linked > src/lib/supabase/database.types.ts",
     "test:hosted": "vitest run --config vitest.hosted.config.mts",
     "test:e2e": "playwright test",
+    "test:smoke": "node scripts/smoke.mjs",
     "test:live": "vitest run --config vitest.live.config.mts"
   },
   "dependencies": {
