@@ -207,6 +207,14 @@ A failed job retries after 1 min, 5 min, 15 min, then 1 h, and stops after 5 att
 itself is never affected. The receipts log sheet needs two tabs named **Receipts** and **Deals**;
 header rows are written automatically when a tab is empty.
 
+## Moving from the test sheets to the live sheets
+
+All the Google connections can be pointed at copies first and switched to the live sheets later by changing the Apps Script settings (no code change). Transactions entered meanwhile are replayed with
+**Sync jobs → Replay to the live sheets** (Admin only). It shows which sheets are connected (last characters of each id, to tell live from test), then for every car what the live inventory sheet says now and what
+would be written. Only clear changes are ticked; a car whose live note differs (staff may have updated it) is flagged and left for you to tick. Log rows and Drive files are queued as ordinary sync jobs (matched by receipt
+number and file name, so running it twice adds nothing twice); Telegram is never replayed. REPLAY must be typed. The inventory note is dated with the receipt's own date, not the day it was typed in.
+The app only ever edits the one REMARKS cell of a car, keeps any other note, never adds or removes rows, and re-reads the live row at write time.
+
 ## Staying up to date, and the receipt form's feedback
 
 - **Live screens:** Transactions, Approvals, Reminders, Cash report, Activity and the admin pages ask `/api/pulse` (one tiny query: counts and latest times of receipts and deals) every 8 seconds and when the tab is

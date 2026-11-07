@@ -8,6 +8,7 @@ import { ResponsiveList } from "@/components/shared/responsive-list";
 import { SyncStatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { requireModule } from "@/lib/auth";
+import { ReplayPanel } from "./replay-panel";
 import { formatManilaDateTime } from "@/lib/dates";
 import { param } from "@/lib/search";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -38,7 +39,7 @@ export default function SyncPage({ searchParams }: PageProps<"/admin/sync">) {
 }
 
 async function SyncContent({ searchParams }: { searchParams: PageProps<"/admin/sync">["searchParams"] }) {
-  await requireModule("sync");
+  const me = await requireModule("sync");
   const showAll = param((await searchParams).show) === "all";
 
   const supabase = createAdminClient(); // the page is limited to people who have the Sync jobs module
@@ -73,6 +74,7 @@ async function SyncContent({ searchParams }: { searchParams: PageProps<"/admin/s
         description={`After a receipt is confirmed, voided or a deal changes, the app updates Drive, the log sheet, Telegram and the inventory sheet. Jobs that fail are retried automatically, up to ${MAX_ATTEMPTS} times.`}
         actions={
           <>
+            {me.role === "admin" && <ReplayPanel />}
             <Button variant="outline" nativeButton={false} render={<Link href={showAll ? "/admin/sync" : "/admin/sync?show=all"} />}>
               {showAll ? "Hide finished" : "Show finished"}
             </Button>

@@ -84,7 +84,7 @@ async function loadContext(admin: Admin, receiptId: string): Promise<Omit<SyncCo
     admin.from("deal_summaries").select("*").eq("id", receipt.deal_id).single(),
     admin.from("deal_units").select("make_type, plate_display, plate_no, color").eq("deal_id", receipt.deal_id).order("position"),
     admin.from("receipt_payments").select("*").eq("receipt_id", receiptId).order("position"),
-    admin.from("receipts").select("receipt_no, created_at").eq("deal_id", receipt.deal_id).eq("status", "approved").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    admin.from("receipts").select("receipt_no, created_at, receipt_date").eq("deal_id", receipt.deal_id).eq("status", "approved").order("created_at", { ascending: false }).limit(1).maybeSingle(),
     admin.from("app_settings").select("config").eq("id", 1).maybeSingle(),
   ]);
   if (!deal) throw new Error("Could not load the deal");
@@ -96,7 +96,8 @@ async function loadContext(admin: Admin, receiptId: string): Promise<Omit<SyncCo
   return {
     receipt, deal, units: (units ?? []).map((u) => ({ make_type: u.make_type, plate: u.plate_display, plate_no: u.plate_no, color: u.color })), payments: payments ?? [],
     settings: parseSettings(settingsRow?.config), filledInBy: name(receipt.submitted_by), approvedBy: name(receipt.reviewed_by), salesperson: name(deal.created_by),
-    lastReceiptNo: last?.receipt_no ?? receipt.receipt_no, lastReceiptAt: last?.created_at ?? receipt.created_at, today: manilaToday(),
+    lastReceiptNo: last?.receipt_no ?? receipt.receipt_no, // the date written on the receipt (noon in Manila), not the day it was typed in: a past transaction keeps its own date
+    lastReceiptAt: `${last?.receipt_date ?? receipt.receipt_date}T04:00:00Z`, today: manilaToday(),
     proofs: () => (proofs ??= (async () => {
       const { data: files } = await admin.from("attachments").select("storage_path, filename, mime_type").eq("receipt_id", receiptId).order("created_at");
       const out: ProofBytes[] = [];
