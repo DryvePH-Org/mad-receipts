@@ -8,7 +8,8 @@ import { parseSettings } from "@/lib/deal/settings";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Tables } from "@/lib/supabase/database.types";
 import { createTelegramClient } from "@/lib/telegram";
-import { syncTargets, TARGET_ORDER, type ProofBytes, type SyncContext, type SyncDeps, type SyncEvent, type SyncTarget } from "./targets";
+import { sheetDate } from "@/lib/inventory/remarks";
+import { dealStatusOf, SyncConflict, syncTargets, TARGET_ORDER, unitStatusFor, type ProofBytes, type SyncContext, type SyncDeps, type SyncEvent, type SyncTarget } from "./targets";
 
 /** Wait before the next try, by failed attempts so far. */
 export const BACKOFF_MINUTES = [1, 5, 15, 60, 360];
@@ -117,9 +118,11 @@ async function markDone(admin: Admin, job: Job) {
 }
 
 async function markFailed(admin: Admin, job: Job, err: unknown) {
-  const attempts = job.attempts + 1;
+  // A conflict is not a hiccup, so trying again would change nothing: it stops here and waits for a person.
+  const conflict = err instanceof SyncConflict;
+  const attempts = conflict ? MAX_ATTEMPTS : job.attempts + 1;
   const waitMinutes = BACKOFF_MINUTES[Math.min(attempts, BACKOFF_MINUTES.length) - 1];
-  await admin.from("sync_jobs").update({ status: "failed", attempts, last_error: errorText(err), next_run_at: new Date(Date.now() + waitMinutes * 60_000).toISOString() }).eq("id", job.id);
+  await admin.from("sync_jobs").update({ status: "failed", attempts, last_error: conflict ? `CONFLICT: ${errorText(err)}` : errorText(err), next_run_at: new Date(Date.now() + waitMinutes * 60_000).toISOString() }).eq("id", job.id);
   console.warn(`[sync] job=${job.id} target=${job.target} status=failed attempts=${attempts}`);
 }
 
@@ -127,4 +130,12 @@ async function markFailed(admin: Admin, job: Job, err: unknown) {
 export function errorText(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err);
   return message.replace(/\s+/g, " ").trim().slice(0, 500) || "Unknown error";
+}
+
+/** After a person looked at a conflict and chose to write the app's note anyway. Writes the inventory note for every unit of the receipt's deal. */
+export async function writeInventoryAnyway(receiptId: string, admin: Admin = createAdminClient(), deps: SyncDeps = defaultSyncDeps()): Promise<void> {
+  const ctx = await loadContext(admin, receiptId);
+  const status = unitStatusFor(dealStatusOf(ctx.deal, ctx.today));
+  const ref = { receiptNo: ctx.lastReceiptNo, people: [{ name: ctx.salesperson, percent: null }], date: sheetDate(ctx.lastReceiptAt) };
+  for (const u of ctx.units) await deps.inventory.setStatus(u.plate_no, status, ref);
 }

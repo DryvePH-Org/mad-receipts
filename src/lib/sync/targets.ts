@@ -1,5 +1,6 @@
 import { driveFileLink, type DriveClient } from "@/lib/google/drive";
 import { tabRange, type CellValue, type SheetsClient } from "@/lib/google/sheets";
+import { decide } from "@/lib/inventory/decide";
 import { sheetDate } from "@/lib/inventory/remarks";
 import type { InventoryAdapter } from "@/lib/inventory/types";
 import { formatDate } from "@/lib/dates";
@@ -10,6 +11,9 @@ import { centsOf, dealStatusKey, STATUS_LABELS, type DealStatusKey } from "@/lib
 import type { Tables } from "@/lib/supabase/database.types";
 import type { TelegramClient } from "@/lib/telegram";
 import { receiptRecordHtml } from "./receipt-record";
+
+/** The shared sheet says something that disagrees with the app. Nothing is written; a person decides (the Sync jobs page offers the choices). */
+export class SyncConflict extends Error {}
 
 export type SyncTarget = "drive" | "sheets" | "telegram" | "inventory" | "docs";
 
@@ -124,8 +128,14 @@ export const syncTargets: Record<SyncTarget, (ctx: SyncContext, deps: SyncDeps) 
   async inventory(ctx, deps) {
     // The deal's current status, so a late or repeated job still writes the right word.
     const status = unitStatusFor(dealStatusOf(ctx.deal, ctx.today));
+    const ref = { receiptNo: ctx.lastReceiptNo, people: [{ name: ctx.salesperson, percent: null }], date: sheetDate(ctx.lastReceiptAt) };
     for (const u of ctx.units) {
-      await deps.inventory.setStatus(u.plate_no, status, { receiptNo: ctx.lastReceiptNo, people: [{ name: ctx.salesperson, percent: null }], date: sheetDate(ctx.lastReceiptAt) });
+      // The sheet is shared with staff: look at what it says now before writing, and stop if it disagrees with this deal.
+      const now = await deps.inventory.getUnit(u.plate_no);
+      const d = decide(status, now ? (now.remarks ?? "") : null, ref, ctx.deal.deal_no);
+      if (d.action === "conflict") throw new SyncConflict(`${u.plate}: ${d.why} ${d.fix}`);
+      if (d.action === "same") continue;
+      await deps.inventory.setStatus(u.plate_no, status, ref);
     }
   },
 };
@@ -143,11 +153,37 @@ async function upsertRow(sheets: SheetsClient, sheetId: string, tab: string, hea
     if (Number((err as { code?: unknown }).code) === 400) throw new Error(`Tab "${tab}" was not found in the receipts log sheet`);
     throw err;
   }
+  // The first row must be the app's own headers (or empty): a sheet with something else there is the wrong sheet or tab, and is not written to.
+  const problem = headerProblem(tab, rows[0], headers);
+  if (problem) throw new SyncConflict(problem);
   // Write the header row when the tab is empty, or add the names of newer columns to an older header row.
   if (rows.length === 0 || rows[0].length < headers.length) await sheets.updateValues(sheetId, tabRange(tab, "A1"), [headers]);
   const index = rows.findIndex((r, i) => i > 0 && r[keyColumn] === key);
   if (index === -1) await sheets.appendValues(sheetId, tabRange(tab), [row]);
   else if (updateExisting) await sheets.updateValues(sheetId, tabRange(tab, `A${index + 1}`), [row]);
+}
+
+const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
+/** Null when the tab's first row is empty or starts with the app's headers; otherwise what is wrong, and what to do. */
+export function headerProblem(tab: string, first: string[] | undefined, headers: string[]): string | null {
+  if (!first || first.every((c) => norm(c) === "")) return null;
+  const n = Math.min(first.length, headers.length);
+  if (headers.slice(0, n).every((h, i) => norm(first[i]) === norm(h))) return null;
+  return `The first row of the "${tab}" tab in the log sheet starts with "${first.filter(Boolean).slice(0, 4).join(", ")}", not the app's headers ("${headers.slice(0, 3).join(", ")}…"), so the app did not write there. Check that the log sheet id points at the right file, or use a tab with that name that is empty.`;
+}
+
+/** Checks the log sheet's two tabs without writing anything. Null when all is well. */
+export async function logSheetProblem(sheets: SheetsClient, sheetId: string): Promise<string | null> {
+  for (const [tab, headers] of [[RECEIPTS_TAB, RECEIPT_HEADERS], [DEALS_TAB, DEAL_HEADERS]] as const) {
+    let rows: string[][] = [];
+    try { rows = await sheets.getValues(sheetId, tabRange(tab, "A1:Z1")); } catch (err) {
+      if (Number((err as { code?: unknown }).code) === 400) return `The log sheet has no "${tab}" tab. Add an empty tab with that name.`;
+      throw err;
+    }
+    const p = headerProblem(tab, rows[0], headers as unknown as string[]);
+    if (p) return p;
+  }
+  return null;
 }
 
 /** "2026-11-02 15:30" in Manila time. */

@@ -3,7 +3,7 @@ import { emptyForm } from "@/app/(app)/new/form-state";
 import { DEFAULT_SETTINGS, parseSettings } from "@/lib/deal/settings";
 import type { DriveClient } from "@/lib/google/drive";
 import { createMockInventory } from "@/lib/inventory/mock";
-import { DEAL_HEADERS, RECEIPT_HEADERS, cancelMessage, syncTargets, telegramCaption, unitStatusFor, voidMessage, type SyncContext, type SyncDeps } from "@/lib/sync/targets";
+import { DEAL_HEADERS, RECEIPT_HEADERS, SyncConflict, cancelMessage, headerProblem, logSheetProblem, syncTargets, telegramCaption, unitStatusFor, voidMessage, type SyncContext, type SyncDeps } from "@/lib/sync/targets";
 import type { TelegramClient } from "@/lib/telegram";
 import { fakeSheets } from "./fakes";
 
@@ -112,15 +112,62 @@ describe("inventory", () => {
     await syncTargets.inventory(context({ deal: { balance: 0 } }), d);
     await syncTargets.inventory(context({ deal: { balance: 0, sale_type: "financing", institution: "BDO", loan_status: "waiting" } }), d);
     await syncTargets.inventory(context({ deal: { balance: 0, sale_type: "financing", institution: "BDO", loan_status: "released" } }), d);
-    await syncTargets.inventory(context({ deal: { status: "cancelled" } }), d);
-    expect(inventory.changes.map((c) => c.status)).toEqual(["Reserved", "Sold", "Reserved", "Sold", "Available"]);
+    expect(inventory.changes.map((c) => c.status)).toEqual(["Reserved", "Sold", "Reserved", "Sold"]);
     expect(inventory.changes[0]).toMatchObject({ plate: "NBC4821", ref: { receiptNo: "2556", people: [{ name: "David", percent: null }] } });
+  });
+  it("a cancelled deal clears the salesperson's own note (and has nothing to do when there is none)", async () => {
+    const { d } = deps();
+    const withNote = createMockInventory([{ plate: "NBC4821", status: "Reserved", remarks: "RESERVED - DAVID 11/3" }]);
+    await syncTargets.inventory(context({ deal: { status: "cancelled" } }), { ...d, inventory: withNote });
+    expect(withNote.changes.map((c) => c.status)).toEqual(["Available"]);
+    const empty = createMockInventory([{ plate: "NBC4821", status: "Available" }]);
+    await syncTargets.inventory(context({ deal: { status: "cancelled" } }), { ...d, inventory: empty });
+    expect(empty.changes).toEqual([]);
   });
   it("maps statuses", () => {
     expect([unitStatusFor("settled"), unitStatusFor("lender"), unitStatusFor("overdue"), unitStatusFor("cancelled")]).toEqual(["Sold", "Reserved", "Reserved", "Available"]);
   });
   it("the caption never promises Sold before it is settled", () => {
     expect(telegramCaption(context({ deal: { balance: 0, sale_type: "financing", institution: "BDO", loan_status: "waiting" } }))).toContain("Unit: Reserved");
+  });
+});
+
+describe("conflicts with the shared sheets: nothing is written, and the person is told what to do", () => {
+  it("the inventory note of someone else is never overwritten", async () => {
+    const { d } = deps();
+    const inventory = createMockInventory([{ plate: "NBC4821", status: "Reserved", remarks: "RESERVED - ELLA 10/30" }]);
+    const err = await syncTargets.inventory(context(), { ...d, inventory }).catch((e) => e);
+    expect(err).toBeInstanceOf(SyncConflict);
+    expect(String(err.message)).toContain("RESERVED - ELLA 10/30"); // what the sheet says
+    expect(String(err.message)).toContain("Ask ELLA and DAVID"); // and what to do
+    expect(inventory.changes).toEqual([]);
+  });
+  it("the salesperson's own reservation becomes a sale without a fuss", async () => {
+    const { d } = deps();
+    const inventory = createMockInventory([{ plate: "NBC4821", status: "Reserved", remarks: "RESERVED - DAVID 11/3" }]);
+    await syncTargets.inventory(context({ deal: { balance: 0 } }), { ...d, inventory });
+    expect(inventory.changes.map((c) => c.status)).toEqual(["Sold"]);
+  });
+  it("a note that already says it is left alone", async () => {
+    const { d } = deps();
+    const inventory = createMockInventory([{ plate: "NBC4821", status: "Reserved", remarks: "RESERVED - DAVID 11/4" }]);
+    await syncTargets.inventory(context(), { ...d, inventory });
+    expect(inventory.changes).toEqual([]);
+  });
+  it("a log sheet whose first row is something else is not written to", async () => {
+    const sheets = fakeSheets({ Receipts: [["Date", "Amount", "Notes"], ["x", "1", "y"]], Deals: [] });
+    const { d } = deps();
+    const err = await syncTargets.sheets(context(), { ...d, sheets: () => sheets.client }).catch((e) => e);
+    expect(err).toBeInstanceOf(SyncConflict);
+    expect(String(err.message)).toContain("not the app's headers");
+    expect(sheets.calls.filter((c) => c.op !== "get")).toEqual([]);
+  });
+  it("an empty tab, or the app's own headers, is fine; the preview check says the same", async () => {
+    expect(headerProblem("Receipts", undefined, RECEIPT_HEADERS)).toBeNull();
+    expect(headerProblem("Receipts", RECEIPT_HEADERS.slice(0, 5), RECEIPT_HEADERS)).toBeNull(); // an older, shorter header row
+    expect(await logSheetProblem(fakeSheets({ Receipts: [], Deals: [] }).client, "sheet")).toBeNull();
+    expect(await logSheetProblem(fakeSheets({ Receipts: [["Foo"]], Deals: [] }).client, "sheet")).toContain("not the app's headers");
+    expect(await logSheetProblem(fakeSheets({ Receipts: [] }).client, "sheet")).toContain('no "Deals" tab');
   });
 });
 

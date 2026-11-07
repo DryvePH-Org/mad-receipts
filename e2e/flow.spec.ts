@@ -124,6 +124,18 @@ test("the whole flow: Sales fills in, the Approver approves, the numbers agree",
   await sales.goto(`/deals/${after!.id}`);
   await expect(sales.getByText("Adds up").first()).toBeVisible();
   await expect(sales.getByText("Waiting for lender").first()).not.toBeVisible().catch(() => undefined);
+  // a conflict with a shared sheet stops the write and asks a person (simulated: the real sheets are switched off in these tests)
+  const receiptId = (await admin.from("receipts").select("id").eq("receipt_no", NO(1)).single()).data!.id;
+  await admin.from("sync_jobs").update({ status: "failed", attempts: 5, last_error: "CONFLICT: ZZT 1001: The sheet says \"RESERVED - ELLA 11/3\", naming ELLA, but this deal (D1) was opened by DAVID. Ask ELLA and DAVID who has this car." }).eq("receipt_id", receiptId).eq("target", "inventory");
+  const boss = await as(browser, "admin");
+  await boss.goto("/admin/sync?show=all");
+  await expect(boss.getByText("Needs a decision").filter({ visible: true }).first()).toBeVisible();
+  await expect(boss.getByText(/Ask ELLA and DAVID/).filter({ visible: true }).first()).toBeVisible();
+  await boss.getByText("Write the app's note instead…").filter({ visible: true }).first().click();
+  await expect(boss.getByRole("button", { name: "Yes, overwrite the sheet's note" }).filter({ visible: true }).first()).toBeVisible(); // asks twice before overwriting
+  await boss.getByRole("button", { name: "Keep the sheet's note" }).filter({ visible: true }).first().click();
+  await expect.poll(async () => (await admin.from("sync_jobs").select("status").eq("receipt_id", receiptId).eq("target", "inventory").single()).data?.status).toBe("done");
+  await boss.close();
   await sales.close(); await approver.close();
 });
 

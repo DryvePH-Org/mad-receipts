@@ -215,6 +215,16 @@ would be written. Only clear changes are ticked; a car whose live note differs (
 number and file name, so running it twice adds nothing twice); Telegram is never replayed. REPLAY must be typed. The inventory note is dated with the receipt's own date, not the day it was typed in.
 The app only ever edits the one REMARKS cell of a car, keeps any other note, never adds or removes rows, and re-reads the live row at write time.
 
+## Conflicts with the shared sheets (checked before every write)
+
+- **Inventory sheet** (shared with staff): before writing a car's note the app reads what the sheet says now. It writes when the status is empty, or when the note is the same salesperson's own (a reservation becoming a sale,
+  a new date, a cancelled deal clearing its note). If the note names someone else, or is not in the usual format, **nothing is written**: the job stops (no retries) and **Sync jobs** shows what the sheet says, why it disagrees and
+  what to do, with **Keep the sheet's note** or **Write the app's note instead…** (asks twice). The replay shows the same for every car before anything is sent.
+- **Log sheet:** the first row of the Receipts and Deals tabs must be empty or the app's own headers; anything else means the wrong file or tab, and nothing is written (the replay preview says so before sending).
+  Receipts are only ever added (matched by receipt number); a deal's row is rewritten with the deal's current figures.
+- **Drive:** a file that is already there under the same name is skipped, never replaced.
+- Not checked: a deal's log row that someone edited by hand is rewritten with the app's figures; the car-documents folder move.
+
 ## Staying up to date, and the receipt form's feedback
 
 - **Live screens:** Transactions, Approvals, Reminders, Cash report, Activity and the admin pages ask `/api/pulse` (one tiny query: counts and latest times of receipts and deals) every 8 seconds and when the tab is

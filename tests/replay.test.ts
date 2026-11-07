@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { classify, planReplay, runReplay } from "@/lib/sync/replay";
+import { decide as classify } from "@/lib/inventory/decide";
+import { planReplay, runReplay } from "@/lib/sync/replay";
 
 vi.mock("server-only", () => ({}));
 
@@ -13,10 +14,19 @@ describe("comparing a car with the live sheet", () => {
   it("leaves it alone when the live sheet already says it", () => {
     expect(classify("Reserved", "RESERVED - AARON 11/6", ref).action).toBe("same");
   });
-  it("flags a different status or different names for a person to decide", () => {
-    expect(classify("Reserved", "SOLD - ELLA 3% 10/30", ref).action).toBe("conflict");
+  it("flags someone else's note for a person to decide, and says what to do", () => {
+    const c = classify("Reserved", "SOLD - ELLA 3% 10/30", ref, "D1001");
+    expect(c.action).toBe("conflict");
+    expect(c.why).toContain("SOLD - ELLA 3% 10/30");
+    expect(c.fix).toContain("Ask ELLA and AARON");
     expect(classify("Sold", "RESERVED - ELLA 10/30", ref).action).toBe("conflict");
     expect(classify("Reserved", "RESERVED - ELLA 10/30", ref).action).toBe("conflict");
+    expect(classify("Reserved", "RESERVED BY ELLA", ref).action).toBe("conflict"); // not in the usual format: cannot tell whose it is
+  });
+  it("brings the salesperson's own note up to date: a reservation becomes a sale, a new date, a cleared cancelled deal", () => {
+    expect(classify("Sold", "RESERVED - AARON 10/30", ref).action).toBe("change");
+    expect(classify("Reserved", "RESERVED - AARON 10/30", ref).action).toBe("change");
+    expect(classify("Available", "SOLD - AARON 3% 10/30", ref).action).toBe("change");
   });
   it("says so when the plate is not in the live sheet, and has nothing to clear on an empty one", () => {
     expect(classify("Reserved", null, ref).action).toBe("missing");
@@ -61,6 +71,7 @@ describe("the replay plan", () => {
     const { cars, approvedReceipts } = await planReplay(admin, inv);
     expect(approvedReceipts).toBe(2);
     expect(cars.map((c) => [c.plate, c.action, c.ref.date])).toEqual([["BBB2222", "conflict", "10/25"], ["AAA1111", "change", "10/20"]]);
+    expect(cars[0].fix).toContain("Ask ELLA and AARON");
   });
   it("writes only the ticked cars, and queues log rows and Drive filing for every approved receipt", async () => {
     const { admin, inv, log } = world();

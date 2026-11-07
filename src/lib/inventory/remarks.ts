@@ -18,7 +18,7 @@ const STATUS_SEGMENT = new RegExp(
 );
 
 /** Name as shown in the sheet: capitals, letters only (a "|" or digit would break the format). */
-function sheetName(name: string): string {
+export function sheetName(name: string): string {
   const cleaned = name.replace(/[^\p{L} .'-]/gu, " ").replace(/\s+/g, " ").trim();
   return (cleaned || "STAFF").toUpperCase();
 }
@@ -37,6 +37,14 @@ export function formatStatusText(
     .map((p) => (sold && p.percent !== null ? `${sheetName(p.name)} ${percentText(p.percent)}` : sheetName(p.name)))
     .join(" ");
   return `${sold ? "SOLD" : "RESERVED"} - ${who} ${ref.date}`;
+}
+
+/** Who a status note names, and when: "RESERVED - DAVID ELLA 11/2" → RESERVED, [DAVID, ELLA], "11/2". Null when the cell does not hold a note in this format. */
+export function parseStatus(remarks: string): { status: "Reserved" | "Sold"; names: string[]; date: string; text: string } | null {
+  const m = /^\s*(RESERVED|SOLD) - (.+?) (\d{1,2}\/\d{1,2})(?=\s*(?:\||$))/iu.exec(remarks);
+  if (!m) return null;
+  const names = m[2].split(/\s+/).filter((t) => t && !/%$/.test(t)).map((t) => t.toUpperCase());
+  return { status: m[1].toUpperCase() === "SOLD" ? UNIT_STATUS.sold : UNIT_STATUS.reserved, names, date: m[3], text: m[0].trim() };
 }
 
 /** Reads the status out of a remarks cell: Reserved or Sold if it starts with that word, else Available. */

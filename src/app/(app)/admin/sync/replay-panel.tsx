@@ -35,6 +35,7 @@ export function ReplayPanel() {
       const r = await getReplayPlan();
       if (!r.ok) return setError(r.error);
       setPlan(r.plan);
+      if (r.plan.logSheetProblem) setLogRows(false); // not sent while the log sheet looks wrong
       setPicked(new Set(r.plan.cars.filter((c) => c.action === "change").map((c) => c.plate))); // only the clear ones are ticked; differences wait for a person
     });
   }
@@ -62,8 +63,9 @@ export function ReplayPanel() {
               <p className="text-muted-foreground">Inventory sheet <b className="font-mono">{plan.connected.inventory}</b> · Log sheet <b className="font-mono">{plan.connected.logSheet}</b> · Drive folder <b className="font-mono">{plan.connected.driveFolder}</b></p>
             </div>
 
+            {plan.logSheetProblem && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100"><b className="font-medium">Log sheet: not safe to write.</b> {plan.logSheetProblem}</p>}
             <div className="space-y-2 text-sm">
-              <label className="flex cursor-pointer items-start gap-2"><input type="checkbox" className="mt-1" checked={logRows} onChange={(e) => setLogRows(e.target.checked)} /><span><b className="font-medium">Add the {plan.approvedReceipts} approved receipts to the log sheet.</b> Safe to repeat: rows are matched by receipt number.</span></label>
+              <label className="flex cursor-pointer items-start gap-2"><input type="checkbox" className="mt-1" disabled={!!plan.logSheetProblem} checked={logRows} onChange={(e) => setLogRows(e.target.checked)} /><span><b className="font-medium">Add the {plan.approvedReceipts} approved receipts to the log sheet.</b> Safe to repeat: rows are matched by receipt number.</span></label>
               <label className="flex cursor-pointer items-start gap-2"><input type="checkbox" className="mt-1" checked={drive} onChange={(e) => setDrive(e.target.checked)} /><span><b className="font-medium">File the receipts and proofs in the Drive folder.</b> Safe to repeat: a file that is already there is skipped.</span></label>
               <p className="text-xs text-muted-foreground">Telegram is never replayed, so old receipts are not posted to the group.</p>
             </div>
@@ -81,6 +83,7 @@ export function ReplayPanel() {
                         <div className="min-w-0">
                           <p><b className="font-mono">{c.display}</b> <span className="text-muted-foreground">{c.makeType} · deal {c.dealNo}</span> <span className={cn("ml-1 text-xs font-medium", tone)}>{label}</span></p>
                           <p className="text-xs text-muted-foreground">{c.why}</p>
+                          {c.fix && <p className="text-xs text-amber-900 dark:text-amber-200"><b className="font-medium">What to do:</b> {c.fix}</p>}
                           {can && <p className="text-xs break-words"><span className="text-muted-foreground">Live sheet now:</span> {c.current || "(empty)"} <span className="text-muted-foreground">→ would become:</span> <b className="font-medium">{c.next}</b></p>}
                         </div>
                       </li>

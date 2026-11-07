@@ -12,7 +12,7 @@ import { ReplayPanel } from "./replay-panel";
 import { formatManilaDateTime } from "@/lib/dates";
 import { param } from "@/lib/search";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { retrySyncJob, runSyncNow } from "./actions";
+import { resolveConflict, retrySyncJob, runSyncNow } from "./actions";
 
 const TARGET_LABEL: Record<string, string> = {
   drive: "Google Drive",
@@ -55,7 +55,34 @@ async function SyncContent({ searchParams }: { searchParams: PageProps<"/admin/s
   const progress = (job: (typeof jobs)[number]) =>
     `${job.attempts} ${job.attempts === 1 ? "attempt" : "attempts"}${
       job.status !== "done" && job.attempts < MAX_ATTEMPTS ? ` · next try ${formatManilaDateTime(job.next_run_at)}` : ""
-    }${job.status !== "done" && job.attempts >= MAX_ATTEMPTS ? " · gave up, retry it to try again" : ""}`;
+    }${job.status !== "done" && job.attempts >= MAX_ATTEMPTS ? (job.last_error?.startsWith("CONFLICT:") ? " · waiting for your decision" : " · gave up, retry it to try again") : ""}`;
+
+  const isConflict = (job: (typeof jobs)[number]) => job.status !== "done" && !!job.last_error?.startsWith("CONFLICT:");
+  // A conflict: the shared sheet disagrees with the app. Nothing was written. The person decides; overwriting asks twice.
+  const conflict = (job: (typeof jobs)[number]) =>
+    isConflict(job) ? (
+      <span className="block space-y-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100">
+        <b className="block font-medium">Needs a decision: the sheet disagrees with the app, so nothing was written.</b>
+        <span className="block break-words">{job.last_error!.slice("CONFLICT:".length).trim()}</span>
+        <span className="flex flex-wrap items-start gap-2">
+          <form action={resolveConflict}>
+            <input type="hidden" name="id" value={job.id} /><input type="hidden" name="choice" value="keep" />
+            <Button type="submit" size="sm" variant="outline">{job.target === "inventory" ? "Keep the sheet's note" : "Close this job"}</Button>
+          </form>
+          {job.target === "inventory" && (
+            <details className="rounded-lg border bg-background px-2 py-1">
+              <summary className="cursor-pointer text-sm">Write the app&apos;s note instead…</summary>
+              <form action={resolveConflict} className="mt-2 space-y-1">
+                <input type="hidden" name="id" value={job.id} /><input type="hidden" name="choice" value="overwrite" />
+                <p className="text-xs">This replaces what the sheet says for that car. Be sure the app is right.</p>
+                <Button type="submit" size="sm" variant="destructive">Yes, overwrite the sheet&apos;s note</Button>
+              </form>
+            </details>
+          )}
+        </span>
+        <span className="block text-xs">After fixing the sheet yourself, press Retry now to check again.</span>
+      </span>
+    ) : null;
 
   const retry = (job: (typeof jobs)[number]) =>
     job.status !== "done" ? (
@@ -104,10 +131,10 @@ async function SyncContent({ searchParams }: { searchParams: PageProps<"/admin/s
           {
             key: "info",
             header: "Details",
-            className: "max-w-sm whitespace-normal",
+            className: "max-w-md whitespace-normal",
             cell: (j) => (
               <span className="block space-y-1">
-                {j.last_error && <span className="block text-sm break-words">{j.last_error}</span>}
+                {isConflict(j) ? conflict(j) : j.last_error && <span className="block text-sm break-words">{j.last_error}</span>}
                 <span className="block text-xs text-muted-foreground">{progress(j)}</span>
               </span>
             ),
@@ -125,7 +152,7 @@ async function SyncContent({ searchParams }: { searchParams: PageProps<"/admin/s
               </div>
               <SyncStatusBadge status={j.status} />
             </div>
-            {j.last_error && <p className="rounded-md bg-muted p-2 text-sm break-words">{j.last_error}</p>}
+            {isConflict(j) ? conflict(j) : j.last_error && <p className="rounded-md bg-muted p-2 text-sm break-words">{j.last_error}</p>}
             <p className="text-xs text-muted-foreground">{progress(j)}</p>
             {retry(j)}
           </div>

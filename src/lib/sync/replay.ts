@@ -1,8 +1,8 @@
 import "server-only";
 import { manilaToday } from "@/lib/dates";
-import { applyStatus, readStatus, sheetDate } from "@/lib/inventory/remarks";
+import { decide, type Decision } from "@/lib/inventory/decide";
+import { sheetDate } from "@/lib/inventory/remarks";
 import type { InventoryAdapter, UnitStatus } from "@/lib/inventory/types";
-import { UNIT_STATUS } from "@/lib/inventory/types";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { dealStatusOf, unitStatusFor } from "./targets";
 
@@ -12,7 +12,7 @@ import { dealStatusOf, unitStatusFor } from "./targets";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
-export type ReplayAction = "change" | "same" | "conflict" | "missing";
+export type ReplayAction = Decision;
 
 export interface ReplayCar {
   plate: string;
@@ -28,22 +28,10 @@ export interface ReplayCar {
   action: ReplayAction;
   /** a few words saying why, for the person ticking */
   why: string;
+  /** what to do about it (only when there is a conflict, or the plate is missing) */
+  fix: string;
   /** who and when, as the sheet note is written */
   ref: { receiptNo: string; people: { name: string; percent: number | null }[]; date: string };
-}
-
-/** Compares one car with the live sheet. Pure, so the rules can be tested. */
-export function classify(wants: UnitStatus, current: string | null, ref: { receiptNo: string; people: { name: string; percent: number | null }[]; date: string }): { action: ReplayAction; next: string; why: string } {
-  if (current === null) return { action: "missing", next: "", why: "This plate is not in the live inventory sheet." };
-  const next = applyStatus(current, wants, ref);
-  if (next === current.trim()) return { action: "same", next, why: "The live sheet already says this." };
-  const now = readStatus(current);
-  if (now === UNIT_STATUS.available) {
-    // nothing there; if the app wants it cleared, there is nothing to clear
-    return wants === UNIT_STATUS.available ? { action: "same", next, why: "Nothing to clear." } : { action: "change", next, why: "The live sheet has no status for this car." };
-  }
-  if (now !== wants) return { action: "conflict", next, why: `The live sheet says ${now.toUpperCase()}, the app says ${wants.toUpperCase()}. Staff may have updated it since.` };
-  return { action: "conflict", next, why: "The live sheet has the same status but with different names or date." };
 }
 
 interface DealRow { id: string; deal_no: string; created_by: string | null; created_at: string }
@@ -72,8 +60,8 @@ export async function planReplay(admin: Admin, inv: InventoryAdapter): Promise<{
     const wants = unitStatusFor(dealStatusOf(deal as never, today));
     const ref = { receiptNo: "", people: [{ name: name.get(deal.created_by ?? "") ?? "", percent: null }], date: sheetDate(`${lastDate.get(deal.id)}T04:00:00Z`) };
     const current = await inv.getUnit(plate).then((u) => (u ? (u.remarks ?? "") : null));
-    const c = classify(wants, current, ref);
-    cars.push({ plate, display, makeType: make, dealNo: deal.deal_no, wants, current: current ?? "", next: c.next, action: c.action, why: c.why, ref });
+    const c = decide(wants, current, ref, deal.deal_no);
+    cars.push({ plate, display, makeType: make, dealNo: deal.deal_no, wants, current: current ?? "", next: c.next, action: c.action, why: c.why, fix: c.fix, ref });
   }
   const order = { conflict: 0, change: 1, missing: 2, same: 3 } as const;
   cars.sort((a, b) => order[a.action] - order[b.action] || a.display.localeCompare(b.display));
