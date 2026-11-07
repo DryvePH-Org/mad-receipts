@@ -4,6 +4,8 @@ import { defineConfig } from "@playwright/test";
 // marked test data (receipts "ZZT-E2E…", users "zzt-e2e-…") that is removed before and after.
 // Google and Telegram are switched off, so nothing leaves the machine except Supabase.
 const PORT = 3124;
+// E2E_PROD=1 runs the tests against a production build (what the server runs) instead of the dev server: caching and prefetching differ.
+const prod = !!process.env.E2E_PROD;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -17,9 +19,9 @@ export default defineConfig({
   use: { baseURL: `http://localhost:${PORT}`, channel: "chrome", trace: "retain-on-failure" },
   webServer: [
     {
-      command: `npx next dev -p ${PORT}`,
+      command: prod ? `npx next build && npx next start -p ${PORT}` : `npx next dev -p ${PORT}`,
       port: PORT,
-      timeout: 180_000,
+      timeout: prod ? 420_000 : 180_000,
       reuseExistingServer: false,
       env: {
         NEXT_DIST_DIR: ".next-e2e",

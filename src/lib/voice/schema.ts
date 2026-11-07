@@ -17,7 +17,7 @@ const obj = <T extends z.ZodType>(item: T) => z.preprocess((v) => (v && typeof v
 export const VoiceExtraction = z.object({
   receipt_no: text, date, kind: oneOf("earnest", "partial", "full"),
   buyer_name: text, buyer_address: text, buyer_contact: text,
-  units: list(z.object({ make_type: text, plate: text, motor: text, chassis: text, color: text })),
+  units: list(z.object({ make_type: text, plate: text, color: text })),
   price: num,
   sale: oneOf("cash", "financing"), institution: text,
   down_payment: num, down_payment_percent: num, loan_amount: num, monthly: num, years: num,

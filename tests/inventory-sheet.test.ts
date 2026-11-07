@@ -220,19 +220,3 @@ describe("mock inventory", () => {
   });
 });
 
-describe("motor and chassis numbers", () => {
-  it("are left empty when the inventory sheet has no such columns (the real stock tab has none)", async () => {
-    const units = await inventory.listUnits();
-    expect(units.every((u) => u.motor === undefined && u.chassis === undefined)).toBe(true);
-    expect(await inventory.getUnit("NKU8411")).not.toHaveProperty("motor");
-  });
-  it("come from the sheet when it does have them", async () => {
-    const header = [...HEADER.slice(0, 22), "MOTOR NO.", "CHASSIS NUMBER"];
-    const row = unit("NKU8411", "", "SUZUKI", "SPRESSO", "GRAY");
-    while (row.length < 24) row.push("");
-    row[22] = "K10CN-123456"; row[23] = "MA3FXXXXXXXXXXXXX";
-    const withNumbers = createSheetInventory({ client: fakeSheets({ "INVENTORY 2026": [["F"], header, row, unit("NBU4875", "", "TOYOTA", "WIGO", "RED")] }).client, config });
-    expect((await withNumbers.listUnits()).map((u) => [u.plate, u.motor, u.chassis])).toEqual([["NKU8411", "K10CN-123456", "MA3FXXXXXXXXXXXXX"], ["NBU4875", undefined, undefined]]);
-    expect(await withNumbers.getUnit("NKU8411")).toMatchObject({ motor: "K10CN-123456", chassis: "MA3FXXXXXXXXXXXXX" });
-  });
-});

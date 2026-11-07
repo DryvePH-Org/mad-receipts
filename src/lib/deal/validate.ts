@@ -33,8 +33,6 @@ export function missingFields(s: FormState, t: Totals, settings: AppSettings, op
     const p = s.units.length > 1 ? `Unit ${i + 1}: ` : "";
     if (!u.makeType.trim()) add(2, `${p}Make / type`, unitFieldId(i, "makeType"));
     if (!u.plate.trim()) add(2, `${p}Plate number`, unitFieldId(i, "plate"));
-    if (req.motor && !u.motor.trim()) add(2, `${p}Motor number`, unitFieldId(i, "motor"));
-    if (req.chassis && !u.chassis.trim()) add(2, `${p}Chassis number`, unitFieldId(i, "chassis"));
     if (req.color && !u.color.trim()) add(2, `${p}Color`, unitFieldId(i, "color"));
   });
   if (opts.duplicateDeal) add(2, `This car already has an open deal (${opts.duplicateDeal}). Use “Continue this deal” at the top`, "deal-banner");

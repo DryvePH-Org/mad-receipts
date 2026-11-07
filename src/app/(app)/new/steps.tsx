@@ -74,13 +74,12 @@ function UnitCard({ ctx, i }: { ctx: Ctx; i: number }) {
   const showOther = otherColor || customColor;
   const chip = ([c, hex]: [string, string]) => <Chip key={c} selected={u.color === c} dot={hex} onClick={() => { update({ color: u.color === c ? "" : c }); setOtherColor(false); }}>{c}</Chip>;
   const plateOk = !u.plate || /^[A-Z]{3}\s?\d{3,4}$/.test(u.plate.toUpperCase());
-  const chassisLen = u.chassis.replace(/\s/g, "").length;
 
   function pick(makeType: string, only: InvUnit | null) {
     const group = inventory.filter((x) => x.makeType === makeType && x.status === "Available");
     const unit = only ?? (group.length === 1 ? group[0] : null);
     setManual(false); setTypedPlate(false);
-    update(unit ? { makeType, plate: unit.plate, color: unit.color ?? "", ...(unit.motor ? { motor: unit.motor.toUpperCase() } : {}), ...(unit.chassis ? { chassis: unit.chassis.toUpperCase() } : {}) } : { makeType, plate: u.makeType === makeType ? u.plate : "", color: u.makeType === makeType ? u.color : "" });
+    update(unit ? { makeType, plate: unit.plate, color: unit.color ?? "" } : { makeType, plate: u.makeType === makeType ? u.plate : "", color: u.makeType === makeType ? u.color : "" });
   }
 
   return (
@@ -95,15 +94,13 @@ function UnitCard({ ctx, i }: { ctx: Ctx; i: number }) {
           <button type="button" className="mt-1.5 text-xs underline" onClick={() => (manual ? setPicker(true) : setManual(true))}>{manual ? "Pick from the inventory instead" : "Not in the inventory? Type it yourself"}</button></FormField></div>
         <div className="sm:col-span-2"><FormField id={unitFieldId(i, "plate")} label="Plate number" error={bad(ctx, unitFieldId(i, "plate")) ? "Required" : undefined} hint={manual || typedPlate ? (plateOk ? "Letters and numbers" : "Check the format, e.g. ABC 1234") : "Only plates of this make and type"}>
           {!manual && !typedPlate ? (
-            <NativeSelect id={unitFieldId(i, "plate")} value={u.plate} disabled={!u.makeType} onChange={(e) => { if (e.target.value === "__type") { setTypedPlate(true); update({ plate: "" }); } else { const x = same.find((y) => y.plate === e.target.value); update({ plate: e.target.value, color: x?.color || u.color, ...(x?.motor ? { motor: x.motor.toUpperCase() } : {}), ...(x?.chassis ? { chassis: x.chassis.toUpperCase() } : {}) }); } }}>
+            <NativeSelect id={unitFieldId(i, "plate")} value={u.plate} disabled={!u.makeType} onChange={(e) => { if (e.target.value === "__type") { setTypedPlate(true); update({ plate: "" }); } else { const x = same.find((y) => y.plate === e.target.value); update({ plate: e.target.value, color: x?.color || u.color }); } }}>
               <option value="">{u.makeType ? "Choose the plate…" : "Pick the make / type first"}</option>
               {same.map((x) => <option key={x.plate} value={x.plate} disabled={(x.status !== "Available" || usedElsewhere.has(x.plate.replace(/[^A-Za-z0-9]/g, ""))) && x.plate !== u.plate}>{x.plate}{x.color ? ` · ${x.color}` : ""}{x.status !== "Available" ? ` · ${x.status}` : ""}</option>)}
               {u.plate && !same.some((x) => x.plate === u.plate) && <option value={u.plate}>{u.plate}</option>}
               {u.makeType && <option value="__type">Not listed, type it…</option>}
             </NativeSelect>
           ) : <Input id={unitFieldId(i, "plate")} className="font-mono uppercase" value={u.plate} onChange={(e) => update({ plate: e.target.value.toUpperCase() })} placeholder="ABC 1234" />}</FormField></div>
-        <div className="sm:col-span-3"><FormField id={unitFieldId(i, "motor")} label="Motor number" hint={u.motor ? `${u.motor.replace(/\s/g, "").length} characters` : undefined} error={bad(ctx, unitFieldId(i, "motor")) ? "Required" : undefined}><Input id={unitFieldId(i, "motor")} className="font-mono uppercase" value={u.motor} onChange={(e) => update({ motor: e.target.value.toUpperCase() })} /></FormField></div>
-        <div className="sm:col-span-3"><FormField id={unitFieldId(i, "chassis")} label="Chassis number" hint={!chassisLen ? undefined : chassisLen === 17 ? "17 of 17 characters ✓" : `${chassisLen} characters · most chassis numbers have 17`} error={bad(ctx, unitFieldId(i, "chassis")) ? "Required" : undefined}><Input id={unitFieldId(i, "chassis")} className="font-mono uppercase" value={u.chassis} onChange={(e) => update({ chassis: e.target.value.toUpperCase() })} /></FormField></div>
         <div className="space-y-2 sm:col-span-6" id={unitFieldId(i, "color")} tabIndex={-1}>
           <Label>Color{bad(ctx, unitFieldId(i, "color")) && <span className="ml-2 text-xs font-normal text-destructive">Required</span>}</Label>
           {brandColors.length > 0 && <><p className="text-xs text-muted-foreground">{brand} factory colors</p><div className="flex flex-wrap gap-1.5">{brandColors.map(chip)}</div></>}
@@ -379,7 +376,7 @@ export function StepFinish({ ctx, confirmed, onConfirm }: { ctx: Ctx; confirmed:
           {ctx.missing.length === 0 && ctx.warnings.length === 0 && <p className="flex gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200"><CircleCheck className="mt-0.5 size-4 shrink-0" aria-hidden />Everything is filled in, and the price, trade-in, loan and payments add up.</p>}
           <div className="grid gap-x-6 sm:grid-cols-3">
             {cell("Receipt no.", s.receiptNo)}{cell("Received from", s.receivedFrom)}{cell("Contact", s.contact)}
-            {s.units.map((u, i) => cell(s.units.length > 1 ? `Unit ${i + 1}` : "Unit", <>{unitLines[i]}<span className="block font-mono text-xs font-normal text-muted-foreground">{[u.motor, u.chassis].filter(Boolean).join(" · ")}</span></>))}
+            {s.units.map((u, i) => cell(s.units.length > 1 ? `Unit ${i + 1}` : "Unit", <>{unitLines[i]}</>))}
             {cell("Agreed price", t.price ? formatPeso(t.price) : "", true)}{cell(b.label, t.price ? formatPeso(b.amount) : "", true)}{cell("Paid today", t.today ? formatPeso(t.today) : "", true)}
           </div>
           <label className="mt-2 flex cursor-pointer items-center gap-3 rounded-lg border border-dashed p-3 font-medium"><input type="checkbox" className="size-5" checked={confirmed} onChange={(e) => onConfirm(e.target.checked)} />I checked every field above against the buyer and the paperwork.</label>

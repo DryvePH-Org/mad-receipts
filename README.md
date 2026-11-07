@@ -118,8 +118,7 @@ A fourth role, **Documentation**, watches each car's papers. Every car has a Dri
 
 ## Vehicle details and layout
 
-- **Make, type, plate and color** come from the inventory sheet when a unit is picked. **Motor and chassis numbers** are filled in only if the inventory
-  sheet has columns for them (headers like MOTOR NO. / CHASSIS NUMBER); the stock tab has none, so they stay empty to be typed from the CR. They are never taken from the Drive papers.
+- **Make, type, plate and color** come from the inventory sheet when a unit is picked. The receipt has no motor or chassis number (they were removed); the Car documents module still reads them from the papers to check the documents agree.
 - **Colors:** each car shows its brand's own colors first, then the colors cars are most often sold in (Pearl White, Jet Black Mica, Silver Metallic, Graphite Gray, Red Mica...). The Admin edits both lists in Settings.
 - **Phones and tablets:** every page is checked at 375, 768 and 1280 px by `e2e/responsive.spec.ts` (nothing may push the page sideways; wide tables scroll inside their box).
 

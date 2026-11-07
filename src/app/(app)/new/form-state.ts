@@ -2,7 +2,7 @@ import type { AppSettings } from "@/lib/deal/settings";
 import type { FormState, MethodRow, UnitInput } from "@/lib/deal/types";
 import { fromCentavos, toCentavos } from "@/lib/rules/money";
 
-export const emptyUnit = (): UnitInput => ({ makeType: "", plate: "", motor: "", chassis: "", color: "" });
+export const emptyUnit = (): UnitInput => ({ makeType: "", plate: "", color: "" });
 export const emptyMethod = (type: MethodRow["type"], name = ""): MethodRow => ({ type, name, amount: "", ref: "", checkNo: "", bank: "", branch: "", proofs: [] });
 
 export function emptyForm(settings: AppSettings, today: string): FormState {

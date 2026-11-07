@@ -69,8 +69,6 @@ export function applyVoice(form: FormState, fin: FinUi, v: VoiceExtraction, o: {
       const next: UnitInput = {
         makeType: text(cur.makeType, makeType, label("the make and model")) ?? cur.makeType,
         plate: text(cur.plate, inv?.plate ?? hu.plate?.toUpperCase() ?? null, label("the plate number"), (a, b) => norm(a) === norm(b)) ?? cur.plate,
-        motor: text(cur.motor, hu.motor?.toUpperCase() ?? null, label("the motor number"), (a, b) => norm(a) === norm(b)) ?? cur.motor,
-        chassis: text(cur.chassis, hu.chassis?.toUpperCase() ?? null, label("the chassis number"), (a, b) => norm(a) === norm(b)) ?? cur.chassis,
         color: text(cur.color, color ?? inv?.color ?? null, label("the color")) ?? cur.color,
       };
       f.units[i] = next;

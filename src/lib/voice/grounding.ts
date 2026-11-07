@@ -139,8 +139,6 @@ export function groundInTranscript(transcript: string, data: Fields): { fields: 
   f.units = f.units.map((u, i) => ({
     make_type: spokenOnly(u.make_type, "the make and model"),
     plate: codeAt(`plate:${i}`, u.plate) ? u.plate : (drop("the plate number"), null),
-    motor: codeAt(`motor:${i}`, u.motor) ? u.motor : (drop("the motor number"), null),
-    chassis: codeAt(`chassis:${i}`, u.chassis) ? u.chassis : (drop("the chassis number"), null),
     color: color(u.color) ? u.color : (drop("the color"), null),
   })).filter((u) => Object.values(u).some(Boolean));
   // Saying the same car twice ("Vios NKF4771 ... again, the Vios NKF4771") is one car.

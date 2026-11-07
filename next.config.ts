@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   experimental: {
+    staleTimes: { dynamic: 0, static: 30 }, // a page you open again is read fresh, not from the browser's copy
     authInterrupts: true, // enables forbidden() for admin-only pages
   },
   async headers() {

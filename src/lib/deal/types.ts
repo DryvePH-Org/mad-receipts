@@ -23,8 +23,6 @@ export interface ProofFile {
 export interface UnitInput {
   makeType: string;
   plate: string;
-  motor: string;
-  chassis: string;
   color: string;
 }
 

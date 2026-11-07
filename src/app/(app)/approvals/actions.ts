@@ -14,8 +14,7 @@ async function review(receiptId: string, approve: boolean, reason?: string): Pro
   if (!/^[0-9a-f-]{36}$/i.test(receiptId)) return { ok: false, error: "That receipt was not found." };
   const { error } = await createAdminClient().rpc("review_receipt", { p_actor: user.id, p_receipt_id: receiptId, p_approve: approve, p_reason: reason });
   if (error) return { ok: false, error: friendlyError(error.message) };
-  revalidatePath("/approvals");
-  revalidatePath("/deals", "layout");
+  revalidatePath("/", "layout"); // every screen that shows deals, receipts or balances
   if (approve) {
     // Drive, Sheets, Telegram and the inventory sheet update after approval; a failure stays queued and retries.
     after(() => processDueJobs({ receiptId }).catch((e) => console.error(`[sync] after approval failed: ${e instanceof Error ? e.message : "unknown"}`)));

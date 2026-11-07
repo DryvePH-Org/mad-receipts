@@ -18,8 +18,6 @@ interface SheetConfig {
 const BRAND_HEADERS = ["brand"];
 const MAKE_HEADERS = ["make/type", "make", "model", "makemodel", "make&model", "unit", "vehicle"];
 const COLOR_HEADERS = ["color", "colour"];
-const MOTOR_HEADERS = ["motor", "motorno", "motorno.", "motornumber", "engine", "engineno", "engineno.", "enginenumber"];
-const CHASSIS_HEADERS = ["chassis", "chassisno", "chassisno.", "chassisnumber", "vin"];
 const HEADER_SEARCH_ROWS = 10; // the header may sit below a title row
 
 const header = (s: string) => s.toLowerCase().replace(/\s+/g, "");
@@ -73,8 +71,6 @@ export function createSheetInventory(
     const brandCol = headers.findIndex((h) => BRAND_HEADERS.includes(h));
     const makeCol = headers.findIndex((h, i) => i !== brandCol && MAKE_HEADERS.includes(h));
     const colorCol = headers.findIndex((h) => COLOR_HEADERS.includes(h));
-    const motorCol = headers.findIndex((h) => MOTOR_HEADERS.includes(h));
-    const chassisCol = headers.findIndex((h) => CHASSIS_HEADERS.includes(h));
 
     const matches: number[] = [];
     rows.forEach((row, i) => {
@@ -97,8 +93,6 @@ export function createSheetInventory(
     const makeType = [cell(brandCol), cell(makeCol)].filter(Boolean).join(" ");
     if (makeType) unit.makeType = makeType;
     if (cell(colorCol)) unit.color = cell(colorCol);
-    if (cell(motorCol)) unit.motor = cell(motorCol);
-    if (cell(chassisCol)) unit.chassis = cell(chassisCol);
 
     return { rowNumber: matches[0] + 1, statusCol, remarks, unit };
   }
@@ -113,8 +107,6 @@ export function createSheetInventory(
       const brandCol = headers.findIndex((h) => BRAND_HEADERS.includes(h));
       const makeCol = headers.findIndex((h, i) => i !== brandCol && MAKE_HEADERS.includes(h));
       const colorCol = headers.findIndex((h) => COLOR_HEADERS.includes(h));
-      const motorCol = headers.findIndex((h) => MOTOR_HEADERS.includes(h));
-      const chassisCol = headers.findIndex((h) => CHASSIS_HEADERS.includes(h));
       const seen = new Set<string>(), units: InventoryUnit[] = [];
       rows.slice(headerIndex + 1).forEach((row) => {
         const plate = normalizePlate(row[plateCol]);
@@ -127,8 +119,6 @@ export function createSheetInventory(
         const makeType = [cell(brandCol), cell(makeCol)].filter(Boolean).join(" ");
         if (makeType) unit.makeType = makeType;
         if (cell(colorCol)) unit.color = cell(colorCol);
-        if (cell(motorCol)) unit.motor = cell(motorCol);
-        if (cell(chassisCol)) unit.chassis = cell(chassisCol);
         units.push(unit);
       });
       return units;

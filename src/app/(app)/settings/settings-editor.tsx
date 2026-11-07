@@ -155,8 +155,6 @@ export function SettingsEditor({ initial, canDelete = false }: { initial: AppSet
             <CardContent>
               <Switch checked={cfg.required.contact} onChange={(v) => set("required", { ...cfg.required, contact: v })} label="Contact number" hint="11 digits starting with 09" />
               <Switch checked={cfg.required.address} onChange={(v) => set("required", { ...cfg.required, address: v })} label="Postal address" />
-              <Switch checked={cfg.required.motor} onChange={(v) => set("required", { ...cfg.required, motor: v })} label="Motor number" />
-              <Switch checked={cfg.required.chassis} onChange={(v) => set("required", { ...cfg.required, chassis: v })} label="Chassis number" />
               <Switch checked={cfg.required.color} onChange={(v) => set("required", { ...cfg.required, color: v })} label="Color" />
               <Switch checked={cfg.required.proofs} onChange={(v) => set("required", { ...cfg.required, proofs: v })} label="Proof of every payment" hint="Photo of the cash, check photo, receipt or screenshot" />
             </CardContent></Card>

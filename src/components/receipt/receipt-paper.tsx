@@ -81,7 +81,7 @@ export function ReceiptPaper({ state: s, company: co, layout, copy, unapproved }
         {s.units.map((u, i) => (
           <Fragment key={i}>
             <div>{n > 1 ? `UNIT ${i + 1} OF ${n}` : "1 UNIT"}</div><div className="bold">{v(u.makeType)}</div>
-            <SlipRow k="PLATE" val={u.plate} /><SlipRow k="COLOR" val={u.color} /><SlipRow k="MOTOR" val={u.motor} /><SlipRow k="CHASSIS" val={u.chassis} />
+            <SlipRow k="PLATE" val={u.plate} /><SlipRow k="COLOR" val={u.color} />
             {i < n - 1 && <hr />}
           </Fragment>
         ))}<hr />
@@ -132,11 +132,9 @@ export function ReceiptPaper({ state: s, company: co, layout, copy, unapproved }
       </div>
       {s.units.map((u, i) => (
         <div key={i} className="g veh">
-          <div className="f s4"><span className="k">{n > 1 ? `Unit ${i + 1} of ${n} · ` : ""}Make / type</span><div className="v">{v(u.makeType)}</div></div>
-          <div className="f s2"><span className="k">Color</span><div className="v">{v(u.color)}</div></div>
-          <div className="f s2"><span className="k">Plate number</span><div className="v mono">{v(u.plate)}</div></div>
-          <div className="f s2"><span className="k">Motor number</span><div className="v mono">{v(u.motor)}</div></div>
-          <div className="f s2"><span className="k">Chassis number</span><div className="v mono">{v(u.chassis)}</div></div>
+          <div className="f s6"><span className="k">{n > 1 ? `Unit ${i + 1} of ${n} · ` : ""}Make / type</span><div className="v">{v(u.makeType)}</div></div>
+          <div className="f s3"><span className="k">Color</span><div className="v">{v(u.color)}</div></div>
+          <div className="f s3"><span className="k">Plate number</span><div className="v mono">{v(u.plate)}</div></div>
         </div>
       ))}
       <div className="two">

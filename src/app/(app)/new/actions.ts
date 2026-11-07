@@ -40,8 +40,7 @@ export async function submitReceipt(input: unknown, dealId: string | null): Prom
     return { ok: false, error: friendlyError(error.message) };
   }
   const r = data as { deal_id: string; receipt_id: string; deal_no: string; receipt_no: string; balance_after: string | number };
-  revalidatePath("/deals");
-  revalidatePath("/approvals");
+  revalidatePath("/", "layout"); // every screen that shows deals, receipts or balances
   // The first receipt of a deal queues "find the car's document folder by plate"; run it now instead of waiting for the next cron.
   after(() => processDueJobs({ receiptId: r.receipt_id }).catch((e) => console.error(`[sync] after submit failed: ${e instanceof Error ? e.message : "unknown"}`)));
   return { ok: true, dealId: r.deal_id, receiptId: r.receipt_id, dealNo: r.deal_no, receiptNo: r.receipt_no, balanceAfter: String(r.balance_after) };

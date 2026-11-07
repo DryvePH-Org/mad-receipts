@@ -17,7 +17,7 @@ Return ONLY a JSON object with exactly these keys (null when not said; [] for an
 {
   "receipt_no": "the booklet number", "date": "YYYY-MM-DD", "kind": "earnest | partial | full",
   "buyer_name": "...", "buyer_address": "...", "buyer_contact": "digits only",
-  "units": [ { "make_type": "year make model, e.g. 2023 Toyota Vios", "plate": "ABC1234", "motor": "...", "chassis": "...", "color": "..." } ],
+  "units": [ { "make_type": "year make model, e.g. 2023 Toyota Vios", "plate": "ABC1234", "color": "..." } ],
   "price": 0, "sale": "cash | financing", "institution": "...",
   "down_payment": 0, "down_payment_percent": 0, "loan_amount": 0, "monthly": 0, "years": 0,
   "fee_mode": "standard | none | percent | amount", "fee_value": 0,
@@ -31,7 +31,7 @@ Return ONLY a JSON object with exactly these keys (null when not said; [] for an
 }
 
 Rules:
-- EVIDENCE: for every value you fill in, add an entry to "quotes" with the field name and the exact words from the transcript that the value came from (copy them, do not rewrite them). Field names: receipt_no, buyer_contact, price, down_payment, down_payment_percent, loan_amount, monthly, years, fee_value, trade_in_value, lieu_amount, earlier_paid, cash_today, check_amount, and plate:0, motor:0, chassis:0 (the number is the unit's position, starting at 0), wallet:0 (the number is the wallet's position). The quote for an amount must contain that amount and the word that says what it is (price, down payment, loan...). If you cannot quote it, leave the value null.
+- EVIDENCE: for every value you fill in, add an entry to "quotes" with the field name and the exact words from the transcript that the value came from (copy them, do not rewrite them). Field names: receipt_no, buyer_contact, price, down_payment, down_payment_percent, loan_amount, monthly, years, fee_value, trade_in_value, lieu_amount, earlier_paid, cash_today, check_amount, and plate:0 (the number is the unit's position, starting at 0), wallet:0 (the number is the wallet's position). The quote for an amount must contain that amount and the word that says what it is (price, down payment, loan...). If you cannot quote it, leave the value null.
 - People correct themselves and repeat themselves, in English, Tagalog or a mix (Taglish). When something is said twice or changed ("price 700, sorry, 720 thousand", "ay mali, 150 pala", "I mean", "scratch that", "este", "hindi pala"), use the LAST version and quote the last version. Something repeated with the same value is one value, not two: do not make two units, two payments or two wallets out of a repeat. Ignore filler words (po, ano, yung, kasi, like, um, uh, tapos, basically).
 - Taglish is normal: "down payment po ay 150K", "nag-GCash siya ng 50 thousand", "kinsenas", "katapusan", "bukas", "next week" (use the dates rules below). English words inside Tagalog sentences keep their usual meaning. "Mil" or "libo" is thousand; "100K" and "100 thousand" and "isang daang libo" are all 100000. "Isa't kalahati" is 1.5; "dos mil" is 2000 but "dos milyon" is 2000000.
 - A number belongs to the thing it is said next to. Never move a number from one field to another. If two numbers could belong to a field and it is not clear which, leave the field null.
@@ -48,7 +48,7 @@ Rules:
 - kind: "earnest money" or "reservation" is earnest; "partial payment" or "down payment" is partial; "full payment" or "fully paid" is full.
 - Trade-in ("trade in", "pa-trade", "palit"): trade_in with the traded car in unit (make and model), year, plate, mileage and value (what the traded car is worth).
 - "In lieu of documents" or "OR/CR held as collateral": lieu with the amount and the date until.
-- Phone numbers said digit by digit become one string of digits. Plate numbers said letter by letter ("N K F four seven seven one") become "NKF4771". Motor and chassis numbers the same way, letters and digits only.
+- Phone numbers said digit by digit become one string of digits. Plate numbers said letter by letter ("N K F four seven seven one") become "NKF4771".
 - Colors: use the common spelling, e.g. ${list(v.colors.slice(0, 18))}.
 - Dates are YYYY-MM-DD. If the year is not said, use the year of today's date. "Bukas" is tomorrow, "next Friday" is the coming Friday. due_date is when the balance will be given ("on or before", "bayaran sa"). If it is said as words instead of a date ("upon approval of the loan") use due_text.
 - Names and places: write them as said, in normal capitalization. Do not complete or correct a name.`;

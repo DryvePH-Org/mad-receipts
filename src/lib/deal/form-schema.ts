@@ -7,7 +7,7 @@ const text = (max = 300) => z.string().max(max);
 export const formStateSchema = z.object({
   receiptNo: text(40), date: text(10), receivedFrom: text(120), contact: text(40), address: text(300),
   kind: z.enum(["earnest", "partial", "full"]),
-  units: z.array(z.object({ makeType: text(150), plate: text(20), motor: text(40), chassis: text(40), color: text(60) })).min(1).max(10),
+  units: z.array(z.object({ makeType: text(150), plate: text(20), color: text(60) })).min(1).max(10),
   price: text(20), sale: z.enum(["cash", "financing"]), institution: text(100), dp: text(20), fee: text(20), monthly: text(20), years: text(5),
   hasTi: z.boolean(), ti: z.object({ year: text(10), unit: text(150), plate: text(20), mileage: text(20), value: text(20) }),
   hasLieu: z.boolean(), lieuAmount: text(20), lieuUntil: text(10),

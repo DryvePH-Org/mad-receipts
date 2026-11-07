@@ -41,7 +41,7 @@ export const DEFAULT_SETTINGS = {
     tagline: "Acknowledgement of Payment",
     address: "Doing business under the name and style of MAD Parking and Management Solutions Inc., #29 A San Rafael cor. San Clemente St., Brgy. Kapitolyo, Pasig City",
   },
-  required: { contact: true, address: true, motor: true, chassis: true, color: true, proofs: true },
+  required: { contact: true, address: true, color: true, proofs: true },
   sections: { trade: true, lieu: true, remarks: true },
   // the Approver's dashboards: units to buy and to sell each month, and how long a reservation may stay open when the sheet gives no date
   dashboard: { buyGoal: 60, sellGoal: 60, pendingDays: 14, months: {} as Record<string, { buy?: number; sell?: number }> },
@@ -70,7 +70,7 @@ export const settingsSchema = z.object({
   minDownPct: percent(D.minDownPct),
   copyNames: list(D.copyNames),
   company: z.object({ name: z.string().trim().min(1), tagline: z.string().trim().min(1), address: z.string() }).catch(D.company),
-  required: z.object({ contact: flag(true), address: flag(true), motor: flag(true), chassis: flag(true), color: flag(true), proofs: flag(true) }).catch(D.required),
+  required: z.object({ contact: flag(true), address: flag(true), color: flag(true), proofs: flag(true) }).catch(D.required),
   sections: z.object({ trade: flag(true), lieu: flag(true), remarks: flag(true) }).catch(D.sections),
   dashboard: z.object({
     buyGoal: z.number().int().min(1).max(1000).catch(60), sellGoal: z.number().int().min(1).max(1000).catch(60), pendingDays: z.number().int().min(1).max(365).catch(14),

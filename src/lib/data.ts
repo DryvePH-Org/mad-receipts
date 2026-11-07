@@ -21,8 +21,6 @@ export interface UnitView {
   make_type: string;
   plate: string;
   plate_no: string;
-  motor: string | null;
-  chassis: string | null;
   color: string | null;
 }
 

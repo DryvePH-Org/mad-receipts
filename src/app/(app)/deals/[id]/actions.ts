@@ -21,7 +21,7 @@ export async function voidReceipt(receiptId: string, reason: string): Promise<Ad
   if (!uuid(receiptId)) return { ok: false, error: "That receipt was not found." };
   const { error } = await createAdminClient().rpc("void_receipt", { p_actor: user.id, p_receipt_id: receiptId, p_reason: reason });
   if (error) return { ok: false, error: friendlyError(error.message) };
-  revalidatePath("/deals", "layout");
+  revalidatePath("/", "layout"); // every screen that shows deals, receipts or balances
   syncSoon();
   return { ok: true };
 }
@@ -34,8 +34,6 @@ export async function cancelDeal(dealId: string, reason: string, refundText: str
   if (refund === null) return { ok: false, error: "The refund is not a valid amount." };
   const { error } = await createAdminClient().rpc("cancel_deal", { p_actor: user.id, p_deal_id: dealId, p_reason: reason, p_refund: Number(fromCentavos(refund)) });
   if (error) return { ok: false, error: friendlyError(error.message) };
-  revalidatePath("/deals", "layout");
-  revalidatePath("/approvals");
   syncSoon();
   return { ok: true };
 }
@@ -46,7 +44,6 @@ export async function setLoanStatus(dealId: string, status: "waiting" | "release
   if (!uuid(dealId)) return { ok: false, error: "That deal was not found." };
   const { error } = await createAdminClient().rpc("set_loan_status", { p_actor: user.id, p_deal_id: dealId, p_status: status, p_on: status === "released" && /^\d{4}-\d{2}-\d{2}$/.test(on) ? on : undefined });
   if (error) return { ok: false, error: friendlyError(error.message) };
-  revalidatePath("/deals", "layout");
   syncSoon();
   return { ok: true };
 }

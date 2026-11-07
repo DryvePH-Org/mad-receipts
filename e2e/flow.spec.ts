@@ -29,8 +29,6 @@ async function fillFinanced(page: Page, no: string, plate: string) {
   await page.getByRole("button", { name: "Not in the inventory? Type it yourself" }).click();
   await page.getByLabel("Make / type").fill("2023 Toyota Vios 1.3 XLE");
   await page.getByLabel("Plate number").fill(plate);
-  await page.getByLabel("Motor number").fill("2NZ5160482");
-  await page.getByLabel("Chassis number").fill("MR053REF7K4012345");
   await page.getByRole("button", { name: "Silver Metallic" }).click();
   await next(page, "Deal");
   await page.getByLabel("Agreed price").fill("720000");
@@ -97,6 +95,15 @@ test("the whole flow: Sales fills in, the Approver approves, the numbers agree",
   const card = approver.locator("div.ring-1").filter({ hasText: NO(1) }).filter({ has: approver.getByRole("button", { name: "Approve" }) }).first();
   await expect(card.getByText("Balance after this receipt")).toBeVisible();
   await card.getByRole("button", { name: "Approve" }).click();
+  // the screen reflects it at once, with no refresh: the card leaves the waiting list and shows under "Recently decided"
+  await expect(card).toHaveCount(0, { timeout: 15_000 });
+  await expect(approver.getByRole("row").filter({ hasText: NO(1) })).toBeVisible({ timeout: 15_000 });
+  // moving to other pages by the menu (no reload) shows it everywhere too
+  await approver.getByRole("link", { name: "Transactions" }).first().click();
+  await expect(approver.getByText("ZZT E2E Maria Santos").first()).toBeVisible({ timeout: 15_000 });
+  const dealRow = approver.locator("tr, li, article, div.ring-1").filter({ hasText: "ZZT E2E Maria Santos" }).first();
+  await expect(dealRow).toContainText("40,000");
+  await expect(dealRow).not.toContainText(/waiting for approval/i);
   const read = async () => (await admin.from("deal_summaries").select("id, balance, approved_paid, opening_paid").eq("buyer_name", "ZZT E2E Maria Santos").single()).data;
   await expect.poll(async () => Number((await read())?.approved_paid)).toBe(40000);
   const after = await read();
@@ -197,7 +204,7 @@ test("voice fills the form and the math follows", async ({ browser }) => {
     source: "typed", transcript: "canned note", unsure: ["the contact number"], unclear: [], conflicts: [],
     fields: {
       receipt_no: null, date: null, kind: null, buyer_name: "ZZT E2E Voice Buyer", buyer_address: "Pasig City", buyer_contact: null,
-      units: [{ make_type: "2019 Ford Everest", plate: "ZZT 2002", motor: null, chassis: null, color: "Silver" }],
+      units: [{ make_type: "2019 Ford Everest", plate: "ZZT 2002", color: "Silver" }],
       price: 720000, sale: "financing", institution: "BDO", down_payment: 150000, down_payment_percent: null, loan_amount: null, monthly: null, years: null,
       fee_mode: "standard", fee_value: null, trade_in: null, lieu: null, earlier_paid: 20000, cash_today: 120000, wallets: [], check: null,
       due_date: null, due_text: null, remarks: null,

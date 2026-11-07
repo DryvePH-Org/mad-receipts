@@ -27,7 +27,7 @@ table{width:100%;border-collapse:collapse}th{text-align:left;font-weight:500;col
 .row{display:flex;justify-content:space-between;border-top:1px solid #ddd;padding:6px 0}.total{font-weight:700;border-top:2px solid #111}small{color:#666;display:block}</style></head><body>
 <h1>${esc(company.name)}</h1><p>${esc(company.tagline)} · No. <b>${esc(s.receiptNo)}</b> · ${esc(s.date ? formatDate(s.date) : "")} · ${esc(KIND_LABELS[s.kind])}</p>
 <h2>Received from</h2><table>${kv("Buyer", s.receivedFrom)}${kv("Contact", s.contact)}${kv("Address", s.address)}${kv("Amount received", `${formatPeso(t.today)} (${words(t.today)})`)}</table>
-<h2>Vehicle${s.units.length > 1 ? "s" : ""}</h2>${s.units.map((u, i) => `<table>${s.units.length > 1 ? kv("Unit", `${i + 1} of ${s.units.length}`) : ""}${kv("Make / type", u.makeType)}${kv("Plate", u.plate)}${kv("Motor", u.motor)}${kv("Chassis", u.chassis)}${kv("Color", u.color)}</table>`).join("<br>")}
+<h2>Vehicle${s.units.length > 1 ? "s" : ""}</h2>${s.units.map((u, i) => `<table>${s.units.length > 1 ? kv("Unit", `${i + 1} of ${s.units.length}`) : ""}${kv("Make / type", u.makeType)}${kv("Plate", u.plate)}${kv("Color", u.color)}</table>`).join("<br>")}
 <h2>The money</h2>${ledger.rows.map((r) => `<div class="row${r.kind === "total" ? " total" : ""}"><span>${esc(r.label)}${r.detail ? `<small>${esc(r.detail)}</small>` : ""}</span><span class="r">${r.kind === "less" ? "− " : ""}${esc(formatPeso(r.amount))}</span></div>`).join("")}
 <p><small>${ledger.proves ? "Adds up" : "Does not add up"}: ${esc(ledger.proof)}</small></p>
 ${ledger.info.map((i) => `<p><b>${esc(i.label)}:</b> ${esc(i.text)}</p>`).join("")}

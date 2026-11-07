@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/layout/live-refresh";
 import { Brand } from "@/components/layout/brand";
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
@@ -30,6 +31,7 @@ export function AppShell({ user, children }: { user: CurrentUser; children: Reac
         </header>
 
         <main className="mx-auto w-full max-w-6xl px-4 py-6 pb-safe-bar sm:px-6 lg:px-8 lg:py-10 lg:pb-10 print:max-w-none print:p-0">
+          <LiveRefresh />
           {children}
         </main>
       </div>

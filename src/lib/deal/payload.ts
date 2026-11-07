@@ -33,7 +33,7 @@ export function buildSubmitPayload(s: FormState, dealId: string | null) {
   return {
     ...base,
     buyer: { name: s.receivedFrom, address: s.address, contact: s.contact },
-    units: s.units.map((u) => ({ make_type: u.makeType, plate: u.plate, motor: u.motor, chassis: u.chassis, color: u.color })),
+    units: s.units.map((u) => ({ make_type: u.makeType, plate: u.plate, color: u.color })),
     price: money(s.price), sale_type: s.sale, institution: s.sale === "financing" ? s.institution : null,
     down_payment: s.sale === "financing" ? money(s.dp) : null, processing_fee: s.sale === "financing" ? (money(s.fee) ?? "0") : "0",
     monthly: money(s.monthly), years: s.years || null,
