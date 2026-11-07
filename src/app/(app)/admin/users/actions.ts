@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireAdmin } from "@/lib/auth";
-import { ADMIN_FLOOR, GRANTABLE, isModuleId, type ModuleId } from "@/lib/navigation";
+import { requireAdmin, requireModule } from "@/lib/auth";
+import { canAssignRole, canManageUser } from "@/lib/user-rules";
+import { ADMIN_FLOOR, GRANTABLE, isModuleId, SENSITIVE, type ModuleId } from "@/lib/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type ActionResult = { ok: boolean; message: string } | null;
@@ -19,7 +20,7 @@ const createUserSchema = z.object({
 
 // Creates an account with the chosen role (Sales, Approver or Admin).
 export async function createUser(_prev: ActionResult, form: FormData): Promise<ActionResult> {
-  const actor = await requireAdmin();
+  const actor = await requireModule("users");
 
   const parsed = createUserSchema.safeParse({
     fullName: form.get("fullName"),
@@ -29,6 +30,7 @@ export async function createUser(_prev: ActionResult, form: FormData): Promise<A
   });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
   const { fullName, email, role } = parsed.data;
+  if (!canAssignRole(actor.role, role)) return { ok: false, message: "Only an Admin can create an Admin." };
 
   const admin = createAdminClient();
   const { data, error } = await admin.auth.admin.createUser({
@@ -58,7 +60,7 @@ export async function createUser(_prev: ActionResult, form: FormData): Promise<A
 const resetSchema = z.object({ userId: z.uuid(), password });
 
 export async function resetPassword(_prev: ActionResult, form: FormData): Promise<ActionResult> {
-  const actor = await requireAdmin();
+  const actor = await requireModule("users");
 
   const parsed = resetSchema.safeParse({
     userId: form.get("userId"),
@@ -67,6 +69,8 @@ export async function resetPassword(_prev: ActionResult, form: FormData): Promis
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
 
   const admin = createAdminClient();
+  const { data: target } = await admin.from("profiles").select("role").eq("id", parsed.data.userId).single();
+  if (!canManageUser(actor.role, target?.role ?? "sales")) return { ok: false, message: "Only an Admin can change an Admin's account." };
   const { error } = await admin.auth.admin.updateUserById(parsed.data.userId, {
     password: parsed.data.password,
   });
@@ -86,12 +90,15 @@ const roleSchema = z.object({ userId: z.uuid(), role: z.enum(["sales", "approver
 
 /** Changes what someone may do. An Admin cannot take their own Admin role away (someone must stay in charge). */
 export async function changeRole(userId: string, role: string): Promise<{ ok: boolean; message: string }> {
-  const actor = await requireAdmin();
+  const actor = await requireModule("users");
   const parsed = roleSchema.safeParse({ userId, role });
   if (!parsed.success) return { ok: false, message: "That role is not valid." };
+  if (!canAssignRole(actor.role, parsed.data.role)) return { ok: false, message: "Only an Admin can make someone an Admin." };
+  if (parsed.data.userId === actor.id && actor.role !== "admin") return { ok: false, message: "You cannot change your own role." };
   if (parsed.data.userId === actor.id && parsed.data.role !== "admin") return { ok: false, message: "You cannot remove your own Admin role. Ask another Admin." };
   const admin = createAdminClient();
   const { data: before } = await admin.from("profiles").select("full_name, role").eq("id", parsed.data.userId).single();
+  if (!canManageUser(actor.role, before?.role ?? "sales")) return { ok: false, message: "Only an Admin can change an Admin." };
   if (before?.role === "admin" && parsed.data.role !== "admin" && (await adminCount(admin)) <= 1) return { ok: false, message: "That is the only Admin. Make someone else an Admin first." };
   const { error } = await admin.from("profiles").update({ role: parsed.data.role }).eq("id", parsed.data.userId);
   if (error) return { ok: false, message: "Could not change the role." };
@@ -111,7 +118,7 @@ const accessSchema = z.object({ userId: z.uuid(), grants: z.array(z.string()).ma
  * Gives one person extra modules, or hides modules from them, on top of their role. Only grantable modules can be added, hiding
  * wins, an Admin keeps Users and Settings, and nobody changes their own access (so a mistake cannot lock the Admin out).
  */
-export async function setModuleAccess(userId: string, grants: string[], denies: string[]): Promise<{ ok: boolean; message: string }> {
+export async function setModuleAccess(userId: string, grants: string[], denies: string[], typed = ""): Promise<{ ok: boolean; message: string }> {
   const actor = await requireAdmin();
   const parsed = accessSchema.safeParse({ userId, grants, denies });
   if (!parsed.success) return { ok: false, message: "That change is not valid." };
@@ -124,6 +131,10 @@ export async function setModuleAccess(userId: string, grants: string[], denies: 
   const role = before.role;
   const grants_ = (g as ModuleId[]).filter((m) => GRANTABLE.includes(m) && !d.includes(m));
   const denies_ = (d as ModuleId[]).filter((m) => !(role === "admin" && ADMIN_FLOOR.includes(m)));
+  // Giving approving, Settings, Users or Sync jobs to someone new needs the word GRANT typed, checked here as well as in the box.
+  const had = new Set<string>(before.module_grants ?? []);
+  const newPower = grants_.filter((m) => SENSITIVE.includes(m) && !had.has(m));
+  if (newPower.length && typed.trim() !== "GRANT") return { ok: false, message: "Type GRANT to give a module with this much power." };
   const { error } = await admin.from("profiles").update({ module_grants: grants_, module_denies: denies_ }).eq("id", parsed.data.userId);
   if (error) return { ok: false, message: "Could not save. Has the latest database update been applied?" };
   await admin.from("audit_logs").insert({ actor_id: actor.id, action: "user.access", entity: "user", entity_id: parsed.data.userId, before: { grants: before.module_grants, denies: before.module_denies }, after: { full_name: before.full_name, grants: grants_, denies: denies_ } });
@@ -133,12 +144,13 @@ export async function setModuleAccess(userId: string, grants: string[], denies: 
 
 /** Switches an account off (it cannot log in, and open sessions stop working) or back on. Nothing is deleted. */
 export async function setUserActive(userId: string, active: boolean): Promise<{ ok: boolean; message: string }> {
-  const actor = await requireAdmin();
+  const actor = await requireModule("users");
   const id = z.uuid().safeParse(userId);
   if (!id.success) return { ok: false, message: "That user was not found." };
   if (id.data === actor.id) return { ok: false, message: "You cannot disable your own account." };
   const admin = createAdminClient();
   const { data: target } = await admin.from("profiles").select("full_name, role").eq("id", id.data).single();
+  if (!canManageUser(actor.role, target?.role ?? "sales")) return { ok: false, message: "Only an Admin can change an Admin." };
   if (!active && target?.role === "admin" && (await adminCount(admin)) <= 1) return { ok: false, message: "That is the only Admin." };
   const { error } = await admin.auth.admin.updateUserById(id.data, { ban_duration: active ? "none" : "876000h" });
   if (error) return { ok: false, message: active ? "Could not enable the account." : "Could not disable the account." };

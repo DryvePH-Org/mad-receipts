@@ -23,7 +23,8 @@ test("Users: adding a person is behind a button, and the page offers disable and
   if (await access.count()) {
     await access.click();
     await expect(page.getByRole("dialog").getByText("Cannot open").first().or(page.getByRole("dialog").getByText("Can open").first())).toBeVisible();
-    await expect(page.getByRole("dialog").getByText("Only with the role").first()).toBeVisible();
+    await expect(page.getByRole("dialog").getByText("powerful").first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Review the change…" })).toBeDisabled(); // nothing changed yet
   }
   await page.close();
 });

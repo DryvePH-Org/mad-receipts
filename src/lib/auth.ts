@@ -70,8 +70,5 @@ export async function requireModule(id: ModuleId): Promise<CurrentUser> {
 
 // For every admin page, admin server action and admin API route: 403 unless admin.
 export const requireAdmin = () => requireRole("admin");
-export const requireApprover = async () => {
-  const user = await requireRole("approver");
-  if (!user.modules.includes("approvals")) forbidden();
-  return user;
-};
+/** Whoever has the Approvals module: the Approver role, or anyone the Admin gave it to. (Nobody can approve their own receipt; the database checks that.) */
+export const requireApprover = () => requireModule("approvals");

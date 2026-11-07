@@ -72,7 +72,7 @@ function ColorList({ title, hint, items, onChange, onRemove, rename }: { title: 
 }
 
 /** The Admin's controls for every list and option the form uses. Each change is saved at once. */
-export function SettingsEditor({ initial }: { initial: AppSettings }) {
+export function SettingsEditor({ initial, canDelete = false }: { initial: AppSettings; canDelete?: boolean }) {
   const [cfg, setCfg] = useState(initial);
   const [tab, setTab] = useState<(typeof TABS)[number][0]>("colors");
   const [saved, setSaved] = useState(false);
@@ -94,7 +94,7 @@ export function SettingsEditor({ initial }: { initial: AppSettings }) {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap gap-1.5" role="tablist">{TABS.map(([k, l]) => <Button key={k} role="tab" aria-selected={tab === k} size="sm" variant={tab === k ? "default" : "outline"} className="rounded-full" onClick={() => setTab(k)}>{l}</Button>)}</div>
+        <div className="flex flex-wrap gap-1.5" role="tablist">{TABS.filter(([k]) => k !== "data" || canDelete).map(([k, l]) => <Button key={k} role="tab" aria-selected={tab === k} size="sm" variant={tab === k ? "default" : "outline"} className="rounded-full" onClick={() => setTab(k)}>{l}</Button>)}</div>
         <span className={cn("ml-auto text-sm font-medium text-emerald-700 transition-opacity", saved ? "opacity-100" : "opacity-0")} role="status">Saved ✓</span>
         <Button variant="outline" onClick={() => setReset(true)}>Restore all defaults</Button>
       </div>
@@ -209,7 +209,7 @@ export function SettingsEditor({ initial }: { initial: AppSettings }) {
         </div>
       )}
 
-      {tab === "data" && <ResetPanel />}
+      {tab === "data" && canDelete && <ResetPanel />}
 
       {tab === "reminders" && (
         <Card className="max-w-xl"><CardHeader><CardTitle>When to remind</CardTitle><p className="text-sm text-muted-foreground">Applies to the whole team, in the app and in the 8:00 Telegram message</p></CardHeader>

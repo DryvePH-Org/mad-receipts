@@ -6,6 +6,7 @@ import { buildNotifications, centsOf, notificationsFor, type Notification } from
 import { parseSettings, type AppSettings } from "@/lib/deal/settings";
 import type { FormState, LoanStatus, SaleType } from "@/lib/deal/types";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json, Tables } from "@/lib/supabase/database.types";
 
 // Reads for the pages. They run as the signed-in user, so the database's access rules still apply.
@@ -205,7 +206,8 @@ export interface ActivityEntry {
 }
 
 export async function listActivity(action?: string): Promise<ActivityEntry[]> {
-  const supabase = await createClient();
+  // Read with the server's own key: the page is already limited to people who have the Activity log module.
+  const supabase = createAdminClient();
   let q = supabase.from("audit_logs").select("id, action, entity, entity_id, after, created_at, actor_id").order("created_at", { ascending: false }).limit(300);
   if (action) q = q.like("action", `${action}%`);
   const { data } = await q;

@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { NativeSelect } from "@/components/ui/native-select";
 import { changeRole } from "./actions";
 
-export function RoleSelect({ userId, role }: { userId: string; role: string }) {
+export function RoleSelect({ userId, role, canMakeAdmin = true }: { userId: string; role: string; canMakeAdmin?: boolean }) {
   const [pending, start] = useTransition();
   return (
     <div className="w-32">
@@ -13,7 +13,7 @@ export function RoleSelect({ userId, role }: { userId: string; role: string }) {
         <option value="sales">Sales</option>
         <option value="approver">Approver</option>
         <option value="documentation">Documentation</option>
-        <option value="admin">Admin</option>
+        {(canMakeAdmin || role === "admin") && <option value="admin">Admin</option>}
       </NativeSelect>
     </div>
   );

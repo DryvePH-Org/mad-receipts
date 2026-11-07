@@ -49,15 +49,15 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 /**
- * Modules that can be given to someone whose role does not include them. Only the ones that do not depend on the role's
- * rights in the database: the others (approving, the cash report, the activity log, settings, users, sync) would open
- * empty or fail, and they are the powerful ones, so they stay with the role. Any module can be hidden from a person.
+ * Every module can be given to a person whose role does not include it, or hidden from a person whose role does.
+ * Four of them carry real power: approving receipts, Settings, Users and Sync jobs. Giving those asks for an extra typed confirmation.
  */
-export const GRANTABLE: ModuleId[] = ["dashboard", "documents", "upload", "reminders"];
+export const SENSITIVE: ModuleId[] = ["approvals", "settings", "users", "sync"];
 /** An Admin can never lose these two, so someone always stays in charge. */
 export const ADMIN_FLOOR: ModuleId[] = ["users", "settings"];
 
 export const ALL_MODULE_IDS = NAV_ITEMS.map((i) => i.id);
+export const GRANTABLE: ModuleId[] = ALL_MODULE_IDS;
 export const isModuleId = (v: unknown): v is ModuleId => typeof v === "string" && (ALL_MODULE_IDS as string[]).includes(v);
 
 /** What a role includes with no changes. */

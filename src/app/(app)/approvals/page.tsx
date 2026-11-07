@@ -24,11 +24,13 @@ export default function ApprovalsPage() {
 
 async function Content() {
   const user = await requireModule("approvals");
+  // the Approver role, or anyone the Admin gave the Approvals module to, may approve; others can look
+  const canReview = user.role === "approver" || user.grants.includes("approvals");
   const [pending, decided] = await Promise.all([pendingReceipts(), recentlyDecided()]);
   const deals = new Map((await Promise.all([...new Set(pending.map((r) => r.dealId))].map((id) => getDeal(id)))).flatMap((d) => (d ? [[d.id, d] as const] : [])));
   return (
     <div className="max-w-4xl space-y-4">
-      {user.role === "admin" && <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">You are signed in as Admin, so you can look but not approve. Only the Approver approves.</p>}
+      {!canReview && <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">You can look but not approve. Only the Approver, or someone the Admin gave Approvals to, approves.</p>}
       {pending.length === 0 ? <EmptyState icon={ShieldCheck} title="Nothing is waiting" description="Receipts filled in by Sales show up here." /> : pending.map((r) => {
         const d = deals.get(r.dealId);
         const afterThis = d ? d.due - d.openingPaid - d.approvedPaid - r.amount + d.approvedPayout + r.payout : 0;
@@ -44,7 +46,7 @@ async function Content() {
             {d && <dl className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm"><dt className="text-muted-foreground">Amount due from the buyer</dt><dd className="tabular-nums">{formatPeso(d.due)}</dd><dt className="text-muted-foreground">Already approved</dt><dd className="tabular-nums">{formatPeso(d.openingPaid + d.approvedPaid)}</dd><dt className="text-muted-foreground">Balance after this receipt</dt><dd className={`tabular-nums ${d.due >= 0 && afterThis < 0 ? "font-semibold text-destructive" : ""}`}>{d.due >= 0 && afterThis < 0 ? `Overpaid ${formatPeso(-afterThis)}` : formatPeso(afterThis)}</dd></dl>}
             <div className="flex flex-wrap items-center justify-end gap-2">
               <Button variant="outline" nativeButton={false} render={<Link href={`/deals/${r.dealId}`} />}>Open deal</Button>
-              {user.role === "approver" ? (own ? <span className="text-sm text-muted-foreground">You filled this in, so someone else must approve it.</span> : <ReviewButtons receiptId={r.id} receiptNo={r.receiptNo} />) : null}
+              {canReview ? (own ? <span className="text-sm text-muted-foreground">You filled this in, so someone else must approve it.</span> : <ReviewButtons receiptId={r.id} receiptNo={r.receiptNo} />) : null}
             </div>
           </div>
         );

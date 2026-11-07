@@ -4,7 +4,7 @@ import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { Pill } from "@/components/shared/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { requireAdmin } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import type { Role } from "@/lib/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AccessDialog } from "./access-dialog";
@@ -16,7 +16,7 @@ import { RoleSelect } from "./role-select";
 export default function UsersPage() {
   return (
     <div className="space-y-6">
-      <PageHeader title="Users" description="Create accounts, choose each person's role and the modules they can open, reset passwords and disable accounts. Nobody can sign up on their own." actions={<AddUserButton />} />
+      <PageHeader title="Users" description="Create accounts, choose each person's role and the modules they can open, reset passwords and disable accounts. Nobody can sign up on their own." />
       <Suspense fallback={<PageSkeleton />}>
         <UsersContent />
       </Suspense>
@@ -28,7 +28,8 @@ export default function UsersPage() {
 const isBanned = (until?: string | null) => !!until && Date.parse(until) > Date.now();
 
 async function UsersContent() {
-  const me = await requireAdmin();
+  const me = await requireModule("users");
+  const isAdmin = me.role === "admin";
 
   const admin = createAdminClient();
   const [{ data: authUsers, error }, base, extra] = await Promise.all([
@@ -56,7 +57,7 @@ async function UsersContent() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>All users ({users.length})</CardTitle>
+        <CardTitle className="flex flex-wrap items-center justify-between gap-2">All users ({users.length})<AddUserButton canMakeAdmin={isAdmin} /></CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {!accessReady && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">Per-person access needs the latest database update (migration 18). Roles still work.</p>}
@@ -71,12 +72,14 @@ async function UsersContent() {
                   {u.disabled && <Pill tone="red">Disabled</Pill>}
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <RoleSelect userId={u.id} role={u.role} />
-                {accessReady && <AccessDialog userId={u.id} name={u.name} role={u.role} grants={u.grants} denies={u.denies} locked={u.id === me.id} />}
-                <ResetPasswordDialog userId={u.id} name={u.name} />
-                <ActiveToggle userId={u.id} name={u.name} active={!u.disabled} self={u.id === me.id} />
-              </div>
+              {isAdmin || u.role !== "admin" ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <RoleSelect userId={u.id} role={u.role} canMakeAdmin={isAdmin} />
+                  {isAdmin && accessReady && <AccessDialog userId={u.id} name={u.name} role={u.role} grants={u.grants} denies={u.denies} locked={u.id === me.id} />}
+                  <ResetPasswordDialog userId={u.id} name={u.name} />
+                  <ActiveToggle userId={u.id} name={u.name} active={!u.disabled} self={u.id === me.id} />
+                </div>
+              ) : <p className="text-xs text-muted-foreground">Only an Admin can change an Admin.</p>}
             </li>
           ))}
         </ul>

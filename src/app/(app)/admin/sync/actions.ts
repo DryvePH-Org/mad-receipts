@@ -2,14 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireAdmin, requireModule } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { processDueJobs } from "@/lib/sync/process";
 
 /** Retry one job right now: reset it, then run it. The page shows how it went. */
 export async function retrySyncJob(form: FormData): Promise<void> {
-  const actor = await requireAdmin();
-  await requireModule("sync");
+  const actor = await requireModule("sync");
   const id = z.uuid().safeParse(form.get("id"));
   if (!id.success) return;
 
@@ -38,7 +37,6 @@ export async function retrySyncJob(form: FormData): Promise<void> {
 
 /** Run everything that is due now, without waiting for the scheduler. */
 export async function runSyncNow(): Promise<void> {
-  await requireAdmin();
   await requireModule("sync");
   await processDueJobs().catch((err) =>
     console.error(`[sync] manual run failed: ${err instanceof Error ? err.message : "unknown error"}`),

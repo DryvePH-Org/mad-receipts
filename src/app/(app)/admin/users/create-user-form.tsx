@@ -9,7 +9,7 @@ import { createUserSchema } from "@/lib/forms";
 import { useActionForm } from "@/lib/use-action-form";
 import { createUser } from "./actions";
 
-export function CreateUserForm({ onDone }: { onDone?: () => void } = {}) {
+export function CreateUserForm({ onDone, canMakeAdmin = true }: { onDone?: () => void; canMakeAdmin?: boolean } = {}) {
   const { form, onSubmit, serverError, pending } = useActionForm({
     schema: createUserSchema,
     defaultValues: { fullName: "", email: "", password: "", role: "sales" as const },
@@ -35,7 +35,7 @@ export function CreateUserForm({ onDone }: { onDone?: () => void } = {}) {
           <option value="sales">Sales</option>
           <option value="approver">Approver</option>
           <option value="documentation">Documentation</option>
-          <option value="admin">Admin</option>
+          {canMakeAdmin && <option value="admin">Admin</option>}
         </NativeSelect>
       </FormField>
       <FormField id="password" label="Temporary password" error={errors.password?.message} hint="At least 8 characters.">

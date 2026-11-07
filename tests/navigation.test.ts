@@ -36,9 +36,10 @@ describe("navigation", () => {
 
   it("a person's modules are the role's, plus granted ones, minus hidden ones", () => {
     expect(effectiveModules("sales")).toEqual(roleModules("sales"));
-    // extra access, but only for modules that do not depend on the role's database rights
+    // extra access
     expect(effectiveModules("sales", ["dashboard", "documents"])).toEqual(expect.arrayContaining(["dashboard", "documents", "new"]));
-    expect(effectiveModules("sales", ["approvals", "cash", "settings", "users", "sync", "activity"])).toEqual(roleModules("sales"));
+    // any module can be given, including the powerful ones (the Users page asks to type GRANT for those)
+    expect(effectiveModules("sales", ["approvals", "cash", "settings", "users", "sync", "activity"])).toEqual(expect.arrayContaining(["approvals", "cash", "settings", "users", "sync", "activity", "new"]));
     expect(effectiveModules("documentation", ["upload"])).toContain("upload");
     // hiding works on any module and wins over a grant
     expect(effectiveModules("sales", [], ["reminders"])).not.toContain("reminders");

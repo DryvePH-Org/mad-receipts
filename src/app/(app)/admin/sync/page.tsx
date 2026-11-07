@@ -7,10 +7,10 @@ import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { ResponsiveList } from "@/components/shared/responsive-list";
 import { SyncStatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
-import { requireAdmin, requireModule } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { formatManilaDateTime } from "@/lib/dates";
 import { param } from "@/lib/search";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { retrySyncJob, runSyncNow } from "./actions";
 
 const TARGET_LABEL: Record<string, string> = {
@@ -38,11 +38,10 @@ export default function SyncPage({ searchParams }: PageProps<"/admin/sync">) {
 }
 
 async function SyncContent({ searchParams }: { searchParams: PageProps<"/admin/sync">["searchParams"] }) {
-  await requireAdmin();
   await requireModule("sync");
   const showAll = param((await searchParams).show) === "all";
 
-  const supabase = await createClient();
+  const supabase = createAdminClient(); // the page is limited to people who have the Sync jobs module
   let query = supabase
     .from("sync_jobs")
     .select("id, target, event, status, attempts, last_error, next_run_at, updated_at, receipts(receipt_no)")
