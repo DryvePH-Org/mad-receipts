@@ -208,6 +208,12 @@ A failed job retries after 1 min, 5 min, 15 min, then 1 h, and stops after 5 att
 itself is never affected. The receipts log sheet needs two tabs named **Receipts** and **Deals**;
 header rows are written automatically when a tab is empty.
 
+## Delete data (testing and clean starts)
+
+Settings → **Delete data** (Admin only) has buttons that wipe data, each only after typing its exact words (checked again on the server): **Delete all transactions** (deals, receipts, payments, proof photos,
+their sync jobs; deal numbers start again at D1001 once migration 20 is applied), **Delete sync jobs**, **Delete the activity log**, **Delete the car documents list** (the app's list only; Drive is untouched) and **Delete everything above**.
+Users, roles and settings are never deleted here, and nothing in Google Sheets or Drive is touched (the inventory sheet's statuses are not changed back). Each reset leaves one activity line saying who did it. Deleted data cannot be restored.
+
 ## Users and roles
 
 Roles are `staff` (upload and confirm) and `admin` (everything). Public signups are **disabled**: only admins create accounts.

@@ -10,10 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DEFAULT_SETTINGS, type AppSettings } from "@/lib/deal/settings";
 import { cn } from "@/lib/utils";
+import { ResetPanel } from "./reset-panel";
 import { saveSettings } from "./actions";
 
 type Color = [string, string];
-const TABS = [["colors", "Colors"], ["pay", "Payments and lenders"], ["text", "Notes and phrases"], ["fields", "Fields and rules"], ["reminders", "Reminders"], ["print", "Print and company"]] as const;
+const TABS = [["colors", "Colors"], ["pay", "Payments and lenders"], ["text", "Notes and phrases"], ["fields", "Fields and rules"], ["reminders", "Reminders"], ["print", "Print and company"], ["data", "Delete data"]] as const;
 
 function Switch({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) {
   return (
@@ -207,6 +208,8 @@ export function SettingsEditor({ initial }: { initial: AppSettings }) {
           </div>
         </div>
       )}
+
+      {tab === "data" && <ResetPanel />}
 
       {tab === "reminders" && (
         <Card className="max-w-xl"><CardHeader><CardTitle>When to remind</CardTitle><p className="text-sm text-muted-foreground">Applies to the whole team, in the app and in the 8:00 Telegram message</p></CardHeader>

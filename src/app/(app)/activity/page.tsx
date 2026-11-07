@@ -37,6 +37,10 @@ function describe(e: ActivityEntry): string {
     case "user.create": return `Created the account of ${obj(e.after).full_name}.`;
     case "user.role": return `Changed the role of ${obj(e.after).full_name} to ${obj(e.after).role}.`;
     case "user.reset_password": return "Reset a password.";
+    case "user.access": return `Changed the module access of ${obj(e.after).full_name}.`;
+    case "user.disable": return `Disabled the account of ${obj(e.after).full_name}.`;
+    case "user.enable": return `Enabled the account of ${obj(e.after).full_name}.`;
+    case "data.reset": return `Deleted data: ${String(a.kind)}.`;
     case "sync.retry": return "Retried a sync job.";
     default: return e.action;
   }

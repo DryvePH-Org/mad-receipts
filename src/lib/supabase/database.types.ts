@@ -673,6 +673,7 @@ export type Database = {
       claim_sync_jobs: { Args: { p_limit?: number; p_receipt_id?: string }; Returns: Database["public"]["Tables"]["sync_jobs"]["Row"][] }
       is_admin: { Args: Record<string, never>; Returns: boolean }
       is_approver: { Args: Record<string, never>; Returns: boolean }
+      reset_deal_numbers: { Args: Record<string, never>; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

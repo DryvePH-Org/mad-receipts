@@ -27,3 +27,23 @@ test("Users: adding a person is behind a button, and the page offers disable and
   }
   await page.close();
 });
+
+test("Settings → Delete data: each button needs its exact words (nothing is deleted here)", async ({ browser }) => {
+  const page = await (await browser.newContext()).newPage();
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(credentials.admin.email);
+  await page.getByLabel("Password").fill(credentials.admin.password);
+  await page.getByRole("button", { name: "Log in" }).click();
+  await page.waitForURL("**/deals");
+  await page.goto("/settings");
+  await page.getByRole("tab", { name: "Delete data" }).click();
+  await expect(page.getByText("Deleted data cannot be brought back.")).toBeVisible();
+  await page.getByRole("button", { name: "Delete all transactions…" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel(/Type DELETE ALL TRANSACTIONS/).fill("delete all transactions");
+  await dialog.getByRole("button", { name: "Delete all transactions", exact: true }).click();
+  await expect(dialog.getByText(/Type DELETE ALL TRANSACTIONS exactly/)).toBeVisible(); // wrong words: refused, and nothing is deleted
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.close();
+});
