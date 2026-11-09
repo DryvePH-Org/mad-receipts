@@ -69,3 +69,23 @@ test("Sync jobs → Replay to the live sheets: shows what is connected and what 
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.close();
 });
+
+test("Settings → Print and company: the print layout editor shows the real paper and updates as you type", async ({ browser }) => {
+  const page = await (await browser.newContext()).newPage();
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(credentials.admin.email);
+  await page.getByLabel("Password").fill(credentials.admin.password);
+  await page.getByRole("button", { name: "Log in" }).click();
+  await page.waitForURL("**/deals");
+  await page.goto("/settings");
+  await page.getByRole("tab", { name: "Print and company" }).click();
+  await expect(page.getByText("Live preview")).toBeVisible();
+  await expect(page.locator(".paper.ack").getByText("ACKNOWLEDGEMENT OF PAYMENT", { exact: false })).toBeVisible();
+  await page.getByLabel("Business name").fill("Preview Motors"); // typing only: nothing is saved until the box is left
+  await expect(page.locator(".paper.ack h1")).toHaveText("Preview Motors");
+  await page.getByLabel("Title of the form").fill("Receipt of Payment");
+  await expect(page.locator(".paper.ack h2")).toHaveText("Receipt of Payment");
+  await page.getByRole("radio", { name: "Full A4" }).click();
+  await expect(page.locator(".paper.form")).toBeVisible();
+  await page.close();
+});

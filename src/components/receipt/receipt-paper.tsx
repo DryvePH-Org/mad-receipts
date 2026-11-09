@@ -1,15 +1,16 @@
 import { Fragment } from "react";
 import "./paper.css";
+import { FitBox } from "./fit-box";
 import { balanceInfo, totalsFromForm, words } from "@/lib/deal/math";
-import type { AppSettings } from "@/lib/deal/settings";
+import { DEFAULT_SETTINGS, type AppSettings } from "@/lib/deal/settings";
 import { KIND_LABELS, type FormState, type PaymentKind } from "@/lib/deal/types";
 import { formatDate } from "@/lib/dates";
 import { formatPeso, toCentavos } from "@/lib/rules/money";
 
-export type PaperLayout = "form" | "half" | "slip";
+export type PaperLayout = "ack" | "form" | "slip";
 export const LAYOUTS: { id: PaperLayout; name: string; size: string; page: string }[] = [
-  { id: "form", name: "Official form", size: "A4 · 210 × 297 mm", page: "210mm 297mm" },
-  { id: "half", name: "Half page", size: "A5 · 148 × 210 mm", page: "148mm 210mm" },
+  { id: "ack", name: "Half page", size: "half of A4 · 210 × 148 mm, like the booklet", page: "210mm 297mm" },
+  { id: "form", name: "Full A4", size: "A4 · 210 × 297 mm", page: "210mm 297mm" },
   { id: "slip", name: "Receipt slip", size: "80 mm roll", page: "80mm 320mm" },
 ];
 
@@ -55,12 +56,18 @@ const initials = (name: string) => (name.match(/\b\w/g) ?? ["M"]).slice(0, 3).jo
 interface Props {
   state: FormState;
   company: AppSettings["company"];
+  /** how the Admin set the printed receipt up (logo, wording, colours) */
+  print?: AppSettings["print"];
   layout: PaperLayout;
   copy: string;
   unapproved?: boolean;
+  /** hears how much the half page had to shrink the writing (1 = not at all) */
+  onFit?: (scale: number) => void;
 }
 
-export function ReceiptPaper({ state: s, company: co, layout, copy, unapproved }: Props) {
+const lines = (text: string) => text.split("\n").map((l) => l.trim()).filter(Boolean);
+
+export function ReceiptPaper({ state: s, company: co, print: pr = DEFAULT_SETTINGS.print, layout, copy, unapproved, onFit }: Props) {
   const t = totalsFromForm(s);
   const rows = payRows(s);
   const bi = balanceInfo(t);
@@ -107,6 +114,90 @@ export function ReceiptPaper({ state: s, company: co, layout, copy, unapproved }
         {notes.length > 0 && <><hr />{notes.map((x, i) => <div key={i} className="small">* {x.text}</div>)}</>}
         <div className="sg">RECEIVED BY</div><div className="sg">BUYER&apos;S CONFORMITY</div><hr /><div className="bar" />
         <div className="c" style={{ marginTop: ".25rem", letterSpacing: ".15em" }}>*** {U(copy)} ***</div><div className="c small">THANK YOU</div>
+      </article>
+    );
+  }
+
+  if (layout === "ack") {
+    const kinds = (Object.keys(KIND_LABELS) as PaymentKind[]);
+    const methods = rows.filter((r) => r.label !== "Cash");
+    const cash = peso(s.cash) > 0;
+    const check = methods.find((r) => r.label === "Check");
+    const checkMethod = s.methods.find((m) => m.type === "check" && peso(m.amount) > 0);
+    const others = methods.filter((r) => r.label !== "Check");
+    const extra = [
+      s.sale === "financing" && `Financing · ${[s.institution, t.dpSet && `down payment ${formatPeso(t.dp)}`, t.loan > 0 && `loan ${formatPeso(t.loan)}`, t.fee > 0 && `processing fee ${formatPeso(t.fee)} paid by the buyer`, t.monthly && `${formatPeso(t.monthly)}/month`, s.years && `${s.years} ${s.years === "1" ? "year" : "years"}`].filter(Boolean).join(" · ")}`,
+      s.hasTi && `Trade-in: ${[tradeText[0] || "—", ...tradeText.slice(1)].join(" · ")} · valued ${formatPeso(t.tv)}, taken off the price`,
+      s.hasLieu && t.lieu > 0 && `In lieu of documents: held as collateral for ${formatPeso(t.lieu)} until ${s.lieuUntil ? formatDate(s.lieuUntil) : "—"}`,
+      t.earlier > 0 && `Earlier payments ${formatPeso(t.earlier)} + today ${formatPeso(t.today)}`,
+      t.payout > 0 && `Paid out to the buyer: ${formatPeso(t.payout)}`,
+      n > 1 && `${n} units on this receipt`,
+    ].filter(Boolean) as string[];
+    const termLines = lines(pr.terms);
+    return (
+      <article className="paper ack" style={{ ["--no" as string]: pr.numberColor }}>
+        {unapproved && <div className="wm">UNAPPROVED</div>}
+        <FitBox onFit={onFit}>
+          <header className="ah">
+            {pr.showLogo && pr.logo && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={pr.logo} alt="" className="alogo" />
+            )}
+            <div className="aname"><h1>{co.name}</h1>{lines(co.address).map((l, i) => <p key={i}>{l}</p>)}</div>
+          </header>
+          <div className="atitle"><h2>{co.tagline}</h2><div className="ano"><span>No.</span><b>{s.receiptNo || "____"}</b></div></div>
+          <div className="adate">Date: <span className="ul">{v(date)}</span></div>
+          <div className="arow"><label>Received from</label><span className="ul grow">{v(s.receivedFrom)}</span></div>
+          <div className="arow"><label>Postal Address</label><span className="ul grow">{v(s.address)}</span></div>
+          <div className="arow"><label>Contact No.</label><span className="ul grow mono">{v(s.contact)}</span></div>
+          <div className="arow"><label>The sum of PESOS:</label><span className="ul grow">{t.today ? words(t.today) : NB}</span></div>
+          <div className="arow wrapRow">
+            <span>(₱ <span className="ul mono amt">{t.today ? formatPeso(t.today).replace("₱", "") : NB}</span>) as (</span>
+            {kinds.map((k, i) => <Fragment key={k}>{i > 0 && <span> / </span>}<span className={s.kind === k ? "pick" : undefined}>{KIND_LABELS[k].toLowerCase()}</span></Fragment>)}
+            <span>) for the purchase of <b>{n === 1 ? "one(1)" : `${n}`}</b> unit vehicle{n === 1 ? "" : "s"} described as follows:</span>
+          </div>
+          <div className="acols">
+            <div className="aveh">
+              {s.units.map((u, i) => (
+                <Fragment key={i}>
+                  {n > 1 && <div className="aunit">Unit {i + 1} of {n}</div>}
+                  <div className="arow"><label>Make / Type</label><span className="ul grow">{v(u.makeType)}</span></div>
+                  <div className="arow"><label>Plate No.</label><span className="ul grow mono">{v(u.plate)}</span></div>
+                  <div className="arow"><label>Color</label><span className="ul grow">{v(u.color)}</span></div>
+                </Fragment>
+              ))}
+            </div>
+            <div className="amoney">
+              <div className="arow"><label>Agreed Price</label><span className="ul grow mono">{t.price ? formatPeso(t.price) : NB}</span></div>
+              {t.tv > 0 && <div className="arow"><label>Less Trade-in</label><span className="ul grow mono">{formatPeso(t.tv)}</span></div>}
+              {t.loan > 0 && <div className="arow"><label>Less Loan</label><span className="ul grow mono">{formatPeso(t.loan)}</span></div>}
+              {(t.tv > 0 || t.loan > 0) && <div className="arow"><label>{t.due < 0 ? "We pay Buyer" : "Amount Due"}</label><span className="ul grow mono">{formatPeso(Math.abs(t.due))}</span></div>}
+              <div className="arow"><label>Less Payment</label><span className="ul grow mono">{t.paid ? formatPeso(t.paid) : NB}</span></div>
+              <div className="arow"><label>{bi.label === "Balance" || bi.label.startsWith("Balance") ? "Balance" : bi.label}</label><span className="ul grow mono"><b>{t.price ? formatPeso(bi.amount) : NB}</b></span></div>
+              <div className="apay">
+                <span className="bx2"><i>{cash ? "✕" : ""}</i> Cash</span>
+                <span className="bx2"><i>{check ? "✕" : ""}</i> Check</span><span className="ul grow mono small">{checkMethod ? [checkMethod.checkNo && `No. ${checkMethod.checkNo}`, formatPeso(peso(checkMethod.amount))].filter(Boolean).join(" · ") : NB}</span>
+              </div>
+              <div className="arow"><label>Bank / Br.</label><span className="ul grow">{checkMethod ? [checkMethod.bank, checkMethod.branch && `Br. ${checkMethod.branch}`].filter(Boolean).join(" / ") || NB : NB}</span></div>
+              {others.length > 0 && <div className="aother">{others.map((r, i) => <span key={i}><i>✕</i> {r.label}{r.detail && ` ${r.detail}`} {formatPeso(r.amount)}</span>)}</div>}
+            </div>
+          </div>
+          <div className="arow wrapRow bal">
+            <span>Balance of</span><span className="ul grow">{t.balance > 0 ? words(t.balance) : t.price ? (t.balance === 0 ? (t.due < 0 ? "Nil, settled" : "Nil, paid in full") : "—") : NB}</span>
+            <span>(₱ <span className="ul mono amt">{t.price ? formatPeso(Math.max(0, t.balance)).replace("₱", "") : NB}</span>)</span>
+          </div>
+          <div className="arow"><span>shall be given on or before</span><span className="ul grow">{t.balance > 0 ? v(dueTextOf(s)) : NB}</span></div>
+          {extra.length > 0 && <ul className="aextra">{extra.map((x, i) => <li key={i}>{x}</li>)}</ul>}
+          {(termLines.length > 0 || (s.hasRem && s.remarks.trim()) || notes.length > 0) && (
+            <div className="aterms">
+              {termLines.length > 0 && <p><b>Remarks:</b> {termLines.join(" ")}</p>}
+              {s.hasRem && s.remarks.trim() && <Remarks text={s.remarks} />}
+              {notes.map((x, i) => <p key={i}>• {x.text}</p>)}
+            </div>
+          )}
+          <div className="asign"><div><span /><small>({pr.buyerLabel})</small></div><div><span /><small>{pr.receiverLabel}</small></div></div>
+          <footer className="afoot">{pr.footerNote && <p><b>Note:</b> {pr.footerNote}</p>}<small>{copy}</small></footer>
+        </FitBox>
       </article>
     );
   }

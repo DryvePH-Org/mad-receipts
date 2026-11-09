@@ -15,5 +15,5 @@ async function Content({ params }: { params: PageProps<"/print/[id]">["params"] 
   const receipt = await getReceipt(id);
   if (!receipt || Object.keys(receipt.snapshot).length === 0) notFound();
   const settings = await getSettings();
-  return <PrintView state={receipt.snapshot as FormState} company={settings.company} copyNames={settings.copyNames} unapproved={receipt.status !== "approved"} backHref={`/deals/${receipt.dealId}`} />;
+  return <PrintView state={receipt.snapshot as FormState} company={settings.company} print={settings.print} copyNames={settings.copyNames} unapproved={receipt.status !== "approved"} backHref={`/deals/${receipt.dealId}`} />;
 }

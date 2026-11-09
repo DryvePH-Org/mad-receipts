@@ -207,6 +207,17 @@ A failed job retries after 1 min, 5 min, 15 min, then 1 h, and stops after 5 att
 itself is never affected. The receipts log sheet needs two tabs named **Receipts** and **Deals**;
 header rows are written automatically when a tab is empty.
 
+## The printed receipt
+
+The default is the booklet's **Acknowledgement of Payment** on **half of an A4 sheet** (210 × 148 mm): business name and the two lines under it, the title and receipt number, then the lined fields, the earnest / partial / full
+choice underlined, the vehicle on the left, the money and Cash / Check boxes on the right, the balance and due date, the remarks, the two signature lines and the note. What the system adds (financing, trade-in, in lieu of
+documents, other payment methods, earlier payments, several units, remarks and notes) goes in a shaded box so the paper still looks like the booklet. Motor and chassis are not on it, as on the receipt form.
+- **Printing:** two copies fit on one A4 sheet with a cut line in the middle (or one per half sheet of A5 paper); the Print page can also use the full A4 form or an 80 mm slip. Whatever is chosen, the page size is set exactly, nothing
+  is cut off, and a phone screen shows the sheet shrunk to fit.
+- **It never fails to fit:** a half page that has a lot on it shrinks its writing to fit, and if it would have to go below about 60% it moves to the full A4 page by itself (with a note, and a button to use the half page anyway).
+- **Print layout editor** (Settings → Print and company, Admin): business name, the lines under it, the title, the logo (resized to a small picture when added), the remarks, the note at the bottom, the two signature labels,
+  the color of the receipt number, and what Print starts with (paper, half pages per sheet, copies). A live preview shows the real paper with a sample receipt.
+
 ## Moving from the test sheets to the live sheets
 
 All the Google connections can be pointed at copies first and switched to the live sheets later by changing the Apps Script settings (no code change). Transactions entered meanwhile are replayed with

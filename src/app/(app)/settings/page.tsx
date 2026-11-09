@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { requireModule } from "@/lib/auth";
 import { getSettings } from "@/lib/data";
+import { manilaToday } from "@/lib/dates";
 import { SettingsEditor } from "./settings-editor";
 
 export default function SettingsPage() {
@@ -17,5 +18,5 @@ export default function SettingsPage() {
 async function Content() {
   const user = await requireModule("settings");
   // wiping data stays with the Admin role, even for someone who was given Settings
-  return <SettingsEditor initial={await getSettings()} canDelete={user.role === "admin"} />;
+  return <SettingsEditor initial={await getSettings()} canDelete={user.role === "admin"} today={manilaToday()} />;
 }

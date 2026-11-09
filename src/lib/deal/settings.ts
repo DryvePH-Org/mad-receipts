@@ -39,7 +39,24 @@ export const DEFAULT_SETTINGS = {
   company: {
     name: "Manila Auto Display",
     tagline: "Acknowledgement of Payment",
-    address: "Doing business under the name and style of MAD Parking and Management Solutions Inc., #29 A San Rafael cor. San Clemente St., Brgy. Kapitolyo, Pasig City",
+    address: "Doing Business under the Name and Style of MAD Parking and Management Solutions Inc.,\n#29 A San Rafael cor. San Clemente St., Brgy. Kapitolyo, Pasig City",
+  },
+  // How the printed receipt looks: the Admin edits these in Settings → Print and company
+  print: {
+    /** a small picture (data address), shown left of the name when showLogo is on */
+    logo: "",
+    showLogo: false,
+    /** the standard remarks under the amounts */
+    terms: "We reserve the right to forfeit the above Deposit / Earnest Money upon non-compliance of the forgoing Terms & Conditions. The sale of this unit is on \"AS IS WHERE IS\" basis.",
+    footerNote: "Earnest money / partial payment is non-refundable.",
+    buyerLabel: "Buyer",
+    receiverLabel: "Payment Received by:",
+    numberColor: "#b91c1c",
+    /** "ack": half of an A4 sheet, like the booklet; "form": the full A4 page; "slip": an 80 mm roll */
+    defaultLayout: "ack" as "ack" | "form" | "slip",
+    defaultCopies: 2,
+    /** half-page receipts: two on one A4 sheet (cut in the middle), or one per sheet of A5 paper */
+    perSheet: "two" as "two" | "one",
   },
   required: { contact: true, address: true, color: true, proofs: true },
   sections: { trade: true, lieu: true, remarks: true },
@@ -69,7 +86,19 @@ export const settingsSchema = z.object({
   feeStd: percent(D.feeStd),
   minDownPct: percent(D.minDownPct),
   copyNames: list(D.copyNames),
-  company: z.object({ name: z.string().trim().min(1), tagline: z.string().trim().min(1), address: z.string() }).catch(D.company),
+  company: z.object({ name: z.string().trim().min(1).max(120), tagline: z.string().trim().min(1).max(120), address: z.string().max(400) }).catch(D.company),
+  print: z.object({
+    logo: z.string().max(300_000).refine((v) => v === "" || /^data:image\/(png|jpeg|webp);base64,/.test(v)).catch(""),
+    showLogo: flag(false),
+    terms: z.string().max(600).catch(D.print.terms),
+    footerNote: z.string().max(200).catch(D.print.footerNote),
+    buyerLabel: z.string().trim().min(1).max(40).catch(D.print.buyerLabel),
+    receiverLabel: z.string().trim().min(1).max(40).catch(D.print.receiverLabel),
+    numberColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).catch(D.print.numberColor),
+    defaultLayout: z.enum(["ack", "form", "slip"]).catch("ack"),
+    defaultCopies: z.number().int().min(1).max(10).catch(2),
+    perSheet: z.enum(["two", "one"]).catch("two"),
+  }).catch(D.print),
   required: z.object({ contact: flag(true), address: flag(true), color: flag(true), proofs: flag(true) }).catch(D.required),
   sections: z.object({ trade: flag(true), lieu: flag(true), remarks: flag(true) }).catch(D.sections),
   dashboard: z.object({

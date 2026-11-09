@@ -50,7 +50,7 @@ export function ReceiptForm({ userId, today, settings, inventory, liveDeals, con
   const [passed, setPassed] = useState<Set<number>>(new Set());
   const [pending, start] = useTransition();
   const [result, setResult] = useState<Extract<SubmitResult, { ok: true }> | null>(null);
-  const [layout, setLayout] = useState<PaperLayout>("form");
+  const [layout, setLayout] = useState<PaperLayout>(settings.print.defaultLayout);
   const linked = continueDeal?.id ?? null;
   // Earnest money has no earlier payments and a full payment is exactly what is left: both are filled in for the user, and can be unlocked.
   const [earlierUnlocked, setEarlierUnlocked] = useState(false);
@@ -100,7 +100,8 @@ export function ReceiptForm({ userId, today, settings, inventory, liveDeals, con
   // The live preview: real paper size, shrunk to fit the column.
   const wrap = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.4);
-  const natural = { form: 794, half: 559, slip: 302 }[layout];
+  const natural = { ack: 794, form: 794, slip: 302 }[layout];
+  const naturalHeight = { ack: 560, form: 1123, slip: 900 }[layout];
   useEffect(() => {
     const el = wrap.current; if (!el) return;
     const measure = () => setScale(Math.min(1, (el.clientWidth - 24) / natural));
@@ -156,10 +157,10 @@ export function ReceiptForm({ userId, today, settings, inventory, liveDeals, con
         <aside className="space-y-3 xl:sticky xl:top-6">
           <div className="overflow-hidden rounded-xl ring-1 ring-foreground/10">
             <div className="flex items-center justify-between gap-2 px-4 py-3"><b className="text-sm font-medium">Live preview</b>
-              <div role="radiogroup" aria-label="Layout" className="inline-flex rounded-lg bg-muted p-0.5">{LAYOUTS.map((l) => <button key={l.id} type="button" role="radio" aria-checked={layout === l.id} onClick={() => setLayout(l.id)} className={cn("rounded-md px-2.5 py-1 text-xs font-medium", layout === l.id ? "bg-background shadow-sm" : "text-muted-foreground")}>{l.id === "form" ? "Form" : l.id === "half" ? "Half" : "Slip"}</button>)}</div></div>
-            <div ref={wrap} className="relative h-[34rem] overflow-hidden bg-neutral-200 dark:bg-neutral-800">
+              <div role="radiogroup" aria-label="Layout" className="inline-flex rounded-lg bg-muted p-0.5">{LAYOUTS.map((l) => <button key={l.id} type="button" role="radio" aria-checked={layout === l.id} onClick={() => setLayout(l.id)} className={cn("rounded-md px-2.5 py-1 text-xs font-medium", layout === l.id ? "bg-background shadow-sm" : "text-muted-foreground")}>{l.id === "ack" ? "Half" : l.id === "form" ? "A4" : "Slip"}</button>)}</div></div>
+            <div ref={wrap} className="relative overflow-hidden bg-neutral-200 dark:bg-neutral-800" style={{ height: layout === "ack" ? `${Math.round(naturalHeight * scale + 24)}px` : "34rem" }}>
               <div className="absolute top-3 left-0 origin-top-left" style={{ transform: `scale(${scale})`, left: `calc(50% - ${(natural * scale) / 2}px)` }}>
-                <ReceiptPaper state={s} company={settings.company} layout={layout} copy={settings.copyNames[0] ?? "Customer's copy"} unapproved />
+                <ReceiptPaper state={s} company={settings.company} print={settings.print} layout={layout} copy={settings.copyNames[0] ?? "Customer's copy"} unapproved />
               </div>
             </div>
             <p className="px-4 py-2.5 text-xs text-muted-foreground">This is how the receipt prints. It updates as you type.</p>

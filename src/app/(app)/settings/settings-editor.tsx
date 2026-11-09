@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DEFAULT_SETTINGS, type AppSettings } from "@/lib/deal/settings";
 import { cn } from "@/lib/utils";
+import { PrintEditor } from "./print-editor";
 import { ResetPanel } from "./reset-panel";
 import { saveSettings } from "./actions";
 
@@ -72,7 +73,7 @@ function ColorList({ title, hint, items, onChange, onRemove, rename }: { title: 
 }
 
 /** The Admin's controls for every list and option the form uses. Each change is saved at once. */
-export function SettingsEditor({ initial, canDelete = false }: { initial: AppSettings; canDelete?: boolean }) {
+export function SettingsEditor({ initial, canDelete = false, today }: { initial: AppSettings; canDelete?: boolean; today: string }) {
   const [cfg, setCfg] = useState(initial);
   const [tab, setTab] = useState<(typeof TABS)[number][0]>("colors");
   const [saved, setSaved] = useState(false);
@@ -226,12 +227,8 @@ export function SettingsEditor({ initial, canDelete = false }: { initial: AppSet
       )}
 
       {tab === "print" && (
-        <div className="grid gap-5 lg:grid-cols-2">
-          <Card><CardHeader><CardTitle>Company on the receipt</CardTitle><p className="text-sm text-muted-foreground">Shown at the top of every printed copy</p></CardHeader>
-            <CardContent className="space-y-4">
-              {([["name", "Business name"], ["tagline", "Title"]] as const).map(([k, label]) => <div key={k} className="space-y-1.5"><Label htmlFor={`co-${k}`}>{label}</Label><Input id={`co-${k}`} defaultValue={cfg.company[k]} onBlur={(e) => { const t = e.target.value.trim(); if (t && t !== cfg.company[k]) set("company", { ...cfg.company, [k]: t }); }} /></div>)}
-              <div className="space-y-1.5"><Label htmlFor="co-address">Address line</Label><textarea id="co-address" defaultValue={cfg.company.address} onBlur={(e) => e.target.value !== cfg.company.address && set("company", { ...cfg.company, address: e.target.value })} className="min-h-20 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm" /></div>
-            </CardContent></Card>
+        <div className="space-y-5">
+          <PrintEditor company={cfg.company} print={cfg.print} today={today} onSave={(patch) => apply({ ...cfg, ...patch })} />
           <StringList title="Names of the printed copies" hint="Copy 1, 2, 3… are named in this order. Staff can still rename them when printing." items={cfg.copyNames} onChange={(v) => set("copyNames", v)} placeholder="e.g. Bank copy" />
         </div>
       )}

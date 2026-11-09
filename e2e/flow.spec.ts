@@ -87,6 +87,7 @@ test("the whole flow: Sales fills in, the Approver approves, the numbers agree",
   await sales.getByLabel(/I checked every field/).check();
   await sales.getByRole("button", { name: /Send for approval/ }).click();
   await expect(sales.getByRole("heading", { name: "Sent for approval" })).toBeVisible();
+  const printHref = await sales.locator("a[href^=\"/print/\"]").first().getAttribute("href");
 
   // nothing counts until it is approved
   const admin = adminClient();
@@ -124,6 +125,15 @@ test("the whole flow: Sales fills in, the Approver approves, the numbers agree",
   await sales.goto(`/deals/${after!.id}`);
   await expect(sales.getByText("Adds up").first()).toBeVisible();
   await expect(sales.getByText("Waiting for lender").first()).not.toBeVisible().catch(() => undefined);
+  // the printed receipt is the half page of the booklet, two to an A4 sheet, and fits a phone screen
+  await sales.goto(printHref!);
+  await expect(sales.locator(".paper.ack")).toHaveCount(2);
+  await expect(sales.getByText("ACKNOWLEDGEMENT OF PAYMENT", { exact: false }).first()).toBeVisible();
+  await expect(sales.locator(".print-a4 .cut")).toHaveCount(1);
+  await sales.setViewportSize({ width: 390, height: 800 });
+  await sales.waitForTimeout(500);
+  expect(await sales.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true); // nothing pushes the page sideways
+  await sales.setViewportSize({ width: 1280, height: 900 });
   // a conflict with a shared sheet stops the write and asks a person (simulated: the real sheets are switched off in these tests)
   const receiptId = (await admin.from("receipts").select("id").eq("receipt_no", NO(1)).single()).data!.id;
   await admin.from("sync_jobs").update({ status: "failed", attempts: 5, last_error: "CONFLICT: ZZT 1001: The sheet says \"RESERVED - ELLA 11/3\", naming ELLA, but this deal (D1) was opened by DAVID. Ask ELLA and DAVID who has this car." }).eq("receipt_id", receiptId).eq("target", "inventory");
