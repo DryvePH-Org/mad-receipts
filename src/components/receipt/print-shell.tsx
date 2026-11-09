@@ -52,11 +52,11 @@ export function PrintShell({ print, copyNames, notice, backHref, backLabel = "Ba
       <style>{`@page { size: ${page}; margin: 0; }
         @media print {
           html, body { margin: 0 !important; background: #fff !important; }
-          .print-sheet { break-after: page; break-inside: avoid; }
+          .print-sheet { break-after: page; break-inside: avoid; height: ${sheet.h}mm; overflow: hidden; }
           .print-sheet:last-child { break-after: auto; }
           .paper { box-shadow: none !important; }
-          .scale-box { width: auto !important; height: auto !important; }
-          .scale-inner { transform: none !important; }
+          .scale-box { width: ${sheet.w}mm !important; height: ${sheet.h}mm !important; }
+          .scale-inner { transform: none !important; width: ${sheet.w}mm !important; height: ${sheet.h}mm !important; }
           * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
         }`}</style>
       <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b bg-background px-4 py-2.5 text-sm print:hidden">
@@ -77,7 +77,7 @@ export function PrintShell({ print, copyNames, notice, backHref, backLabel = "Ba
       <div className="grid justify-center gap-8 py-8 print:block print:p-0">
         {sheets.map((idx, k) => (
           <div key={k} className="print-sheet">
-            <ScaleToFit widthMm={sheet.w} heightMm={sheet.h + 0.3}>
+            <ScaleToFit widthMm={sheet.w} heightMm={sheet.h}>
               <div className="print-a4 bg-white shadow-lg print:shadow-none" style={{ ["--pw" as string]: `${half.w}mm`, ["--ph" as string]: `${half.h}mm` }}>
                 {idx.map((i, j) => <div key={i} className="contents">{j > 0 && <div className="cut" />}{paper(i)}</div>)}
               </div>

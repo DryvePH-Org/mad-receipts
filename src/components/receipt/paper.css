@@ -49,9 +49,9 @@
 .paper.ack .afoot small { text-transform: uppercase; letter-spacing: .08em; color: rgb(0 0 0 / .6); white-space: nowrap; }
 
 /* the print page: sheets, and the cut line between two half pages */
-.print-a4 { width: var(--pw, 210mm); height: calc(var(--ph, 148.5mm) * 2 + 1px); display: flex; flex-direction: column; background: #fff; }
+.print-a4 { position: relative; width: var(--pw, 210mm); height: calc(var(--ph, 148.5mm) * 2); display: flex; flex-direction: column; background: #fff; overflow: hidden; }
 .print-a4 .paper.ack { flex: none; box-shadow: none; }
-.print-a4 .cut { flex: none; height: 1px; border-top: 1px dashed rgb(0 0 0 / .45); position: relative; }
+.print-a4 .cut { position: absolute; left: 0; right: 0; top: var(--ph, 148.5mm); height: 0; border-top: 1px dashed rgb(0 0 0 / .45); }
 .print-a4 .cut::after { content: "✂"; position: absolute; left: 4mm; top: -2.6mm; font-size: 9px; color: rgb(0 0 0 / .5); background: #fff; padding: 0 1mm; }
 
 /* ---- The transmittal receipt (the checklist of papers handed over) ---- */
