@@ -212,6 +212,9 @@ header rows are written automatically when a tab is empty.
 The default is the booklet's **Acknowledgement of Payment** on **half of an A4 sheet** (210 × 148 mm): business name and the two lines under it, the title and receipt number, then the lined fields, the earnest / partial / full
 choice underlined, the vehicle on the left, the money and Cash / Check boxes on the right, the balance and due date, the remarks, the two signature lines and the note. What the system adds (financing, trade-in, in lieu of
 documents, other payment methods, earlier payments, several units, remarks and notes) goes in a shaded box so the paper still looks like the booklet. Motor and chassis are not on it, as on the receipt form.
+- **Looks computer-printed:** the filled-in values are in a clean sans-serif font (numbers in a monospaced one) on the booklet's serif labels, not a handwriting style.
+- **Every detail is on the paper:** a shaded box of labelled cells lists whatever applies (sale type, down payment, loan and lender, processing fee, monthly payment, the trade-in unit, plate, mileage and value, in lieu of documents and its date, earlier payments, payouts, number of units). The preview in the form has a **View larger** button.
+- **Paper:** A4, short bond (Letter), long bond (Folio 8.5 × 13) or Legal. The receipt is half of the chosen sheet and the page size is set to match; each computer remembers its choice and the Admin sets the starting one in the editor.
 - **Printing:** there is one print view, the half page. Two copies fit on one A4 sheet with a cut line in the middle (or one per half sheet of A5 paper). The page size is set exactly, nothing
   is cut off, and a phone screen shows the sheet shrunk to fit.
 - **It never fails to fit:** a half page that has a lot on it shrinks its writing to fit (with a note on the Print page when it has to go small).

@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import "./paper.css";
 import { FitBox } from "./fit-box";
+import { halfOf, type PaperKey } from "@/lib/paper";
 import { balanceInfo, totalsFromForm, words } from "@/lib/deal/math";
 import { DEFAULT_SETTINGS, type AppSettings } from "@/lib/deal/settings";
 import { KIND_LABELS, type FormState, type PaymentKind } from "@/lib/deal/types";
@@ -44,6 +45,8 @@ interface Props {
   company: AppSettings["company"];
   /** how the Admin set the printed receipt up (logo, wording, colours) */
   print?: AppSettings["print"];
+  /** the sheet it is printed on; the receipt is half of it (default: what the Admin chose) */
+  paper?: PaperKey;
   copy: string;
   unapproved?: boolean;
   /** hears how much the half page had to shrink the writing (1 = not at all) */
@@ -52,7 +55,7 @@ interface Props {
 
 const lines = (text: string) => text.split("\n").map((l) => l.trim()).filter(Boolean);
 
-export function ReceiptPaper({ state: s, company: co, print: pr = DEFAULT_SETTINGS.print, copy, unapproved, onFit }: Props) {
+export function ReceiptPaper({ state: s, company: co, print: pr = DEFAULT_SETTINGS.print, paper, copy, unapproved, onFit }: Props) {
   const t = totalsFromForm(s);
   const rows = payRows(s);
   const bi = balanceInfo(t);
@@ -68,17 +71,29 @@ export function ReceiptPaper({ state: s, company: co, print: pr = DEFAULT_SETTIN
   const check = methods.find((r) => r.label === "Check");
   const checkMethod = s.methods.find((m) => m.type === "check" && peso(m.amount) > 0);
   const others = methods.filter((r) => r.label !== "Check");
-  const extra = [
-    s.sale === "financing" && `Financing · ${[s.institution, t.dpSet && `down payment ${formatPeso(t.dp)}`, t.loan > 0 && `loan ${formatPeso(t.loan)}`, t.fee > 0 && `processing fee ${formatPeso(t.fee)} paid by the buyer`, t.monthly && `${formatPeso(t.monthly)}/month`, s.years && `${s.years} ${s.years === "1" ? "year" : "years"}`].filter(Boolean).join(" · ")}`,
-    s.hasTi && `Trade-in: ${[tradeText[0] || "—", ...tradeText.slice(1)].join(" · ")} · valued ${formatPeso(t.tv)}, taken off the price`,
-    s.hasLieu && t.lieu > 0 && `In lieu of documents: held as collateral for ${formatPeso(t.lieu)} until ${s.lieuUntil ? formatDate(s.lieuUntil) : "—"}`,
-    t.earlier > 0 && `Earlier payments ${formatPeso(t.earlier)} + today ${formatPeso(t.today)}`,
-    t.payout > 0 && `Paid out to the buyer: ${formatPeso(t.payout)}`,
-    n > 1 && `${n} units on this receipt`,
-  ].filter(Boolean) as string[];
+  // Everything that applies to this transaction beyond the booklet's own lines, as labelled cells (nothing is left out)
+  const money = (c: number) => formatPeso(c);
+  const details: [string, string][] = ([
+    s.sale === "financing" && ["Sale", `Financing${s.institution ? ` · ${s.institution}` : ""}`],
+    s.sale !== "financing" && (s.hasTi || s.hasLieu || t.earlier > 0 || t.payout > 0 || n > 1) && ["Sale", "Cash"],
+    s.sale === "financing" && t.dpSet && ["Down payment", money(t.dp)],
+    s.sale === "financing" && t.loan > 0 && [`Loan${s.institution ? ` from ${s.institution}` : ""}`, `${money(t.loan)} (paid by the lender)`],
+    s.sale === "financing" && t.fee > 0 && ["Processing fee", `${money(t.fee)} (paid by the buyer)`],
+    s.sale === "financing" && t.monthly > 0 && ["Monthly payment", `${money(t.monthly)}${s.years ? ` × ${Number(s.years) * 12} months (${s.years} ${s.years === "1" ? "year" : "years"})` : ""}`],
+    s.hasTi && ["Trade-in unit", tradeText[0] || "—"],
+    s.hasTi && tradeText[1] && ["Trade-in plate", tradeText[1]],
+    s.hasTi && tradeText[2] && ["Trade-in mileage", tradeText[2]],
+    s.hasTi && ["Trade-in value", `${money(t.tv)} (taken off the price)`],
+    s.hasLieu && ["In lieu of documents", t.lieu > 0 ? money(t.lieu) : "amount not set"],
+    s.hasLieu && ["Pay on or before", s.lieuUntil ? formatDate(s.lieuUntil) : "—"],
+    t.earlier > 0 && ["Earlier payments", money(t.earlier)],
+    t.earlier > 0 && ["Paid today", money(t.today)],
+    t.payout > 0 && ["Paid out to the buyer", money(t.payout)],
+    n > 1 && ["Units on this receipt", String(n)],
+  ].filter(Boolean) as [string, string][]);
   const termLines = lines(pr.terms);
   return (
-    <article className="paper ack" style={{ ["--no" as string]: pr.numberColor }}>
+    <article className="paper ack" style={{ ["--no" as string]: pr.numberColor, ["--pw" as string]: `${halfOf(paper ?? pr.paper).w}mm`, ["--ph" as string]: `${halfOf(paper ?? pr.paper).h}mm` }}>
       {unapproved && <div className="wm">UNAPPROVED</div>}
       <FitBox onFit={onFit}>
         <header className="ah">
@@ -130,7 +145,7 @@ export function ReceiptPaper({ state: s, company: co, print: pr = DEFAULT_SETTIN
           <span>(₱ <span className="ul mono amt">{t.price ? formatPeso(Math.max(0, t.balance)).replace("₱", "") : NB}</span>)</span>
         </div>
         <div className="arow"><span>shall be given on or before</span><span className="ul grow">{t.balance > 0 ? v(dueTextOf(s)) : NB}</span></div>
-        {extra.length > 0 && <ul className="aextra">{extra.map((x, i) => <li key={i}>{x}</li>)}</ul>}
+        {details.length > 0 && <dl className="adetails">{details.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>}
         {(termLines.length > 0 || (s.hasRem && s.remarks.trim()) || notes.length > 0) && (
           <div className="aterms">
             {termLines.length > 0 && <p><b>Remarks:</b> {termLines.join(" ")}</p>}

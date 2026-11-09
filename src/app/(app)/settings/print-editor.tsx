@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ImagePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { PaperZoom } from "@/components/receipt/paper-zoom";
 import { ReceiptPaper } from "@/components/receipt/receipt-paper";
+import { halfOf, MM, PAPERS, type PaperKey } from "@/lib/paper";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -43,7 +45,7 @@ export function PrintEditor({ company, print, onSave, today }: { company: Compan
 
   const wrap = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
-  const natural = 794, naturalHeight = 560; // the half page, 210 × 148 mm
+  const natural = Math.round(halfOf(pr.paper).w * MM), naturalHeight = Math.round(halfOf(pr.paper).h * MM); // one receipt: half of the chosen sheet
   useEffect(() => {
     const el = wrap.current; if (!el) return;
     const measure = () => setScale(Math.min(1, (el.clientWidth - 16) / natural));
@@ -89,14 +91,16 @@ export function PrintEditor({ company, print, onSave, today }: { company: Compan
           </CardContent></Card>
 
         <Card><CardHeader><CardTitle>When printing</CardTitle><p className="text-sm text-muted-foreground">What the Print page starts with. Staff can still change it there.</p></CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5"><Label htmlFor="pr-sheet">Half pages</Label><NativeSelect id="pr-sheet" value={pr.perSheet} onChange={(e) => savePr({ ...pr, perSheet: e.target.value as Print["perSheet"] })}><option value="two">Two on an A4 sheet</option><option value="one">One per half sheet</option></NativeSelect></div>
+          <CardContent className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-1.5"><Label htmlFor="pr-paper">Paper</Label><NativeSelect id="pr-paper" value={pr.paper} onChange={(e) => savePr({ ...pr, paper: e.target.value as PaperKey })}>{(Object.keys(PAPERS) as PaperKey[]).map((k) => <option key={k} value={k}>{PAPERS[k].name}</option>)}</NativeSelect></div>
+            <div className="space-y-1.5"><Label htmlFor="pr-sheet">Half pages</Label><NativeSelect id="pr-sheet" value={pr.perSheet} onChange={(e) => savePr({ ...pr, perSheet: e.target.value as Print["perSheet"] })}><option value="two">Two on a sheet</option><option value="one">One per half sheet</option></NativeSelect></div>
             <div className="space-y-1.5"><Label htmlFor="pr-copies">Copies</Label><Input id="pr-copies" inputMode="numeric" defaultValue={pr.defaultCopies} className="text-right" onBlur={(e) => { const n = parseInt(e.target.value, 10); if (n >= 1 && n <= 10) savePr({ ...pr, defaultCopies: n }); else e.target.value = String(pr.defaultCopies); }} /></div>
           </CardContent></Card>
       </div>
 
       <div className="space-y-2 xl:sticky xl:top-6">
         <div className="flex items-center justify-between gap-2"><b className="text-sm font-medium">Live preview</b>
+          <PaperZoom width={natural} height={naturalHeight}><ReceiptPaper state={sample as never} company={co} print={pr} copy={"Customer's copy"} /></PaperZoom>
         </div>
         <div ref={wrap} className="relative overflow-hidden rounded-xl bg-neutral-200 ring-1 ring-foreground/10 dark:bg-neutral-800" style={{ height: `${Math.round(naturalHeight * scale + 24)}px` }}>
           <div className="absolute top-3 origin-top-left" style={{ transform: `scale(${scale})`, left: `calc(50% - ${(natural * scale) / 2}px)` }}>

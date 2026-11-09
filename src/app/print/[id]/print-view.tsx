@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { halfOf, isPaper, MM, PAPERS, type PaperKey } from "@/lib/paper";
 import { ReceiptPaper } from "@/components/receipt/receipt-paper";
 import { MIN_FIT } from "@/components/receipt/fit-box";
 import { Button } from "@/components/ui/button";
 import type { AppSettings } from "@/lib/deal/settings";
 import type { FormState } from "@/lib/deal/types";
 
-const MM = 96 / 25.4; // pixels per millimetre on screen
+const PAPER_KEY = "mad-print-paper", PAPER_EVENT = "mad-paper";
+const subscribePaper = (cb: () => void) => { window.addEventListener(PAPER_EVENT, cb); window.addEventListener("storage", cb); return () => { window.removeEventListener(PAPER_EVENT, cb); window.removeEventListener("storage", cb); }; };
+const readPaper = (): PaperKey | null => { try { const v = localStorage.getItem(PAPER_KEY); return isPaper(v) ? v : null; } catch { return null; } };
 
 /** Shows a fixed-size sheet shrunk to fit a narrow screen (a phone), and at full size on paper. */
 function ScaleToFit({ widthMm, heightMm, children }: { widthMm: number; heightMm: number; children: React.ReactNode }) {
@@ -30,12 +33,17 @@ function ScaleToFit({ widthMm, heightMm, children }: { widthMm: number; heightMm
 export function PrintView({ state, company, print, copyNames, unapproved, backHref }: { state: FormState; company: AppSettings["company"]; print: AppSettings["print"]; copyNames: string[]; unapproved: boolean; backHref: string }) {
   const [copies, setCopies] = useState(print.defaultCopies);
   const [perSheet, setPerSheet] = useState(print.perSheet);
+  // each computer remembers the paper its printer uses
+  const saved = useSyncExternalStore(subscribePaper, readPaper, () => null);
+  const paperKey: PaperKey = saved ?? print.paper;
+  const choosePaper = (k: PaperKey) => { try { localStorage.setItem(PAPER_KEY, k); } catch { /* private window: not remembered */ } window.dispatchEvent(new Event(PAPER_EVENT)); };
+  const sheet = PAPERS[paperKey], half = halfOf(paperKey);
   const [names, setNames] = useState<string[]>([]);
   const [small, setSmall] = useState(false); // the writing had to shrink a lot to fit
   const nameOf = (i: number) => names[i]?.trim() || copyNames[i % copyNames.length] || `Copy ${i + 1}`;
 
-  const page = perSheet === "two" ? "210mm 297mm" : "210mm 148mm";
-  const paper = (i: number) => <ReceiptPaper state={state} company={company} print={print} copy={nameOf(i)} unapproved={unapproved} onFit={(s) => setSmall(s < MIN_FIT)} />;
+  const page = perSheet === "two" ? `${sheet.w}mm ${sheet.h}mm` : `${half.w}mm ${half.h}mm`;
+  const paper = (i: number) => <ReceiptPaper state={state} company={company} print={print} paper={paperKey} copy={nameOf(i)} unapproved={unapproved} onFit={(s) => setSmall(s < MIN_FIT)} />;
   const twoUp = perSheet === "two";
   const sheets = twoUp ? Array.from({ length: Math.ceil(copies / 2) }, (_, k) => [k * 2, k * 2 + 1].filter((i) => i < copies)) : Array.from({ length: copies }, (_, i) => [i]);
 
@@ -53,9 +61,10 @@ export function PrintView({ state, company, print, copyNames, unapproved, backHr
         }`}</style>
       <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b bg-background px-4 py-2.5 text-sm print:hidden">
         <strong>Print</strong>
+        <label className="flex items-center gap-1.5">Paper <select aria-label="Paper" value={paperKey} onChange={(e) => choosePaper(e.target.value as PaperKey)} className="h-8 rounded-md border bg-background px-2 text-sm">{(Object.keys(PAPERS) as PaperKey[]).map((k) => <option key={k} value={k}>{PAPERS[k].name}</option>)}</select></label>
         <div className="flex gap-1" role="group" aria-label="Half pages on the sheet">
-          <Button size="sm" variant={perSheet === "two" ? "default" : "outline"} onClick={() => setPerSheet("two")} title="Two receipts on one A4 sheet. Cut in the middle.">2 per A4 sheet</Button>
-          <Button size="sm" variant={perSheet === "one" ? "default" : "outline"} onClick={() => setPerSheet("one")} title="One receipt on each sheet of half-page (A5) paper">1 per half sheet</Button>
+          <Button size="sm" variant={perSheet === "two" ? "default" : "outline"} onClick={() => setPerSheet("two")} title="Two receipts on one sheet. Cut in the middle.">2 per sheet</Button>
+          <Button size="sm" variant={perSheet === "one" ? "default" : "outline"} onClick={() => setPerSheet("one")} title="One receipt on each half sheet of paper">1 per half sheet</Button>
         </div>
         <div className="flex items-center gap-1" role="group" aria-label="Copies">
           <Button size="icon-sm" variant="outline" onClick={() => setCopies((c) => Math.max(1, c - 1))} aria-label="Fewer copies">−</Button>
@@ -72,9 +81,9 @@ export function PrintView({ state, company, print, copyNames, unapproved, backHr
       <div className="grid justify-center gap-8 py-8 print:block print:p-0">
         {sheets.map((idx, k) => (
           <div key={k} className="print-sheet">
-            <ScaleToFit widthMm={210} heightMm={twoUp ? 297 : 148}>
+            <ScaleToFit widthMm={sheet.w} heightMm={twoUp ? sheet.h + 0.3 : half.h}>
               {twoUp ? (
-                <div className="print-a4 bg-white shadow-lg print:shadow-none">
+                <div className="print-a4 bg-white shadow-lg print:shadow-none" style={{ ["--pw" as string]: `${half.w}mm`, ["--ph" as string]: `${half.h}mm` }}>
                   {idx.map((i, j) => <div key={i} className="contents">{j > 0 && <div className="cut" />}{paper(i)}</div>)}
                 </div>
               ) : paper(idx[0])}

@@ -131,6 +131,10 @@ test("the whole flow: Sales fills in, the Approver approves, the numbers agree",
   await expect(sales.getByText("ACKNOWLEDGEMENT OF PAYMENT", { exact: false }).first()).toBeVisible();
   await expect(sales.locator(".print-a4 .cut")).toHaveCount(1);
   await expect(sales.getByRole("button", { name: /Full A4|Receipt slip/ })).toHaveCount(0); // one layout only
+  await expect(sales.getByLabel("Paper")).toBeVisible(); // the sheet the printer uses (A4, short bond, long bond, legal)
+  // every detail of the transaction is on the paper, labelled: financing, trade-in and the rest
+  const firstPaper = sales.locator(".paper.ack").first();
+  for (const label of ["Down payment", "Loan from BDO", "Processing fee", "Trade-in unit", "Trade-in value", "Earlier payments"]) await expect(firstPaper.locator(".adetails dt", { hasText: label })).toBeVisible();
   await sales.setViewportSize({ width: 390, height: 800 });
   await sales.waitForTimeout(500);
   expect(await sales.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true); // nothing pushes the page sideways

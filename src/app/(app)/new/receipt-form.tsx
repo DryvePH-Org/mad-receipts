@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { Check, ChevronLeft, ChevronRight, Loader2, Receipt as ReceiptIcon, Send } from "lucide-react";
 import { toast } from "sonner";
 import { ReceiptPaper } from "@/components/receipt/receipt-paper";
+import { PaperZoom } from "@/components/receipt/paper-zoom";
+import { halfOf, MM } from "@/lib/paper";
 import { ResponsiveDialog } from "@/components/shared/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import type { AppSettings } from "@/lib/deal/settings";
@@ -99,7 +101,7 @@ export function ReceiptForm({ userId, today, settings, inventory, liveDeals, con
   // The live preview: real paper size, shrunk to fit the column.
   const wrap = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.4);
-  const natural = 794, naturalHeight = 560; // the half page, 210 × 148 mm
+  const natural = Math.round(halfOf(settings.print.paper).w * MM), naturalHeight = Math.round(halfOf(settings.print.paper).h * MM); // one receipt: half of the chosen sheet
   useEffect(() => {
     const el = wrap.current; if (!el) return;
     const measure = () => setScale(Math.min(1, (el.clientWidth - 24) / natural));
@@ -155,6 +157,7 @@ export function ReceiptForm({ userId, today, settings, inventory, liveDeals, con
         <aside className="space-y-3 xl:sticky xl:top-6">
           <div className="overflow-hidden rounded-xl ring-1 ring-foreground/10">
             <div className="flex items-center justify-between gap-2 px-4 py-3"><b className="text-sm font-medium">Live preview</b>
+              <PaperZoom width={natural} height={naturalHeight}><ReceiptPaper state={s} company={settings.company} print={settings.print} copy={settings.copyNames[0] ?? "Customer's copy"} unapproved /></PaperZoom>
             </div>
             <div ref={wrap} className="relative overflow-hidden bg-neutral-200 dark:bg-neutral-800" style={{ height: `${Math.round(naturalHeight * scale + 24)}px` }}>
               <div className="absolute top-3 left-0 origin-top-left" style={{ transform: `scale(${scale})`, left: `calc(50% - ${(natural * scale) / 2}px)` }}>
