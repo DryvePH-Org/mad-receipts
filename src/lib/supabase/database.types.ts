@@ -39,6 +39,12 @@ export type Database = {
   }
   public: {
     Tables: {
+      transmittals: {
+        Row: { plate_no: string; data: Json; updated_by: string | null; updated_at: string }
+        Insert: { plate_no: string; data?: Json; updated_by?: string | null; updated_at?: string }
+        Update: { plate_no?: string; data?: Json; updated_by?: string | null; updated_at?: string }
+        Relationships: []
+      }
       profiles: {
         Row: {
           id: string

@@ -53,3 +53,20 @@
 .print-a4 .paper.ack { flex: none; box-shadow: none; }
 .print-a4 .cut { flex: none; height: 1px; border-top: 1px dashed rgb(0 0 0 / .45); position: relative; }
 .print-a4 .cut::after { content: "✂"; position: absolute; left: 4mm; top: -2.6mm; font-size: 9px; color: rgb(0 0 0 / .5); background: #fff; padding: 0 1mm; }
+
+/* ---- The transmittal receipt (the checklist of papers handed over) ---- */
+.paper.tm .tmtitle { margin: 2mm 0 0; text-align: center; font-size: 1.5em; letter-spacing: .01em; font-weight: 700; }
+.paper.tm .tmlead { margin: 3.5mm 0 0; font-size: 1.12em; font-weight: 700; }
+.paper.tm .tmhead { margin: 1.5mm 0 0; padding-left: 14mm; max-width: 78%; }
+.paper.tm .tmhead label { font-weight: 700; }
+.paper.tm .tmcols { display: grid; grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr); gap: 0 6mm; margin-top: 3mm; }
+.paper.tm .tmlist { list-style: none; margin: 0; padding: 0; }
+.paper.tm .tmlist li { display: flex; align-items: baseline; gap: 1.6mm; margin-top: 1.5mm; min-width: 0; }
+.paper.tm .tmlabel { font-weight: 700; flex: none; max-width: 100%; }
+.paper.tm .tmright { padding-top: 22mm; }
+.paper.tm .tmothers { margin-top: 2.2mm; } .paper.tm .tmothers label { font-weight: 700; }
+.paper.tm .tmmore { margin-left: 8mm; }
+.paper.tm .tmsign { display: grid; grid-template-columns: 1.4fr 1fr; gap: .5mm 8mm; margin-top: 3mm; }
+.paper.tm .tmsign label, .paper.tm .arow label { font-weight: 700; }
+.paper.tm .tmsign small { display: block; margin: .3mm 0 0 14mm; font-size: .8em; }
+.paper.tm .bx2 i { width: 1.15em; height: 1.15em; }

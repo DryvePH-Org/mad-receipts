@@ -76,9 +76,35 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   const missingBefore = docs.locator("li", { hasText: "Missing" });
   await expect(missingBefore).toHaveCount(2); // the buyer's ID and the signed deed: Sales provides them
 
+  // the transmittal receipt: starts from what the folder shows, the staff fill in the rest, save, and print
+  await docs.locator("a[href$=\"/transmittal\"]").first().click();
+  await expect(docs.getByRole("heading", { name: "Transmittal receipt", exact: true })).toBeVisible();
+  await expect(docs.getByLabel("Plate no.")).toHaveValue(/ZZT.?7001/);
+  await expect(docs.getByText("in the folder").first()).toBeVisible(); // the papers the workflow found are ticked
+  await expect(docs.getByLabel("Original copy of Certificate of Registration #", { exact: false }).first()).toBeChecked();
+  await docs.getByLabel("Spare Key").check(); // handed over by hand: not in any folder
+  await docs.getByLabel("Received by").fill("ZZT E2E Receiver");
+  await docs.getByLabel("Other 1").fill("Plate cover");
+  await docs.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(docs.getByText(/^Saved\.$|needs the latest database update|Could not save/).first()).toBeVisible(); // the answer to Save
+  const notReady = await docs.getByText(/needs the latest database update/).count(); // the test database may not have migration 22 yet
+  if (!notReady) {
+    await expect(docs.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
+    await docs.reload(); // saved: it comes back as typed
+    await expect(docs.getByLabel("Received by")).toHaveValue("ZZT E2E Receiver");
+    await expect(docs.getByLabel("Spare Key")).toBeChecked();
+  }
+  await docs.goto("/print/transmittal/ZZT7001");
+  await expect(docs.locator(".paper.tm")).toHaveCount(2);
+  await expect(docs.locator(".paper.tm").first()).toContainText("ACKNOWLEDGEMENT/TRANSMITTAL RECEIPT");
+  if (!notReady) await expect(docs.locator(".paper.tm").first()).toContainText("ZZT E2E Receiver");
+  await docs.goto("/documents/ZZT7001");
+
   // Sales: the plate leads to the right car, then the papers go in
   const sales = await as(browser, "sales");
   await expect(sales.getByRole("link", { name: "Car documents" })).toHaveCount(0);
+  await sales.goto("/documents/ZZT7001/transmittal"); // not part of the Sales role
+  await expect(sales.getByText("You don't have access to this page.")).toBeVisible();
   await sales.goto("/documents");
   await expect(sales.getByText("You don't have access to this page.")).toBeVisible();
   await sales.goto("/upload-documents");

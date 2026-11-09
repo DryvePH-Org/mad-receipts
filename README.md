@@ -207,6 +207,14 @@ A failed job retries after 1 min, 5 min, 15 min, then 1 h, and stops after 5 att
 itself is never affected. The receipts log sheet needs two tabs named **Receipts** and **Deals**;
 header rows are written automatically when a tab is empty.
 
+## Transmittal receipt (handing papers over with a car)
+
+On a car's page in **Car documents**, **Transmittal receipt** opens the "Acknowledgement/Transmittal Receipt" as a form to fill in on screen. It starts from the documents workflow: the make and type from the folder name, the
+plate, the owner's name and the OR / CR numbers when they were read, and every paper the folder has already ticked (CR, OR, deeds, IDs, secretary's certificate and ID, release of chattel mortgage, promissory note).
+The staff tick the rest by hand (stencils, insurance policy, macro-etching, PNP clearance, manuals, spare key, others), type a note such as the courier, and enter who prepared it and who received it. **Save** keeps it with the
+car (migration 22); **Save and print** opens the same half-page print as the receipts, on the chosen paper, two copies by default. It is part of the Car documents module (Admin and Documentation, or anyone the Admin gave that
+module to); Sales do not have it by default.
+
 ## The printed receipt
 
 The default is the booklet's **Acknowledgement of Payment** on **half of an A4 sheet** (210 × 148 mm): business name and the two lines under it, the title and receipt number, then the lined fields, the earnest / partial / full

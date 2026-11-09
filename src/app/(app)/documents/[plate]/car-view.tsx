@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, CircleAlert, ExternalLink, FolderInput, Loader2, Minus, RefreshCw, ScanText, X } from "lucide-react";
+import { Check, CircleAlert, ExternalLink, FileText, FolderInput, Loader2, Minus, RefreshCw, ScanText, X } from "lucide-react";
 import { toast } from "sonner";
 import { ResponsiveDialog } from "@/components/shared/responsive-dialog";
 import { Pill, type Tone } from "@/components/shared/status-badge";
@@ -87,6 +87,7 @@ export function CarView({ data }: { data: CarViewData }) {
         {data.match === "linked" && <Pill tone={STATUS_TONE[data.statusKey] ?? "grey"}>{data.statusLabel}</Pill>}
         {data.deal ? <Link href={`/deals/${data.deal.id}`} className="text-sm underline">{data.deal.dealNo} · {data.deal.buyerName}{data.deal.hasReceipt ? "" : " (no AR yet)"}</Link> : <span className="text-sm text-muted-foreground">No AR for this car yet</span>}
         <div className="ml-auto flex flex-wrap gap-2">
+          <Button variant="outline" nativeButton={false} render={<a href={`/documents/${data.plate}/transmittal`} />}><FileText /> Transmittal receipt</Button>
           {data.folderUrl && <Button variant="outline" nativeButton={false} render={<a href={data.folderUrl} target="_blank" rel="noreferrer" />}><ExternalLink /> Open the folder</Button>}
           {data.match === "linked" && data.location === "available" && <Button disabled={busy} onClick={openMove}><FolderInput /> Move to Sold</Button>}
         </div>
