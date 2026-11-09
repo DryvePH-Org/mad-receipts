@@ -15,6 +15,8 @@ export interface InventoryUnit {
   /** The sheet's note for the unit, as written (may hold other notes like "FOR REPAIR"). */
   remarks?: string;
   makeType?: string;
+  /** the YM (year model) column, as written: "2021" */
+  year?: string;
   color?: string;
 }
 

@@ -33,7 +33,6 @@ function ScaleToFit({ widthMm, heightMm, children }: { widthMm: number; heightMm
  */
 export function PrintShell({ print, copyNames, notice, backHref, backLabel = "Back", paper: drawPaper, defaultCopies }: { print: AppSettings["print"]; copyNames: string[]; notice?: React.ReactNode; backHref: string; backLabel?: string; defaultCopies?: number; paper: (copyName: string, paperKey: PaperKey, onFit: (scale: number) => void) => React.ReactNode }) {
   const [copies, setCopies] = useState(defaultCopies ?? print.defaultCopies);
-  const [perSheet, setPerSheet] = useState(print.perSheet);
   // each computer remembers the paper its printer uses
   const saved = useSyncExternalStore(subscribePaper, readPaper, () => null);
   const paperKey: PaperKey = saved ?? print.paper;
@@ -43,10 +42,10 @@ export function PrintShell({ print, copyNames, notice, backHref, backLabel = "Ba
   const [small, setSmall] = useState(false); // the writing had to shrink a lot to fit
   const nameOf = (i: number) => names[i]?.trim() || copyNames[i % copyNames.length] || `Copy ${i + 1}`;
 
-  const page = perSheet === "two" ? `${sheet.w}mm ${sheet.h}mm` : `${half.w}mm ${half.h}mm`;
+  const page = `${sheet.w}mm ${sheet.h}mm`; // always the whole sheet: two copies on it, cut in the middle
   const paper = (i: number) => drawPaper(nameOf(i), paperKey, (s) => setSmall(s < MIN_FIT));
-  const twoUp = perSheet === "two";
-  const sheets = twoUp ? Array.from({ length: Math.ceil(copies / 2) }, (_, k) => [k * 2, k * 2 + 1].filter((i) => i < copies)) : Array.from({ length: copies }, (_, i) => [i]);
+  // two copies to a sheet, always: three copies are one full sheet and a second sheet with one copy
+  const sheets = Array.from({ length: Math.ceil(copies / 2) }, (_, k) => [k * 2, k * 2 + 1].filter((i) => i < copies));
 
   return (
     <div className="min-h-svh bg-neutral-200 print:bg-white">
@@ -63,10 +62,6 @@ export function PrintShell({ print, copyNames, notice, backHref, backLabel = "Ba
       <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b bg-background px-4 py-2.5 text-sm print:hidden">
         <strong>Print</strong>
         <label className="flex items-center gap-1.5">Paper <select aria-label="Paper" value={paperKey} onChange={(e) => choosePaper(e.target.value as PaperKey)} className="h-8 rounded-md border bg-background px-2 text-sm">{(Object.keys(PAPERS) as PaperKey[]).map((k) => <option key={k} value={k}>{PAPERS[k].name}</option>)}</select></label>
-        <div className="flex gap-1" role="group" aria-label="Half pages on the sheet">
-          <Button size="sm" variant={perSheet === "two" ? "default" : "outline"} onClick={() => setPerSheet("two")} title="Two receipts on one sheet. Cut in the middle.">2 per sheet</Button>
-          <Button size="sm" variant={perSheet === "one" ? "default" : "outline"} onClick={() => setPerSheet("one")} title="One receipt on each half sheet of paper">1 per half sheet</Button>
-        </div>
         <div className="flex items-center gap-1" role="group" aria-label="Copies">
           <Button size="icon-sm" variant="outline" onClick={() => setCopies((c) => Math.max(1, c - 1))} aria-label="Fewer copies">−</Button>
           <span className="min-w-20 text-center font-medium">{copies} {copies === 1 ? "copy" : "copies"}</span>
@@ -82,12 +77,10 @@ export function PrintShell({ print, copyNames, notice, backHref, backLabel = "Ba
       <div className="grid justify-center gap-8 py-8 print:block print:p-0">
         {sheets.map((idx, k) => (
           <div key={k} className="print-sheet">
-            <ScaleToFit widthMm={sheet.w} heightMm={twoUp ? sheet.h + 0.3 : half.h}>
-              {twoUp ? (
-                <div className="print-a4 bg-white shadow-lg print:shadow-none" style={{ ["--pw" as string]: `${half.w}mm`, ["--ph" as string]: `${half.h}mm` }}>
-                  {idx.map((i, j) => <div key={i} className="contents">{j > 0 && <div className="cut" />}{paper(i)}</div>)}
-                </div>
-              ) : paper(idx[0])}
+            <ScaleToFit widthMm={sheet.w} heightMm={sheet.h + 0.3}>
+              <div className="print-a4 bg-white shadow-lg print:shadow-none" style={{ ["--pw" as string]: `${half.w}mm`, ["--ph" as string]: `${half.h}mm` }}>
+                {idx.map((i, j) => <div key={i} className="contents">{j > 0 && <div className="cut" />}{paper(i)}</div>)}
+              </div>
             </ScaleToFit>
           </div>
         ))}

@@ -15,8 +15,9 @@ const HEADER = [
 const REMARKS_COL = HEADER.indexOf("REMARKS"); // 18 → column S
 
 /** A unit row as the bridge returns it: trailing empty cells left out. */
-function unit(plate: string, remarks: string, brand: string, make: string, color: string): string[] {
+function unit(plate: string, remarks: string, brand: string, make: string, color: string, ym = ""): string[] {
   const row = new Array<string>(HEADER.length).fill("");
+  row[5] = ym;
   row[6] = brand;
   row[7] = make;
   row[8] = color;
@@ -48,6 +49,16 @@ beforeEach(() => {
   ];
   sheet = fakeSheets({ "INVENTORY 2026": grid });
   inventory = createSheetInventory({ client: sheet.client, config });
+});
+
+describe("the year model (YM column)", () => {
+  it("is read for each unit, as written, and left out when the cell is empty", async () => {
+    const withYm = fakeSheets({ "INVENTORY 2026": [["title"], HEADER, unit("NKU8411", "", "SUZUKI", "SPRESSO 1.0 AGS", "GRAY", "2021"), unit("ZY238A", "", "TOYOTA", "VIOS", "WHITE")] });
+    const inv = createSheetInventory({ client: withYm.client, config });
+    expect(await inv.getUnit("NKU8411")).toMatchObject({ year: "2021", makeType: "SUZUKI SPRESSO 1.0 AGS" });
+    expect(await inv.getUnit("ZY238A")).not.toHaveProperty("year");
+    expect((await inv.listUnits()).map((u) => [u.plate, u.year])).toEqual([["NKU8411", "2021"], ["ZY238A", undefined]]);
+  });
 });
 
 describe("getUnit", () => {

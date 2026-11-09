@@ -48,14 +48,13 @@ interface Props {
   /** the sheet it is printed on; the receipt is half of it (default: what the Admin chose) */
   paper?: PaperKey;
   copy: string;
-  unapproved?: boolean;
   /** hears how much the half page had to shrink the writing (1 = not at all) */
   onFit?: (scale: number) => void;
 }
 
 const lines = (text: string) => text.split("\n").map((l) => l.trim()).filter(Boolean);
 
-export function ReceiptPaper({ state: s, company: co, print: pr = DEFAULT_SETTINGS.print, paper, copy, unapproved, onFit }: Props) {
+export function ReceiptPaper({ state: s, company: co, print: pr = DEFAULT_SETTINGS.print, paper, copy, onFit }: Props) {
   const t = totalsFromForm(s);
   const rows = payRows(s);
   const bi = balanceInfo(t);
@@ -84,7 +83,7 @@ export function ReceiptPaper({ state: s, company: co, print: pr = DEFAULT_SETTIN
     s.hasTi && tradeText[1] && ["Trade-in plate", tradeText[1]],
     s.hasTi && tradeText[2] && ["Trade-in mileage", tradeText[2]],
     s.hasTi && ["Trade-in value", `${money(t.tv)} (taken off the price)`],
-    s.hasLieu && ["In lieu of documents", t.lieu > 0 ? money(t.lieu) : "amount not set"],
+    s.hasLieu && ["In lieu of documents", t.lieu > 0 ? `${money(t.lieu)} (taken off the balance)` : "amount not set"],
     s.hasLieu && ["Pay on or before", s.lieuUntil ? formatDate(s.lieuUntil) : "—"],
     t.earlier > 0 && ["Earlier payments", money(t.earlier)],
     t.earlier > 0 && ["Paid today", money(t.today)],
@@ -94,7 +93,6 @@ export function ReceiptPaper({ state: s, company: co, print: pr = DEFAULT_SETTIN
   const termLines = lines(pr.terms);
   return (
     <article className="paper ack" style={{ ["--no" as string]: pr.numberColor, ["--pw" as string]: `${halfOf(paper ?? pr.paper).w}mm`, ["--ph" as string]: `${halfOf(paper ?? pr.paper).h}mm` }}>
-      {unapproved && <div className="wm">UNAPPROVED</div>}
       <FitBox onFit={onFit}>
         <header className="ah">
           {pr.showLogo && pr.logo && (

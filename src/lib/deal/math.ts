@@ -10,15 +10,18 @@ import type { FormState, MathInput } from "./types";
  *   - trade-in value (the buyer's old car)         T   not cash, so never part of the balance
  *   - loan (financing: price - down payment)       L   paid to us by the lender, not by the buyer
  *   + processing fee (financing only)              F   paid by the buyer on top of the down payment
- *   = amount due from the buyer in cash            D   = (down payment, or the price for cash) - T + F
- *                                                      (negative: we pay the buyer; never with a fee)
+ *   - in lieu of documents                         Z   the documents the buyer leaves with us in place of that part of the payment
+ *   = amount due from the buyer in cash            D   = (down payment, or the price for cash) - T + F - Z
+ *                                                      (negative: we pay the buyer; never with a fee; Z can never take it below zero)
  *   - earlier payments - payments today            R
  *   + paid out to the buyer (only when D < 0)      X
- *   = balance                                      D - R + X        and always:  P + F = T + L + R - X + balance
+ *   = balance                                      D - R + X        and always:  P + F = T + L + Z + R - X + balance
  *
  *   The processing fee is part of what the buyer pays, so earnest money, the down payment and the
  *   fee are all deducted from the same balance.
- *   In lieu of documents is collateral: we hold the buyer's documents; no money moves.
+
+ *   In lieu of documents: we hold the buyer's documents in place of paying that amount now, so it is taken off the balance
+ *   like a payment (no money moves, and the amount to be paid on or before its date is kept with the deal).
  */
 
 export interface Totals {
@@ -49,7 +52,7 @@ export function totals(m: MathInput): Totals {
   const share = dpSet ? Math.min(m.dp, m.price) : m.price;
   const loan = dpSet ? m.price - share : 0;
   const fee = financing ? m.fee : 0;
-  const due = share - m.tradeIn + fee;
+  const due = share - m.tradeIn + fee - m.lieu;
   const paid = m.earlier + m.today;
   const payout = due < 0 ? m.payout : 0;
   return {
@@ -135,11 +138,12 @@ export function buildLedger(t: Totals, info: LedgerInfo): Ledger {
   if (t.tv) add({ kind: "less", label: "Trade-in value", detail: info.tradeInText, note: "The buyer's old car. It lowers what they pay, so it is not part of the balance.", amount: t.tv });
   if (t.loan) add({ kind: "less", label: `Loan paid by ${info.institution || "the lender"}`, detail: `Price ${formatPeso(t.price)} − down payment ${formatPeso(t.dp)}`, note: "The lender pays this, so it is not part of the balance.", amount: t.loan });
   if (t.fee) add({ kind: "plus", label: "Processing fee", detail: t.loan ? `${Math.round((t.fee / t.loan) * 10000) / 100}% of the loan` : undefined, note: "Paid by the buyer on top of the down payment, so it is part of the balance.", amount: t.fee });
+  if (t.lieu) add({ kind: "less", label: "In lieu of documents", detail: info.lieuUntilText ? `Held until ${info.lieuUntilText}` : undefined, note: "The buyer leaves documents with us in place of paying this now, so it is taken off the balance.", amount: t.lieu });
   add({
     kind: "sub",
     label: t.due < 0 ? "We pay the buyer" : "Buyer must pay us in cash",
     note: t.due < 0 ? "The trade-in is worth more than the buyer's share of the price"
-      : t.dpSet ? `${t.tv ? "Down payment less the trade-in" : "The down payment"}${t.fee ? ", plus the processing fee" : ""}` : t.tv ? "Price less the trade-in" : "The agreed price",
+      : t.dpSet ? `${t.tv ? "Down payment less the trade-in" : "The down payment"}${t.fee ? ", plus the processing fee" : ""}${t.lieu ? ", less the documents held" : ""}` : t.tv ? "Price less the trade-in" : "The agreed price",
     amount: Math.abs(t.due), tone: t.due < 0 ? "we" : undefined,
   });
   const firstPay = rows.length;
@@ -152,16 +156,16 @@ export function buildLedger(t: Totals, info: LedgerInfo): Ledger {
   pay({ kind: "total", label: b.label, note: b.note, amount: b.amount, tone: b.tone });
   void firstPay;
 
-  const proves = t.price > 0 && t.tv + t.loan + t.paid - t.payout + t.balance === t.price + t.fee;
+  const proves = t.price > 0 && t.tv + t.loan + t.lieu + t.paid - t.payout + t.balance === t.price + t.fee;
   const text: { label: string; text: string }[] = [];
   if (t.dpSet) text.push({ label: "Down payment", text: `${formatPeso(t.dp)} · ${t.price ? Math.round((Math.min(t.dp, t.price) / t.price) * 1000) / 10 : 0}% of the price` });
   if (t.monthly && t.years) text.push({ label: `Loan repayment to ${info.institution || "the lender"}`, text: `${formatPeso(t.monthly)} × ${t.months} months = ${formatPeso(t.repay)}. Paid by the buyer to the lender, not to us.` });
   if (t.fee) text.push({ label: "Processing fee", text: `${formatPeso(t.fee)}${t.loan ? ` (${Math.round((t.fee / t.loan) * 10000) / 100}% of the loan)` : ""}. Paid by the buyer on top of the down payment, so it is in the balance.` });
   if (t.loan) text.push({ label: `Loan from ${info.institution || "the lender"}`, text: `${formatPeso(t.loan)} is paid to us by the lender, not by the buyer, so it is not in the balance. What the buyer pays the lender afterwards is between them.` });
-  if (t.lieu) text.push({ label: "In lieu of documents", text: `We hold the buyer's documents as collateral for ${formatPeso(t.lieu)} until ${info.lieuUntilText || "the date given"}. No money is received, so it does not change the balance.` });
+  if (t.lieu) text.push({ label: "In lieu of documents", text: `We hold the buyer's documents until ${info.lieuUntilText || "the date given"} in place of ${formatPeso(t.lieu)}. No money is received, but the amount is taken off the balance like a payment.` });
   return {
     totals: t, rows, balance: b, proves,
-    proof: `${formatPeso(t.price + t.fee)}${t.fee ? ` (price ${formatPeso(t.price)} + fee ${formatPeso(t.fee)})` : ""} = ${[t.tv && `trade-in ${formatPeso(t.tv)}`, t.loan && `loan ${formatPeso(t.loan)}`, `received ${formatPeso(t.paid)}`, t.payout && `paid out −${formatPeso(t.payout)}`, `balance ${formatPeso(t.balance)}`].filter(Boolean).join(" + ").replace("+ paid out", "")}`,
+    proof: `${formatPeso(t.price + t.fee)}${t.fee ? ` (price ${formatPeso(t.price)} + fee ${formatPeso(t.fee)})` : ""} = ${[t.tv && `trade-in ${formatPeso(t.tv)}`, t.loan && `loan ${formatPeso(t.loan)}`, t.lieu && `in lieu of documents ${formatPeso(t.lieu)}`, `received ${formatPeso(t.paid)}`, t.payout && `paid out −${formatPeso(t.payout)}`, `balance ${formatPeso(t.balance)}`].filter(Boolean).join(" + ").replace("+ paid out", "")}`,
     info: text,
   };
 }
@@ -173,6 +177,7 @@ export function buildSources(t: Totals, info: { institution: string; tradeInText
     { label: "Buyer, in cash", note: t.paid || t.payout ? `${formatPeso(t.paid)} received${t.payout ? `, ${formatPeso(t.payout)} paid out` : ""}, ${b.label.toLowerCase()} ${formatPeso(b.amount)}` : "Nothing received yet", amount: t.due - t.fee },
   ];
   if (t.fee) rows.push({ label: "Processing fee", note: "Paid by the buyer, on top of the cash above", amount: t.fee });
+  if (t.lieu) rows.push({ label: "Documents held in lieu", note: "The buyer's documents, kept in place of this amount", amount: t.lieu });
   if (t.tv) rows.push({ label: "Trade-in car", note: info.tradeInText || "The buyer's old car", amount: t.tv });
   if (t.loan) rows.push({ label: info.institution ? `Lender: ${info.institution}` : "Lender", note: "Pays the loan to us after approval", amount: t.loan });
   const total = rows.reduce((n, r) => n + r.amount, 0);

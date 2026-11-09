@@ -157,11 +157,11 @@ export function ReceiptForm({ userId, today, settings, inventory, liveDeals, con
         <aside className="space-y-3 xl:sticky xl:top-6">
           <div className="overflow-hidden rounded-xl ring-1 ring-foreground/10">
             <div className="flex items-center justify-between gap-2 px-4 py-3"><b className="text-sm font-medium">Live preview</b>
-              <PaperZoom width={natural} height={naturalHeight}><ReceiptPaper state={s} company={settings.company} print={settings.print} copy={settings.copyNames[0] ?? "Customer's copy"} unapproved /></PaperZoom>
+              <PaperZoom width={natural} height={naturalHeight}><ReceiptPaper state={s} company={settings.company} print={settings.print} copy={settings.copyNames[0] ?? "Customer's copy"} /></PaperZoom>
             </div>
             <div ref={wrap} className="relative overflow-hidden bg-neutral-200 dark:bg-neutral-800" style={{ height: `${Math.round(naturalHeight * scale + 24)}px` }}>
               <div className="absolute top-3 left-0 origin-top-left" style={{ transform: `scale(${scale})`, left: `calc(50% - ${(natural * scale) / 2}px)` }}>
-                <ReceiptPaper state={s} company={settings.company} print={settings.print} copy={settings.copyNames[0] ?? "Customer's copy"} unapproved />
+                <ReceiptPaper state={s} company={settings.company} print={settings.print} copy={settings.copyNames[0] ?? "Customer's copy"} />
               </div>
             </div>
             <p className="px-4 py-2.5 text-xs text-muted-foreground">This is how the receipt prints. It updates as you type.</p>
@@ -190,7 +190,7 @@ export function ReceiptForm({ userId, today, settings, inventory, liveDeals, con
               <li className="flex justify-between rounded-lg bg-muted px-3 py-2 text-muted-foreground"><span>Drive, Sheets, inventory sheet and Telegram</span><b>After approval</b></li>
             </ul>
             <div className="flex flex-wrap justify-end gap-2">
-              <Button variant="outline" nativeButton={false} render={<a href={`/print/${result.receiptId}`} target="_blank" rel="noreferrer" />}>Print copies (unapproved)</Button>
+              <Button variant="outline" nativeButton={false} render={<a href={`/print/${result.receiptId}`} target="_blank" rel="noreferrer" />}>Print copies</Button>
               <Button variant="outline" nativeButton={false} render={<Link href={`/deals/${result.dealId}`} />}>Open the deal</Button>
               <Button nativeButton={false} render={<a href="/new" />}>New receipt</Button>
             </div>

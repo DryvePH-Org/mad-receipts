@@ -123,6 +123,26 @@ describe("submitting a receipt", () => {
   });
 });
 
+describe("in lieu of documents", () => {
+  it("comes off what the buyer owes, like a payment, and counts in every later balance", async () => {
+    const first = await submit(sales, payload(sales, { price: "720000", lieu: { amount: "100000", until: "2026-12-20" }, payments: [cash(sales, "50000")] }));
+    const deal = await one<{ amount_due: string; lieu_amount: string }>("select amount_due, lieu_amount from public.deals where id = $1", [first.deal_id]);
+    expect([num(deal.amount_due), num(deal.lieu_amount), num(first.balance_after)]).toEqual([620000, 100000, 570000]); // 720,000 − 100,000 in lieu − 50,000 paid
+    const second = await submit(sales, { receipt_no: `R-${++n}`, deal_id: first.deal_id, kind: "partial", payments: [cash(sales, "100000")] });
+    expect(num(second.balance_after)).toBe(470000); // the in-lieu amount is still off the balance
+    await fails(submit(sales, { receipt_no: `R-${++n}`, deal_id: first.deal_id, kind: "partial", payments: [cash(sales, "500000")] }), "overpayment"); // only 470,000 is left
+  });
+  it("cannot be more than the buyer owes", async () => {
+    await fails(submit(sales, payload(sales, { price: "300000", lieu: { amount: "300000.01", until: "2026-12-20" } })), "lieu_too_high");
+    await fails(submit(sales, payload(sales, { price: "300000", lieu: { amount: "-1", until: "2026-12-20" } })), "lieu_invalid");
+    await fails(submit(sales, payload(sales, { price: "500000", trade_in: { value: "580000" }, lieu: { amount: "1000", until: "2026-12-20" }, payments: [] })), "lieu_too_high"); // we pay the buyer: nothing to hold documents for
+  });
+  it("can cover everything owed, so nothing is left to pay in cash", async () => {
+    const r = await submit(sales, payload(sales, { price: "300000", lieu: { amount: "300000", until: "2026-12-20" }, payments: [] }));
+    expect(num(r.balance_after)).toBe(0);
+  });
+});
+
 describe("approving", () => {
   it("only the Approver, never the one who filled it in; approving queues the updates", async () => {
     const r = await submit(sales, payload(sales));
@@ -228,7 +248,9 @@ describe("the money, 300 random deals", () => {
       const T = rnd() < 0.4 ? pesos(10000, Math.max(10001, (share / 100) * (fin ? 1 : 1.1))) : 0;
       if (fin && T > share) continue;
       const fee = fin && rnd() < 0.8 ? pesos(0, 120000) : 0;
-      const due = share - T + fee;
+      const due0 = share - T + fee;
+      const Z = due0 > 0 && rnd() < 0.3 ? pesos(0, due0 / 100) : 0; // in lieu of documents: never more than the buyer owes
+      const due = due0 - Z;
       const pays = [pesos(0, 200000), ...(rnd() < 0.5 ? [pesos(0, 60000)] : [])].filter((c) => c > 0);
       const paid = pays.reduce((a, b) => a + b, 0);
       const payout = due < 0 && rnd() < 0.7 ? Math.min(pesos(0, Math.max(1, -due / 100)), -due) : 0;
@@ -238,6 +260,7 @@ describe("the money, 300 random deals", () => {
         processing_fee: fin ? money(fee) : undefined, trade_in: T ? { value: money(T) } : null,
         payments: pays.map((c) => ({ method: "wallet", label: "GCash", amount: money(c), attachments: proof(sales) })),
         payout: payout > 0 ? { amount: money(payout), attachments: proof(sales) } : null,
+        lieu: Z > 0 ? { amount: money(Z), until: "2026-12-20" } : null,
       });
       if ((due >= 0 && balance < 0) || (due < 0 && balance > 0) || (paid === 0 && payout === 0 && due > 0)) {
         let rejected = false;

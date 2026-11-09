@@ -50,6 +50,8 @@ export function missingFields(s: FormState, t: Totals, settings: AppSettings, op
   if (s.hasLieu) {
     if (!peso(s.lieuAmount)) add(3, "In-lieu amount", "lieuAmount");
     if (!s.lieuUntil) add(3, "In-lieu until date", "lieuUntil");
+    // the documents stand in for part of what the buyer owes, so they cannot be worth more than that
+    if (peso(s.lieuAmount) && t.due < 0) add(3, `In-lieu amount (more than the buyer owes: ${formatPeso(t.due + t.lieu)})`, "lieuAmount");
   }
   if (!t.today && t.due > 0) add(4, "Amount paid today", "cash");
   const dueText = s.dueMode === "date" ? s.dueDate : s.dueText.trim();
@@ -76,8 +78,6 @@ export function warningsFor(s: FormState, t: Totals, settings: AppSettings): War
   if (s.sale === "financing" && t.dpSet && t.loan && (!t.monthly || !t.years)) add(3, "Monthly payment or years to pay are not filled in.");
   if (s.sale === "financing" && t.loan && t.repay && t.repay < t.loan) add(3, `${formatPeso(t.monthly)} × ${t.months} months is ${formatPeso(t.repay)}, which does not even cover the ${formatPeso(t.loan)} loan.`);
   if (s.hasTi && s.sale !== "financing" && t.due < 0) add(3, `The trade-in is worth more than the price, so we pay the buyer ${formatPeso(-t.due)}.`);
-  if (s.hasLieu && t.lieu && t.balance > 0 && t.lieu > t.balance) add(4, `The documents are held for ${formatPeso(t.lieu)}, but the buyer only owes ${formatPeso(t.balance)}.`);
-  if (s.hasLieu && t.lieu && t.balance <= 0) add(4, "Nothing is left to pay, so the documents do not need to be held.");
   if (s.hasLieu && s.lieuUntil && s.date && s.lieuUntil < s.date) add(3, "The in-lieu date is before the receipt date.");
   if (t.due < 0 && t.today > 0) add(4, "Nothing is due from the buyer, but a payment is recorded.");
   if (t.due < 0 && t.balance < 0) add(4, `We still owe the buyer ${formatPeso(-t.balance)}. Record the payout once it is paid.`);

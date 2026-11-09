@@ -6,16 +6,16 @@ import { DEFAULT_SETTINGS, parseSettings } from "@/lib/deal/settings";
 
 // An independent calculator written straight from the rules, in whole centavos.
 const C = (x: number) => Math.round(x * 100);
-interface Case { price: number; fin?: boolean; dp?: number; fee?: number; trade?: number; earlier?: number; cash?: number; payout?: number }
+interface Case { price: number; fin?: boolean; dp?: number; fee?: number; trade?: number; lieu?: number; earlier?: number; cash?: number; payout?: number }
 function indep(c: Case) {
   const P = C(c.price), T = C(c.trade ?? 0);
-  const share = c.fin ? Math.min(C(c.dp ?? 0), P) : P, loan = c.fin ? P - share : 0, fee = c.fin ? C(c.fee ?? 0) : 0, due = share - T + fee;
+  const share = c.fin ? Math.min(C(c.dp ?? 0), P) : P, loan = c.fin ? P - share : 0, fee = c.fin ? C(c.fee ?? 0) : 0, due = share - T + fee - C(c.lieu ?? 0);
   const paid = C(c.earlier ?? 0) + C(c.cash ?? 0), payout = due < 0 ? C(c.payout ?? 0) : 0;
-  return { P, T, loan, fee, due, paid, payout, balance: due - paid + payout };
+  return { P, T, Z: C(c.lieu ?? 0), loan, fee, due, paid, payout, balance: due - paid + payout };
 }
 const input = (c: Case): MathInput => ({
   price: C(c.price), sale: c.fin ? "financing" : "cash", dp: C(c.dp ?? 0), fee: C(c.fee ?? 0), tradeIn: C(c.trade ?? 0),
-  earlier: C(c.earlier ?? 0), today: C(c.cash ?? 0), payout: C(c.payout ?? 0), lieu: 0, monthly: 0, years: 0,
+  earlier: C(c.earlier ?? 0), today: C(c.cash ?? 0), payout: C(c.payout ?? 0), lieu: C(c.lieu ?? 0), monthly: 0, years: 0,
 });
 const info = { units: 1, institution: "BDO", tradeInText: "Old car", payRows: [], payoutProofs: 0, lieuUntilText: "" };
 
@@ -31,6 +31,10 @@ const named: [string, Case][] = [
   ["cash + trade-in worth more, part paid out", { price: 500000, trade: 580000, payout: 30000 }],
   ["cash + trade-in worth more, fully paid out", { price: 500000, trade: 580000, payout: 80000 }],
   ["payout ignored when the buyer owes", { price: 500000, payout: 10000 }],
+  ["cash + in lieu of documents comes off the balance", { price: 500000, lieu: 100000, cash: 50000 }],
+  ["cash + in lieu equal to everything owed: nothing to pay", { price: 300000, lieu: 300000 }],
+  ["financing + fee + in lieu + earlier + today", { price: 720000, fin: true, dp: 150000, fee: 39900, lieu: 25000, earlier: 20000, cash: 100000 }],
+  ["cash + trade-in + in lieu", { price: 720000, trade: 310000, lieu: 60000, cash: 100000 }],
   ["financing, no fee", { price: 720000, fin: true, dp: 150000, fee: 0, cash: 50000 }],
   ["financing, 7% fee, part paid", { price: 720000, fin: true, dp: 150000, fee: 39900, cash: 50000 }],
   ["financing, earnest 20k, then the down payment and the fee: all come off one balance", { price: 720000, fin: true, dp: 150000, fee: 39900, earlier: 20000, cash: 169900 }],
@@ -50,7 +54,7 @@ describe("the money rules", () => {
   it.each(named)("%s", (_name, c) => {
     const t = totals(input(c)), e = indep(c);
     expect([t.price, t.tv, t.loan, t.fee, t.due, t.paid, t.payout, t.balance]).toEqual([e.P, e.T, e.loan, e.fee, e.due, e.paid, e.payout, e.balance]);
-    expect(e.P + e.fee).toBe(e.T + e.loan + e.paid - e.payout + e.balance);
+    expect(e.P + e.fee).toBe(e.T + e.loan + e.Z + e.paid - e.payout + e.balance);
     const ledger = buildLedger(t, info), sources = buildSources(t, info);
     expect(ledger.proves).toBe(true);
     expect(sources.proves).toBe(true);

@@ -64,7 +64,7 @@ describe("filling the form from what was heard", () => {
     expect([r.form.hasTi, r.form.ti.value, r.form.hasLieu, r.form.lieuAmount, r.form.dueMode, r.form.dueDate]).toEqual([true, "120,000", true, "25,000", "date", "2026-12-15"]);
     expect(r.form.methods.map((m) => [m.type, m.name, m.amount, m.bank])).toEqual([["wallet", "GCash", "50,000", ""], ["check", "", "40,000", "BPI"]]);
     const t = money(r);
-    expect([t.due, t.today, t.balance]).toEqual([33000000, 9000000, 24000000]); // 450,000 − 120,000 trade-in; 50,000 + 40,000 paid
+    expect([t.due, t.today, t.balance]).toEqual([30500000, 9000000, 21500000]); // 450,000 − 120,000 trade-in − 25,000 in lieu of documents; 50,000 + 40,000 paid
   });
   it("what staff typed wins, and 'use what I heard' replaces it", () => {
     const form = { ...emptyForm(settings, today), receivedFrom: "Maria S.", price: "700,000" };

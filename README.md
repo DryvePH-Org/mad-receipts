@@ -160,7 +160,7 @@ for the screen; `tests/deal-math.test.ts` and `tests/db/manual-entry.test.ts` ch
 - Processing fee (financing only) is paid by the buyer on top of the down payment, so it is part of the amount due.
   Default 7% of the loan; one button for no fee; "Other" takes any percent or peso amount and shows the other one.
   Earnest money, the down payment and the fee all come off the same balance.
-- "In lieu of documents" is collateral. No money moves.
+- "In lieu of documents" stands in for part of the payment: it is taken off the balance like a payment, never more than the buyer owes.
 - Balance = amount due − earlier payments − paid today + payout. An overpayment cannot be saved.
 - Always: price + fee = trade-in + loan + received − payout + balance.
 
@@ -215,6 +215,10 @@ The staff tick the rest by hand (stencils, insurance policy, macro-etching, PNP 
 car (migration 22); **Save and print** opens the same half-page print as the receipts, on the chosen paper, two copies by default. It is part of the Car documents module (Admin and Documentation, or anyone the Admin gave that
 module to); Sales do not have it by default.
 
+## Choosing a car
+
+The cars come from the inventory sheet. The year model (the **YM** column, two digits such as 26) is shown first: "2026 SUZUKI SPRESSO 1.0 AGS", and goes into the receipt's make / type that way.
+
 ## The printed receipt
 
 The default is the booklet's **Acknowledgement of Payment** on **half of an A4 sheet** (210 × 148 mm): business name and the two lines under it, the title and receipt number, then the lined fields, the earnest / partial / full
@@ -223,11 +227,11 @@ documents, other payment methods, earlier payments, several units, remarks and n
 - **Looks computer-printed:** the filled-in values are in a clean sans-serif font (numbers in a monospaced one) on the booklet's serif labels, not a handwriting style.
 - **Every detail is on the paper:** a shaded box of labelled cells lists whatever applies (sale type, down payment, loan and lender, processing fee, monthly payment, the trade-in unit, plate, mileage and value, in lieu of documents and its date, earlier payments, payouts, number of units). The preview in the form has a **View larger** button.
 - **Paper:** A4, short bond (Letter), long bond (Folio 8.5 × 13) or Legal. The receipt is half of the chosen sheet and the page size is set to match; each computer remembers its choice and the Admin sets the starting one in the editor.
-- **Printing:** there is one print view, the half page. Two copies fit on one A4 sheet with a cut line in the middle (or one per half sheet of A5 paper). The page size is set exactly, nothing
+- **Printing:** there is one print view, the half page, always two copies to a sheet with a cut line in the middle. Three copies (the default) are one full sheet and a second sheet with the third copy. No stamp is printed on the paper, approved or not. All the writing is Arial. The page size is set exactly, nothing
   is cut off, and a phone screen shows the sheet shrunk to fit.
 - **It never fails to fit:** a half page that has a lot on it shrinks its writing to fit (with a note on the Print page when it has to go small).
 - **Print layout editor** (Settings → Print and company, Admin): business name, the lines under it, the title, the logo (resized to a small picture when added), the remarks, the note at the bottom, the two signature labels,
-  the color of the receipt number, and what Print starts with (half pages per sheet, copies). A live preview shows the real paper with a sample receipt.
+  the color of the receipt number, and what Print starts with (paper, copies). A live preview shows the real paper with a sample receipt.
 
 ## Moving from the test sheets to the live sheets
 
@@ -253,7 +257,7 @@ The app only ever edits the one REMARKS cell of a car, keeps any other note, nev
   revisited. Only when the answer changes does the screen reload its data, with a thin bar at the top and a small "Updating… / Updated" note. The form pages are left alone, and typing is kept.
 - **The receipt form is calm at the start:** nothing is red when it opens. Missing fields show in colour only for steps you have been past (or on the last step). The first **Next** on a step with something missing shows
   what and where (and stays); pressing it again moves on. The step bar shows an amber count on steps you left with something open, and the bottom bar says how many are left or "✓ This step is done".
-- **In lieu of documents** (amount and date) shows beside the payment, beside the balance, and on the Finish step, for reference. It is never part of the math.
+- **In lieu of documents** (amount and date) shows beside the payment, beside the balance, and on the Finish step. It is part of the math: it is taken off the balance like a payment (migration 23), and it can never be more than the buyer owes.
 
 ## Delete data (testing and clean starts)
 

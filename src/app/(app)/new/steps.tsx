@@ -36,13 +36,13 @@ export interface Ctx {
 }
 
 const bad = (ctx: Ctx, id: string) => ctx.missing.some((m) => m.target === id && ctx.revealed.has(m.step));
-/** The in-lieu-of-documents amount and date, for reference next to the money. It is collateral: not part of the math. */
+/** The in-lieu-of-documents amount and date, for reference next to the money. It is taken off the balance. */
 function LieuNote({ s }: { s: FormState }) {
   if (!s.hasLieu) return null;
   return (
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-muted px-3 py-2 text-sm"><ShieldCheck className="size-4 shrink-0" aria-hidden /><b>In lieu of documents</b>
       <span>{s.lieuAmount ? <b className="tabular-nums">{formatPeso(toCentavos(s.lieuAmount) ?? 0)}</b> : "no amount yet"}{s.lieuUntil ? ` to be paid on or before ${formatDate(s.lieuUntil)}` : ""}.</span>
-      <span className="text-xs text-muted-foreground">We hold the buyer&apos;s documents until then. It is not part of the math.</span></p>
+      <span className="text-xs text-muted-foreground">We hold the buyer&apos;s documents until then. It is taken off the balance.</span></p>
   );
 }
 const Warn = ({ list }: { list: string[] }) => (<>{list.map((w) => <p key={w} className="flex gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200"><TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />{w}</p>)}</>);
@@ -225,8 +225,8 @@ export function StepDeal({ ctx }: { ctx: Ctx }) {
       {settings.sections.lieu && (
         <Card><Title icon={<ShieldCheck className="size-4" />} title="In lieu of documents" desc="We keep the buyer's documents until they pay" />
           <CardContent className="space-y-4">
-            <Switch checked={s.hasLieu} onChange={(v) => set({ hasLieu: v })} label="Hold the documents as collateral" hint="Like OR/CR: we do not hand them over until the amount is paid. No money moves now, so the balance does not change." />
-            {s.hasLieu && <div className="grid max-w-xl gap-4 sm:grid-cols-2"><FormField id="lieuAmount" label="Amount to be paid" hint="Part of the balance the documents secure" error={bad(ctx, "lieuAmount") ? "Required" : undefined}><MoneyInput id="lieuAmount" value={s.lieuAmount} onChange={(v) => set({ lieuAmount: v })} /></FormField>
+            <Switch checked={s.hasLieu} onChange={(v) => set({ hasLieu: v })} label="Hold the documents as collateral" hint="Like OR/CR: we keep the buyer's documents in place of paying that amount now. The amount is taken off the balance." />
+            {s.hasLieu && <div className="grid max-w-xl gap-4 sm:grid-cols-2"><FormField id="lieuAmount" label="Amount covered by the documents" hint="Taken off the balance, like a payment" error={bad(ctx, "lieuAmount") ? "Required" : undefined}><MoneyInput id="lieuAmount" value={s.lieuAmount} onChange={(v) => set({ lieuAmount: v })} /></FormField>
               <FormField id="lieuUntil" label="Pay on or before" error={bad(ctx, "lieuUntil") ? "Required" : undefined}><Input id="lieuUntil" type="date" value={s.lieuUntil} onChange={(e) => set({ lieuUntil: e.target.value })} /></FormField></div>}
           </CardContent></Card>
       )}
@@ -347,7 +347,7 @@ export function StepFinish({ ctx, confirmed, onConfirm }: { ctx: Ctx; confirmed:
               <li><b>Processing fee</b> (financing only, usually {settings.feeStd}% of the loan, or none, or any amount) is paid by the buyer on top of the down payment. It is part of the amount due.</li>
               <li><b>Amount due from the buyer</b> = down payment (or the whole price on a cash sale) − trade-in + processing fee. Below zero means we pay the buyer.</li>
               <li><b>Balance</b> = amount due − earlier payments − payments today (+ any payout we made to the buyer).</li>
-              <li><b>In lieu of documents</b> is collateral: no money moves, so it is never in the math.</li>
+              <li><b>In lieu of documents</b> stands in for part of the payment: no money moves, but it is taken off the balance.</li>
               <li><b>Proof:</b> price + processing fee = trade-in + loan + received − payout + balance. If this does not add up, saving is blocked.</li>
             </ol></details>
           <Seg label="View" value={view} options={[["details", "Payment details"], ["sources", "Who pays for the price"]]} onChange={setView} />

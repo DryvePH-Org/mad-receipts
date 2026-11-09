@@ -57,8 +57,8 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await expect(docs.getByRole("heading", { name: "Car documents" })).toBeVisible();
   // the two with no single folder need a person (the list also holds the real folders, so no counts here)
   await expect(docs.getByRole("tab", { name: /Needs attention/ })).toBeVisible();
-  await expect(docs.getByText("Several folders")).toBeVisible();
-  await expect(docs.getByText("No folder found")).toBeVisible();
+  await expect(docs.getByText("Several folders").first()).toBeVisible();
+  await expect(docs.getByText("No folder found").first()).toBeVisible();
 
   // several folders: choose one
   await docs.getByRole("link", { name: /ZZT-7002|ZZT 7002/ }).first().click();

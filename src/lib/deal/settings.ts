@@ -54,9 +54,7 @@ export const DEFAULT_SETTINGS = {
     numberColor: "#b91c1c",
     /** the sheet the receipts are printed on: A4, short bond (Letter), long bond (Folio) or Legal */
     paper: "a4" as "a4" | "letter" | "folio" | "legal",
-    defaultCopies: 2,
-    /** half-page receipts: two on one A4 sheet (cut in the middle), or one per sheet of A5 paper */
-    perSheet: "two" as "two" | "one",
+    defaultCopies: 3,
   },
   required: { contact: true, address: true, color: true, proofs: true },
   sections: { trade: true, lieu: true, remarks: true },
@@ -96,8 +94,7 @@ export const settingsSchema = z.object({
     receiverLabel: z.string().trim().min(1).max(40).catch(D.print.receiverLabel),
     numberColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).catch(D.print.numberColor),
     paper: z.enum(["a4", "letter", "folio", "legal"]).catch("a4"),
-    defaultCopies: z.number().int().min(1).max(10).catch(2),
-    perSheet: z.enum(["two", "one"]).catch("two"),
+    defaultCopies: z.number().int().min(1).max(10).catch(3),
   }).catch(D.print),
   required: z.object({ contact: flag(true), address: flag(true), color: flag(true), proofs: flag(true) }).catch(D.required),
   sections: z.object({ trade: flag(true), lieu: flag(true), remarks: flag(true) }).catch(D.sections),

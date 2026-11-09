@@ -26,6 +26,8 @@ const MESSAGES: Record<string, string> = {
   institution_required: "Choose the financing institution.",
   down_payment_required: "Enter the down payment or the loan amount.",
   down_payment_too_high: "The down payment is more than the agreed price.",
+  lieu_invalid: "The in-lieu amount is not valid.",
+  lieu_too_high: "The in-lieu amount is more than the buyer owes.",
   trade_in_exceeds_down_payment: "The trade-in is worth more than the down payment. Raise the down payment to at least the trade-in value.",
   earlier_invalid: "The amount paid before this receipt is not valid.",
   trade_in_invalid: "The trade-in value is not valid.",

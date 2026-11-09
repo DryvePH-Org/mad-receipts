@@ -119,7 +119,7 @@ async function Content({ params }: { params: PageProps<"/deals/[id]">["params"] 
           </Card>
 
           {deal.lieu > 0 && (
-            <Card size="sm"><CardHeader><CardTitle>Documents held</CardTitle></CardHeader><CardContent className="text-sm text-muted-foreground">We hold the buyer&apos;s documents as collateral for {formatPeso(deal.lieu)} until {deal.lieuUntil ? `${formatDate(deal.lieuUntil)} (${relativeDay(deal.lieuUntil, today)})` : "the date given"}. No money moved, so the balance is not affected.</CardContent></Card>
+            <Card size="sm"><CardHeader><CardTitle>Documents held</CardTitle></CardHeader><CardContent className="text-sm text-muted-foreground">We hold the buyer&apos;s documents in place of {formatPeso(deal.lieu)} until {deal.lieuUntil ? `${formatDate(deal.lieuUntil)} (${relativeDay(deal.lieuUntil, today)})` : "the date given"}. No money moved, but the amount has been taken off the balance.</CardContent></Card>
           )}
 
           {isAdmin && deal.status === "open" && <DealAdminActions mode="deal" dealId={deal.id} today={today} loanStatus="none" institution="" loanAmount="" canCancel />}

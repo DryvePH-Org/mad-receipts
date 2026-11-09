@@ -127,9 +127,14 @@ test("the whole flow: Sales fills in, the Approver approves, the numbers agree",
   await expect(sales.getByText("Waiting for lender").first()).not.toBeVisible().catch(() => undefined);
   // the printed receipt is the half page of the booklet, two to an A4 sheet, and fits a phone screen
   await sales.goto(printHref!);
-  await expect(sales.locator(".paper.ack")).toHaveCount(2);
+  await expect(sales.locator(".paper.ack")).toHaveCount(3); // three copies by default: two on the first sheet, one on the second
+  await expect(sales.locator(".print-a4")).toHaveCount(2);
+  await expect(sales.locator(".paper .wm")).toHaveCount(0); // no stamp on the paper, approved or not
+  expect(await sales.locator(".paper.ack").first().evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/Arial/);
+  expect(await sales.locator(".paper.ack .ul").first().evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/Arial/);
+  await expect(sales.getByRole("button", { name: /1 per half sheet/ })).toHaveCount(0); // always two to a sheet
   await expect(sales.getByText("ACKNOWLEDGEMENT OF PAYMENT", { exact: false }).first()).toBeVisible();
-  await expect(sales.locator(".print-a4 .cut")).toHaveCount(1);
+  await expect(sales.locator(".print-a4 .cut")).toHaveCount(1); // the cut line is on the sheet that has two
   await expect(sales.getByRole("button", { name: /Full A4|Receipt slip/ })).toHaveCount(0); // one layout only
   await expect(sales.getByLabel("Paper")).toBeVisible(); // the sheet the printer uses (A4, short bond, long bond, legal)
   // every detail of the transaction is on the paper, labelled: financing, trade-in and the rest
@@ -207,7 +212,7 @@ test("nothing is red when the form opens; what is missing shows when you try to 
   const lieu = sales.getByText("Hold the documents as collateral");
   if (await lieu.count()) {
     await lieu.click();
-    await sales.getByLabel("Amount to be paid").fill("25000");
+    await sales.getByLabel("Amount covered by the documents").fill("25000");
     await sales.getByLabel("Pay on or before").fill("2026-12-20");
     await sales.getByRole("button", { name: /Payment\s+Money/ }).click();
     await expect(sales.locator("p", { hasText: "In lieu of documents" }).first()).toContainText("₱25,000");

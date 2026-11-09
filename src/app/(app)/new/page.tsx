@@ -5,6 +5,7 @@ import { requireModule } from "@/lib/auth";
 import { getDeal, getSettings, listDeals } from "@/lib/data";
 import { manilaToday } from "@/lib/dates";
 import { inventory } from "@/lib/inventory";
+import { withYear } from "@/lib/inventory/year";
 import { param } from "@/lib/search";
 import { ReceiptForm, type ContinueDeal, type LiveDeal } from "./receipt-form";
 import type { InvUnit } from "./inventory-picker";
@@ -31,6 +32,6 @@ async function Content({ searchParams }: { searchParams: PageProps<"/new">["sear
     id: found.id, dealNo: found.dealNo, buyerName: found.buyerName, receiptCount: found.approvedCount + found.pendingCount,
     committed: found.openingPaid + found.approvedPaid + found.pendingPaid, terms: found.terms,
   } : null;
-  const invUnits: InvUnit[] = units.map((u) => ({ plate: u.plate, makeType: u.makeType, color: u.color, status: u.status }));
+  const invUnits: InvUnit[] = units.map((u) => ({ plate: u.plate, makeType: withYear(u.year, u.makeType), color: u.color, status: u.status }));
   return <ReceiptForm key={cont?.id ?? "new"} userId={user.id} today={manilaToday()} settings={settings} inventory={invUnits} liveDeals={live} continueDeal={cont} />;
 }

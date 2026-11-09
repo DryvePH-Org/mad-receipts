@@ -91,9 +91,8 @@ export function PrintEditor({ company, print, onSave, today }: { company: Compan
           </CardContent></Card>
 
         <Card><CardHeader><CardTitle>When printing</CardTitle><p className="text-sm text-muted-foreground">What the Print page starts with. Staff can still change it there.</p></CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-3">
+          <CardContent className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5"><Label htmlFor="pr-paper">Paper</Label><NativeSelect id="pr-paper" value={pr.paper} onChange={(e) => savePr({ ...pr, paper: e.target.value as PaperKey })}>{(Object.keys(PAPERS) as PaperKey[]).map((k) => <option key={k} value={k}>{PAPERS[k].name}</option>)}</NativeSelect></div>
-            <div className="space-y-1.5"><Label htmlFor="pr-sheet">Half pages</Label><NativeSelect id="pr-sheet" value={pr.perSheet} onChange={(e) => savePr({ ...pr, perSheet: e.target.value as Print["perSheet"] })}><option value="two">Two on a sheet</option><option value="one">One per half sheet</option></NativeSelect></div>
             <div className="space-y-1.5"><Label htmlFor="pr-copies">Copies</Label><Input id="pr-copies" inputMode="numeric" defaultValue={pr.defaultCopies} className="text-right" onBlur={(e) => { const n = parseInt(e.target.value, 10); if (n >= 1 && n <= 10) savePr({ ...pr, defaultCopies: n }); else e.target.value = String(pr.defaultCopies); }} /></div>
           </CardContent></Card>
       </div>
