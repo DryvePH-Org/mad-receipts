@@ -85,7 +85,6 @@ test("Settings → Print and company: the print layout editor shows the real pap
   await expect(page.locator(".paper.ack h1")).toHaveText("Preview Motors");
   await page.getByLabel("Title of the form").fill("Receipt of Payment");
   await expect(page.locator(".paper.ack h2")).toHaveText("Receipt of Payment");
-  await page.getByRole("radio", { name: "Full A4" }).click();
-  await expect(page.locator(".paper.form")).toBeVisible();
+  await expect(page.getByRole("radio", { name: "Full A4" })).toHaveCount(0); // one print view only: the half page
   await page.close();
 });

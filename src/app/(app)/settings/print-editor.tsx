@@ -3,14 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ImagePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { LAYOUTS, ReceiptPaper, type PaperLayout } from "@/components/receipt/receipt-paper";
+import { ReceiptPaper } from "@/components/receipt/receipt-paper";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { DEFAULT_SETTINGS, type AppSettings } from "@/lib/deal/settings";
-import { cn } from "@/lib/utils";
 import { emptyForm } from "../new/form-state";
 
 type Company = AppSettings["company"];
@@ -34,7 +33,6 @@ async function shrink(file: File): Promise<string> {
 export function PrintEditor({ company, print, onSave, today }: { company: Company; print: Print; onSave: (patch: { company?: Company; print?: Print }) => void; today: string }) {
   const [co, setCo] = useState(company);
   const [pr, setPr] = useState(print);
-  const [layout, setLayout] = useState<PaperLayout>(print.defaultLayout);
   const file = useRef<HTMLInputElement>(null);
 
   // a sample receipt, so the preview shows every part of the paper
@@ -45,8 +43,7 @@ export function PrintEditor({ company, print, onSave, today }: { company: Compan
 
   const wrap = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
-  const natural = layout === "slip" ? 302 : 794;
-  const naturalHeight = layout === "ack" ? 560 : layout === "form" ? 1123 : 900;
+  const natural = 794, naturalHeight = 560; // the half page, 210 × 148 mm
   useEffect(() => {
     const el = wrap.current; if (!el) return;
     const measure = () => setScale(Math.min(1, (el.clientWidth - 16) / natural));
@@ -92,8 +89,7 @@ export function PrintEditor({ company, print, onSave, today }: { company: Compan
           </CardContent></Card>
 
         <Card><CardHeader><CardTitle>When printing</CardTitle><p className="text-sm text-muted-foreground">What the Print page starts with. Staff can still change it there.</p></CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-1.5"><Label htmlFor="pr-layout">Paper</Label><NativeSelect id="pr-layout" value={pr.defaultLayout} onChange={(e) => { const v = e.target.value as Print["defaultLayout"]; setLayout(v); savePr({ ...pr, defaultLayout: v }); }}>{LAYOUTS.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</NativeSelect></div>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5"><Label htmlFor="pr-sheet">Half pages</Label><NativeSelect id="pr-sheet" value={pr.perSheet} onChange={(e) => savePr({ ...pr, perSheet: e.target.value as Print["perSheet"] })}><option value="two">Two on an A4 sheet</option><option value="one">One per half sheet</option></NativeSelect></div>
             <div className="space-y-1.5"><Label htmlFor="pr-copies">Copies</Label><Input id="pr-copies" inputMode="numeric" defaultValue={pr.defaultCopies} className="text-right" onBlur={(e) => { const n = parseInt(e.target.value, 10); if (n >= 1 && n <= 10) savePr({ ...pr, defaultCopies: n }); else e.target.value = String(pr.defaultCopies); }} /></div>
           </CardContent></Card>
@@ -101,10 +97,10 @@ export function PrintEditor({ company, print, onSave, today }: { company: Compan
 
       <div className="space-y-2 xl:sticky xl:top-6">
         <div className="flex items-center justify-between gap-2"><b className="text-sm font-medium">Live preview</b>
-          <div role="radiogroup" aria-label="Preview layout" className="inline-flex rounded-lg bg-muted p-0.5">{LAYOUTS.map((l) => <button key={l.id} type="button" role="radio" aria-checked={layout === l.id} onClick={() => setLayout(l.id)} className={cn("rounded-md px-2.5 py-1 text-xs font-medium", layout === l.id ? "bg-background shadow-sm" : "text-muted-foreground")}>{l.name}</button>)}</div></div>
+        </div>
         <div ref={wrap} className="relative overflow-hidden rounded-xl bg-neutral-200 ring-1 ring-foreground/10 dark:bg-neutral-800" style={{ height: `${Math.round(naturalHeight * scale + 24)}px` }}>
           <div className="absolute top-3 origin-top-left" style={{ transform: `scale(${scale})`, left: `calc(50% - ${(natural * scale) / 2}px)` }}>
-            <ReceiptPaper state={sample as never} company={co} print={pr} layout={layout} copy={"Customer's copy"} />
+            <ReceiptPaper state={sample as never} company={co} print={pr} copy={"Customer's copy"} />
           </div>
         </div>
         <p className="text-xs text-muted-foreground">This is the real paper with a sample receipt. Changes save when you leave a box.</p>

@@ -130,6 +130,7 @@ test("the whole flow: Sales fills in, the Approver approves, the numbers agree",
   await expect(sales.locator(".paper.ack")).toHaveCount(2);
   await expect(sales.getByText("ACKNOWLEDGEMENT OF PAYMENT", { exact: false }).first()).toBeVisible();
   await expect(sales.locator(".print-a4 .cut")).toHaveCount(1);
+  await expect(sales.getByRole("button", { name: /Full A4|Receipt slip/ })).toHaveCount(0); // one layout only
   await sales.setViewportSize({ width: 390, height: 800 });
   await sales.waitForTimeout(500);
   expect(await sales.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true); // nothing pushes the page sideways
