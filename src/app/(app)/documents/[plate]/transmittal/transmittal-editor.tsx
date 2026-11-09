@@ -75,7 +75,8 @@ export function TransmittalEditor({ plate, initial, suggestion, saved }: { plate
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5"><Label htmlFor="tm-prep">Prepared by</Label><Input id="tm-prep" value={d.preparedBy} maxLength={100} onChange={(e) => set({ preparedBy: e.target.value })} /></div>
             <div className="space-y-1.5"><Label htmlFor="tm-prepdate">Date</Label><Input id="tm-prepdate" type="date" value={d.preparedOn} onChange={(e) => set({ preparedOn: e.target.value })} /></div>
-            <div className="space-y-1.5"><Label htmlFor="tm-recv">Received by</Label><Input id="tm-recv" value={d.receivedBy} maxLength={100} onChange={(e) => set({ receivedBy: e.target.value })} placeholder="Leave empty to sign by hand" /></div>
+            <div className="space-y-1.5"><Label htmlFor="tm-recv">Received by</Label><Input id="tm-recv" value={d.receivedBy} maxLength={100} onChange={(e) => set({ receivedBy: e.target.value })} placeholder="Leave empty to sign by hand" />
+              <div className="flex flex-wrap gap-2 text-xs">{suggestion.receivedBy && d.receivedBy !== suggestion.receivedBy && <button type="button" className="rounded-md border px-2 py-1 hover:bg-muted" onClick={() => set({ receivedBy: suggestion.receivedBy })}>Use {suggestion.receivedBy}</button>}{d.receivedBy && <button type="button" className="rounded-md border px-2 py-1 hover:bg-muted" onClick={() => set({ receivedBy: "" })}>Clear, sign by hand</button>}</div></div>
             <div className="space-y-1.5"><Label htmlFor="tm-recvdate">Date received</Label><Input id="tm-recvdate" type="date" value={d.receivedOn} onChange={(e) => set({ receivedOn: e.target.value })} /></div>
           </CardContent></Card>
 

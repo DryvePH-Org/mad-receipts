@@ -51,6 +51,8 @@ export const DEFAULT_SETTINGS = {
     footerNote: "Earnest money / partial payment is non-refundable.",
     buyerLabel: "Buyer",
     receiverLabel: "Payment Received by:",
+    /** who the transmittal receipt names as the receiver; staff can change it on each transmittal */
+    transmittalReceiver: "Jepthee Ramos",
     numberColor: "#b91c1c",
     /** the sheet the receipts are printed on: A4, short bond (Letter), long bond (Folio) or Legal */
     paper: "a4" as "a4" | "letter" | "folio" | "legal",
@@ -92,6 +94,7 @@ export const settingsSchema = z.object({
     footerNote: z.string().max(200).catch(D.print.footerNote),
     buyerLabel: z.string().trim().min(1).max(40).catch(D.print.buyerLabel),
     receiverLabel: z.string().trim().min(1).max(40).catch(D.print.receiverLabel),
+    transmittalReceiver: z.string().trim().max(100).catch(D.print.transmittalReceiver),
     numberColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).catch(D.print.numberColor),
     paper: z.enum(["a4", "letter", "folio", "legal"]).catch("a4"),
     defaultCopies: z.number().int().min(1).max(10).catch(3),

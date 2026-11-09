@@ -5,6 +5,7 @@ import type { Json } from "@/lib/supabase/database.types";
 import { normalizePlate } from "@/lib/rules/plate";
 import { detectionsOf } from "./car";
 import { loadCar } from "./service";
+import { getSettings } from "@/lib/data";
 import { cleanTransmittal, prefillTransmittal, type TransmittalData } from "./transmittal";
 
 /** The car's transmittal: what was saved (if anything), and what its documents workflow suggests. Callers check the Car documents module first. */
@@ -14,7 +15,8 @@ export async function loadTransmittal(plate: string, userName: string): Promise<
   const key = normalizePlate(plate);
   const types = car.analysis.files.flatMap((f) => f.types);
   const detections = car.files.flatMap((f) => detectionsOf(f.details) ?? []);
-  const prefill = prefillTransmittal({ plateDisplay: car.folder.plate_display, folderName: car.folder.folder_name, types, caseType: car.caseType, detections, userName, today: manilaToday() });
+  const receiver = (await getSettings()).print.transmittalReceiver;
+  const prefill = { ...prefillTransmittal({ plateDisplay: car.folder.plate_display, folderName: car.folder.folder_name, types, caseType: car.caseType, detections, userName, today: manilaToday() }), receivedBy: receiver };
   // If the table is not there yet (the latest database update), nothing is saved and the suggestion is used.
   const { data } = await createAdminClient().from("transmittals").select("data").eq("plate_no", key).maybeSingle();
   return { plateDisplay: car.folder.plate_display, saved: data ? cleanTransmittal(data.data) : null, prefill };
