@@ -14,6 +14,14 @@ const deal = { buyerName: "Juan Dela Cruz", hasReceipt: true };
 const OWNER = "LIM, MARIA LEONILA";
 const types = (a: ReturnType<typeof analyze>, i: number) => a.files[i].types;
 
+describe("the paper copy of the acknowledgement of payment", () => {
+  it("counts as the AR when the app has no receipt for the car", () => {
+    const a = analyze([file([det("acknowledgement_receipt", { buyerName: "Juan Dela Cruz", documentNumber: "2516" })])], folder, { ...deal, hasReceipt: false });
+    expect(types(a, 0)).toEqual(["acknowledgement_receipt"]);
+    expect(checklist("clean", a.files, { ...deal, hasReceipt: false }).items.find((i) => i.key === "ack")?.present).toBe(true);
+  });
+});
+
 describe("names", () => {
   it("match whatever the order, the middle name or one wrong letter", () => {
     expect(sameName("LIM, MARIA LEONILA", "Maria Leonila Lim")).toBe(true);

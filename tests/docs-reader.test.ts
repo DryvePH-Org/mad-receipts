@@ -1,9 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { fakeReading, readDocument, readerPrompt } from "@/lib/docs/reader";
+import { cleanPlate, fakeReading, readDocument, readerPrompt } from "@/lib/docs/reader";
 import { plateOfFolderName } from "@/lib/docs/bridge";
 import { syncTargets, type SyncContext, type SyncDeps } from "@/lib/sync/targets";
 
 const image = { base64: "AAAA", mime: "image/jpeg" };
+
+describe("plates the reader gives", () => {
+  it("keeps real plates and drops numbers it mistook for one", () => {
+    for (const ok of ["NBR 9511", "AAX-3622", "WOB609", "TIM89", "UHK 173", "123 ABC"]) expect(cleanPlate(ok)).toBe(ok);
+    for (const bad of ["1340-00000542367", "BYD472QA", "L152134", "LAZ140421", "0109997", "NO.1-24-0193", "", null]) expect(cleanPlate(bad)).toBeNull();
+  });
+  it("the paper form of the dealership and the transmittal are recognised, not 'other'", async () => {
+    const r = await readDocument(image, async () => JSON.stringify({ legible: true, documents: [{ type: "acknowledgement_receipt", confidence: 0.95, buyer_name: "ROCHELLE TAMUNDONG", document_number: "2516" }, { type: "transmittal_receipt", confidence: 0.9, plate: "1340-00000542367" }] }));
+    expect(r.detections.map((d) => d.type)).toEqual(["acknowledgement_receipt", "transmittal_receipt"]);
+    expect(r.detections[1].plate).toBeNull();
+  });
+});
 
 describe("reading a photo", () => {
   it("one photo can hold two documents (the OR and the CR together)", async () => {

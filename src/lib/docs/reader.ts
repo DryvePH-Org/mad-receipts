@@ -43,17 +43,26 @@ Return ONLY a JSON object:
 - "promissory_note": a Promissory Note.
 - "secretary_certificate": a Secretary's Certificate (a company's secretary certifies a board resolution and names who may sign).
 - "board_resolution": a Board Resolution.
+- "acknowledgement_receipt": the dealership's own yellow "ACKNOWLEDGEMENT OF PAYMENT" form (Manila Auto Display), with a red number, "Received from", the sum of pesos and the vehicle described. It is mostly handwritten. Put the buyer on it in "buyer_name" and its red number in "document_number".
+- "transmittal_receipt": a "Transmittal Receipt" or acknowledgement of the papers handed over with a car, a checklist of documents (CR, OR, deed...).
 - "other": anything else, or a picture that is not a document.
 
 Rules:
 - One photo can show MORE THAN ONE document (an LTO official receipt and the certificate of registration are often photographed together on one sheet, one above the other): list each one separately. Documents can be rotated or at an angle: still read them.
+- The photo may be sideways or upside down (the picture is not turned for you): turn it in your head and read it the right way up. Read every character slowly; a number you cannot read in full is null, never a shortened or guessed one.
 - Fill a detail only if you can read it with confidence. NEVER guess or invent. Otherwise null.
-- "plate": ONLY a vehicle plate number, letters then digits like "NBR 9511" or "ABC 1234" (it is not the file number, CR number, OR number or conduction sticker). null if you cannot see a plate. "motor_no" is the engine or motor number. "chassis_no" is the chassis or VIN.
+- "plate": ONLY a vehicle plate number, letters then digits like "NBR 9511" or "ABC 1234" (it is not the MV file number, CR number, OR number, transaction number or conduction sticker, and not an engine or chassis number). The plate box on an old certificate of registration is often EMPTY: then it is null. On an LTO payment slip it is written after "Plate No:". null if you cannot see a plate. "motor_no" is the engine or motor number. "chassis_no" is the chassis or VIN.
 - "document_number": the number that identifies THIS document (the CR number, the OR number, the ID number, the note number). null if none is readable.
 - "owner_name": the registered owner on a certificate of registration or official receipt. "holder_name": the name of the person on an ID. "seller_name" and "buyer_name": the parties on a deed of sale. "secretary_name": who signs a secretary's certificate as the corporate secretary. "representative_name": the person the certificate or resolution authorises to sign or sell for the company. "id_type": for example "Driver's license" or "UMID".
 - Copy names as printed (any order, any capitals). Do not complete or correct them.
 - "confidence" is how sure you are about the TYPE: 0.9 or more when the title is clearly readable, lower when you are inferring it from the layout.
 - If the picture is too blurry, dark, glared or cut off to tell what it is, set "legible" to false and "documents" to [].`;
+
+/** Only something shaped like a Philippine plate is kept (3 letters then 2-5 digits, or the older digits then letters); a file or engine number the reader mistook for a plate is dropped. */
+export function cleanPlate(v: string | null | undefined): string | null {
+  const s = (v ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return /^[A-Z]{2,3}\d{2,5}$/.test(s) || /^\d{3,4}[A-Z]{2,3}$/.test(s) ? (v ?? "").trim() : null;
+}
 
 export class ReaderError extends Error {}
 
@@ -91,7 +100,7 @@ export async function readDocument(
       legible: r.legible,
       notes: r.notes,
       detections: mergeRepeats(r.documents.map((d) => ({
-        type: d.type, confidence: d.confidence, documentNumber: d.document_number, plate: d.plate, motorNo: d.motor_no, chassisNo: d.chassis_no,
+        type: d.type, confidence: d.confidence, documentNumber: d.document_number, plate: cleanPlate(d.plate), motorNo: d.motor_no, chassisNo: d.chassis_no,
         ownerName: d.owner_name, holderName: d.holder_name, sellerName: d.seller_name, buyerName: d.buyer_name,
         secretaryName: d.secretary_name, representativeName: d.representative_name, idType: d.id_type,
       }))),

@@ -142,7 +142,8 @@ export interface Checklist { items: ChecklistItem[]; missing: ChecklistItem[]; c
 export function checklist(caseType: CaseType, results: FileResult[], deal: DealContext): Checklist {
   const items: ChecklistItem[] = [
     ...REQUIRED_BY_CASE[caseType].map((type) => ({ key: type, type, label: DOC_LABELS[type], stage: "available" as const, ...presence(type, results) })),
-    ...(deal.linked === false ? [] : [{ key: "ack", type: "ack" as const, label: ACK_LABEL, stage: "sold" as const, present: deal.hasReceipt, fileIds: [] as string[] }]),
+    // the AR is the app's own receipt, or a photo of the paper copy in the folder
+    ...(deal.linked === false ? [] : [{ key: "ack", type: "ack" as const, label: ACK_LABEL, stage: "sold" as const, ...(deal.hasReceipt ? { present: true, fileIds: [] as string[] } : presence("acknowledgement_receipt", results)) }]),
     ...SOLD_EXTRAS.map((type) => ({ key: type, type, label: DOC_LABELS[type], stage: "sold" as const, ...presence(type, results) })),
   ];
   const missing = items.filter((i) => !i.present);
