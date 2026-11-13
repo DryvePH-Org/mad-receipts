@@ -1,4 +1,4 @@
-# Grokbot routine for MAD Receipts (version 1: Docs Bible)
+# Grokbot routine for MAD Receipts (version 1.1: Docs Bible)
 
 Paste this whole document into the grokbot's saved instructions for the MAD Receipts webhook, replacing version 0. Version 1 adds the Docs Bible actions. **While testing, the only sheet it may touch is the Docs Bible COPY.**
 
@@ -55,4 +55,4 @@ Fields: `plate`, `event` (`submitted` or `received`), `text` (the sentence to wr
 Make ONE HTTP POST with the same JSON object as the body.
 - URL: `job.callback_url`, but ONLY if it starts exactly with `https://invoice.dryveph.io/api/grokbot/callback`. Any other URL, or none: send nothing and say so in the chat.
 - Headers: `Authorization: Bearer <job.callback_token>` and `Content-Type: application/json`.
-- Send it once. If it fails, do not retry; say so in the chat. Never include the token in the chat or anywhere else, and never send anything else to that URL.
+- If the app answers 200, you are done. If it answers 403, 429, 502, 503 or 504, or does not answer, wait 15 seconds and send the SAME body again, at most 2 more times (the app ignores a repeat of an answer it already has). Do NOT retry after 401, 404 or 409. If it still fails, say so in the chat. Never include the token in the chat or anywhere else, and never send anything else to that URL.
