@@ -53,10 +53,16 @@ Ways to fix the copy for testing (your choice): (a) click **Allow access** on ea
 6. **Handoff** goes to the plate's monthly tab: W (submitted date), X (received date), Y (status), and the next empty UPDATES cell with a dated sentence.
 7. **Test on the copy only.** The live workbook is never a target until you say so.
 
-## 5. Things to decide
-1. **The separate "Docs Automation" project** (`~/Docs Automation`, planned for `docs.dryveph.io`) plans the same IN/OUT flow with its own criteria. Which app is the home of the car documents? Building both would collide.
-2. **Cases:** the sheet has `Clean, Repo (bank), Encumbered (Indiv)`; the criteria file (and this app) have `Clean, Encumbered, Repo (Bank), Company`. Where does a company-owned car go in the sheet?
-3. **Duplicate plates** (5): a unit sold and bought back? Which row wins?
-4. **Which monthly tab** does a sold unit's handoff go to: the month it was sold, or the month the docs were submitted?
-5. **A DOCS** in the pricelist: what do the codes mean (`C`, `K`, `EW`, `L:NAME`)? Should the app ever write there?
-6. **The copy:** fix with Allow access, or paste values?
+## 5. Decisions (2026-11-13)
+1. **This app (invoice.dryveph.io) owns the car documents flow.** The separate "Docs Automation" project is only a reference; its `docs/criteria.md` is read as the starting criteria.
+2. **The copy** now has the imports allowed: it shows all 400 units again.
+3. **Duplicate plates (5).** They are units bought back and listed again: `NCI3415` and `NDZ7659` were sold earlier and are back in stock (the newer row says `Onhand / AVAILABLE`); `NIP3140`, `TXQ323` and `NEW3540` were sold twice. **Rule: the row with the latest DATE ARRIVAL is the unit's current row.** Older rows are history and are never edited by a bot. A job names the plate and the arrival date it expects; if the newest row's arrival differs, nothing is written.
+4. **Company-owned cars have no classification of their own in the sheet.** They are filed as `Clean` (11 of the 14 classified ones), or as `Encumbered (Indiv)` / `Repo (bank)` when a mortgage or repo also applies, and the three secretary columns (SEC CERT, SEC ID'S, BOARDS RESO) are `Yes` instead of `N/A`. **Rule: a company car is `Clean` (or the underlying case) with the three secretary columns `Yes`.** 214 older rows have a blank classification; they are left alone.
+5. **Which monthly tab.** The monthly tabs list units by the month of the **sale** (market STATUS `FULLY PAID`, `RESERVATION`, `CANCELLED`). `AUG` and `SEPT` currently hold the same units (the AUG tab imports the September workbook), so 52 plates sit in two tabs. **Rule: use the latest monthly tab that contains the plate; if no tab has it yet, report "not in a monthly tab yet" and write nothing.**
+6. DOCS codes in the pricelist: later.
+
+### Wording the sheet already uses (so new notes read like the old ones)
+- Handoff, in the next empty `UPDATES` cell: `SUBMITTED TO JEP 9/28`, later `ORIG DOCS AT JEP FOR TRANSFER 10/29/26`.
+- Return: `ORIG DOCS RECEIVED FROM JEP 11/07/2026` (14 times), or `WILL RECEIVE THE DOCS ON 11/29`.
+- Status column: `LTO`, `PENDING DOCS`, `FOR SUBMISSION`, `FOR TRANSFER`.
+- `REMARKS` in the monthly tabs often holds a batch code like `B2102026`.
