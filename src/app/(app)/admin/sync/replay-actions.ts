@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireAdmin, requireModule } from "@/lib/auth";
 import { inventory } from "@/lib/inventory";
 import { createSheetsClient } from "@/lib/google/sheets";
+import { FROZEN_MESSAGE, sheetsFrozen } from "@/lib/google/freeze";
 import { logSheetProblem } from "@/lib/sync/targets";
 import { planReplay, runReplay, type ReplayCar } from "@/lib/sync/replay";
 import { processDueJobs } from "@/lib/sync/process";
@@ -49,6 +50,7 @@ const requestSchema = z.object({ plates: z.array(z.string().max(20)).max(2000), 
 /** Sends the chosen things to the live sheets. The words REPLAY must be typed, here as well as in the box. */
 export async function runReplayAction(request: unknown, typed: string): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
   const user = await guard();
+  if (sheetsFrozen()) return { ok: false, error: FROZEN_MESSAGE };
   if (String(typed ?? "").trim() !== "REPLAY") return { ok: false, error: "Type REPLAY to confirm." };
   const parsed = requestSchema.safeParse(request);
   if (!parsed.success) return { ok: false, error: "That request is not valid." };

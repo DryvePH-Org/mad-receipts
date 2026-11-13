@@ -1,6 +1,7 @@
 import "server-only";
 import { linkFolder } from "@/lib/docs/service";
 import { createDriveClient } from "@/lib/google/drive";
+import { assertSheetsWritable, sheetsFrozen } from "@/lib/google/freeze";
 import { createSheetsClient } from "@/lib/google/sheets";
 import { inventory } from "@/lib/inventory";
 import { manilaToday } from "@/lib/dates";
@@ -18,7 +19,10 @@ export const MAX_ATTEMPTS = 5;
 type Job = Tables<"sync_jobs">;
 type Admin = ReturnType<typeof createAdminClient>;
 
-export interface SyncRunSummary { claimed: number; done: number; failed: number }
+export interface SyncRunSummary { claimed: number; done: number; failed: number; /** left waiting because Google Sheets are frozen */ held?: number }
+
+/** The jobs that write to a Google Sheet. */
+const WRITES_TO_SHEETS = new Set<SyncTarget>(["sheets", "inventory"])
 
 function memo<T>(make: () => T): () => T {
   let value: T | undefined;
@@ -45,7 +49,8 @@ export async function processDueJobs(options: { receiptId?: string; limit?: numb
   const { data: jobs, error } = await admin.rpc("claim_sync_jobs", { p_limit: options.limit ?? 20, p_receipt_id: options.receiptId });
   if (error) throw new Error(`Could not claim sync jobs: ${error.message}`);
 
-  const summary: SyncRunSummary = { claimed: jobs.length, done: 0, failed: 0 };
+  const summary: SyncRunSummary = { claimed: jobs.length, done: 0, failed: 0, held: 0 };
+  const frozen = sheetsFrozen();
   const byReceipt = new Map<string, Job[]>();
   for (const job of jobs) byReceipt.set(job.receipt_id, [...(byReceipt.get(job.receipt_id) ?? []), job]);
 
@@ -60,6 +65,8 @@ export async function processDueJobs(options: { receiptId?: string; limit?: numb
       continue;
     }
     for (const job of receiptJobs) {
+      // Frozen: a sheet job is left exactly as it is (no attempt counted, no error). It comes due again on its own and runs once the freeze is lifted.
+      if (frozen && WRITES_TO_SHEETS.has(job.target as SyncTarget)) { summary.held = (summary.held ?? 0) + 1; continue; }
       try {
         const result = await syncTargets[job.target as SyncTarget]({ ...ctx, event: job.event as SyncEvent }, deps);
         if (result?.driveFileId) {
@@ -134,6 +141,7 @@ export function errorText(err: unknown): string {
 
 /** After a person looked at a conflict and chose to write the app's note anyway. Writes the inventory note for every unit of the receipt's deal. */
 export async function writeInventoryAnyway(receiptId: string, admin: Admin = createAdminClient(), deps: SyncDeps = defaultSyncDeps()): Promise<void> {
+  assertSheetsWritable();
   const ctx = await loadContext(admin, receiptId);
   const status = unitStatusFor(dealStatusOf(ctx.deal, ctx.today));
   const ref = { receiptNo: ctx.lastReceiptNo, people: [{ name: ctx.salesperson, percent: null }], date: sheetDate(ctx.lastReceiptAt) };

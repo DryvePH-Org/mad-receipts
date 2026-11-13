@@ -1,5 +1,6 @@
 import "server-only";
 import type { DriveClient } from "./drive";
+import { assertSheetsWritable } from "./freeze";
 import type { CellValue, SheetsClient } from "./sheets";
 
 // Google access through an Apps Script web app that runs as a normal Google account
@@ -22,6 +23,7 @@ export function scriptError(message: string, code?: number): Error {
 }
 
 export async function appsScriptCall<T>(action: string, params: Record<string, unknown> = {}): Promise<T> {
+  if (action === "sheets.update" || action === "sheets.append") assertSheetsWritable(); // the freeze: no write to any sheet
   const url = bridgeUrl();
   const secret = bridgeSecret();
   if (!url || !secret) {

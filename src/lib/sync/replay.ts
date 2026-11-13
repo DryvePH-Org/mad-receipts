@@ -1,6 +1,7 @@
 import "server-only";
 import { manilaToday } from "@/lib/dates";
 import { decide, type Decision } from "@/lib/inventory/decide";
+import { assertSheetsWritable } from "@/lib/google/freeze";
 import { sheetDate } from "@/lib/inventory/remarks";
 import type { InventoryAdapter, UnitStatus } from "@/lib/inventory/types";
 import type { createAdminClient } from "@/lib/supabase/admin";
@@ -83,6 +84,7 @@ export interface ReplayRequest {
  * ordinary sync jobs: they are matched by receipt number and file name, so running this twice adds nothing twice.
  */
 export async function runReplay(admin: Admin, inv: InventoryAdapter, req: ReplayRequest): Promise<{ written: number; skipped: string[]; queued: number }> {
+  assertSheetsWritable();
   const { cars } = await planReplay(admin, inv);
   const picked = new Set(req.plates);
   let written = 0;

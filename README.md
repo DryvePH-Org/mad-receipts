@@ -207,6 +207,10 @@ A failed job retries after 1 min, 5 min, 15 min, then 1 h, and stops after 5 att
 itself is never affected. The receipts log sheet needs two tabs named **Receipts** and **Deals**;
 header rows are written automatically when a tab is empty.
 
+## Google Sheets freeze (on by default)
+
+The app **writes to no Google Sheet** unless `SHEETS_WRITES=on` is set on the server. While frozen: the receipts log, the inventory status (REMARKS) and the Replay are all stopped at the single place every write goes through; the sheet jobs wait as pending (no attempt counted, nothing lost) and are sent once the freeze is lifted; reading (the inventory list, the dashboards) is unaffected. The Sync jobs page shows a banner while it is on. To lift it, set `SHEETS_WRITES=on` in `/opt/mad-receipts/.env` and recreate the container.
+
 ## The documents workflow: scan, check, approve, hand off
 
 - **Add documents** (Car documents → Add documents): the staff type only the plate and choose photos. The folder is found, or created in Available units and named from the inventory (`21 Toyota Vios (ABC1234)`; just `(ABC1234)` if the plate is not in the inventory). Each photo is filed and read as it arrives; when the batch ends the team gets one Telegram message. Making a folder needs the new `docs.createFolder` action: paste the updated `apps-script/Code.gs` into the Apps Script and deploy a new version (the future gateway implements it too, see `Docs/bridge-contract.md`).

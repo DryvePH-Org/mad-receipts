@@ -11,6 +11,7 @@ export default defineConfig({
     },
   },
   test: {
+    env: { SHEETS_WRITES: "on" }, // the tests write to fake sheets; the freeze itself is tested with its own setting
     include: ["tests/**/*.test.ts"],
     exclude: ["tests/hosted/**", "tests/live/**", "node_modules/**"], // these need the real project or the real Groq API: npm run test:hosted / test:live
   },

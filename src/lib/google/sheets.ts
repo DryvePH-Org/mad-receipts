@@ -2,6 +2,7 @@ import "server-only";
 import { google } from "googleapis";
 import { appsScriptConfigured, createAppsScriptSheetsClient } from "./apps-script";
 import { GOOGLE_SCOPES, googleAuth } from "./auth";
+import { assertSheetsWritable } from "./freeze";
 
 /** The few Sheets calls the app needs, so adapters can be tested with a fake. */
 export interface SheetsClient {
@@ -28,6 +29,7 @@ export function createSheetsClient(): SheetsClient {
       return (res.data.values ?? []).map((row) => row.map((cell) => String(cell ?? "")));
     },
     async updateValues(spreadsheetId, range, values) {
+      assertSheetsWritable();
       await api.spreadsheets.values.update({
         spreadsheetId,
         range,
@@ -36,6 +38,7 @@ export function createSheetsClient(): SheetsClient {
       });
     },
     async appendValues(spreadsheetId, range, values) {
+      assertSheetsWritable();
       await api.spreadsheets.values.append({
         spreadsheetId,
         range,

@@ -8,6 +8,7 @@ import { ResponsiveList } from "@/components/shared/responsive-list";
 import { SyncStatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { requireModule } from "@/lib/auth";
+import { sheetsFrozen } from "@/lib/google/freeze";
 import { ReplayPanel } from "./replay-panel";
 import { formatManilaDateTime } from "@/lib/dates";
 import { param } from "@/lib/search";
@@ -94,8 +95,15 @@ async function SyncContent({ searchParams }: { searchParams: PageProps<"/admin/s
       </form>
     ) : null;
 
+  const frozen = sheetsFrozen();
+  const waiting = frozen ? (jobs ?? []).filter((j) => j.status !== "done" && (j.target === "sheets" || j.target === "inventory")).length : 0;
   return (
     <>
+      {frozen && (
+        <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100">
+          <b>Google Sheets are frozen.</b> The app is not writing to any sheet right now (the receipts log, the inventory status and the replay). Reading and the dashboards still work. {waiting ? `${waiting} sheet update${waiting === 1 ? " is" : "s are"} waiting and will be sent when the freeze is lifted.` : "Sheet updates will wait here and are not lost."}
+        </p>
+      )}
       <PageHeader
         title="Sync jobs"
         description={`After a receipt is confirmed, voided or a deal changes, the app updates Drive, the log sheet, Telegram and the inventory sheet. Jobs that fail are retried automatically, up to ${MAX_ATTEMPTS} times.`}
