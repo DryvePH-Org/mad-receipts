@@ -1,10 +1,14 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { assertSheetsWritable } from "@/lib/google/freeze";
 
 // The grokbot: a bot that reads and edits the Google Sheets. The app POSTs one JSON "job" to its webhook (with the webhook secret as a
 // Bearer key); the bot does the work and POSTs its answer to the job's callback address (with the job's own token). The same pattern as
 // the repairs bot. The job and its answer are kept in the grokbot_jobs table, so a late answer is never lost and everything can be audited.
 
 export class GrokbotError extends Error {}
+
+/** Jobs that change a sheet. While the Google Sheets freeze is on they are never sent (reads still are). */
+export const WRITE_ACTIONS: ReadonlySet<string> = new Set(["docs_update", "docs_handoff", "set_unit_status", "append_receipt_row"]);
 
 export interface JobRow { id: string; action: string; status: "sent" | "done" | "failed"; result: unknown; error: string | null }
 
@@ -59,6 +63,7 @@ export async function sendJob(action: string, fields: Record<string, unknown>, d
   const { store, config } = deps;
   if (!config) throw new GrokbotError("The grokbot is not connected on this server yet.");
   if (!/^[a-z_]{3,40}$/.test(action)) throw new GrokbotError("Bad action name.");
+  if (WRITE_ACTIONS.has(action)) assertSheetsWritable(); // the freeze: a job that writes to a sheet is not sent
   const rand = deps.rand ?? (() => crypto.randomUUID().replace(/-/g, "").slice(0, 10));
   const jobId = jobIdOf(action, rand);
   const job = { job_id: jobId, action, today: (deps.now?.() ?? new Date()).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }), callback_url: callbackUrl(config), callback_token: tokenFor(config.callbackSecret, jobId), ...(options.sheetId ? { sheet_id: options.sheetId } : {}), ...fields };

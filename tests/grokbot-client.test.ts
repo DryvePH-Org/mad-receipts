@@ -96,3 +96,20 @@ describe("receiving an answer", () => {
     expect((await receiveAnswer({ ok: true, job_id: "ping-0123456789" }, good, { store: m.store, config: null })).status).toBe(401);
   });
 });
+
+describe("the freeze and the bot", () => {
+  it("never sends a job that writes to a sheet while Google Sheets are frozen, but reads and pings go", async () => {
+    const { vi } = await import("vitest");
+    vi.stubEnv("SHEETS_WRITES", "");
+    try {
+      const m = memoryStore();
+      const fetchMock = vi.fn(async () => new Response("{}"));
+      await expect(sendJob("docs_update", { plate: "NBU4875" }, { store: m.store, config, fetch: fetchMock as unknown as typeof fetch, ...noWait })).rejects.toThrow(/frozen/);
+      await expect(sendJob("docs_handoff", {}, { store: m.store, config, fetch: fetchMock as unknown as typeof fetch, ...noWait })).rejects.toThrow(/frozen/);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(m.rows.size).toBe(0); // nothing recorded either
+      await expect(sendJob("docs_row", {}, { store: m.store, config, fetch: fetchMock as unknown as typeof fetch, ...noWait }, { timeoutMs: 1 })).rejects.toThrow(/in time/); // a read is sent
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally { vi.unstubAllEnvs(); }
+  });
+});

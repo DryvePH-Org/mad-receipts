@@ -1,11 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 import { requireModule } from "@/lib/auth";
 import { chooseFolder, defaultDocsDeps, docsErrorText, linkFolder, previewCarFolder, type FolderPreview, moveToSold, readPending, refreshFolders, scanFolder, setCase, setFileTypes, type MoveResult, type ReadProgress } from "@/lib/docs/service";
 import { CASES, CHOOSABLE, type CaseType, type DocType } from "@/lib/docs/types";
 import { inventory } from "@/lib/inventory";
+import { previewBible, queueSheetSync, sendBible } from "@/lib/docs/bible-sync";
+import { sheetsFrozen } from "@/lib/google/freeze";
 import { afterReading, approveUnit, handoffUnit, returnUnit, saveDetails, setHandoffChecked, type StepResult } from "@/lib/docs/workflow";
 import { normalizePlate } from "@/lib/rules/plate";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -138,7 +141,7 @@ export async function approveUnitAction(plate: string, confirmIncomplete: boolea
   if (!p.success) return { ok: false, message: "Bad plate." };
   return guard<StepOutcome>(async () => {
     const r = await approveUnit(p.data, user.id, confirmIncomplete);
-    if (r.ok) revalidatePath("/documents", "layout");
+    if (r.ok) { revalidatePath("/documents", "layout"); after(() => queueSheetSync(p.data, "checklist", user.id).catch((e) => console.warn(`[docs] sheet update failed: ${e instanceof Error ? e.message : "unknown"}`))); }
     return outcome(r, "Approved. Marketing was told on Telegram.");
   }, (message) => ({ ok: false as const, message }));
 }
@@ -160,7 +163,7 @@ export async function handoffAction(plate: string, note: string, confirmIncomple
   if (!p.success) return { ok: false, message: "Bad plate." };
   return guard<StepOutcome>(async () => {
     const r = await handoffUnit(p.data, String(note ?? ""), user.id, confirmIncomplete);
-    if (r.ok) revalidatePath("/documents", "layout");
+    if (r.ok) { revalidatePath("/documents", "layout"); after(() => queueSheetSync(p.data, "submitted", user.id).catch((e) => console.warn(`[docs] sheet update failed: ${e instanceof Error ? e.message : "unknown"}`))); }
     return outcome(r, "Handed off. You will be reminded every 3 days until it is marked as done.");
   }, (message) => ({ ok: false as const, message }));
 }
@@ -173,6 +176,7 @@ export async function returnUnitAction(plate: string): Promise<Done> {
     const r = await returnUnit(p.data, user.id);
     if (!r.ok) return { ok: false as const, message: "error" in r ? r.error : "Could not do that." };
     revalidatePath("/documents", "layout");
+    after(() => queueSheetSync(p.data, "received", user.id).catch((e) => console.warn(`[docs] sheet update failed: ${e instanceof Error ? e.message : "unknown"}`)));
     return { ok: true as const, message: "Marked as done. No more reminders for this car." };
   }, (message) => ({ ok: false as const, message }));
 }
@@ -200,5 +204,38 @@ export async function finishAddAction(plate: string): Promise<Done> {
     revalidatePath(`/documents/${key}`);
     revalidatePath("/documents");
     return { ok: true as const, message: "Done." };
+  }, (message) => ({ ok: false as const, message }));
+}
+
+// ---------------- the Docs Bible sheet ----------------
+
+export interface SheetPreview {
+  found: boolean; message: string | null; row: number | null; frozen: boolean;
+  changes: { header: string; before: string; after: string; append: boolean }[]; notes: string[]; note: string;
+}
+
+/** Asks the grokbot to read the unit's row and shows what would be written. Writes nothing, so it works while Google Sheets are frozen. */
+export async function previewSheetAction(plate: string): Promise<{ ok: true; preview: SheetPreview } | { ok: false; message: string }> {
+  const user = await requireModule("documents");
+  const p = plateSchema.safeParse(plate);
+  if (!p.success) return { ok: false, message: "Bad plate." };
+  return guard<{ ok: true; preview: SheetPreview } | { ok: false; message: string }>(async () => {
+    const r = await previewBible(p.data, user.id);
+    const { DOCS_FIELDS } = await import("@/lib/docs/bible");
+    return { ok: true as const, preview: { found: r.row.found, message: r.row.message, row: r.row.row, frozen: r.frozen, notes: r.notes, note: r.note,
+      changes: r.changes.map((c) => ({ header: DOCS_FIELDS[c.field].header, before: c.before, after: c.after, append: c.mode === "append" })) } };
+  }, (message) => ({ ok: false as const, message }));
+}
+
+/** Sends the checklist to the sheet now. Refused while Google Sheets are frozen. */
+export async function sendSheetAction(plate: string): Promise<Done> {
+  const user = await requireModule("documents");
+  const p = plateSchema.safeParse(plate);
+  if (!p.success) return { ok: false, message: "Bad plate." };
+  if (sheetsFrozen()) return { ok: false, message: "Google Sheets are frozen: nothing is written to any sheet right now." };
+  return guard<Done>(async () => {
+    const r = await sendBible(p.data, user.id);
+    revalidatePath(`/documents/${normalizePlate(p.data)}`);
+    return r.ok ? { ok: true as const, message: r.written ? `${r.written} cell${r.written === 1 ? "" : "s"} written in the sheet.` : "The sheet already matches." } : { ok: false as const, message: r.message };
   }, (message) => ({ ok: false as const, message }));
 }

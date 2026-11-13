@@ -56,7 +56,7 @@ export function PrintEditor({ company, print, onSave, today }: { company: Compan
 
   const saveCo = (next: Company) => { setCo(next); onSave({ company: next }); };
   const savePr = (next: Print) => { setPr(next); onSave({ print: next }); };
-  const text = (k: keyof Pick<Print, "footerNote" | "buyerLabel" | "receiverLabel" | "transmittalReceiver">, label: string, max: number) => (
+  const text = (k: keyof Pick<Print, "footerNote" | "buyerLabel" | "receiverLabel" | "transmittalReceiver" | "sheetReceiverName">, label: string, max: number) => (
     <div className="space-y-1.5"><Label htmlFor={`pr-${k}`}>{label}</Label><Input id={`pr-${k}`} value={pr[k]} maxLength={max} onChange={(e) => setPr({ ...pr, [k]: e.target.value })} onBlur={() => savePr({ ...pr, [k]: pr[k].trim() || print[k] })} /></div>
   );
 
@@ -88,6 +88,7 @@ export function PrintEditor({ company, print, onSave, today }: { company: Compan
             {text("footerNote", "Note at the bottom", 200)}
             <div className="grid gap-3 sm:grid-cols-2">{text("buyerLabel", "Left signature line", 40)}{text("receiverLabel", "Right signature line", 40)}</div>
             {text("transmittalReceiver", "Transmittal receipt: received by", 100)}
+            {text("sheetReceiverName", "Docs Bible: how the receiver is written (e.g. JEP)", 20)}
             <div className="space-y-1.5"><Label htmlFor="pr-color">Color of the receipt number</Label><div className="flex items-center gap-2"><input id="pr-color" type="color" value={pr.numberColor} onChange={(e) => setPr({ ...pr, numberColor: e.target.value })} onBlur={() => savePr(pr)} className="h-9 w-14 cursor-pointer rounded border bg-transparent" /><code className="text-xs text-muted-foreground">{pr.numberColor}</code></div></div>
           </CardContent></Card>
 

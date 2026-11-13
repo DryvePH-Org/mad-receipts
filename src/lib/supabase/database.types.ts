@@ -45,6 +45,12 @@ export type Database = {
         Update: { id?: string; action?: string; status?: string; request?: Json; result?: Json | null; error?: string | null; created_by?: string | null; created_at?: string; completed_at?: string | null }
         Relationships: []
       }
+      unit_sheet_sync: {
+        Row: { plate_no: string; kind: string; status: string; detail: Json; error: string | null; job_id: string | null; updated_by: string | null; updated_at: string }
+        Insert: { plate_no: string; kind: string; status: string; detail?: Json; error?: string | null; job_id?: string | null; updated_by?: string | null; updated_at?: string }
+        Update: { plate_no?: string; kind?: string; status?: string; detail?: Json; error?: string | null; job_id?: string | null; updated_by?: string | null; updated_at?: string }
+        Relationships: []
+      }
       transmittals: {
         Row: { plate_no: string; data: Json; updated_by: string | null; updated_at: string }
         Insert: { plate_no: string; data?: Json; updated_by?: string | null; updated_at?: string }
