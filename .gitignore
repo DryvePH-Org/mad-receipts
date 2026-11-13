@@ -49,3 +49,4 @@ next-env.d.ts
 /Docs/*.jpeg
 /Docs/*.jpg
 /.next-e2e/
+/Docs/sheets-private/
