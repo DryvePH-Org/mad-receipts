@@ -5,8 +5,8 @@ describe("navigation", () => {
   it("each role sees its own pages", () => {
     expect(navFor("sales").map((i) => i.href)).toEqual(["/new", "/deals", "/reminders", "/upload-documents"]);
     expect(navFor("documentation").map((i) => i.href)).toEqual(["/deals", "/documents"]); // no receipts, no money pages
-    expect(navFor("approver").map((i) => i.href)).toEqual(["/dashboard", "/new", "/deals", "/approvals", "/reminders", "/upload-documents", "/cash", "/activity"]);
-    expect(navFor("admin").map((i) => i.href)).toEqual(["/dashboard", "/new", "/deals", "/approvals", "/reminders", "/documents", "/upload-documents", "/cash", "/activity", "/settings", "/admin/users", "/admin/sync"]);
+    expect(navFor("approver").map((i) => i.href)).toEqual(["/dashboard", "/new", "/deals", "/approvals", "/reminders", "/upload-documents", "/activity"]);
+    expect(navFor("admin").map((i) => i.href)).toEqual(["/dashboard", "/new", "/deals", "/approvals", "/reminders", "/documents", "/upload-documents", "/activity", "/settings", "/admin/users", "/admin/sync"]);
   });
 
   it("settings, users and sync jobs are for the Admin only", () => {
@@ -14,7 +14,7 @@ describe("navigation", () => {
   });
 
   it("groups the sidebar into Operations and Administration (Sales have no Administration)", () => {
-    expect(navGroups("admin").map((g) => [g.label, g.items.length])).toEqual([["Operations", 9], ["Administration", 3]]);
+    expect(navGroups("admin").map((g) => [g.label, g.items.length])).toEqual([["Operations", 8], ["Administration", 3]]);
     expect(navGroups("sales").map((g) => g.label)).toEqual(["Operations"]);
   });
 
@@ -23,7 +23,7 @@ describe("navigation", () => {
     expect(tabBarItems("documentation")).toMatchObject({ more: [] });
     const admin = tabBarItems("admin");
     expect(admin.tabs.map((i) => i.label)).toEqual(["Dashboard", "New receipt", "Transactions", "Approvals"]);
-    expect(admin.more.map((i) => i.label)).toEqual(["Reminders", "Car documents", "Upload documents", "Daily cash report", "Activity log", "Settings", "Users", "Sync jobs"]);
+    expect(admin.more.map((i) => i.label)).toEqual(["Reminders", "Car documents", "Upload documents", "Activity log", "Settings", "Users", "Sync jobs"]);
   });
 
   it("marks the current page", () => {
@@ -39,14 +39,14 @@ describe("navigation", () => {
     // extra access
     expect(effectiveModules("sales", ["dashboard", "documents"])).toEqual(expect.arrayContaining(["dashboard", "documents", "new"]));
     // any module can be given, including the powerful ones (the Users page asks to type GRANT for those)
-    expect(effectiveModules("sales", ["approvals", "cash", "settings", "users", "sync", "activity"])).toEqual(expect.arrayContaining(["approvals", "cash", "settings", "users", "sync", "activity", "new"]));
+    expect(effectiveModules("sales", ["approvals", "settings", "users", "sync", "activity"])).toEqual(expect.arrayContaining(["approvals", "settings", "users", "sync", "activity", "new"]));
     expect(effectiveModules("documentation", ["upload"])).toContain("upload");
     // hiding works on any module and wins over a grant
     expect(effectiveModules("sales", [], ["reminders"])).not.toContain("reminders");
     expect(effectiveModules("sales", ["dashboard"], ["dashboard"])).not.toContain("dashboard");
     // an Admin always keeps Users and Settings
-    expect(effectiveModules("admin", [], ["users", "settings", "sync", "cash"])).toEqual(expect.arrayContaining(["users", "settings"]));
-    expect(effectiveModules("admin", [], ["users", "settings", "sync", "cash"])).not.toEqual(expect.arrayContaining(["sync"]));
+    expect(effectiveModules("admin", [], ["users", "settings", "sync"])).toEqual(expect.arrayContaining(["users", "settings"]));
+    expect(effectiveModules("admin", [], ["users", "settings", "sync"])).not.toEqual(expect.arrayContaining(["sync"]));
     // junk is ignored
     expect(effectiveModules("sales", ["nonsense"], ["alsoNonsense"])).toEqual(roleModules("sales"));
   });

@@ -24,7 +24,7 @@ try {
   check(login.status === 200, "login page answers 200");
 
   // Every module's pages send a signed-out visitor to the login page; APIs answer 401.
-  const pages = ["/", "/new", "/deals", "/approvals", "/reminders", "/documents", "/upload-documents", "/cash", "/activity", "/settings", "/admin/users", "/admin/sync", "/dashboard", "/dashboard/buy", "/dashboard/sell"];
+  const pages = ["/", "/new", "/deals", "/approvals", "/reminders", "/documents", "/upload-documents", "/activity", "/settings", "/admin/users", "/admin/sync", "/dashboard", "/dashboard/buy", "/dashboard/sell"];
   for (const p of pages) {
     const r = await fetch(base + p, { redirect: "manual" });
     check(r.status === 307 && (r.headers.get("location") ?? "").endsWith("/login"), `${p} sends a signed-out visitor to /login`);

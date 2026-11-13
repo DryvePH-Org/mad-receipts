@@ -154,7 +154,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
 
 test("each role sees only its own pages", async ({ browser }) => {
   const docs = await as(browser, "docs");
-  for (const path of ["/new", "/approvals", "/cash", "/settings", "/upload-documents"]) {
+  for (const path of ["/new", "/approvals", "/settings", "/upload-documents"]) {
     await docs.goto(path);
     await expect(docs.getByText("You don't have access to this page."), path).toBeVisible();
   }

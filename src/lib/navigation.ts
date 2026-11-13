@@ -1,7 +1,6 @@
 import {
   Bell,
   Car,
-  Coins,
   FolderCheck,
   History,
   LayoutDashboard,
@@ -16,7 +15,7 @@ import {
 
 export type Role = "sales" | "admin" | "approver" | "documentation";
 
-export type ModuleId = "dashboard" | "new" | "deals" | "approvals" | "reminders" | "documents" | "upload" | "cash" | "activity" | "settings" | "users" | "sync";
+export type ModuleId = "dashboard" | "new" | "deals" | "approvals" | "reminders" | "documents" | "upload" | "activity" | "settings" | "users" | "sync";
 
 export interface NavItem {
   id: ModuleId;
@@ -41,7 +40,6 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "reminders", href: "/reminders", label: "Reminders", icon: Bell, group: "Operations", roles: MONEY, badge: "reminders" },
   { id: "documents", href: "/documents", label: "Car documents", icon: FolderCheck, group: "Operations", roles: ["admin", "documentation"] },
   { id: "upload", href: "/upload-documents", label: "Upload documents", icon: Upload, group: "Operations", roles: ["sales", "admin", "approver"] },
-  { id: "cash", href: "/cash", label: "Daily cash report", icon: Coins, group: "Operations", roles: ["admin", "approver"] },
   { id: "activity", href: "/activity", label: "Activity log", icon: History, group: "Operations", roles: ["admin", "approver"] },
   { id: "settings", href: "/settings", label: "Settings", icon: Settings, group: "Administration", roles: ["admin"] },
   { id: "users", href: "/admin/users", label: "Users", icon: Users, group: "Administration", roles: ["admin"] },

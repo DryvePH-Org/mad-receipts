@@ -164,11 +164,11 @@ for the screen; `tests/deal-math.test.ts` and `tests/db/manual-entry.test.ts` ch
 - Balance = amount due − earlier payments − paid today + payout. An overpayment cannot be saved.
 - Always: price + fee = trade-in + loan + received − payout + balance.
 
-**Roles:** Sales fills in receipts and sees deals; Approver approves and sees approvals, cash report and activity;
+**Roles:** Sales fills in receipts and sees deals; Approver approves and sees approvals and activity;
 Admin manages users, Settings (colors, banks, institutions, notes, phrases, required proofs...) and sync, and can
 void, cancel and mark loans released. Settings live in one document (`app_settings`) and change the form at once.
 
-**Pages:** Transactions (`/deals`), New receipt, Approvals, Reminders, Cash report, Activity, Settings, Users, Sync.
+**Pages:** Transactions (`/deals`), New receipt, Approvals, Reminders, Activity, Settings, Users, Sync.
 `/print/<receipt id>` prints 3 copies by default.
 
 **Voice entry** ("Fill it by voice" on the form): staff speak (English, Tagalog or mixed) or type a note. Groq Whisper
@@ -253,7 +253,7 @@ The app only ever edits the one REMARKS cell of a car, keeps any other note, nev
 
 ## Staying up to date, and the receipt form's feedback
 
-- **Live screens:** Transactions, Approvals, Reminders, Cash report, Activity and the admin pages ask `/api/pulse` (one tiny query: counts and latest times of receipts and deals) every 8 seconds and when the tab is
+- **Live screens:** Transactions, Approvals, Reminders, Activity and the admin pages ask `/api/pulse` (one tiny query: counts and latest times of receipts and deals) every 8 seconds and when the tab is
   revisited. Only when the answer changes does the screen reload its data, with a thin bar at the top and a small "Updating… / Updated" note. The form pages are left alone, and typing is kept.
 - **The receipt form is calm at the start:** nothing is red when it opens. Missing fields show in colour only for steps you have been past (or on the last step). The first **Next** on a step with something missing shows
   what and where (and stays); pressing it again moves on. The step bar shows an amber count on steps you left with something open, and the bottom bar says how many are left or "✓ This step is done".

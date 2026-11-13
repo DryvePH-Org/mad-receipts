@@ -237,7 +237,7 @@ test("the checks refuse a wrong or incomplete receipt", async ({ browser }) => {
 
 test("people see only what their role allows", async ({ browser }) => {
   const sales = await as(browser, "sales");
-  for (const path of ["/approvals", "/settings", "/cash", "/activity", "/admin/users"]) {
+  for (const path of ["/approvals", "/settings", "/activity", "/admin/users"]) {
     await sales.goto(path);
     await expect(sales.getByText("You don't have access to this page."), path).toBeVisible();
   }

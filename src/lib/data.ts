@@ -185,13 +185,6 @@ export async function recentlyDecided(limit = 8): Promise<ReceiptView[]> {
   return (data ?? []).map(toReceiptView);
 }
 
-/** Receipts dated on a day (Manila), for the daily cash report. */
-export async function receiptsOnDay(day: string): Promise<ReceiptView[]> {
-  const supabase = await createClient();
-  const { data } = await supabase.from("receipt_list").select("*").eq("receipt_date", day).in("status", ["approved", "pending"]).order("created_at", { ascending: true });
-  return (data ?? []).map(toReceiptView);
-}
-
 /** Signed links to the proof files of a receipt, grouped by payment (or the payout). */
 export interface ActivityEntry {
   id: string;
