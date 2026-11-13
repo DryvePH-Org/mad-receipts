@@ -49,6 +49,16 @@ Codes the app reacts to: **401** wrong secret, **403** not allowed (outside the 
 
 No other action is needed for the IN and OUT flows. Telegram does not go through the gateway; it is its own bot (Phase 2).
 
+## How text must be written to a sheet (encoding)
+The app sends every cell as text and expects to read **the same text back**. A gateway that writes through the Google Sheets API must therefore use the raw/literal mode (`valueInputOption=RAW`), or add the leading apostrophe the Apps Script adds, so that:
+- `2556`, `00123`, `09171234567`, `11/2`, `1/2`, `2026-11-02` and `1e5` stay text (not a number or a date);
+- `=SUM(1,2)`, `+63917...`, `-5`, `@handle` and `'quoted` are stored as text, never run as a formula;
+- `true` and `FALSE` stay text; accents, `₱`, Japanese, emoji, quotes, commas, semicolons and line breaks come back unchanged;
+- numbers sent as numbers stay numbers; the cell's number format is never changed; a long text (900 characters) is kept whole.
+Reads return the cells **as displayed** (`getDisplayValues` in Apps Script; `FORMATTED_VALUE` in the Sheets API).
+
+`node scripts/bridge-encoding-check.mjs` proves all of this. It writes about 27 rows into a **test tab** you create (`BRIDGE TEST`) in a **test spreadsheet** (`BRIDGE_TEST_SHEET_ID`, on the gateway's allow-list) and reads them back. It refuses the app's real sheets and never deletes anything.
+
 ## Moving off Apps Script, in order
 1. Build the gateway to this page. Run `scripts/bridge-check.mjs` against it on the **test copies**.
 2. Put its address and secret in the **test** settings and run a real approval and a Replay on the test sheet.

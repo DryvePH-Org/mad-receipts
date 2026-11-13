@@ -4,12 +4,15 @@ import type { CellValue, SheetsClient } from "./sheets";
 
 // Google access through an Apps Script web app that runs as a normal Google account
 // (apps-script/Code.gs). Used when a service account key can't be created.
-// Env: APPS_SCRIPT_URL (the web app's /exec URL), APPS_SCRIPT_SECRET (same as the script's SECRET).
+// Env: BRIDGE_URL and BRIDGE_SECRET (any gateway that follows Docs/bridge-contract.md), or the older names APPS_SCRIPT_URL
+// (the web app's /exec URL) and APPS_SCRIPT_SECRET (same as the script's SECRET). The BRIDGE_* names win when both are set.
+const bridgeUrl = () => process.env.BRIDGE_URL || process.env.APPS_SCRIPT_URL;
+const bridgeSecret = () => process.env.BRIDGE_SECRET || process.env.APPS_SCRIPT_SECRET;
 
 const TIMEOUT_MS = 25_000;
 
 export const appsScriptConfigured = () =>
-  Boolean(process.env.APPS_SCRIPT_URL && process.env.APPS_SCRIPT_SECRET);
+  Boolean(bridgeUrl() && bridgeSecret());
 
 type Reply<T> = { ok: true; data: T } | { ok: false; code?: number; message?: string };
 
@@ -19,10 +22,10 @@ export function scriptError(message: string, code?: number): Error {
 }
 
 export async function appsScriptCall<T>(action: string, params: Record<string, unknown> = {}): Promise<T> {
-  const url = process.env.APPS_SCRIPT_URL;
-  const secret = process.env.APPS_SCRIPT_SECRET;
+  const url = bridgeUrl();
+  const secret = bridgeSecret();
   if (!url || !secret) {
-    throw new Error("The Google Apps Script bridge is not configured (APPS_SCRIPT_URL, APPS_SCRIPT_SECRET)");
+    throw new Error("The Google Apps Script bridge is not configured (BRIDGE_URL, BRIDGE_SECRET)");
   }
 
   let response: Response;

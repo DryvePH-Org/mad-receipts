@@ -25,6 +25,8 @@ export default defineConfig({
       reuseExistingServer: false,
       env: {
         NEXT_DIST_DIR: ".next-e2e",
+        BRIDGE_URL: "",
+        BRIDGE_SECRET: "",
         APPS_SCRIPT_URL: "",
         APPS_SCRIPT_SECRET: "",
         TELEGRAM_BOT_TOKEN: "",
