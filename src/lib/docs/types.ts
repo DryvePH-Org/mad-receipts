@@ -75,4 +75,8 @@ export interface Detection {
   secretaryName?: string | null;
   representativeName?: string | null;
   idType?: string | null;
+  /** original paper or a photocopy (xerox) */
+  copy?: "original" | "photocopy" | null;
+  /** problems seen on this document: torn, cut off, blurry, altered, missing signature or stamp... */
+  defects?: string[] | null;
 }

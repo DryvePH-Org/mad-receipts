@@ -80,6 +80,7 @@ cat > /etc/cron.d/mad-receipts <<CRON
 CRON_TZ=UTC
 */5 * * * * root $PWD/deploy/run-cron.sh /api/sync/run
 0 0 * * * root $PWD/deploy/run-cron.sh /api/reminders/run
+5 0 * * * root $PWD/deploy/run-cron.sh /api/docs/handoff-reminders
 CRON
 chmod 644 /etc/cron.d/mad-receipts
 

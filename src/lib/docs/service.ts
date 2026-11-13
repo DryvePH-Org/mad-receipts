@@ -9,12 +9,17 @@ import { fakeReading, readDocument, ReaderError, type Reading } from "./reader";
 import { DOC_TYPES, type CaseType, type DocType } from "./types";
 
 type Admin = ReturnType<typeof createAdminClient>;
-export interface DocsDeps { bridge: DocsBridge; read: (image: { base64: string; mime: string }, filename: string, plate: string) => Promise<Reading>; admin: Admin }
+export interface DocsDeps {
+  bridge: DocsBridge; read: (image: { base64: string; mime: string }, filename: string, plate: string) => Promise<Reading>; admin: Admin;
+  /** runs when the last waiting photo of a car has been read (tells the staff on Telegram); a failure here never matters */
+  after?: (plate: string) => Promise<void>;
+}
 
 export const defaultDocsDeps = (): DocsDeps => ({
   bridge: docsBridge(),
   read: (image, filename, plate) => (process.env.DOCS_FAKE_READER === "1" ? Promise.resolve(fakeReading(filename, plate)) : readDocument(image)),
   admin: createAdminClient(),
+  after: (plate) => import("./workflow").then((m) => m.afterReading(plate)),
 });
 
 /** Big enough to read small print, small enough to be quick and cheap to send. */
@@ -173,6 +178,7 @@ export async function readPending(plate: string, limit = 2, deps: DocsDeps = def
   }));
   await recompute(key, deps);
   const { count } = await deps.admin.from("folder_files").select("id", { count: "exact", head: true }).eq("plate_no", key).eq("read_status", "pending");
+  if (read > 0 && (count ?? 0) === 0) await deps.after?.(key).catch(() => undefined);
   return { read, remaining: count ?? 0, waitSeconds, error };
 }
 
@@ -181,7 +187,7 @@ async function saveReading(admin: Admin, file: Pick<FileRow, "id">, reading: Rea
   const best = reading.detections.length ? Math.min(...reading.detections.map((d) => d.confidence)) : null;
   const { error } = await admin.from("folder_files").update({
     read_status: status, read_error: null, read_at: new Date().toISOString(), confidence: best,
-    details: { detections: reading.detections, notes: reading.notes } as unknown as Json,
+    details: { detections: reading.detections, notes: reading.notes, rotation: reading.rotation } as unknown as Json,
   }).eq("id", file.id);
   if (error) throw new Error(`Could not save the reading: ${error.message}`);
 }
@@ -271,6 +277,7 @@ export async function uploadPhoto(input: { plate: string; actor: string; bytes: 
     await deps.admin.from("folder_files").update({ read_status: "failed", read_error: docsErrorText(err) }).eq("id", row.id);
   }
   const car = await recompute(key, deps);
+  await deps.after?.(key).catch(() => undefined);
   const after = car?.files.find((f) => f.id === row.id);
   return { fileId: row.id, filename, types: (after?.doc_types ?? []) as DocType[], flags: after?.flags ?? [], readStatus: after?.read_status ?? "pending" };
 }

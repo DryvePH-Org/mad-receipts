@@ -11,6 +11,12 @@ export function detectionsOf(details: Json): Detection[] | null {
   return Array.isArray(raw) ? (raw as unknown as Detection[]) : null;
 }
 
+/** How far the photo must be turned (clockwise) to read upright; for showing it only, Drive is never changed. */
+export function rotationOf(details: Json): 0 | 90 | 180 | 270 {
+  const raw = details && typeof details === "object" && !Array.isArray(details) ? Number((details as Record<string, Json>).rotation) : 0;
+  return raw === 90 || raw === 180 || raw === 270 ? raw : 0;
+}
+
 const isDocType = (t: string): t is DocType => (DOC_TYPES as readonly string[]).includes(t);
 
 export const toInput = (f: FileRow): FileInput => ({

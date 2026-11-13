@@ -39,6 +39,8 @@ const nearlySame = (a: string, b: string, maxEdits: number) => a === b || a.incl
 const allowedEdits = (v: string) => (v.length >= 12 ? Math.floor(v.length * 0.25) : 2);
 /** Only something shaped like a plate (3 letters, 3 or 4 digits) is judged; a stray file number is not. */
 const looksLikePlate = (v: string) => /^[A-Z]{3}\d{3,4}$/.test(v);
+/** Papers that must be the original, not a xerox. IDs are not on this list: a copy of an ID is normal. */
+const ORIGINAL_ONLY = new Set(["official_receipt", "certificate_of_registration", "deed_of_sale", "chattel_cancellation", "secretary_certificate", "board_resolution"]);
 const VEHICLE_PAPERS = new Set(["official_receipt", "certificate_of_registration", "deed_of_sale"]);
 /** The same person written in any order gives the same key. */
 const nameKey = (n: string | null | undefined) => normName(n).split(" ").filter(Boolean).sort().join(" ");
@@ -87,6 +89,8 @@ export function analyze(files: FileInput[], folder: FolderContext, deal: DealCon
     for (const d of f.detections ?? []) {
       if (d.confidence < 0.6 && d.type !== "other") flags.push(`Not sure this is a ${labelOf(resolve(d)).toLowerCase()}. Please check.`);
       const t = resolve(d);
+      if (d.copy === "photocopy" && ORIGINAL_ONLY.has(d.type)) flags.push(`The ${labelOf(t).toLowerCase()} looks like a photocopy (xerox), not the original.`);
+      if (d.defects?.length) flags.push(`The ${labelOf(t).toLowerCase()} shows a problem: ${d.defects.join(", ")}.`);
       if (d.plate) { // any paper with a clearly different plate may belong to another car
         const seen = squash(d.plate);
         if (looksLikePlate(seen) && !nearlySame(seen, folder.plate, 1)) flags.push(`The plate on the ${labelOf(t).toLowerCase()} reads ${d.plate}, but this folder is ${folder.plate}.`);

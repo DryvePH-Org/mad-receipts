@@ -207,6 +207,16 @@ A failed job retries after 1 min, 5 min, 15 min, then 1 h, and stops after 5 att
 itself is never affected. The receipts log sheet needs two tabs named **Receipts** and **Deals**;
 header rows are written automatically when a tab is empty.
 
+## The documents workflow: scan, check, approve, hand off
+
+- **Reading:** each photo is read when it is uploaded (and by the background reader for older ones). Set `XAI_API_KEY` to have **Grok (xAI)** read the pictures instead of Groq (`XAI_VISION_MODEL`, default `grok-4`); without it Groq is used. The reader also says how far the photo must be turned, whether a paper is an **original or a photocopy** and any **defects** it can see (torn, cut off, missing signature...). A photocopy of the OR, CR, a deed or a certificate, and any defect, become flags for the staff.
+- **Upright photos:** each file shows a picture on its car page, turned to read upright. Only the view is turned; Drive is never changed. Click it to see it larger.
+- **Telegram** (`TELEGRAM_DOCS_CHAT_ID`, else the main chat): when the last photo of a car is read ("Scanned: N to check"), when a sold car's papers are complete ("Sold, documents complete"), when the staff approves ("Documents OK, ready to market"), and every 3 days for documents out on handoff.
+- **About the car:** the staff fill in spare key, casa maintenance (when, where), battery (when), where it was bought, and for an EV the charger and the card. Blank items are listed when approving; approving anyway is allowed after a confirmation.
+- **Approval:** one button. It marks the documents OK and tells marketing on Telegram.
+- **Handoff** (sold cars only, after moving the folder to Sold): tick each paper, **Handed off to** the receiver named in Settings → Print (the same name as the transmittal's "Received by"), and the car appears under **Documents on handoff**. The daily job `/api/docs/handoff-reminders` (cron line in `deploy/vps-install.sh`) sends one Telegram message every 3 days until **Mark as done** is pressed.
+- Needs migration 24 (`Docs/apply-migration-24.sql`). Until it is applied the page works and saving shows a clear message.
+
 ## Transmittal receipt (handing papers over with a car)
 
 On a car's page in **Car documents**, **Transmittal receipt** opens the "Acknowledgement/Transmittal Receipt" as a form to fill in on screen. It starts from the documents workflow: the make and type from the folder name, the

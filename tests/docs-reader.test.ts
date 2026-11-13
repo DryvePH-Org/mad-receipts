@@ -17,6 +17,18 @@ describe("plates the reader gives", () => {
   });
 });
 
+describe("rotation, copy and defects", () => {
+  it("keeps how far to turn the photo, original or copy, and the problems seen", async () => {
+    const r = await readDocument(image, async () => JSON.stringify({ legible: true, rotation: "90", documents: [{ type: "official_receipt", confidence: 0.9, copy: "photocopy", defects: ["torn", " ", 5, "cut off"] }, { type: "government_id", confidence: 0.9, copy: "weird" }] }));
+    expect(r.rotation).toBe(90);
+    expect(r.detections[0]).toMatchObject({ copy: "photocopy", defects: ["torn", "cut off"] });
+    expect(r.detections[1].copy).toBeNull();
+  });
+  it("a missing or odd rotation means upright", async () => {
+    expect((await readDocument(image, async () => '{"legible":true,"rotation":45,"documents":[]}')).rotation).toBe(0);
+  });
+});
+
 describe("reading a photo", () => {
   it("one photo can hold two documents (the OR and the CR together)", async () => {
     const r = await readDocument(image, async () => JSON.stringify({

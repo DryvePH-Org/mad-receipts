@@ -1,11 +1,14 @@
 import "server-only";
 import { z } from "zod";
 import { visionJson } from "@/lib/voice/groq";
+import { grokConfigured, grokVisionJson } from "@/lib/voice/xai";
 import { sameName } from "./names";
 import { RAW_TYPES, type Detection } from "./types";
 
 /** What the picture reader returns for one photo or scanned page. */
 export interface Reading {
+  /** degrees clockwise the picture must be turned to be upright (0, 90, 180 or 270); only for showing it */
+  rotation: 0 | 90 | 180 | 270;
   /** false when the picture is too blurry, dark or cut off to say what it is */
   legible: boolean;
   detections: Detection[];
@@ -18,17 +21,21 @@ const doc = z.object({
   type: z.preprocess((v) => (typeof v === "string" && (RAW_TYPES as readonly string[]).includes(v) ? v : "other"), z.enum(RAW_TYPES)),
   confidence,
   document_number: text, plate: text, motor_no: text, chassis_no: text,
+  copy: z.preprocess((v) => (v === "original" || v === "photocopy" ? v : null), z.enum(["original", "photocopy"]).nullable()).default(null),
+  defects: z.preprocess((v) => (Array.isArray(v) ? v.filter((x) => typeof x === "string" && x.trim()).map((x: string) => x.trim().slice(0, 80)).slice(0, 5) : []), z.array(z.string())).default([]),
   owner_name: text, holder_name: text, seller_name: text, buyer_name: text, secretary_name: text, representative_name: text, id_type: text,
 });
-const Reply = z.object({ legible: z.boolean().catch(true), documents: z.preprocess((v) => (Array.isArray(v) ? v.slice(0, 4) : []), z.array(doc)).default([]), notes: text });
+const rotation = z.preprocess((v) => { const n = Number(v); return [0, 90, 180, 270].includes(n) ? n : 0; }, z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)])).default(0);
+const Reply = z.object({ rotation, legible: z.boolean().catch(true), documents: z.preprocess((v) => (Array.isArray(v) ? v.slice(0, 4) : []), z.array(doc)).default([]), notes: text });
 
 export const readerPrompt = () => `You look at one photo (or one scanned page) from the document folder of a car sold in the Philippines, and say which documents it shows.
 
 Return ONLY a JSON object:
 {
   "legible": true,
+  "rotation": 0,
   "documents": [
-    { "type": "...", "confidence": 0.0-1.0, "document_number": null, "plate": null, "motor_no": null, "chassis_no": null,
+    { "type": "...", "confidence": 0.0-1.0, "copy": "original", "defects": [], "document_number": null, "plate": null, "motor_no": null, "chassis_no": null,
       "owner_name": null, "holder_name": null, "seller_name": null, "buyer_name": null, "secretary_name": null, "representative_name": null, "id_type": null }
   ],
   "notes": "one short sentence if something is unusual, else null"
@@ -50,6 +57,9 @@ Return ONLY a JSON object:
 Rules:
 - One photo can show MORE THAN ONE document (an LTO official receipt and the certificate of registration are often photographed together on one sheet, one above the other): list each one separately. Documents can be rotated or at an angle: still read them.
 - The photo may be sideways or upside down (the picture is not turned for you): turn it in your head and read it the right way up. Read every character slowly; a number you cannot read in full is null, never a shortened or guessed one.
+- "rotation": how many degrees clockwise the picture must be turned so the writing reads upright: 0, 90, 180 or 270. 0 when it is already upright.
+- "copy": "original" for the paper itself (colour, security pattern, real signatures and stamps, the paper is photographed), "photocopy" for a xerox or black-and-white copy or a screenshot or print of a scan. null if you cannot tell.
+- "defects": a short list (at most 5) of real problems you can SEE on this document: "torn", "cut off", "blurry", "glare", "stained", "folded", "missing signature", "missing stamp", "altered or written over", "partly covered". Empty list when it looks fine. Do not invent any.
 - Fill a detail only if you can read it with confidence. NEVER guess or invent. Otherwise null.
 - "plate": ONLY a vehicle plate number, letters then digits like "NBR 9511" or "ABC 1234" (it is not the MV file number, CR number, OR number, transaction number or conduction sticker, and not an engine or chassis number). The plate box on an old certificate of registration is often EMPTY: then it is null. On an LTO payment slip it is written after "Plate No:". null if you cannot see a plate. "motor_no" is the engine or motor number. "chassis_no" is the chassis or VIN.
 - "document_number": the number that identifies THIS document (the CR number, the OR number, the ID number, the note number). null if none is readable.
@@ -89,7 +99,7 @@ export function mergeRepeats(list: Detection[]): Detection[] {
 /** The model call, injectable so the parsing can be tested without the network. */
 export async function readDocument(
   image: { base64: string; mime: string },
-  call: (system: string, user: string, dataUrl: string) => Promise<string> = visionJson,
+  call: (system: string, user: string, dataUrl: string) => Promise<string> = (grokConfigured() ? grokVisionJson : visionJson),
 ): Promise<Reading> {
   const dataUrl = `data:${image.mime};base64,${image.base64}`;
   for (let attempt = 1; attempt <= 2; attempt++) {
@@ -98,10 +108,11 @@ export async function readDocument(
     const r = parsed.data;
     return {
       legible: r.legible,
+      rotation: r.rotation,
       notes: r.notes,
       detections: mergeRepeats(r.documents.map((d) => ({
         type: d.type, confidence: d.confidence, documentNumber: d.document_number, plate: cleanPlate(d.plate), motorNo: d.motor_no, chassisNo: d.chassis_no,
-        ownerName: d.owner_name, holderName: d.holder_name, sellerName: d.seller_name, buyerName: d.buyer_name,
+        copy: d.copy, defects: d.defects.length ? d.defects : null, ownerName: d.owner_name, holderName: d.holder_name, sellerName: d.seller_name, buyerName: d.buyer_name,
         secretaryName: d.secretary_name, representativeName: d.representative_name, idType: d.id_type,
       }))),
     };
@@ -128,6 +139,6 @@ export function fakeReading(filename: string, plate: string): Reading {
   if (n.includes("chattel") || n.includes("rcm")) detections.push(d("chattel_cancellation"));
   if (n.includes("secretary-cert")) detections.push(d("secretary_certificate", { secretaryName: "Ana Reyes", representativeName: "Pedro Santos" }));
   if (n.includes("board")) detections.push(d("board_resolution"));
-  if (n.includes("blurry")) return { legible: false, detections: [], notes: null };
-  return { legible: true, detections: detections.length ? detections : [{ type: "other", confidence: 0.9 }], notes: null };
+  if (n.includes("blurry")) return { legible: false, rotation: 0, detections: [], notes: null };
+  return { legible: true, rotation: 0, detections: detections.length ? detections : [{ type: "other", confidence: 0.9 }], notes: null };
 }

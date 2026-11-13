@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireModule } from "@/lib/auth";
 import { chooseFolder, defaultDocsDeps, docsErrorText, linkFolder, moveToSold, readPending, refreshFolders, scanFolder, setCase, setFileTypes, type MoveResult, type ReadProgress } from "@/lib/docs/service";
 import { CASES, CHOOSABLE, type CaseType, type DocType } from "@/lib/docs/types";
+import { approveUnit, handoffUnit, returnUnit, saveDetails, setHandoffChecked, type StepResult } from "@/lib/docs/workflow";
 import { normalizePlate } from "@/lib/rules/plate";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -112,4 +113,65 @@ export async function moveToSoldAction(plate: string, confirmIncomplete: boolean
     if (r.ok) revalidatePath("/documents", "layout");
     return r;
   }, (error) => ({ ok: false as const, error }));
+}
+
+// ---------------- details, approval and handoff ----------------
+
+export type StepOutcome = { ok: true; message: string } | { ok: false; needsConfirm: true; missing: string[] } | { ok: false; message: string };
+const outcome = (r: StepResult, message: string): StepOutcome => (r.ok ? { ok: true, message: r.notified === false ? `${message} Telegram could not be reached: tell marketing yourself.` : message } : "needsConfirm" in r ? r : { ok: false, message: r.error });
+
+export async function saveDetailsAction(plate: string, data: unknown): Promise<Done> {
+  const user = await requireModule("documents");
+  const p = plateSchema.safeParse(plate);
+  if (!p.success) return { ok: false, message: "Bad plate." };
+  return guard<Done>(async () => {
+    await saveDetails(p.data, data, user.id);
+    revalidatePath(`/documents/${normalizePlate(p.data)}`);
+    return { ok: true as const, message: "Details saved." };
+  }, (message) => ({ ok: false as const, message }));
+}
+
+export async function approveUnitAction(plate: string, confirmIncomplete: boolean): Promise<StepOutcome> {
+  const user = await requireModule("documents");
+  const p = plateSchema.safeParse(plate);
+  if (!p.success) return { ok: false, message: "Bad plate." };
+  return guard<StepOutcome>(async () => {
+    const r = await approveUnit(p.data, user.id, confirmIncomplete);
+    if (r.ok) revalidatePath("/documents", "layout");
+    return outcome(r, "Approved. Marketing was told on Telegram.");
+  }, (message) => ({ ok: false as const, message }));
+}
+
+export async function setHandoffCheckedAction(plate: string, keys: string[]): Promise<Done> {
+  await requireModule("documents");
+  const p = plateSchema.safeParse(plate);
+  if (!p.success || !Array.isArray(keys)) return { ok: false, message: "Bad request." };
+  return guard<Done>(async () => {
+    await setHandoffChecked(p.data, keys);
+    revalidatePath(`/documents/${normalizePlate(p.data)}`);
+    return { ok: true as const, message: "Saved." };
+  }, (message) => ({ ok: false as const, message }));
+}
+
+export async function handoffAction(plate: string, note: string, confirmIncomplete: boolean): Promise<StepOutcome> {
+  const user = await requireModule("documents");
+  const p = plateSchema.safeParse(plate);
+  if (!p.success) return { ok: false, message: "Bad plate." };
+  return guard<StepOutcome>(async () => {
+    const r = await handoffUnit(p.data, String(note ?? ""), user.id, confirmIncomplete);
+    if (r.ok) revalidatePath("/documents", "layout");
+    return outcome(r, "Handed off. You will be reminded every 3 days until it is marked as done.");
+  }, (message) => ({ ok: false as const, message }));
+}
+
+export async function returnUnitAction(plate: string): Promise<Done> {
+  const user = await requireModule("documents");
+  const p = plateSchema.safeParse(plate);
+  if (!p.success) return { ok: false, message: "Bad plate." };
+  return guard<Done>(async () => {
+    const r = await returnUnit(p.data, user.id);
+    if (!r.ok) return { ok: false as const, message: "error" in r ? r.error : "Could not do that." };
+    revalidatePath("/documents", "layout");
+    return { ok: true as const, message: "Marked as done. No more reminders for this car." };
+  }, (message) => ({ ok: false as const, message }));
 }

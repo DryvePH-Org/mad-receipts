@@ -19,7 +19,7 @@ export interface CarViewData {
   caseType: CaseType; suggestedCase: CaseType; caseSource: "auto" | "manual";
   deal: { id: string; dealNo: string; buyerName: string; hasReceipt: boolean } | null;
   items: { key: string; label: string; stage: "available" | "sold"; present: boolean; fileIds: string[] }[];
-  files: { id: string; name: string; url: string | null; source: string; readStatus: string; readError: string | null; types: string[]; manual: boolean; flags: string[]; duplicateOf: string | null; confidence: number | null }[];
+  files: { id: string; rotation: number; name: string; url: string | null; source: string; readStatus: string; readError: string | null; types: string[]; manual: boolean; flags: string[]; duplicateOf: string | null; confidence: number | null }[];
   scanned: boolean; pending: number; failed: number; statusLabel: string; statusKey: string;
 }
 
@@ -184,6 +184,7 @@ function FileRow({ f, busy, typeLabel, onSave }: { f: CarViewData["files"][numbe
           {f.manual && <Pill tone="purple">Set by a person</Pill>}
         </span>
       </div>
+      {f.readStatus === "done" && <Thumb id={f.id} name={f.name} rotation={f.rotation} />}
       {f.flags.map((x) => <p key={x} className="flex gap-2 rounded-lg bg-amber-50 p-2.5 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200"><CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />{x}</p>)}
       {f.readError && f.readStatus === "failed" && <p className="text-xs text-muted-foreground">{f.readError}</p>}
       {editing ? (
@@ -200,5 +201,26 @@ function FileRow({ f, busy, typeLabel, onSave }: { f: CarViewData["files"][numbe
         </div>
       ) : <button type="button" className="text-xs underline" disabled={busy} onClick={() => { setPicked(f.types.filter((t) => (CHOOSABLE as string[]).includes(t))); setEditing(true); }}>Change what this is</button>}
     </li>
+  );
+}
+
+/** The photo shown upright, however it was taken. Only the view is turned; the file in Drive is never changed. Click to see it larger. */
+function Thumb({ id, name, rotation }: { id: string; name: string; rotation: number }) {
+  const [open, setOpen] = useState(false);
+  const src = `/api/docs/file/${id}`;
+  const turn = rotation ? { transform: `rotate(${rotation}deg)` } : undefined;
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="grid size-24 place-items-center overflow-hidden rounded-lg border bg-muted" aria-label={`View ${name} larger`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt={name} loading="lazy" className="max-h-24 max-w-24 object-contain" style={turn} />
+      </button>
+      <ResponsiveDialog open={open} onOpenChange={setOpen} title={name} description={rotation ? `Turned ${rotation}° to read upright here. The file in Drive is not changed.` : undefined}>
+        <div className="grid max-h-[75svh] place-items-center overflow-auto rounded-lg bg-muted p-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={src} alt={name} className="max-h-[70svh] max-w-full object-contain" style={turn} />
+        </div>
+      </ResponsiveDialog>
+    </>
   );
 }

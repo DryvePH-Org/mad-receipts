@@ -233,3 +233,15 @@ describe("more from the real folders", () => {
     expect(checklist("clean", a.files, noAr).items.map((i) => i.key)).not.toContain("ack");
   });
 });
+
+describe("copies and defects", () => {
+  it("flags a photocopy of an original-only paper, but not a photocopied ID", () => {
+    const a = analyze([file([det("certificate_of_registration", { copy: "photocopy", ownerName: OWNER })]), file([det("government_id", { copy: "photocopy", holderName: OWNER })])], folder, deal);
+    expect(a.files[0].flags.some((f) => /photocopy/.test(f))).toBe(true);
+    expect(a.files[1].flags.some((f) => /photocopy/.test(f))).toBe(false);
+  });
+  it("says what is wrong with a damaged paper", () => {
+    const a = analyze([file([det("official_receipt", { defects: ["torn", "cut off"] })])], folder, deal);
+    expect(a.files[0].flags.join(" ")).toMatch(/torn, cut off/);
+  });
+});

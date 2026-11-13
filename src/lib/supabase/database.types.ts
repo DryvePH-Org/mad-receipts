@@ -45,6 +45,18 @@ export type Database = {
         Update: { plate_no?: string; data?: Json; updated_by?: string | null; updated_at?: string }
         Relationships: []
       }
+      unit_details: {
+        Row: { plate_no: string; data: Json; updated_by: string | null; updated_at: string }
+        Insert: { plate_no: string; data?: Json; updated_by?: string | null; updated_at?: string }
+        Update: { plate_no?: string; data?: Json; updated_by?: string | null; updated_at?: string }
+        Relationships: []
+      }
+      unit_workflow: {
+        Row: { plate_no: string; scan_notified_at: string | null; sold_ready_notified_at: string | null; handoff_checked: string[]; docs_approved_at: string | null; docs_approved_by: string | null; marketing_notified_at: string | null; handoff_at: string | null; handoff_by: string | null; handoff_note: string | null; handoff_last_reminded_at: string | null; handoff_returned_at: string | null; handoff_returned_by: string | null; updated_at: string }
+        Insert: { plate_no: string; scan_notified_at?: string | null; sold_ready_notified_at?: string | null; handoff_checked?: string[]; docs_approved_at?: string | null; docs_approved_by?: string | null; marketing_notified_at?: string | null; handoff_at?: string | null; handoff_by?: string | null; handoff_note?: string | null; handoff_last_reminded_at?: string | null; handoff_returned_at?: string | null; handoff_returned_by?: string | null; updated_at?: string }
+        Update: { plate_no?: string; scan_notified_at?: string | null; sold_ready_notified_at?: string | null; handoff_checked?: string[]; docs_approved_at?: string | null; docs_approved_by?: string | null; marketing_notified_at?: string | null; handoff_at?: string | null; handoff_by?: string | null; handoff_note?: string | null; handoff_last_reminded_at?: string | null; handoff_returned_at?: string | null; handoff_returned_by?: string | null; updated_at?: string }
+        Relationships: []
+      }
       profiles: {
         Row: {
           id: string

@@ -5,10 +5,10 @@ export interface TelegramClient {
   sendMessage(text: string): Promise<void>;
 }
 
-/** Telegram Bot API with plain fetch. Env: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID. */
-export function createTelegramClient(): TelegramClient {
+/** Telegram Bot API with plain fetch. Env: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID (or the given chat, e.g. TELEGRAM_DOCS_CHAT_ID for the documents team). */
+export function createTelegramClient(chat?: string): TelegramClient {
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
+  const chatId = chat || process.env.TELEGRAM_CHAT_ID;
   if (!token || !chatId) throw new Error("Telegram is not configured (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)");
 
   async function call(method: string, body: FormData) {
