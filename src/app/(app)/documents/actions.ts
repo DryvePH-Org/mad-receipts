@@ -3,9 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireModule } from "@/lib/auth";
-import { chooseFolder, defaultDocsDeps, docsErrorText, linkFolder, moveToSold, readPending, refreshFolders, scanFolder, setCase, setFileTypes, type MoveResult, type ReadProgress } from "@/lib/docs/service";
+import { chooseFolder, defaultDocsDeps, docsErrorText, linkFolder, previewCarFolder, type FolderPreview, moveToSold, readPending, refreshFolders, scanFolder, setCase, setFileTypes, type MoveResult, type ReadProgress } from "@/lib/docs/service";
 import { CASES, CHOOSABLE, type CaseType, type DocType } from "@/lib/docs/types";
-import { approveUnit, handoffUnit, returnUnit, saveDetails, setHandoffChecked, type StepResult } from "@/lib/docs/workflow";
+import { inventory } from "@/lib/inventory";
+import { afterReading, approveUnit, handoffUnit, returnUnit, saveDetails, setHandoffChecked, type StepResult } from "@/lib/docs/workflow";
 import { normalizePlate } from "@/lib/rules/plate";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -173,5 +174,31 @@ export async function returnUnitAction(plate: string): Promise<Done> {
     if (!r.ok) return { ok: false as const, message: "error" in r ? r.error : "Could not do that." };
     revalidatePath("/documents", "layout");
     return { ok: true as const, message: "Marked as done. No more reminders for this car." };
+  }, (message) => ({ ok: false as const, message }));
+}
+
+// ---------------- adding documents by plate ----------------
+
+/** What adding documents for this plate would do: an existing folder, or a new one named from the inventory. */
+export async function previewAddAction(plate: string): Promise<FolderPreview> {
+  await requireModule("documents");
+  const p = z.string().min(1).max(20).safeParse(plate);
+  if (!p.success) return { state: "invalid", message: "Type the plate number." };
+  try { return await previewCarFolder(p.data, defaultDocsDeps(), (k) => inventory.getUnit(k)); }
+  catch (err) { return { state: "invalid", message: docsErrorText(err) }; }
+}
+
+/** The batch is in: the staff get one message that the scan is finished. */
+export async function finishAddAction(plate: string): Promise<Done> {
+  await requireModule("documents");
+  const p = plateSchema.safeParse(plate);
+  if (!p.success) return { ok: false, message: "Bad plate." };
+  return guard<Done>(async () => {
+    const key = normalizePlate(p.data);
+    await createAdminClient().from("unit_workflow").update({ scan_notified_at: null }).eq("plate_no", key); // a new batch is announced again
+    await afterReading(key).catch(() => undefined);
+    revalidatePath(`/documents/${key}`);
+    revalidatePath("/documents");
+    return { ok: true as const, message: "Done." };
   }, (message) => ({ ok: false as const, message }));
 }

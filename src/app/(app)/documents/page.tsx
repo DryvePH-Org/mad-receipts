@@ -10,7 +10,7 @@ import { CarsBoard } from "./cars-board";
 export default function DocumentsPage() {
   return (
     <div className="space-y-6">
-      <PageHeader title="Car documents" description="Every car's papers in Drive: what is there, what is missing, and what does not match. Move a car to Sold when its papers are in." actions={<Button variant="outline" nativeButton={false} render={<Link href="/documents/handoff" />}>Documents on handoff</Button>} />
+      <PageHeader title="Car documents" description="Every car's papers in Drive: what is there, what is missing, and what does not match. Move a car to Sold when its papers are in." actions={<div className="flex flex-wrap gap-2"><Button nativeButton={false} render={<Link href="/documents/add" />}>Add documents</Button><Button variant="outline" nativeButton={false} render={<Link href="/documents/handoff" />}>Documents on handoff</Button></div>} />
       <Suspense fallback={<PageSkeleton />}><Content /></Suspense>
     </div>
   );

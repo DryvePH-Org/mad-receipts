@@ -12,8 +12,8 @@
  *  - It never inserts, deletes or reformats rows or cells. It only reads, writes the cells it is
  *    told to write, appends rows, and creates files in the allowed folder.
  *  - The car-documents actions (docs.*) only work inside the two folders named by the
- *    DOC_AVAILABLE_ID and DOC_SOLD_ID script properties. They can list, read previews, add files and
- *    move a car folder from Available to Sold. They never delete or rename anything.
+ *    DOC_AVAILABLE_ID and DOC_SOLD_ID script properties. They can list, read previews, add files, make
+ *    a car folder in Available and move a car folder from Available to Sold. They never delete or rename anything.
  *
  * Setup: see "Google Apps Script bridge" in README.md.
  */
@@ -74,6 +74,10 @@ function handle_(req) {
       return docsUpload_(req);
     case 'docs.preview':
       return docsPreview_(req);
+    case 'docs.createFolder':
+      return withLock_(function () {
+        return docsCreateFolder_(req);
+      });
     case 'docs.move':
       return withLock_(function () {
         return docsMove_(req);
@@ -336,6 +340,27 @@ function docsPreview_(req) {
   });
   if (image.getResponseCode() !== 200) throw httpError_(422, 'Could not get a preview of this file');
   return { mimeType: 'image/jpeg', base64: Utilities.base64Encode(image.getContent()), via: 'preview' };
+}
+
+/**
+ * Makes the car's folder in Available (named like "14 Toyota Vios (AAX-3622)"), or returns the one that already has
+ * that plate in Available or Sold (created: false). The name must end with the plate in brackets.
+ */
+function docsCreateFolder_(req) {
+  var name = String(req.name || '').replace(/[\/\\\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100);
+  var match = /\(([^()]+)\)$/.exec(name);
+  var plate = match ? normPlate_(match[1]) : '';
+  if (plate.length < 5) throw httpError_(400, 'The folder name must end with the plate in brackets, like (AAX-3622)');
+  var found = docsFindFolder_({ plate: plate });
+  if (found.length > 1) throw httpError_(409, 'More than one folder already has this plate');
+  if (found.length === 1) {
+    found[0].created = false;
+    return found[0];
+  }
+  var folder = DriveApp.getFolderById(docRoot_('available')).createFolder(name);
+  var row = folderRow_(folder, 'available');
+  row.created = true;
+  return row;
 }
 
 /** Moves a car folder from Available to Sold. Refuses when Sold already has a folder with that name. */

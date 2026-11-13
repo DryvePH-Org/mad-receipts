@@ -17,6 +17,8 @@ export interface DocsBridge {
   upload(folderId: string, name: string, bytes: Uint8Array, mimeType: string): Promise<{ id: string; url: string }>;
   /** A picture the reader can use: the file, or Google's preview of it (HEIC photos, scanned PDFs). */
   preview(fileId: string, size?: number): Promise<{ mimeType: string; base64: string }>;
+  /** The car folder for this name (it must end with the plate in brackets): the one that already has the plate, or a new one in Available. */
+  createFolder(name: string): Promise<DriveFolder & { created: boolean }>;
   /** Moves the whole car folder from Available to Sold. */
   move(folderId: string): Promise<DriveFolder>;
 }
@@ -35,6 +37,7 @@ export function createAppsScriptDocsBridge(): DocsBridge {
     listFiles: (folderId) => appsScriptCall("docs.listFiles", { folderId }),
     upload: (folderId, name, bytes, mimeType) => appsScriptCall("docs.upload", { folderId, name, mimeType, base64: Buffer.from(bytes).toString("base64") }),
     preview: (fileId, size) => appsScriptCall("docs.preview", { fileId, size }),
+    createFolder: (name) => appsScriptCall<DriveFolder & { created: boolean }>("docs.createFolder", { name }),
     move: (folderId) => appsScriptCall<DriveFolder>("docs.move", { folderId }),
   };
 }
@@ -71,6 +74,16 @@ export function createMockDocsBridge(): DocsBridge {
       const id = `mock-file-${++n}`;
       f.files.push({ id, name, mimeType, size: bytes.length, createdAt: new Date().toISOString(), url: `https://drive.example.test/files/${id}` });
       return { id, url: `https://drive.example.test/files/${id}` };
+    },
+    async createFolder(name) {
+      const plate = plateOfFolderName(name);
+      if (!plate) throw new Error("The folder name must end with the plate in brackets, like (AAX-3622)");
+      const have = folders.filter((f) => normalizePlate(f.name).includes(plate));
+      if (have.length > 1) throw Object.assign(new Error("More than one folder already has this plate"), { code: 409 });
+      if (have.length === 1) { const { files: _f, ...rest } = have[0]; void _f; return { ...rest, created: false }; }
+      add(name, "available");
+      const { files: _f, ...rest } = folders[folders.length - 1]; void _f;
+      return { ...rest, created: true };
     },
     async preview() { return { mimeType: "image/jpeg", base64: PIXEL }; },
     async move(folderId) {

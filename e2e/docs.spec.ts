@@ -152,6 +152,40 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await docs.close(); await sales.close(); await cron.dispose();
 });
 
+test("Documentation adds photos by typing only the plate: the folder is made, the photos are read", async ({ browser }) => {
+  const docs = await as(browser, "docs");
+  await docs.goto("/documents/add");
+  await expect(docs.getByRole("heading", { name: "Add documents" })).toBeVisible();
+  // a plate with no folder: it says a new one will be made
+  await docs.getByLabel("Plate number").fill("zzt 7010");
+  await docs.getByRole("button", { name: "Check" }).click();
+  await expect(docs.getByText("There is no folder for this plate yet")).toBeVisible();
+  // a plate that already has one: the photos are added to it
+  await docs.getByLabel("Plate number").fill("ZZT 7001");
+  await docs.getByRole("button", { name: "Check" }).click();
+  await expect(docs.getByText(/The folder already exists in Available units/)).toBeVisible();
+
+  // one photo through the screen
+  await docs.getByLabel("Plate number").fill("ZZT 7010");
+  await docs.getByRole("button", { name: "Check" }).click();
+  await docs.locator("#add-photos").setInputFiles({ name: "x.jpg", mimeType: "image/jpeg", buffer: JPEG });
+  await expect(docs.getByText("Saved ✓")).toBeVisible({ timeout: 30_000 });
+  await expect(docs.getByText(/The team has been told/)).toBeVisible({ timeout: 30_000 });
+  // and one the stand-in reader knows by its name
+  const res = await docs.request.post("/api/docs/add", { multipart: { plate: "ZZT 7010", label: "cr-or", file: { name: "p.jpg", mimeType: "image/jpeg", buffer: JPEG } } });
+  expect(res.ok()).toBe(true);
+  expect((await res.json()).result.types).toContain("official_receipt");
+  // the car now has its folder and both files
+  await docs.goto("/documents/ZZT7010");
+  await expect(docs.getByText("Checklist")).toBeVisible();
+  await expect(docs.getByText("Official receipt (OR)").first()).toBeVisible();
+
+  const db = adminClient();
+  await db.from("folder_files").delete().eq("plate_no", "ZZT7010");
+  await db.from("unit_folders").delete().eq("plate_no", "ZZT7010");
+  await docs.close();
+});
+
 test("each role sees only its own pages", async ({ browser }) => {
   const docs = await as(browser, "docs");
   for (const path of ["/new", "/approvals", "/settings", "/upload-documents"]) {

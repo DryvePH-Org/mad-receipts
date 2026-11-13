@@ -5,6 +5,8 @@ import type { Json } from "@/lib/supabase/database.types";
 import { GroqError } from "@/lib/voice/groq";
 import { buildCar, detectionsOf, toInput, type Car, type FileRow, type FolderRow } from "./car";
 import { docsBridge, plateOfFolderName, type DocsBridge, type DriveFolder, type Root } from "./bridge";
+import { fullYear } from "@/lib/inventory/year";
+import type { InventoryUnit } from "@/lib/inventory/types";
 import { fakeReading, readDocument, ReaderError, type Reading } from "./reader";
 import { DOC_TYPES, type CaseType, type DocType } from "./types";
 
@@ -77,6 +79,68 @@ export async function linkFolder(plateDisplay: string, dealId: string | null, de
   const { error } = await deps.admin.from("unit_folders").upsert({ ...row, folder_id: null, folder_name: null, folder_url: null, match_status: status, candidates: found.map((f) => ({ id: f.id, name: f.name, url: f.url, root: f.root })) as unknown as Json }, { onConflict: "plate_no" });
   if (error) throw new Error(`Could not save the folder link: ${error.message}`);
   return status;
+}
+
+// ---------------- adding documents by plate (the IN flow) ----------------
+
+export interface CarFolder { plate: string; plateDisplay: string; folderName: string; folderUrl: string | null; location: Root; created: boolean; inInventory: boolean }
+export type FolderPreview =
+  | { state: "invalid"; message: string }
+  | { state: "several"; message: string }
+  | { state: "existing"; plate: string; plateDisplay: string; folderName: string; location: Root; files: number; inInventory: boolean }
+  | { state: "new"; plate: string; plateDisplay: string; folderName: string; inInventory: boolean };
+
+/** "SUZUKI SPRESSO" → "Suzuki Spresso"; short codes (E, MT, GLS) and anything with digits stay as written. */
+const nice = (s: string) => s.trim().split(/\s+/).map((w) => (w.length > 3 && !/\d/.test(w) ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w)).join(" ");
+
+/** The folder name the team uses: "21 Toyota Vios (ABC1234)". The year and the make and type come from the inventory when the plate is there. */
+export function folderNameFor(plateDisplay: string, unit?: Pick<InventoryUnit, "makeType" | "year"> | null): string {
+  const yy = fullYear(unit?.year).slice(-2);
+  const make = (unit?.makeType ?? "").trim().replace(/^(19|20)\d{2}\s+/, "");
+  const head = [/^\d{2}$/.test(yy) ? yy : "", make ? nice(make) : ""].filter(Boolean).join(" ");
+  return `${head ? head + " " : ""}(${plateDisplay})`.slice(0, 100);
+}
+
+export const PLATE_INPUT = /^[A-Z0-9]{5,8}$/;
+const cleanPlateInput = (v: string) => v.toUpperCase().replace(/[^A-Z0-9]/g, "");
+type UnitLookup = (plate: string) => Promise<Pick<InventoryUnit, "makeType" | "year"> | null>;
+const noUnit: UnitLookup = async () => null;
+
+/** What adding documents for this plate would do, without changing anything. */
+export async function previewCarFolder(plateInput: string, deps: DocsDeps = defaultDocsDeps(), unitOf: UnitLookup = noUnit): Promise<FolderPreview> {
+  const plate = cleanPlateInput(plateInput);
+  if (!PLATE_INPUT.test(plate)) return { state: "invalid", message: "Type the whole plate number, like NKF 4771." };
+  const display = plateInput.trim().toUpperCase().replace(/\s+/g, "");
+  const unit = await unitOf(plate).catch(() => null);
+  const { data: row } = await deps.admin.from("unit_folders").select("*").eq("plate_no", plate).maybeSingle();
+  if (row?.match_status === "linked" && row.folder_id) {
+    const { count } = await deps.admin.from("folder_files").select("id", { count: "exact", head: true }).eq("plate_no", plate);
+    return { state: "existing", plate, plateDisplay: row.plate_display, folderName: row.folder_name ?? row.plate_display, location: row.location as Root, files: count ?? 0, inInventory: !!unit };
+  }
+  const found = await deps.bridge.findFolder(plate);
+  if (found.length > 1) return { state: "several", message: "More than one folder in Drive has this plate. Choose the right one in Car documents first." };
+  if (found.length === 1) return { state: "existing", plate, plateDisplay: display, folderName: found[0].name, location: found[0].root, files: 0, inInventory: !!unit };
+  return { state: "new", plate, plateDisplay: display, folderName: folderNameFor(display, unit), inInventory: !!unit };
+}
+
+/**
+ * The car's folder for this plate: the one that exists (linked, and its files listed), or a new one in Available.
+ * Staff only type the plate; the name is built from the inventory.
+ */
+export async function ensureCarFolder(plateInput: string, deps: DocsDeps = defaultDocsDeps(), unitOf: UnitLookup = noUnit): Promise<CarFolder> {
+  const plate = cleanPlateInput(plateInput);
+  if (!PLATE_INPUT.test(plate)) throw new Error("Type the whole plate number, like NKF 4771.");
+  const display = plateInput.trim().toUpperCase().replace(/\s+/g, "");
+  const unit = await unitOf(plate).catch(() => null);
+  const { data: row } = await deps.admin.from("unit_folders").select("*").eq("plate_no", plate).maybeSingle();
+  if (row?.match_status === "linked" && row.folder_id) return { plate, plateDisplay: row.plate_display, folderName: row.folder_name ?? row.plate_display, folderUrl: row.folder_url, location: row.location as Root, created: false, inInventory: !!unit };
+  const found = await deps.bridge.findFolder(plate);
+  if (found.length > 1) throw new Error("More than one folder in Drive has this plate. Choose the right one in Car documents first.");
+  const folder = found.length === 1 ? { ...found[0], created: false } : await deps.bridge.createFolder(folderNameFor(display, unit));
+  const { error } = await deps.admin.from("unit_folders").upsert({ plate_no: plate, plate_display: (row?.plate_display ?? display), ...folderFields(folder), match_status: "linked", candidates: [] }, { onConflict: "plate_no" });
+  if (error) throw new Error(`Could not save the folder link: ${error.message}`);
+  if (!folder.created) await scanFolder(plate, deps).catch(() => undefined); // an existing folder: its files show up too
+  return { plate, plateDisplay: row?.plate_display ?? display, folderName: folder.name, folderUrl: folder.url, location: folder.root, created: folder.created, inInventory: !!unit };
 }
 
 /** Uses one of the several candidate folders (Documentation decides which is right). */

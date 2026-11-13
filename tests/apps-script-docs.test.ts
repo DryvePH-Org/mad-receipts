@@ -40,6 +40,7 @@ const wrapFolder = (f: FolderNode, tree: ReturnType<typeof build>): any => ({ //
   getFoldersByName: (name: string) => iter(f.folders.filter((x) => x.name === name).map((x) => wrapFolder(x, tree))),
   getFiles: () => iter(f.files.map((x) => wrapFile(x, tree))),
   createFile: (blob: { name: string; bytes: number[] }) => { const x: FileNode = { id: `new${f.files.length}`, name: blob.name, mime: "image/jpeg", size: blob.bytes.length, parent: f, bytes: blob.bytes }; f.files.push(x); tree.files.set(x.id, x); return wrapFile(x, tree); },
+  createFolder: (name: string) => { const x: FolderNode = { id: `nf${tree.nodes.size}`, name, parent: f, folders: [], files: [] }; f.folders.push(x); tree.nodes.set(x.id, x); return wrapFolder(x, tree); },
   moveTo: (dest: any) => { f.parent!.folders = f.parent!.folders.filter((x) => x !== f); const d = tree.nodes.get(dest.getId())!; d.folders.push(f); f.parent = d; return wrapFolder(f, tree); }, // eslint-disable-line @typescript-eslint/no-explicit-any
 });
 const wrapFile = (x: FileNode, tree: ReturnType<typeof build>): any => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -82,6 +83,29 @@ function setup(props: Record<string, string> = {}) {
 
 let s: ReturnType<typeof setup>;
 beforeEach(() => { s = setup(); });
+
+describe("making a car folder", () => {
+  it("creates the folder in Available, named with the plate, and says it is new", () => {
+    const r = s.call({ action: "docs.createFolder", name: "21 Toyota Vios (ABC-1234)" });
+    expect(r).toMatchObject({ ok: true, data: { name: "21 Toyota Vios (ABC-1234)", root: "available", created: true } });
+    expect(s.tree.available.folders.map((f) => f.name)).toContain("21 Toyota Vios (ABC-1234)");
+  });
+  it("returns the folder that already has the plate, in Available or in Sold, instead of making another", () => {
+    const a = s.call({ action: "docs.createFolder", name: "14 Toyota Vios (AAX 3622)" });
+    expect(a.data).toMatchObject({ id: s.tree.vios.id, created: false });
+    expect(s.call({ action: "docs.createFolder", name: "Ford Escape (WMO-752)" }).data).toMatchObject({ id: s.tree.escape.id, root: "sold", created: false });
+    expect(s.tree.available.folders).toHaveLength(2);
+  });
+  it("refuses a name without a plate, and several folders with the same plate", () => {
+    expect(s.call({ action: "docs.createFolder", name: "Toyota Vios" })).toMatchObject({ ok: false, code: 400 });
+    expect(s.call({ action: "docs.createFolder", name: "(A1)" })).toMatchObject({ ok: false, code: 400 });
+    s.tree.folder("14 Toyota Vios (AAX 3622) copy", s.tree.available);
+    expect(s.call({ action: "docs.createFolder", name: "Vios (AAX3622)" })).toMatchObject({ ok: false, code: 409 });
+  });
+  it("cleans slashes and line breaks out of the name", () => {
+    expect(s.call({ action: "docs.createFolder", name: "22 Honda/City\n(NBA 1234)" }).data.name).toBe("22 Honda City (NBA 1234)");
+  });
+});
 
 describe("finding and listing", () => {
   it("lists the car folders of Available and of Sold", () => {
