@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { requireModule } from "@/lib/auth";
 import { sheetsFrozen } from "@/lib/google/freeze";
 import { ReplayPanel } from "./replay-panel";
+import { GrokbotPanel } from "./grokbot-panel";
+import { grokbotMissing } from "@/lib/grokbot/client";
 import { formatManilaDateTime } from "@/lib/dates";
 import { param } from "@/lib/search";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -104,6 +106,7 @@ async function SyncContent({ searchParams }: { searchParams: PageProps<"/admin/s
           <b>Google Sheets are frozen.</b> The app is not writing to any sheet right now (the receipts log, the inventory status and the replay). Reading and the dashboards still work. {waiting ? `${waiting} sheet update${waiting === 1 ? " is" : "s are"} waiting and will be sent when the freeze is lifted.` : "Sheet updates will wait here and are not lost."}
         </p>
       )}
+      {me.role === "admin" && <GrokbotPanel missing={grokbotMissing()} />}
       <PageHeader
         title="Sync jobs"
         description={`After a receipt is confirmed, voided or a deal changes, the app updates Drive, the log sheet, Telegram and the inventory sheet. Jobs that fail are retried automatically, up to ${MAX_ATTEMPTS} times.`}

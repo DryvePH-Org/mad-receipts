@@ -39,6 +39,12 @@ export type Database = {
   }
   public: {
     Tables: {
+      grokbot_jobs: {
+        Row: { id: string; action: string; status: string; request: Json; result: Json | null; error: string | null; created_by: string | null; created_at: string; completed_at: string | null }
+        Insert: { id: string; action: string; status?: string; request?: Json; result?: Json | null; error?: string | null; created_by?: string | null; created_at?: string; completed_at?: string | null }
+        Update: { id?: string; action?: string; status?: string; request?: Json; result?: Json | null; error?: string | null; created_by?: string | null; created_at?: string; completed_at?: string | null }
+        Relationships: []
+      }
       transmittals: {
         Row: { plate_no: string; data: Json; updated_by: string | null; updated_at: string }
         Insert: { plate_no: string; data?: Json; updated_by?: string | null; updated_at?: string }

@@ -207,6 +207,14 @@ A failed job retries after 1 min, 5 min, 15 min, then 1 h, and stops after 5 att
 itself is never affected. The receipts log sheet needs two tabs named **Receipts** and **Deals**;
 header rows are written automatically when a tab is empty.
 
+## The grokbot (how the app will touch Google Sheets)
+
+The grokbot is a bot of yours with its own webhook. The app POSTs one JSON job to the webhook (`Authorization: Bearer <GROKBOT_WEBHOOK_SECRET>`); the bot does the work on the sheet and POSTs its answer to `/api/grokbot/callback` with a token that is good for that one job. Jobs and answers are kept in the `grokbot_jobs` table (migration 25). The same pattern as the repairs bot.
+
+Server settings: `GROKBOT_WEBHOOK_URL` and `GROKBOT_WEBHOOK_SECRET` (`BRIDGE_URL` and `BRIDGE_SECRET` also work), `GROKBOT_CALLBACK_SECRET` (any long random string, e.g. `openssl rand -hex 32`; each job's token is derived from it) and `APP_BASE_URL` (`https://invoice.dryveph.io`: where the bot sends its answers, so it only works on the live server, not on a laptop).
+
+Admin → Sync jobs → **Grokbot → Test the connection** sends a `ping` and shows how long the bot took. The text for the bot's saved instructions is `Docs/GROKBOT_MAD_ROUTINE.md`. The bot works in the background, so an answer takes from several seconds to a minute or two: the app saves a copy of the inventory and refreshes it by a job, and sheet updates go through the sync jobs.
+
 ## Google Sheets freeze (on by default)
 
 The app **writes to no Google Sheet** unless `SHEETS_WRITES=on` is set on the server. While frozen: the receipts log, the inventory status (REMARKS) and the Replay are all stopped at the single place every write goes through; the sheet jobs wait as pending (no attempt counted, nothing lost) and are sent once the freeze is lifted; reading (the inventory list, the dashboards) is unaffected. The Sync jobs page shows a banner while it is on. To lift it, set `SHEETS_WRITES=on` in `/opt/mad-receipts/.env` and recreate the container.
