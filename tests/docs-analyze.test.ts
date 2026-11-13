@@ -15,7 +15,7 @@ const OWNER = "LIM, MARIA LEONILA";
 const types = (a: ReturnType<typeof analyze>, i: number) => a.files[i].types;
 
 describe("the paper copy of the acknowledgement of payment", () => {
-  it("counts as the AR when the app has no receipt for the car", () => {
+  it("counts as the AR even when the app has no receipt for the car", () => {
     const a = analyze([file([det("acknowledgement_receipt", { buyerName: "Juan Dela Cruz", documentNumber: "2516" })])], folder, { ...deal, hasReceipt: false });
     expect(types(a, 0)).toEqual(["acknowledgement_receipt"]);
     expect(checklist("clean", a.files, { ...deal, hasReceipt: false }).items.find((i) => i.key === "ack")?.present).toBe(true);
@@ -143,20 +143,20 @@ describe("the checklist", () => {
     const a = analyze(clean, folder, deal);
     const c = checklist("clean", a.files, deal);
     expect(c.items.filter((i) => i.stage === "available").every((i) => i.present)).toBe(true);
-    expect(c.missing.map((m) => m.key)).toEqual(["buyer_id", "deed_to_buyer"]);
+    expect(c.missing.map((m) => m.key)).toEqual(["ack", "buyer_id", "deed_to_buyer"]);
     expect(c.complete).toBe(false);
   });
-  it("complete once the buyer's ID and the signed deed are in and the AR exists", () => {
-    const more = [...clean, file([det("government_id", { holderName: "Juan Dela Cruz" })]), file([det("deed_of_sale", { sellerName: OWNER, buyerName: "Juan Dela Cruz" })])];
+  it("complete once the buyer's ID, the signed deed and the signed AR are uploaded", () => {
+    const more = [...clean, file([det("government_id", { holderName: "Juan Dela Cruz" })]), file([det("deed_of_sale", { sellerName: OWNER, buyerName: "Juan Dela Cruz" })]), file([det("acknowledgement_receipt", { buyerName: "Juan Dela Cruz" })])];
     const a = analyze(more, folder, deal);
     expect(checklist("clean", a.files, deal).complete).toBe(true);
-    expect(checklist("clean", a.files, { ...deal, hasReceipt: false }).missing.map((m) => m.key)).toEqual(["ack"]);
+    expect(checklist("clean", analyze(more.slice(0, -1), folder, deal).files, deal).missing.map((m) => m.key)).toEqual(["ack"]); // the app's own receipt does not count: the signed paper must be uploaded
   });
   it("each case asks for its own papers", () => {
     const a = analyze(clean, folder, deal);
-    expect(checklist("encumbered", a.files, deal).missing.map((m) => m.key)).toEqual(["chattel_cancellation", "promissory_note", "buyer_id", "deed_to_buyer"]);
-    expect(checklist("repo_bank", a.files, deal).missing.map((m) => m.key)).toEqual(["chattel_cancellation", "promissory_note", "secretary_certificate", "secretary_id", "buyer_id", "deed_to_buyer"]);
-    expect(checklist("company", a.files, deal).missing.map((m) => m.key)).toEqual(["representative_id", "secretary_certificate", "secretary_id", "board_resolution", "buyer_id", "deed_to_buyer"]);
+    expect(checklist("encumbered", a.files, deal).missing.map((m) => m.key)).toEqual(["chattel_cancellation", "promissory_note", "ack", "buyer_id", "deed_to_buyer"]);
+    expect(checklist("repo_bank", a.files, deal).missing.map((m) => m.key)).toEqual(["chattel_cancellation", "promissory_note", "secretary_certificate", "secretary_id", "ack", "buyer_id", "deed_to_buyer"]);
+    expect(checklist("company", a.files, deal).missing.map((m) => m.key)).toEqual(["representative_id", "secretary_certificate", "secretary_id", "board_resolution", "ack", "buyer_id", "deed_to_buyer"]);
   });
   it("a duplicate photo does not count twice but the document still counts", () => {
     const a = analyze([file([det("certificate_of_registration", { documentNumber: "1" })]), file([det("certificate_of_registration", { documentNumber: "1" })])], folder, deal);

@@ -56,7 +56,7 @@ export const REQUIRED_BY_CASE: Record<CaseType, DocType[]> = {
   company: ["official_receipt", "certificate_of_registration", "representative_id", "deed_owner_to_dealer", "secretary_certificate", "secretary_id", "board_resolution"],
 };
 
-/** Added for every case when the car is sold. The acknowledgement of payment is the receipt the app already has. */
+/** Added for every case when the car is sold. Sales uploads the signed acknowledgement of payment (the AR) with the buyer's ID and the deed. */
 export const SOLD_EXTRAS: DocType[] = ["buyer_id", "deed_to_buyer"];
 export const ACK_LABEL = "Acknowledgement of payment (the AR)";
 

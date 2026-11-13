@@ -29,7 +29,7 @@ function memo<T>(make: () => T): () => T {
 export function defaultSyncDeps(): SyncDeps {
   return {
     sheets: memo(createSheetsClient), drive: memo(createDriveClient), telegram: memo(createTelegramClient), inventory,
-    config: { driveFolderId: process.env.GOOGLE_DRIVE_FOLDER_ID, logSheetId: process.env.GOOGLE_SHEET_ID },
+    config: { driveFolderId: process.env.GOOGLE_DRIVE_FOLDER_ID, logSheetId: process.env.GOOGLE_SHEET_ID, driveUpload: process.env.SYNC_DRIVE_UPLOAD === "1" }, // off unless SYNC_DRIVE_UPLOAD=1
     docsLink: (plate, dealId) => linkFolder(plate, dealId),
   };
 }

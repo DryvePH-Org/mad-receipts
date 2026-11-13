@@ -74,7 +74,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await expect(docs.getByText("Official receipt (OR)").first()).toBeVisible();
   await expect(docs.getByText("ID of the registered owner").first()).toBeVisible();
   const missingBefore = docs.locator("li", { hasText: "Missing" });
-  await expect(missingBefore).toHaveCount(2); // the buyer's ID and the signed deed: Sales provides them
+  await expect(missingBefore).toHaveCount(3); // the buyer's ID and the signed deed: Sales provides them
 
   // the transmittal receipt: starts from what the folder shows, the staff fill in the rest, save, and print
   await docs.locator("a[href$=\"/transmittal\"]").first().click();
@@ -125,8 +125,8 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await sales.locator("#doc-photos").setInputFiles({ name: "x.jpg", mimeType: "image/jpeg", buffer: JPEG });
   await expect(sales.getByText("Saved ✓")).toBeVisible({ timeout: 30_000 });
   await expect(sales.getByText(/Not recognised\. It is in the folder/)).toBeVisible();
-  // ... and the two papers Sales provides (named so the stand-in reader knows them)
-  for (const label of ["id-ZZT_E2E_Docs_Buyer", "deed-buyer-ZZT_E2E_Docs_Buyer"]) {
+  // ... and the three papers Sales provides (named so the stand-in reader knows them)
+  for (const label of ["id-ZZT_E2E_Docs_Buyer", "deed-buyer-ZZT_E2E_Docs_Buyer", "ar-ZZT_E2E_Docs_Buyer"]) {
     const res = await sales.request.post("/api/docs/upload", { multipart: { plate: "ZZT 7001", label, file: { name: "p.jpg", mimeType: "image/jpeg", buffer: JPEG } } });
     expect(res.ok(), label).toBe(true);
     expect((await res.json()).result.types.length).toBeGreaterThan(0);

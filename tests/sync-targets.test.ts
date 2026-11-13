@@ -50,6 +50,11 @@ describe("drive", () => {
     await syncTargets.drive(context(), d); // run again: nothing is uploaded twice
     expect(uploads).toHaveLength(2);
   });
+  it("files nothing when Drive filing is switched off", async () => {
+    const { d, uploads } = deps();
+    expect(await syncTargets.drive(context(), { ...d, config: { ...d.config, driveUpload: false } })).toBeUndefined();
+    expect(uploads).toEqual([]);
+  });
   it("does nothing when already filed, or for other events", async () => {
     const { d, uploads } = deps();
     await syncTargets.drive(context({ receipt: { drive_file_id: "x" } }), d);

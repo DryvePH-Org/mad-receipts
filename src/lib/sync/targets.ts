@@ -48,7 +48,7 @@ export interface SyncDeps {
   drive: () => DriveClient;
   telegram: () => TelegramClient;
   inventory: InventoryAdapter;
-  config: { driveFolderId?: string; logSheetId?: string };
+  config: { driveFolderId?: string; logSheetId?: string; /** false: the approved AR is not filed in Drive (off for now: Sales uploads the signed AR in the car's folder) */ driveUpload?: boolean };
   /** Finds the car's document folder by plate and links it to the deal. */
   docsLink?: (plate: string, dealId: string) => Promise<unknown>;
 }
@@ -90,6 +90,7 @@ export const syncTargets: Record<SyncTarget, (ctx: SyncContext, deps: SyncDeps) 
   },
 
   async drive(ctx, deps) {
+    if (deps.config.driveUpload === false) return; // switched off: nothing is filed in Drive
     if (ctx.event !== "confirm" || ctx.receipt.drive_file_id) return; // filed once
     const folderId = required(deps.config.driveFolderId, "GOOGLE_DRIVE_FOLDER_ID");
     const drive = deps.drive();

@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { Car } from "./car";
 import { defaultDocsDeps, linkFolder, loadCar } from "./service";
 
-/** What Sales is asked for: the buyer's ID and the signed deed. (The AR is the receipt the app already has.) */
+/** What Sales is asked for: the buyer's ID, the signed deed and the signed AR. */
 export interface SalesView {
   plate: string;
   display: string;

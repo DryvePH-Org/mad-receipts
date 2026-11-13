@@ -135,6 +135,8 @@ export function fakeReading(filename: string, plate: string): Reading {
   if (n.includes("deed-dealer")) detections.push(d("deed_of_sale", { sellerName: "LIM, MARIA LEONILA", buyerName: "Manila Auto Display" }));
   const buyer = /deed-buyer-([^.]+)/.exec(filename);
   if (buyer) detections.push(d("deed_of_sale", { sellerName: "LIM, MARIA LEONILA", buyerName: buyer[1].replace(/_/g, " ") }));
+  const ar = /(^|[^a-z])ar-([^.]+)/.exec(n);
+  if (ar) detections.push(d("acknowledgement_receipt", { buyerName: filename.slice(filename.toLowerCase().indexOf("ar-") + 3).replace(/\.[^.]+$/, "").replace(/_/g, " "), documentNumber: "2516" }));
   if (n.includes("promissory")) detections.push(d("promissory_note"));
   if (n.includes("chattel") || n.includes("rcm")) detections.push(d("chattel_cancellation"));
   if (n.includes("secretary-cert")) detections.push(d("secretary_certificate", { secretaryName: "Ana Reyes", representativeName: "Pedro Santos" }));

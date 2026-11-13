@@ -215,6 +215,7 @@ header rows are written automatically when a tab is empty.
 - **About the car:** the staff fill in spare key, casa maintenance (when, where), battery (when), where it was bought, and for an EV the charger and the card. Blank items are listed when approving; approving anyway is allowed after a confirmation.
 - **Approval:** one button. It marks the documents OK and tells marketing on Telegram.
 - **Handoff** (sold cars only, after moving the folder to Sold): tick each paper, **Handed off to** the receiver named in Settings → Print (the same name as the transmittal's "Received by"), and the car appears under **Documents on handoff**. The daily job `/api/docs/handoff-reminders` (cron line in `deploy/vps-install.sh`) sends one Telegram message every 3 days until **Mark as done** is pressed.
+- **Drive filing of the approved AR is off** (set `SYNC_DRIVE_UPLOAD=1` to turn it back on): Sales uploads the signed AR with the buyer's ID and the deed, and those three make up the sold checklist. The plan, phase by phase, is in `Docs/documents-workflow-plan.md`.
 - Needs migration 24 (`Docs/apply-migration-24.sql`). Until it is applied the page works and saving shows a clear message.
 
 ## Transmittal receipt (handing papers over with a car)
