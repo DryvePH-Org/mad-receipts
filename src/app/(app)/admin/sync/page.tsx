@@ -103,7 +103,7 @@ async function SyncContent({ searchParams }: { searchParams: PageProps<"/admin/s
     <>
       {frozen && (
         <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100">
-          <b>Google Sheets are frozen.</b> The app is not writing to any sheet right now (the receipts log, the inventory status and the replay). Reading and the dashboards still work. {waiting ? `${waiting} sheet update${waiting === 1 ? " is" : "s are"} waiting and will be sent when the freeze is lifted.` : "Sheet updates will wait here and are not lost."}
+          <b>Google Sheets are frozen.</b> The app is not writing to any sheet right now (the receipts log, the inventory status and the replay). Reading and the dashboards still work.{!sheetsFrozen("docs") ? " The Docs Bible edits through the grokbot are allowed." : ""} {waiting ? `${waiting} sheet update${waiting === 1 ? " is" : "s are"} waiting and will be sent when the freeze is lifted.` : "Sheet updates will wait here and are not lost."}
         </p>
       )}
       {me.role === "admin" && <GrokbotPanel missing={grokbotMissing()} />}

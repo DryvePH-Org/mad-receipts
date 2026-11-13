@@ -221,7 +221,7 @@ On a car's page, **Docs Bible sheet** shows at once, from the car's own document
 
 ## Google Sheets freeze (on by default)
 
-The app **writes to no Google Sheet** unless `SHEETS_WRITES=on` is set on the server. While frozen: the receipts log, the inventory status (REMARKS) and the Replay are all stopped at the single place every write goes through; the sheet jobs wait as pending (no attempt counted, nothing lost) and are sent once the freeze is lifted; reading (the inventory list, the dashboards) is unaffected. The Sync jobs page shows a banner while it is on. To lift it, set `SHEETS_WRITES=on` in `/opt/mad-receipts/.env` and recreate the container.
+The app **writes to no Google Sheet** unless `SHEETS_WRITES` is set on the server: `docs` allows only the Docs Bible edits through the grokbot (the receipts log and the inventory status stay frozen), `on` allows everything. While frozen: the receipts log, the inventory status (REMARKS) and the Replay are all stopped at the single place every write goes through; the sheet jobs wait as pending (no attempt counted, nothing lost) and are sent once the freeze is lifted; reading (the inventory list, the dashboards) is unaffected. The Sync jobs page shows a banner while it is on. To lift it, set `SHEETS_WRITES=on` in `/opt/mad-receipts/.env` and recreate the container.
 
 ## The documents workflow: scan, check, approve, hand off
 

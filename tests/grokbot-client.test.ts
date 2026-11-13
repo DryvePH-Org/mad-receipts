@@ -112,4 +112,16 @@ describe("the freeze and the bot", () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     } finally { vi.unstubAllEnvs(); }
   });
+  it("with SHEETS_WRITES=docs, the Docs Bible jobs are sent but other sheet jobs are not", async () => {
+    const { vi } = await import("vitest");
+    vi.stubEnv("SHEETS_WRITES", "docs");
+    try {
+      const m = memoryStore();
+      const fetchMock = vi.fn(async () => new Response("{}"));
+      await expect(sendJob("set_unit_status", {}, { store: m.store, config, fetch: fetchMock as unknown as typeof fetch, ...noWait })).rejects.toThrow(/frozen/);
+      expect(fetchMock).not.toHaveBeenCalled();
+      await expect(sendJob("docs_update", {}, { store: m.store, config, fetch: fetchMock as unknown as typeof fetch, ...noWait }, { timeoutMs: 1 })).rejects.toThrow(/in time/);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally { vi.unstubAllEnvs(); }
+  });
 });

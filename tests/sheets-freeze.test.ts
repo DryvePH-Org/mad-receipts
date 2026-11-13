@@ -13,6 +13,18 @@ describe("the Google Sheets freeze", () => {
     vi.stubEnv("SHEETS_WRITES", "ON");
     expect(sheetsFrozen()).toBe(false);
   });
+  it("has a docs-only setting: the Docs Bible may be written, the receipts log and inventory may not", () => {
+    vi.stubEnv("SHEETS_WRITES", "docs");
+    expect(sheetsFrozen("docs")).toBe(false);
+    expect(sheetsFrozen("app")).toBe(true);
+    expect(() => assertSheetsWritable("app")).toThrow(SheetsFrozenError);
+    expect(() => assertSheetsWritable("docs")).not.toThrow();
+    vi.stubEnv("SHEETS_WRITES", "");
+    expect(sheetsFrozen("docs")).toBe(true);
+    vi.stubEnv("SHEETS_WRITES", "on");
+    expect(sheetsFrozen("docs")).toBe(false);
+    expect(sheetsFrozen("app")).toBe(false);
+  });
   it("stops every write to a sheet before anything is sent, but reading still works", async () => {
     vi.stubEnv("SHEETS_WRITES", "");
     vi.stubEnv("BRIDGE_URL", "https://gateway.example.test/hook");
