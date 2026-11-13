@@ -12,6 +12,8 @@ export async function POST(request: Request) {
   const auth = request.headers.get("authorization") ?? "";
   const bearer = /^bearer\s+/i.test(auth) ? auth.replace(/^bearer\s+/i, "") : "";
   const r = await receiveAnswer(body, bearer, defaultGrokbotDeps());
-  if (r.status === 401) console.warn("[grokbot] callback rejected (not authorized)");
+  const job = (typeof (body as { job_id?: unknown } | null)?.job_id === "string" ? (body as { job_id: string }).job_id : "?").replace(/[^a-z0-9_-]/gi, "").slice(0, 60);
+  // one line per answer (the job id and the status only), so a lost answer can be traced
+  console.info(`[grokbot] callback job=${job} status=${r.status}`);
   return Response.json(r.body, { status: r.status });
 }
