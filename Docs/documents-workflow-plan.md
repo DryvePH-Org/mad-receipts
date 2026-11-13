@@ -39,7 +39,7 @@ Status on 2026-11-13. "Built" means committed in this repository (not yet live u
 
 ### Phase 2: your own bots (next, needs you)
 1. **Separate Telegram bot and webhook for the documents flow.** I add `TELEGRAM_DOCS_BOT_TOKEN` and `TELEGRAM_DOCS_CHAT_ID`; the main bot keeps the receipts messages.
-2. **The grokbot as the Google gateway, replacing Apps Script.** I write `Docs/bridge-contract.md`: every request the app makes (read, update and append a sheet tab; find and upload a file; list folders and files; preview a photo; move a folder), the secret header, and the reply format. You build the bot to match. The app then only needs `BRIDGE_URL` and `BRIDGE_SECRET`.
+2. **The grokbot as the Google gateway, replacing Apps Script.** I write `Docs/bridge-contract.md` (written) and `scripts/bridge-check.mjs` (a read-only checker): every request the app makes (read, update and append a sheet tab; find and upload a file; list folders and files; preview a photo; move a folder), the secret header, and the reply format. You build the bot to match. The app then only needs `BRIDGE_URL` and `BRIDGE_SECRET`.
 3. Switch over on the test copies first, run the replay and check, then retire the Apps Script project.
 - **Needs from you:** the bot names, how the grokbot is called (URL, secret), and which Google account it uses.
 
