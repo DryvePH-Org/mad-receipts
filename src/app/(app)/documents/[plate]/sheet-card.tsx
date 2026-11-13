@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, RefreshCw, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -15,6 +15,8 @@ export interface SheetCardData {
   statuses: { kind: string; status: string; error: string | null; updatedAt: string }[];
   /** built instantly from the car's own documents, without asking the bot */
   preview: SheetPreview | null;
+  /** the bot is busy with this car's row (since when) */
+  working: { action: "check" | "send"; since: string } | null;
 }
 
 const KIND: Record<string, string> = { checklist: "Checklist after approval", submitted: "Handed off (monthly tab)", received: "Documents back (monthly tab)" };
@@ -29,22 +31,25 @@ const when = (iso: string) => new Date(iso).toLocaleString("en-PH", { month: "sh
 export function SheetCard({ data }: { data: SheetCardData }) {
   const router = useRouter();
   const [busy, start] = useTransition();
-  const [preview, setPreview] = useState<SheetPreview | null>(data.preview);
   const [problem, setProblem] = useState<string | null>(null);
-  const [working, setWorking] = useState<"check" | "send" | null>(null);
+  const preview = data.preview;
+  const working = data.working;
 
-  const doCheck = () => start(async () => {
-    setProblem(null); setWorking("check");
-    const r = await checkSheetAction(data.plate);
-    if (r.ok) setPreview(r.preview); else setProblem(r.message);
-    setWorking(null); router.refresh();
+  // The bot takes a minute or two, so the page does not wait for it: while it works, look again every few seconds.
+  useEffect(() => {
+    if (!working) return;
+    const t = setInterval(() => router.refresh(), 4000);
+    return () => clearInterval(t);
+  }, [working, router]);
+
+  const begin = (run: () => Promise<{ ok: boolean; message: string }>) => start(async () => {
+    setProblem(null);
+    const r = await run();
+    if (r.ok) toast.success(r.message); else { setProblem(r.message); toast.error(r.message); }
+    router.refresh();
   });
-  const doSend = () => start(async () => {
-    setWorking("send");
-    const r = await sendSheetAction(data.plate);
-    if (r.ok) toast.success(r.message); else toast.error(r.message);
-    setWorking(null); router.refresh();
-  });
+  const doCheck = () => begin(() => checkSheetAction(data.plate));
+  const doSend = () => begin(() => sendSheetAction(data.plate));
 
   return (
     <Card>
@@ -82,11 +87,11 @@ export function SheetCard({ data }: { data: SheetCardData }) {
         )}
 
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" disabled={busy || !data.configured} onClick={doCheck}>{working === "check" ? <Loader2 className="animate-spin" /> : <RefreshCw />} Check the sheet now</Button>
-          <Button disabled={busy || data.frozen || !data.configured} onClick={doSend}>{working === "send" ? <Loader2 className="animate-spin" /> : <Send />} Send to the sheet now</Button>
+          <Button variant="outline" disabled={busy || !!working || !data.configured} onClick={doCheck}>{working?.action === "check" ? <Loader2 className="animate-spin" /> : <RefreshCw />} Check the sheet now</Button>
+          <Button disabled={busy || !!working || data.frozen || !data.configured} onClick={doSend}>{working?.action === "send" ? <Loader2 className="animate-spin" /> : <Send />} Send to the sheet now</Button>
         </div>
         {!data.configured && <p className="text-muted-foreground">The grokbot or the sheet is not set up on this server yet.</p>}
-        {busy && <p className="text-muted-foreground">Waiting for the bot… this can take a minute or two.</p>}
+        {working && <p role="status" className="text-muted-foreground">{working.action === "send" ? "The bot is updating the sheet…" : "The bot is reading the sheet…"} This takes a minute or two; you can leave this page and come back.</p>}
         {problem && <p role="alert" className="text-destructive">{problem}</p>}
       </CardContent>
     </Card>

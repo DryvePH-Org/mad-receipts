@@ -107,9 +107,31 @@ const save = async (admin: Admin, plate: string, kind: "checklist" | "submitted"
   return admin.from("unit_sheet_sync").upsert({ plate_no: plate, kind, status, detail: merged as Json, error, job_id: jobId, updated_by: actor }, { onConflict: "plate_no,kind" });
 };
 
+export interface Working { action: "check" | "send"; since: string }
+/** A bot job takes a minute or two, so the page does not wait for it: it marks the car as "working" and shows the result when it is in. */
+export const STALE_WORK_MS = 8 * 60_000;
+
+async function currentDetail(admin: Admin, plate: string): Promise<{ status: string; detail: Record<string, unknown>; jobId: string | null } | null> {
+  const { data } = await admin.from("unit_sheet_sync").select("status, detail, job_id").eq("plate_no", plate).eq("kind", "checklist").maybeSingle();
+  return data ? { status: data.status, detail: data.detail && typeof data.detail === "object" && !Array.isArray(data.detail) ? (data.detail as Record<string, unknown>) : {}, jobId: data.job_id } : null;
+}
+
+/** Marks that the bot is working on this car's sheet row. The next record saved for the car (done, failed...) replaces the mark. */
+export async function markWorking(plate: string, action: Working["action"], actor: string | null, admin: Admin = createAdminClient(), now = new Date()): Promise<void> {
+  const key = normalizePlate(plate);
+  const cur = await currentDetail(admin, key);
+  await admin.from("unit_sheet_sync").upsert({ plate_no: key, kind: "checklist", status: cur?.status ?? "previewed", detail: { ...(cur?.detail ?? {}), working: { action, since: now.toISOString() } } as Json, job_id: cur?.jobId ?? null, updated_by: actor }, { onConflict: "plate_no,kind" });
+}
+
+export async function loadWorking(plate: string, admin: Admin = createAdminClient(), now = new Date()): Promise<Working | null> {
+  const w = (await currentDetail(admin, normalizePlate(plate)))?.detail.working as Working | undefined;
+  return w && typeof w.since === "string" && now.getTime() - Date.parse(w.since) < STALE_WORK_MS ? w : null;
+}
+
 const keepSnapshot = async (admin: Admin, plate: string, snapshot: Snapshot, actor: string | null) => {
   const { data } = await admin.from("unit_sheet_sync").select("status, detail, job_id").eq("plate_no", plate).eq("kind", "checklist").maybeSingle();
-  const detail = { ...(data?.detail && typeof data.detail === "object" && !Array.isArray(data.detail) ? (data.detail as Record<string, unknown>) : {}), snapshot };
+  const { working: _working, ...rest } = (data?.detail && typeof data.detail === "object" && !Array.isArray(data.detail) ? (data.detail as Record<string, unknown>) : {}) as Record<string, unknown>; void _working;
+  const detail = { ...rest, snapshot };
   await save(admin, plate, "checklist", data?.status ?? "previewed", detail, null, data?.job_id ?? null, actor);
 };
 
@@ -174,6 +196,19 @@ export async function queueSheetSync(plate: string, kind: "checklist" | "submitt
   if (sheetsFrozen("docs")) { await save(deps.admin, key, kind, "frozen", {}, null, null, actor); return; }
   if (kind === "checklist") await sendBible(key, actor, deps);
   else await sendHandoffToSheet(key, kind, actor, deps);
+}
+
+/** Runs a check in the background and records a failure if it cannot finish (so the card never stays "working"). */
+export async function runCheckInBackground(plate: string, actor: string, deps: BibleDeps = defaultBibleDeps()): Promise<void> {
+  const key = normalizePlate(plate);
+  try { await checkSheet(key, actor, deps); }
+  catch (err) { await save(deps.admin, key, "checklist", "failed", {}, (err instanceof Error ? err.message : "Could not read the sheet.").slice(0, 500), null, actor); }
+}
+
+export async function runSendInBackground(plate: string, actor: string, deps: BibleDeps = defaultBibleDeps()): Promise<void> {
+  const key = normalizePlate(plate);
+  try { await sendBible(key, actor, deps); } // records its own result
+  catch (err) { await save(deps.admin, key, "checklist", "failed", {}, (err instanceof Error ? err.message : "Could not update the sheet.").slice(0, 500), null, actor); }
 }
 
 export async function loadSheetStatus(plate: string, admin: Admin = createAdminClient()): Promise<{ kind: string; status: string; error: string | null; updatedAt: string; detail: unknown }[]> {

@@ -7,8 +7,7 @@ import { requireModule } from "@/lib/auth";
 import { chooseFolder, defaultDocsDeps, docsErrorText, linkFolder, previewCarFolder, type FolderPreview, moveToSold, readPending, refreshFolders, scanFolder, setCase, setFileTypes, type MoveResult, type ReadProgress } from "@/lib/docs/service";
 import { CASES, CHOOSABLE, type CaseType, type DocType } from "@/lib/docs/types";
 import { inventory } from "@/lib/inventory";
-import { checkSheet, queueSheetSync, sendBible } from "@/lib/docs/bible-sync";
-import { toSheetPreview, type SheetPreview } from "@/lib/docs/bible-view";
+import { markWorking, queueSheetSync, runCheckInBackground, runSendInBackground } from "@/lib/docs/bible-sync";
 import { sheetsFrozen } from "@/lib/google/freeze";
 import { afterReading, approveUnit, handoffUnit, returnUnit, saveDetails, setHandoffChecked, type StepResult } from "@/lib/docs/workflow";
 import { normalizePlate } from "@/lib/rules/plate";
@@ -210,27 +209,29 @@ export async function finishAddAction(plate: string): Promise<Done> {
 
 // ---------------- the Docs Bible sheet ----------------
 
-/** Asks the grokbot to read this car's row in the sheet now, and shows the exact comparison. Writes nothing, so it works while Google Sheets are frozen. */
-export async function checkSheetAction(plate: string): Promise<{ ok: true; preview: SheetPreview } | { ok: false; message: string }> {
+/** Starts reading this car's row in the sheet (through the bot) and returns at once: the card shows "working" and then the result. Writes nothing. */
+export async function checkSheetAction(plate: string): Promise<Done> {
   const user = await requireModule("documents");
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { ok: false, message: "Bad plate." };
-  return guard<{ ok: true; preview: SheetPreview } | { ok: false; message: string }>(async () => {
-    const r = await checkSheet(p.data, user.id);
+  return guard<Done>(async () => {
+    await markWorking(p.data, "check", user.id);
+    after(() => runCheckInBackground(p.data, user.id).then(() => undefined, () => undefined));
     revalidatePath(`/documents/${normalizePlate(p.data)}`);
-    return { ok: true as const, preview: toSheetPreview(r) };
+    return { ok: true as const, message: "The bot is reading the sheet. The result appears on this card in a minute or two." };
   }, (message) => ({ ok: false as const, message }));
 }
 
-/** Sends the checklist to the sheet now. Refused while Google Sheets are frozen. */
+/** Starts sending the checklist to the sheet and returns at once. Refused while the Docs Bible is frozen. */
 export async function sendSheetAction(plate: string): Promise<Done> {
   const user = await requireModule("documents");
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { ok: false, message: "Bad plate." };
   if (sheetsFrozen("docs")) return { ok: false, message: "The Docs Bible is frozen: nothing is written to the sheet right now." };
   return guard<Done>(async () => {
-    const r = await sendBible(p.data, user.id);
+    await markWorking(p.data, "send", user.id);
+    after(() => runSendInBackground(p.data, user.id).then(() => undefined, () => undefined));
     revalidatePath(`/documents/${normalizePlate(p.data)}`);
-    return r.ok ? { ok: true as const, message: r.written ? `${r.written} cell${r.written === 1 ? "" : "s"} written in the sheet.` : "The sheet already matches." } : { ok: false as const, message: r.message };
+    return { ok: true as const, message: "The bot is updating the sheet. The result appears on this card in a minute or two." };
   }, (message) => ({ ok: false as const, message }));
 }
