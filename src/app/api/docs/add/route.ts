@@ -1,5 +1,6 @@
 import { getCurrentUser } from "@/lib/auth";
 import { defaultDocsDeps, docsErrorText, ensureCarFolder, uploadPhoto } from "@/lib/docs/service";
+import { readerMode } from "@/lib/docs/bot-scan";
 import { inventory } from "@/lib/inventory";
 
 const MAX_BYTES = 6 * 1024 * 1024;
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
   const deps = { ...defaultDocsDeps(), after: undefined };
   try {
     const folder = await ensureCarFolder(plate, deps, (p) => inventory.getUnit(p));
-    const result = await uploadPhoto({ plate: folder.plate, actor: user.id, bytes: new Uint8Array(await file.arrayBuffer()), mime: file.type, label: String(form.get("label") ?? "").replace(/[^\w-]/g, "").slice(0, 40) || "doc" }, deps);
+    const result = await uploadPhoto({ plate: folder.plate, actor: user.id, bytes: new Uint8Array(await file.arrayBuffer()), mime: file.type, label: String(form.get("label") ?? "").replace(/[^\w-]/g, "").slice(0, 40) || "doc", deferRead: readerMode() === "grokbot" }, deps); // with the grokbot the batch is scanned together when it ends
     console.info(`[docs] add status=${result.readStatus}`);
     return Response.json({ result, folder: { name: folder.folderName, created: folder.created, location: folder.location } });
   } catch (err) {

@@ -7,6 +7,7 @@ import { requireModule } from "@/lib/auth";
 import { chooseFolder, defaultDocsDeps, docsErrorText, linkFolder, previewCarFolder, type FolderPreview, moveToSold, readPending, refreshFolders, scanFolder, setCase, setFileTypes, type MoveResult, type ReadProgress } from "@/lib/docs/service";
 import { CASES, CHOOSABLE, type CaseType, type DocType } from "@/lib/docs/types";
 import { inventory } from "@/lib/inventory";
+import { readerMode, scheduleScan } from "@/lib/docs/bot-scan";
 import { markWorking, queueSheetSync, runCheckInBackground, runSendInBackground } from "@/lib/docs/bible-sync";
 import { sheetsFrozen } from "@/lib/google/freeze";
 import { afterReading, approveUnit, handoffUnit, returnUnit, saveDetails, setHandoffChecked, type StepResult } from "@/lib/docs/workflow";
@@ -200,7 +201,8 @@ export async function finishAddAction(plate: string): Promise<Done> {
   return guard<Done>(async () => {
     const key = normalizePlate(p.data);
     await createAdminClient().from("unit_workflow").update({ scan_notified_at: null }).eq("plate_no", key); // a new batch is announced again
-    await afterReading(key).catch(() => undefined);
+    if (readerMode() === "grokbot") scheduleScan(key, 0); // the bot scans the batch now; the team is told when it has read it
+    else await afterReading(key).catch(() => undefined);
     revalidatePath(`/documents/${key}`);
     revalidatePath("/documents");
     return { ok: true as const, message: "Done." };

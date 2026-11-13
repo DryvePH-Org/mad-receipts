@@ -20,6 +20,8 @@ export interface CarViewData {
   deal: { id: string; dealNo: string; buyerName: string; hasReceipt: boolean } | null;
   items: { key: string; label: string; stage: "available" | "sold"; present: boolean; fileIds: string[] }[];
   files: { id: string; rotation: number; name: string; url: string | null; source: string; readStatus: string; readError: string | null; types: string[]; manual: boolean; flags: string[]; duplicateOf: string | null; confidence: number | null }[];
+  /** the grokbot reads the photos (together, in the background) instead of a picture API */
+  botMode: boolean; scanning: boolean;
   scanned: boolean; pending: number; failed: number; statusLabel: string; statusKey: string;
 }
 
@@ -32,6 +34,12 @@ export function CarView({ data }: { data: CarViewData }) {
   const [moveOpen, setMoveOpen] = useState(false);
   const [moveMissing, setMoveMissing] = useState<string[] | null>(null);
   const asked = useRef(false);
+  // While the bot is scanning, look again every few seconds so the result appears by itself.
+  useEffect(() => {
+    if (!data.scanning) return;
+    const t = setInterval(() => router.refresh(), 4000);
+    return () => clearInterval(t);
+  }, [data.scanning, router]);
   const unchecked = !data.scanned || data.pending > 0; // the list is not final until every photo has been read
 
   // A car whose folder was never listed lists its files the first time it is opened (no AI is used for this).
@@ -44,6 +52,12 @@ export function CarView({ data }: { data: CarViewData }) {
 
   /** Reads the waiting photos two at a time, until none is left or the AI service asks to wait. */
   async function readAll(retryFailed: boolean) {
+    if (data.botMode) { // the bot scans the waiting photos together in the background: start it and let the page follow it
+      const r = await readNextAction(data.plate, retryFailed);
+      if (r.error) toast.error(r.error); else toast.success("The bot is scanning the photos. The result appears here by itself.");
+      router.refresh();
+      return;
+    }
     let total = 0, retry = retryFailed;
     for (let guard = 0; guard < 60; guard++) {
       setReading(total ? `Reading… ${total} done` : "Reading…");
@@ -142,7 +156,7 @@ export function CarView({ data }: { data: CarViewData }) {
             <CardHeader><CardTitle className="flex flex-wrap items-center gap-3">Files in the folder
               <span className="ml-auto flex flex-wrap gap-2">
                 <Button size="sm" variant="outline" disabled={busy || !!reading} onClick={() => run(() => rescanAction(data.plate))}><RefreshCw /> Look for new files</Button>
-                <Button size="sm" disabled={busy || !!reading || (data.pending === 0 && data.failed === 0)} onClick={() => readAll(data.pending === 0)}>{reading ? <Loader2 className="animate-spin" /> : <ScanText />}{reading ?? (data.pending ? `Read ${data.pending} photo${data.pending === 1 ? "" : "s"}` : data.failed ? `Try ${data.failed} again` : "All read")}</Button>
+                <Button size="sm" disabled={busy || !!reading || data.scanning || (data.pending === 0 && data.failed === 0)} onClick={() => readAll(data.pending === 0)}>{reading || data.scanning ? <Loader2 className="animate-spin" /> : <ScanText />}{data.scanning ? "The bot is scanning…" : reading ?? (data.pending ? `${data.botMode ? "Scan" : "Read"} ${data.pending} photo${data.pending === 1 ? "" : "s"}` : data.failed ? `Try ${data.failed} again` : "All read")}</Button>
               </span></CardTitle></CardHeader>
             <CardContent>
               {!data.scanned ? <p className="text-sm text-muted-foreground">Looking at the folder…</p> : data.files.length === 0 ? <p className="text-sm text-muted-foreground">No files in this folder yet.</p> : (

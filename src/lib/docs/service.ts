@@ -224,6 +224,14 @@ export interface ReadProgress { read: number; remaining: number; waitSeconds: nu
 /** Reads up to `limit` waiting (or failed) photos of a car. Stops politely when the AI service asks to wait. */
 export async function readPending(plate: string, limit = 2, deps: DocsDeps = defaultDocsDeps(), opts: { retryFailed?: boolean } = {}): Promise<ReadProgress> {
   const key = normalizePlate(plate);
+  if (process.env.DOCS_READER?.trim().toLowerCase() === "grokbot" && deps.after) {
+    // the grokbot reads a car's photos together, in the background: start it and report what is waiting
+    if (opts.retryFailed) await deps.admin.from("folder_files").update({ read_status: "pending", read_error: null }).eq("plate_no", key).eq("read_status", "failed");
+    const { scheduleScan } = await import("./bot-scan");
+    scheduleScan(key, 0);
+    const { count } = await deps.admin.from("folder_files").select("id", { count: "exact", head: true }).eq("plate_no", key).eq("read_status", "pending");
+    return { read: 0, remaining: count ?? 0, waitSeconds: null, error: null };
+  }
   const statuses = opts.retryFailed ? ["pending", "failed"] : ["pending"];
   const { data: todo } = await deps.admin.from("folder_files").select("*").eq("plate_no", key).in("read_status", statuses).order("created_at").order("filename").limit(limit);
   let read = 0, error: string | null = null, waitSeconds: number | null = null;
@@ -246,7 +254,7 @@ export async function readPending(plate: string, limit = 2, deps: DocsDeps = def
   return { read, remaining: count ?? 0, waitSeconds, error };
 }
 
-async function saveReading(admin: Admin, file: Pick<FileRow, "id">, reading: Reading) {
+export async function saveReading(admin: Admin, file: Pick<FileRow, "id">, reading: Reading) {
   const status = reading.legible ? "done" : "unreadable";
   const best = reading.detections.length ? Math.min(...reading.detections.map((d) => d.confidence)) : null;
   const { error } = await admin.from("folder_files").update({
@@ -262,6 +270,7 @@ async function saveReading(admin: Admin, file: Pick<FileRow, "id">, reading: Rea
  */
 export async function readSomePending(limit = 6, deps: DocsDeps = defaultDocsDeps()): Promise<{ read: number; remaining: number; capped?: boolean }> {
   // The free AI plan has a budget per day. The scheduler uses at most DOCS_DAILY_READS (default 60) photos a day and leaves the rest for people pressing "Read".
+  if (process.env.DOCS_READER?.trim().toLowerCase() === "grokbot") return { read: 0, remaining: 0 }; // the grokbot scans when photos are added or when someone presses Scan, never on a timer
   const cap = Number(process.env.DOCS_DAILY_READS) || 60;
   const since = new Date(); since.setUTCHours(0, 0, 0, 0);
   const { count: today } = await deps.admin.from("folder_files").select("id", { count: "exact", head: true }).gte("read_at", since.toISOString());
@@ -323,7 +332,7 @@ export async function moveToSold(plate: string, actor: string, confirmIncomplete
 export interface UploadResult { fileId: string; filename: string; types: DocType[]; flags: string[]; readStatus: string }
 
 /** One photo from Sales: into the car's Drive folder, then read, and the checklist updates. */
-export async function uploadPhoto(input: { plate: string; actor: string; bytes: Uint8Array; mime: string; label?: string }, deps: DocsDeps = defaultDocsDeps()): Promise<UploadResult> {
+export async function uploadPhoto(input: { plate: string; actor: string; bytes: Uint8Array; mime: string; label?: string; /** leave the photo waiting: the grokbot scans the car's photos together later */ deferRead?: boolean }, deps: DocsDeps = defaultDocsDeps()): Promise<UploadResult> {
   const key = normalizePlate(input.plate);
   const { data: folder } = await deps.admin.from("unit_folders").select("folder_id, match_status").eq("plate_no", key).maybeSingle();
   if (!folder?.folder_id || folder.match_status !== "linked") throw new Error("This car has no document folder linked yet. Ask Documentation to check it.");
@@ -334,7 +343,7 @@ export async function uploadPhoto(input: { plate: string; actor: string; bytes: 
     plate_no: key, drive_file_id: uploaded.id, filename, mime_type: input.mime, size_bytes: input.bytes.length, drive_url: uploaded.url, source: "upload", uploaded_by: input.actor,
   }).select("*").single();
   if (error || !row) throw new Error(`Uploaded, but could not record the file: ${error?.message ?? "unknown"}`);
-  try {
+  if (!input.deferRead) try {
     const reading = await deps.read({ base64: Buffer.from(input.bytes).toString("base64"), mime: input.mime }, filename, key);
     await saveReading(deps.admin, row, reading);
   } catch (err) {

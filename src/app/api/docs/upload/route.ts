@@ -1,3 +1,4 @@
+import { readerMode, scheduleScan } from "@/lib/docs/bot-scan";
 import { loadCar, docsErrorText, uploadPhoto } from "@/lib/docs/service";
 import { lookupForSales, salesViewOf } from "@/lib/docs/sales";
 import { getCurrentUser } from "@/lib/auth";
@@ -23,7 +24,8 @@ export async function POST(request: Request) {
   const found = await lookupForSales(plate).catch((e) => ({ ok: false as const, message: docsErrorText(e) }));
   if (!found.ok) return fail(found.message, 409);
   try {
-    const result = await uploadPhoto({ plate: found.view.plate, actor: user.id, bytes: new Uint8Array(await file.arrayBuffer()), mime: file.type, label: String(form.get("label") ?? "").replace(/[^\w-]+/g, "").slice(0, 20) || undefined });
+    const result = await uploadPhoto({ plate: found.view.plate, actor: user.id, bytes: new Uint8Array(await file.arrayBuffer()), mime: file.type, label: String(form.get("label") ?? "").replace(/[^\w-]+/g, "").slice(0, 20) || undefined, deferRead: readerMode() === "grokbot" });
+    if (readerMode() === "grokbot") scheduleScan(found.view.plate, 25_000); // photos added one by one are scanned together, shortly after the last one
     const car = await loadCar(found.view.plate);
     console.info(`[docs] upload status=${result.readStatus}`);
     return Response.json({ result, view: car ? salesViewOf(car, found.view.buyer, found.view.dealNo) : found.view });

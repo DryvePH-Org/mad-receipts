@@ -4,13 +4,15 @@ import { NextResponse, type NextRequest } from "next/server";
 // These endpoints authenticate inside the route, not with a session: the scheduled jobs with CRON_SECRET, and the grokbot's answers
 // with the token of the job they answer.
 const CRON_PATHS = ["/api/sync/run", "/api/reminders/run", "/api/docs/handoff-reminders", "/api/grokbot/callback"];
+// The grokbot opens a photo with a signed, short-lived link instead of a login.
+const PUBLIC_PREFIXES = ["/api/docs/scan-file/"];
 
 // Refreshes the Supabase session cookie on every request, then:
 // logged out → /login (API routes get 401); logged in on /login → /.
 // This is an optimistic check only; pages and routes still verify the user.
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  if (CRON_PATHS.includes(pathname)) return NextResponse.next();
+  if (CRON_PATHS.includes(pathname) || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) return NextResponse.next();
 
   let response = NextResponse.next({ request });
 

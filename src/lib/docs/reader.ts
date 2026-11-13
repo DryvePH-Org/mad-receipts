@@ -96,6 +96,23 @@ export function mergeRepeats(list: Detection[]): Detection[] {
   return out;
 }
 
+/** An answer (already parsed from JSON) turned into a Reading, or null when it is not a usable answer. Used for the picture models and for the grokbot. */
+export function readingFromReply(raw: unknown): Reading | null {
+  const parsed = Reply.safeParse(raw);
+  if (!parsed.success) return null;
+  const r = parsed.data;
+  return {
+    legible: r.legible,
+    rotation: r.rotation,
+    notes: r.notes,
+    detections: mergeRepeats(r.documents.map((d) => ({
+      type: d.type, confidence: d.confidence, documentNumber: d.document_number, plate: cleanPlate(d.plate), motorNo: d.motor_no, chassisNo: d.chassis_no,
+      copy: d.copy, defects: d.defects.length ? d.defects : null, ownerName: d.owner_name, holderName: d.holder_name, sellerName: d.seller_name, buyerName: d.buyer_name,
+      secretaryName: d.secretary_name, representativeName: d.representative_name, idType: d.id_type,
+    }))),
+  };
+}
+
 /** The model call, injectable so the parsing can be tested without the network. */
 export async function readDocument(
   image: { base64: string; mime: string },
@@ -103,19 +120,8 @@ export async function readDocument(
 ): Promise<Reading> {
   const dataUrl = `data:${image.mime};base64,${image.base64}`;
   for (let attempt = 1; attempt <= 2; attempt++) {
-    const parsed = Reply.safeParse(parse(await call(readerPrompt(), "Which documents does this picture show?", dataUrl)));
-    if (!parsed.success) continue;
-    const r = parsed.data;
-    return {
-      legible: r.legible,
-      rotation: r.rotation,
-      notes: r.notes,
-      detections: mergeRepeats(r.documents.map((d) => ({
-        type: d.type, confidence: d.confidence, documentNumber: d.document_number, plate: cleanPlate(d.plate), motorNo: d.motor_no, chassisNo: d.chassis_no,
-        copy: d.copy, defects: d.defects.length ? d.defects : null, ownerName: d.owner_name, holderName: d.holder_name, sellerName: d.seller_name, buyerName: d.buyer_name,
-        secretaryName: d.secretary_name, representativeName: d.representative_name, idType: d.id_type,
-      }))),
-    };
+    const reading = readingFromReply(parse(await call(readerPrompt(), "Which documents does this picture show?", dataUrl)));
+    if (reading) return reading;
   }
   throw new ReaderError("The picture reader gave an answer that could not be understood.");
 }
