@@ -227,7 +227,7 @@ export async function sendSheetAction(plate: string): Promise<Done> {
   const user = await requireModule("documents");
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { ok: false, message: "Bad plate." };
-  if (sheetsFrozen()) return { ok: false, message: "Google Sheets are frozen: nothing is written to any sheet right now." };
+  if (sheetsFrozen("docs")) return { ok: false, message: "The Docs Bible is frozen: nothing is written to the sheet right now." };
   return guard<Done>(async () => {
     const r = await sendBible(p.data, user.id);
     revalidatePath(`/documents/${normalizePlate(p.data)}`);

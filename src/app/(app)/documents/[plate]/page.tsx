@@ -45,7 +45,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
       <PageHeader title={data.name} description={`Plate ${data.plateDisplay}`} />
       <CarView data={data} />
       {data.match === "linked" && <UnitFlow data={{ plate: data.plate, location: data.location, recipient: settings.print.transmittalReceiver || "the receiver", details: flow.details, detailsMissing: missingDetails(flow.details), approvedAt: flow.workflow.approvedAt, marketingNotifiedAt: flow.workflow.marketingNotifiedAt, handoff: { at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt }, items: data.items.map((i) => ({ key: i.key, label: i.label, present: i.present })) }} />}
-      {data.match === "linked" && <SheetCard data={{ plate: data.plate, frozen: sheetsFrozen(), configured: grokbotMissing().length === 0 && !!process.env.DOCS_BIBLE_SHEET_ID, statuses: sheetStatuses, preview: sheetPreview }} />}
+      {data.match === "linked" && <SheetCard data={{ plate: data.plate, frozen: sheetsFrozen("docs"), configured: grokbotMissing().length === 0 && !!process.env.DOCS_BIBLE_SHEET_ID, statuses: sheetStatuses, preview: sheetPreview }} />}
     </div>
   );
 }

@@ -39,10 +39,10 @@ export async function previewBibleFast(plate: string, deps: Pick<BibleDeps, "adm
   const note = scanNote({ now, carName: input.name, items: input.car.checklist.items.map((i) => ({ label: i.label, present: i.present, stage: i.stage })), flags: input.flags, details: input.details });
   if (snap) {
     const plan = planChanges({ caseType: input.car.caseType, present: input.present, current: snap.values });
-    return { changes: plan.changes, notes: plan.notes, note, frozen: sheetsFrozen(), checkedAt: snap.fetchedAt, row: snap.row };
+    return { changes: plan.changes, notes: plan.notes, note, frozen: sheetsFrozen("docs"), checkedAt: snap.fetchedAt, row: snap.row };
   }
   const wanted = desiredValues({ caseType: input.car.caseType, present: input.present, current: {} });
-  return { changes: (Object.entries(wanted) as [DocsField, string][]).map(([field, after]) => ({ field, before: null, after, mode: "set" as const })), notes: ["The sheet has not been read for this car yet. When you send, the bot compares each cell first and only fills what is blank."], note, frozen: sheetsFrozen(), checkedAt: null, row: null };
+  return { changes: (Object.entries(wanted) as [DocsField, string][]).map(([field, after]) => ({ field, before: null, after, mode: "set" as const })), notes: ["The sheet has not been read for this car yet. When you send, the bot compares each cell first and only fills what is blank."], note, frozen: sheetsFrozen("docs"), checkedAt: null, row: null };
 }
 
 /** Reads the car's row in the sheet through the bot, keeps it, and lists what would change (read only, works while frozen). */
@@ -117,11 +117,11 @@ const keepSnapshot = async (admin: Admin, plate: string, snapshot: Snapshot, act
 export async function previewBible(plate: string, actor: string | null, deps: BibleDeps = defaultBibleDeps(), now = new Date()): Promise<BiblePreview> {
   const key = normalizePlate(plate);
   const [row, input] = await Promise.all([readBibleRow(key, deps, actor), carInput(key, deps.admin)]);
-  if (!row.found) return { row, note: "", changes: [], notes: [row.message ?? (row.matches > 1 ? "More than one row in the sheet has this plate." : "This plate is not in the Docs Bible yet.")], frozen: sheetsFrozen() };
+  if (!row.found) return { row, note: "", changes: [], notes: [row.message ?? (row.matches > 1 ? "More than one row in the sheet has this plate." : "This plate is not in the Docs Bible yet.")], frozen: sheetsFrozen("docs") };
   const plan = planChanges({ caseType: input.car.caseType, present: input.present, current: row.values });
   const note = scanNote({ now, carName: input.name, items: input.car.checklist.items.map((i) => ({ label: i.label, present: i.present, stage: i.stage })), flags: input.flags, details: input.details });
   if (row.found) await keepSnapshot(deps.admin, key, { row: row.row, arrival: row.arrival, values: row.values, monthly: row.monthly, fetchedAt: now.toISOString() }, actor);
-  return { row, ...plan, note, frozen: sheetsFrozen() };
+  return { row, ...plan, note, frozen: sheetsFrozen("docs") };
 }
 
 export type SendResult = { ok: true; written: number; skipped: string[] } | { ok: false; status: "frozen" | "conflict" | "failed"; message: string };
@@ -171,7 +171,7 @@ export async function sendHandoffToSheet(plate: string, event: "submitted" | "re
 /** After the staff approve, hand off or mark done: tell the sheet in the background. While Google Sheets are frozen it only records that the update is waiting. */
 export async function queueSheetSync(plate: string, kind: "checklist" | "submitted" | "received", actor: string, deps: BibleDeps = defaultBibleDeps()): Promise<void> {
   const key = normalizePlate(plate);
-  if (sheetsFrozen()) { await save(deps.admin, key, kind, "frozen", {}, null, null, actor); return; }
+  if (sheetsFrozen("docs")) { await save(deps.admin, key, kind, "frozen", {}, null, null, actor); return; }
   if (kind === "checklist") await sendBible(key, actor, deps);
   else await sendHandoffToSheet(key, kind, actor, deps);
 }
