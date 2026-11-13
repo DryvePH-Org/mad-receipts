@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EMPTY_DETAILS } from "@/lib/docs/details";
+import { toSheetPreview } from "@/lib/docs/bible-view";
 import { desiredValues, phtStamp, planChanges, receivedText, scanNote, submittedText } from "@/lib/docs/bible";
 
 const present = (...t: string[]) => new Set(t);
@@ -81,5 +82,12 @@ describe("the dated notes", () => {
   it("writes the handoff sentences as the sheet already has them", () => {
     expect(submittedText("jep", "2026-09-28")).toBe("SUBMITTED TO JEP 9/28");
     expect(receivedText("Jep", "2026-11-07")).toBe("ORIG DOCS RECEIVED FROM JEP 11/07/2026");
+  });
+});
+
+describe("the sheet plan as the car page shows it", () => {
+  it("uses the sheet's own column names, and keeps 'not read yet' apart from a blank cell", () => {
+    const v = toSheetPreview({ changes: [{ field: "sellers_id", before: null, after: "Yes", mode: "set" }, { field: "remarks_1", before: "", after: "note", mode: "append" }], notes: [], note: "n", frozen: true, row: null, checkedAt: null });
+    expect(v.changes).toEqual([{ header: "SELLER'S ID", before: null, after: "Yes", append: false }, { header: "REMARKS I", before: "", after: "note", append: true }]);
   });
 });

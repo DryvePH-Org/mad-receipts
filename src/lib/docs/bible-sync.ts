@@ -9,7 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
 import { loadCar } from "./service";
 import { loadWorkflow } from "./workflow";
-import { DOCS_FIELDS, planChanges, receivedText, scanNote, submittedText, type Change, type DocsField, type Plan } from "./bible";
+import { desiredValues, DOCS_FIELDS, planChanges, receivedText, scanNote, submittedText, type Change, type DocsField, type Plan } from "./bible";
 
 // Talks to the grokbot about the Docs Bible: read a unit's row, work out what should change, and (when Google Sheets are not frozen) send the changes.
 
@@ -19,6 +19,42 @@ export const defaultBibleDeps = (): BibleDeps => ({ grok: defaultGrokbotDeps(), 
 
 export interface BibleRow { found: boolean; matches: number; row: number | null; arrival: string; values: Partial<Record<DocsField, string>>; monthly: { tab: string; row: number } | null; message: string | null }
 export interface BiblePreview extends Plan { row: BibleRow; note: string; frozen: boolean }
+
+export interface FastPreview {
+  /** before is null when the sheet has not been read yet for this car */
+  changes: { field: DocsField; before: string | null; after: string; mode: "set" | "append" }[];
+  notes: string[]; note: string; frozen: boolean;
+  /** when the app last read this car's row in the sheet, or null */
+  checkedAt: string | null; row: number | null;
+}
+
+/**
+ * The instant preview: built from the car's own documents, with no call to the bot. If the app has read this car's row in the sheet
+ * before, the before-values come from that reading (and its time is shown); otherwise only what will be written is listed.
+ * Nothing is trusted from here: the bot checks every cell again when the changes are sent.
+ */
+export async function previewBibleFast(plate: string, deps: Pick<BibleDeps, "admin"> = { admin: createAdminClient() }, now = new Date()): Promise<FastPreview> {
+  const key = normalizePlate(plate);
+  const [input, snap] = await Promise.all([carInput(key, deps.admin), loadSnapshot(deps.admin, key)]);
+  const note = scanNote({ now, carName: input.name, items: input.car.checklist.items.map((i) => ({ label: i.label, present: i.present, stage: i.stage })), flags: input.flags, details: input.details });
+  if (snap) {
+    const plan = planChanges({ caseType: input.car.caseType, present: input.present, current: snap.values });
+    return { changes: plan.changes, notes: plan.notes, note, frozen: sheetsFrozen(), checkedAt: snap.fetchedAt, row: snap.row };
+  }
+  const wanted = desiredValues({ caseType: input.car.caseType, present: input.present, current: {} });
+  return { changes: (Object.entries(wanted) as [DocsField, string][]).map(([field, after]) => ({ field, before: null, after, mode: "set" as const })), notes: ["The sheet has not been read for this car yet. When you send, the bot compares each cell first and only fills what is blank."], note, frozen: sheetsFrozen(), checkedAt: null, row: null };
+}
+
+/** Reads the car's row in the sheet through the bot, keeps it, and lists what would change (read only, works while frozen). */
+export async function checkSheet(plate: string, actor: string | null, deps: BibleDeps = defaultBibleDeps(), now = new Date()): Promise<FastPreview> {
+  const key = normalizePlate(plate);
+  const row = await readBibleRow(key, deps, actor);
+  const snap: Snapshot = { row: row.row, arrival: row.arrival, values: row.values, monthly: row.monthly, fetchedAt: now.toISOString() };
+  if (row.found) await keepSnapshot(deps.admin, key, snap, actor);
+  const fast = await previewBibleFast(key, deps, now);
+  if (!row.found) return { ...fast, changes: [], checkedAt: null, notes: [row.message ?? (row.matches > 1 ? "More than one row in the sheet has this plate." : "This plate is not in the Docs Bible yet.")] };
+  return fast;
+}
 
 function ready(deps: BibleDeps): string | null {
   const missing = grokbotMissing();
@@ -53,17 +89,38 @@ async function carInput(plate: string, admin: Admin) {
   return { car, present, flags, details, name: car.folder.folder_name ?? car.folder.plate_display };
 }
 
-const save = (admin: Admin, plate: string, kind: "checklist" | "submitted" | "received", status: string, detail: unknown, error: string | null, jobId: string | null, actor: string | null) =>
-  admin.from("unit_sheet_sync").upsert({ plate_no: plate, kind, status, detail: detail as Json, error, job_id: jobId, updated_by: actor }, { onConflict: "plate_no,kind" });
+export interface Snapshot { row: number | null; arrival: string; values: Partial<Record<DocsField, string>>; monthly: { tab: string; row: number } | null; fetchedAt: string }
 
-/** What would be written, without writing anything (works while Google Sheets are frozen). */
+/** The last row the bot read for this plate, kept with the checklist's sync record. */
+async function loadSnapshot(admin: Admin, plate: string): Promise<Snapshot | null> {
+  const { data } = await admin.from("unit_sheet_sync").select("detail").eq("plate_no", plate).eq("kind", "checklist").maybeSingle();
+  const s = data?.detail && typeof data.detail === "object" && !Array.isArray(data.detail) ? (data.detail as Record<string, unknown>).snapshot : null;
+  return s && typeof s === "object" ? (s as Snapshot) : null;
+}
+
+const save = async (admin: Admin, plate: string, kind: "checklist" | "submitted" | "received", status: string, detail: unknown, error: string | null, jobId: string | null, actor: string | null) => {
+  let merged = detail as Record<string, unknown>;
+  if (kind === "checklist" && merged && typeof merged === "object" && !("snapshot" in merged)) {
+    const snap = await loadSnapshot(admin, plate); // what the app last read in the sheet is kept across status changes
+    if (snap) merged = { ...merged, snapshot: snap };
+  }
+  return admin.from("unit_sheet_sync").upsert({ plate_no: plate, kind, status, detail: merged as Json, error, job_id: jobId, updated_by: actor }, { onConflict: "plate_no,kind" });
+};
+
+const keepSnapshot = async (admin: Admin, plate: string, snapshot: Snapshot, actor: string | null) => {
+  const { data } = await admin.from("unit_sheet_sync").select("status, detail, job_id").eq("plate_no", plate).eq("kind", "checklist").maybeSingle();
+  const detail = { ...(data?.detail && typeof data.detail === "object" && !Array.isArray(data.detail) ? (data.detail as Record<string, unknown>) : {}), snapshot };
+  await save(admin, plate, "checklist", data?.status ?? "previewed", detail, null, data?.job_id ?? null, actor);
+};
+
+/** What would be written, after reading the sheet through the bot, without writing anything (works while Google Sheets are frozen). */
 export async function previewBible(plate: string, actor: string | null, deps: BibleDeps = defaultBibleDeps(), now = new Date()): Promise<BiblePreview> {
   const key = normalizePlate(plate);
   const [row, input] = await Promise.all([readBibleRow(key, deps, actor), carInput(key, deps.admin)]);
   if (!row.found) return { row, note: "", changes: [], notes: [row.message ?? (row.matches > 1 ? "More than one row in the sheet has this plate." : "This plate is not in the Docs Bible yet.")], frozen: sheetsFrozen() };
   const plan = planChanges({ caseType: input.car.caseType, present: input.present, current: row.values });
   const note = scanNote({ now, carName: input.name, items: input.car.checklist.items.map((i) => ({ label: i.label, present: i.present, stage: i.stage })), flags: input.flags, details: input.details });
-  await save(deps.admin, key, "checklist", "previewed", { changes: plan.changes, notes: plan.notes }, null, null, actor);
+  if (row.found) await keepSnapshot(deps.admin, key, { row: row.row, arrival: row.arrival, values: row.values, monthly: row.monthly, fetchedAt: now.toISOString() }, actor);
   return { row, ...plan, note, frozen: sheetsFrozen() };
 }
 
@@ -79,7 +136,9 @@ export async function sendBible(plate: string, actor: string, deps: BibleDeps = 
     if (!changes.length) { await save(deps.admin, key, "checklist", "done", { changes: [], note: "nothing to change" }, null, null, actor); return { ok: true, written: 0, skipped: preview.notes }; }
     const { jobId, result } = await sendJob("docs_update", { plate: key, expected_arrival: preview.row.arrival, changes, reason: "Documents approved in the MAD app", actor: actor.slice(0, 8), dry_run: false }, deps.grok, { sheetId: deps.sheetId, timeoutMs: 150_000, createdBy: actor });
     const applied = Array.isArray(result.applied) ? result.applied.length : 0;
-    await save(deps.admin, key, "checklist", "done", { applied: result.applied ?? [], skipped: result.skipped ?? [] }, null, jobId, actor);
+    const after = { ...preview.row.values };
+    for (const c of changes) after[c.field] = c.mode === "append" ? [after[c.field], c.after].filter(Boolean).join("\n\n") : c.after;
+    await save(deps.admin, key, "checklist", "done", { applied: result.applied ?? [], skipped: result.skipped ?? [], snapshot: { row: preview.row.row, arrival: preview.row.arrival, values: after, monthly: preview.row.monthly, fetchedAt: now.toISOString() } }, null, jobId, actor);
     return { ok: true, written: applied, skipped: preview.notes };
   } catch (err) {
     if (err instanceof SheetsFrozenError) { await save(deps.admin, key, "checklist", "frozen", {}, null, null, actor); return { ok: false, status: "frozen", message: err.message }; }

@@ -7,7 +7,8 @@ import { requireModule } from "@/lib/auth";
 import { chooseFolder, defaultDocsDeps, docsErrorText, linkFolder, previewCarFolder, type FolderPreview, moveToSold, readPending, refreshFolders, scanFolder, setCase, setFileTypes, type MoveResult, type ReadProgress } from "@/lib/docs/service";
 import { CASES, CHOOSABLE, type CaseType, type DocType } from "@/lib/docs/types";
 import { inventory } from "@/lib/inventory";
-import { previewBible, queueSheetSync, sendBible } from "@/lib/docs/bible-sync";
+import { checkSheet, queueSheetSync, sendBible } from "@/lib/docs/bible-sync";
+import { toSheetPreview, type SheetPreview } from "@/lib/docs/bible-view";
 import { sheetsFrozen } from "@/lib/google/freeze";
 import { afterReading, approveUnit, handoffUnit, returnUnit, saveDetails, setHandoffChecked, type StepResult } from "@/lib/docs/workflow";
 import { normalizePlate } from "@/lib/rules/plate";
@@ -209,21 +210,15 @@ export async function finishAddAction(plate: string): Promise<Done> {
 
 // ---------------- the Docs Bible sheet ----------------
 
-export interface SheetPreview {
-  found: boolean; message: string | null; row: number | null; frozen: boolean;
-  changes: { header: string; before: string; after: string; append: boolean }[]; notes: string[]; note: string;
-}
-
-/** Asks the grokbot to read the unit's row and shows what would be written. Writes nothing, so it works while Google Sheets are frozen. */
-export async function previewSheetAction(plate: string): Promise<{ ok: true; preview: SheetPreview } | { ok: false; message: string }> {
+/** Asks the grokbot to read this car's row in the sheet now, and shows the exact comparison. Writes nothing, so it works while Google Sheets are frozen. */
+export async function checkSheetAction(plate: string): Promise<{ ok: true; preview: SheetPreview } | { ok: false; message: string }> {
   const user = await requireModule("documents");
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { ok: false, message: "Bad plate." };
   return guard<{ ok: true; preview: SheetPreview } | { ok: false; message: string }>(async () => {
-    const r = await previewBible(p.data, user.id);
-    const { DOCS_FIELDS } = await import("@/lib/docs/bible");
-    return { ok: true as const, preview: { found: r.row.found, message: r.row.message, row: r.row.row, frozen: r.frozen, notes: r.notes, note: r.note,
-      changes: r.changes.map((c) => ({ header: DOCS_FIELDS[c.field].header, before: c.before, after: c.after, append: c.mode === "append" })) } };
+    const r = await checkSheet(p.data, user.id);
+    revalidatePath(`/documents/${normalizePlate(p.data)}`);
+    return { ok: true as const, preview: toSheetPreview(r) };
   }, (message) => ({ ok: false as const, message }));
 }
 
