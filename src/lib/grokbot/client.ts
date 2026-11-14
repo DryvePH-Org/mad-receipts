@@ -58,10 +58,10 @@ export interface SendOptions { timeoutMs?: number; pollMs?: number; createdBy?: 
 export interface Deps { store: JobStore; config: GrokbotConfig | null; fetch?: typeof fetch; rand?: () => string; now?: () => Date; sleep?: (ms: number) => Promise<void> }
 
 /**
- * Sends a job and waits for the bot's answer. Throws a GrokbotError whose message can be shown to staff.
- * A job the bot answers after the wait is still stored, so it is not lost (the caller decides what to do next time).
+ * Sends a job and returns as soon as the bot's webhook has taken it. The answer arrives later at the callback and is kept in the jobs table;
+ * use this for work that takes minutes (the caller reads the answer when it arrives).
  */
-export async function sendJob(action: string, fields: Record<string, unknown>, deps: Deps, options: SendOptions = {}): Promise<{ jobId: string; result: Record<string, unknown> }> {
+export async function startJob(action: string, fields: Record<string, unknown>, deps: Deps, options: SendOptions = {}): Promise<{ jobId: string }> {
   const { store, config } = deps;
   if (!config) throw new GrokbotError("The grokbot is not connected on this server yet.");
   if (!/^[a-z_]{3,40}$/.test(action)) throw new GrokbotError("Bad action name.");
@@ -83,7 +83,16 @@ export async function sendJob(action: string, fields: Record<string, unknown>, d
   }
   if (res.status === 401 || res.status === 403) { await store.complete(jobId, null, false, "The grokbot refused the key."); throw new GrokbotError("The grokbot refused our key. Check GROKBOT_WEBHOOK_SECRET."); }
   if (!res.ok) { await store.complete(jobId, null, false, `The grokbot webhook said ${res.status}.`); throw new GrokbotError(`The grokbot webhook said ${res.status}.`); }
+  return { jobId };
+}
 
+/**
+ * Sends a job and waits for the bot's answer. Throws a GrokbotError whose message can be shown to staff.
+ * A job the bot answers after the wait is still stored, so it is not lost (the caller decides what to do next time).
+ */
+export async function sendJob(action: string, fields: Record<string, unknown>, deps: Deps, options: SendOptions = {}): Promise<{ jobId: string; result: Record<string, unknown> }> {
+  const { jobId } = await startJob(action, fields, deps, options);
+  const { store } = deps;
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const deadline = Date.now() + (options.timeoutMs ?? 120_000), poll = options.pollMs ?? 1500;
   for (;;) {

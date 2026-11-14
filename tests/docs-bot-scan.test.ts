@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { isScanning, readerMode, scheduleScan } from "@/lib/docs/bot-scan";
+import { planScanResults, readerMode, scheduleScan } from "@/lib/docs/bot-scan";
 import { readingFromReply } from "@/lib/docs/reader";
 import { signFileToken, verifyFileToken } from "@/lib/docs/signed-url";
 
@@ -44,18 +44,35 @@ describe("starting a scan", () => {
     scheduleScan("ZZT 9001", 25_000, run);
     await vi.advanceTimersByTimeAsync(10_000);
     scheduleScan("ZZT-9001", 25_000, run); // another photo: the wait starts again
-    expect(isScanning("ZZT9001")).toBe(true);
     await vi.advanceTimersByTimeAsync(24_000);
     expect(run).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(2_000);
     expect(run).toHaveBeenCalledTimes(1);
     expect(run).toHaveBeenCalledWith("ZZT9001");
-    expect(isScanning("ZZT9001")).toBe(false);
   });
   it("is the bot only when DOCS_READER says grokbot", () => {
     vi.stubEnv("DOCS_READER", "");
     expect(readerMode()).toBe("api");
     vi.stubEnv("DOCS_READER", "GrokBot");
     expect(readerMode()).toBe("grokbot");
+  });
+});
+
+describe("matching the bot's answer to the photos that were sent", () => {
+  const item = (id: string, type = "official_receipt") => ({ file_id: id, legible: true, rotation: 0, documents: [{ type, confidence: 0.9 }] });
+  it("reads each photo by its id, whatever the order, and reports the ones the bot did not return", () => {
+    const { readings, missing } = planScanResults(["a", "b", "c"], [item("c", "government_id"), item("a")]);
+    expect([...readings.keys()].sort()).toEqual(["a", "c"]);
+    expect(readings.get("c")!.detections[0].type).toBe("government_id");
+    expect(missing).toEqual(["b"]);
+  });
+  it("treats a broken or empty answer as everything missing", () => {
+    expect(planScanResults(["a"], undefined).missing).toEqual(["a"]);
+    expect(planScanResults(["a"], [null, "x", { file_id: "zzz", documents: [] }]).missing).toEqual(["a"]);
+  });
+  it("a photo the bot could not open is read as unreadable, not as missing", () => {
+    const r = planScanResults(["a"], [{ file_id: "a", legible: false, rotation: 0, documents: [], notes: "could not open the picture" }]);
+    expect(r.readings.get("a")).toMatchObject({ legible: false, detections: [] });
+    expect(r.missing).toEqual([]);
   });
 });

@@ -39,7 +39,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
       const r = car.analysis.files.find((x) => x.id === f.id);
       return { id: f.id, rotation: rotationOf(f.details), name: f.filename, url: f.drive_url, source: f.source, readStatus: f.read_status, readError: f.read_error, types: f.doc_types, manual: f.doc_types_source === "manual", flags: f.flags, duplicateOf: r?.duplicateOf ? car.files.find((x) => x.id === r.duplicateOf)?.filename ?? null : null, confidence: f.confidence };
     }),
-    botMode: readerMode() === "grokbot", scanning: isScanning(car.folder.plate_no),
+    botMode: readerMode() === "grokbot", scanning: await isScanning(car.folder.plate_no),
     scanned: !!car.folder.scanned_at, pending: car.pending, failed: car.files.filter((f) => f.read_status === "failed").length, statusLabel: car.status.label, statusKey: car.status.key,
   };
   return (
