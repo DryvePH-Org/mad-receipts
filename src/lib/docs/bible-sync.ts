@@ -9,7 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
 import { loadCar } from "./service";
 import { loadWorkflow } from "./workflow";
-import { desiredValues, DOCS_FIELDS, noteAlreadyThere, planChanges, receivedText, scanNote, submittedText, type Change, type DocsField, type Plan } from "./bible";
+import { checkHandoffAnswer, checkWriteAnswer, desiredValues, DOCS_FIELDS, noteAlreadyThere, planChanges, receivedText, scanNote, submittedText, type Change, type DocsField, type Plan } from "./bible";
 
 // Talks to the grokbot about the Docs Bible: read a unit's row, work out what should change, and (when Google Sheets are not frozen) send the changes.
 
@@ -157,7 +157,13 @@ export async function sendBible(plate: string, actor: string, deps: BibleDeps = 
     const changes: Change[] = [...preview.changes, ...(preview.note && !noteAlreadyThere(preview.row.values.remarks_1, preview.note) ? [{ field: "remarks_1" as DocsField, before: preview.row.values.remarks_1 ?? "", after: preview.note, mode: "append" as const }] : [])];
     if (!changes.length) { await save(deps.admin, key, "checklist", "done", { changes: [], note: "nothing to change" }, null, null, actor); return { ok: true, written: 0, skipped: preview.notes }; }
     const { jobId, result } = await sendJob("docs_update", { plate: key, expected_arrival: preview.row.arrival, changes, reason: "Documents approved in the MAD app", actor: actor.slice(0, 8), dry_run: false }, deps.grok, { sheetId: deps.sheetId, timeoutMs: 150_000, createdBy: actor });
-    const applied = Array.isArray(result.applied) ? result.applied.length : 0;
+    const check = checkWriteAnswer(changes, result);
+    if (!check.ok) { // do not trust it: the sheet may be half written, so the stored reading is dropped and the person is told to look
+      const message = `The bot's answer could not be trusted (${check.problems.join("; ")}). Open the row in the sheet and press Check the sheet now.`;
+      await save(deps.admin, key, "checklist", "failed", { snapshot: null, problems: check.problems }, message.slice(0, 500), jobId, actor);
+      return { ok: false, status: "failed", message };
+    }
+    const applied = check.written;
     const after = { ...preview.row.values };
     for (const c of changes) after[c.field] = c.mode === "append" ? [after[c.field], c.after].filter(Boolean).join("\n\n") : c.after;
     await save(deps.admin, key, "checklist", "done", { applied: result.applied ?? [], skipped: result.skipped ?? [], snapshot: { row: preview.row.row, arrival: preview.row.arrival, values: after, monthly: preview.row.monthly, fetchedAt: now.toISOString() } }, null, jobId, actor);
@@ -180,8 +186,14 @@ export async function sendHandoffToSheet(plate: string, event: "submitted" | "re
     const receiver = (await getSettings()).print.sheetReceiverName;
     const text = event === "submitted" ? submittedText(receiver, isoDate) : receivedText(receiver, isoDate);
     const { jobId, result } = await sendJob("docs_handoff", { plate: key, event, text, date: isoDate, reason: event === "submitted" ? "Documents handed off in the MAD app" : "Documents returned, marked done in the MAD app", actor: actor.slice(0, 8), dry_run: false }, deps.grok, { sheetId: deps.sheetId, timeoutMs: 150_000, createdBy: actor });
+    const check = checkHandoffAnswer(text, result);
+    if (!check.ok) {
+      const message = `The bot's answer could not be trusted (${check.problems.join("; ")}). Look at the monthly tab in the sheet.`;
+      await save(deps.admin, key, event, "failed", { text, problems: check.problems }, message.slice(0, 500), jobId, actor);
+      return { ok: false, status: "failed", message };
+    }
     await save(deps.admin, key, event, "done", { text, cell: result.cell ?? null, tab: result.tab ?? null }, null, jobId, actor);
-    return { ok: true, written: 1, skipped: [] };
+    return { ok: true, written: check.written, skipped: [] };
   } catch (err) {
     if (err instanceof SheetsFrozenError) { await save(deps.admin, key, event, "frozen", {}, null, null, actor); return { ok: false, status: "frozen", message: err.message }; }
     const message = err instanceof Error ? err.message : "Could not update the sheet.";

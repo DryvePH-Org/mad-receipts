@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { EMPTY_DETAILS } from "@/lib/docs/details";
 import { toSheetPreview } from "@/lib/docs/bible-view";
-import { noteAlreadyThere, desiredValues, phtStamp, planChanges, receivedText, scanNote, submittedText } from "@/lib/docs/bible";
+import { checkHandoffAnswer, checkWriteAnswer, noteAlreadyThere, desiredValues, phtStamp, planChanges, receivedText, scanNote, submittedText } from "@/lib/docs/bible";
 
 const present = (...t: string[]) => new Set(t);
 const CLEAN_PAPERS = ["official_receipt", "certificate_of_registration", "owner_id", "deed_owner_to_dealer"];
@@ -103,5 +103,26 @@ describe("sending the same note again", () => {
     expect(noteAlreadyThere("13 Nov 2026, 5:10 PM PHT\n14 Toyota Vios (AAX-3622)\n✅ Official receipt (OR)\n✅ Board resolution", note)).toBe(false);
     expect(noteAlreadyThere("", note)).toBe(false);
     expect(noteAlreadyThere(undefined, note)).toBe(false);
+  });
+});
+
+describe("not simply believing the bot's answer", () => {
+  const asked = [{ field: "cr" }, { field: "or" }];
+  it("accepts every cell written and read back, or already as wanted, with its CHANGELOG rows", () => {
+    expect(checkWriteAnswer(asked, { applied: [{ field: "cr", cell: "AB1", verified: true }], skipped: [{ field: "or", reason: "already" }], changelog_rows: [1011] })).toMatchObject({ ok: true, written: 1 });
+    expect(checkWriteAnswer(asked, { already: true })).toMatchObject({ ok: true, written: 0 });
+  });
+  it("refuses an answer that leaves out a cell, did not read one back, wrote something unasked, or has no CHANGELOG rows", () => {
+    expect(checkWriteAnswer(asked, { applied: [{ field: "cr", verified: true }], changelog_rows: [1] }).problems.join(" ")).toMatch(/or was not confirmed/);
+    expect(checkWriteAnswer(asked, { applied: [{ field: "cr", verified: false }, { field: "or", verified: true }], changelog_rows: [1, 2] }).problems.join(" ")).toMatch(/cr was written but not read back/);
+    expect(checkWriteAnswer(asked, { applied: [{ field: "cr", verified: true }, { field: "or", verified: true }, { field: "chattel", verified: true }], changelog_rows: [1, 2, 3] }).problems.join(" ")).toMatch(/chattel that was not asked for/);
+    expect(checkWriteAnswer(asked, { applied: [{ field: "cr", verified: true }, { field: "or", verified: true }] }).problems.join(" ")).toMatch(/CHANGELOG/);
+  });
+  it("trusts a handoff entry only when it was read back as exactly the sentence", () => {
+    const text = "SUBMITTED TO JEP 9/28";
+    expect(checkHandoffAnswer(text, { verified: true, text, changelog_rows: [5] }).ok).toBe(true);
+    expect(checkHandoffAnswer(text, { already: true }).ok).toBe(true);
+    expect(checkHandoffAnswer(text, { verified: true, text: "SUBMITTED TO LEO 9/28", changelog_rows: [5] }).ok).toBe(false);
+    expect(checkHandoffAnswer(text, { text, changelog_rows: [5] }).ok).toBe(false);
   });
 });

@@ -119,6 +119,43 @@ export function noteAlreadyThere(existing: string | undefined, note: string): bo
   return !body || (existing ?? "").replace(/\r/g, "").includes(body);
 }
 
+// ---------------- trusting the bot's answer ----------------
+
+export interface WriteCheck { ok: boolean; problems: string[]; written: number }
+
+/**
+ * The bot says what it wrote. The app does not simply believe "ok": every cell it asked for must be accounted for (written and read back
+ * equal, or already as wanted), nothing else may have been written, and the CHANGELOG must have a row for what was written.
+ */
+export function checkWriteAnswer(requested: { field: string }[], result: Record<string, unknown>): WriteCheck {
+  if (result.already === true) return { ok: true, problems: [], written: 0 };
+  const applied = (Array.isArray(result.applied) ? result.applied : []).filter((x): x is Record<string, unknown> => !!x && typeof x === "object");
+  const skipped = (Array.isArray(result.skipped) ? result.skipped : []).filter((x): x is Record<string, unknown> => !!x && typeof x === "object");
+  const problems: string[] = [];
+  const asked = new Set(requested.map((r) => r.field));
+  const done = new Set<string>();
+  for (const a of applied) {
+    const f = String(a.field ?? "");
+    if (!asked.has(f)) problems.push(`it wrote ${f || "a cell"} that was not asked for`);
+    else if (a.verified !== true) problems.push(`${f} was written but not read back as equal`);
+    else done.add(f);
+  }
+  for (const k of skipped) if (k.reason === "already") done.add(String(k.field ?? ""));
+  for (const f of asked) if (!done.has(f) && !problems.some((p) => p.startsWith(f))) problems.push(`${f} was not confirmed`);
+  if (applied.length && !(Array.isArray(result.changelog_rows) && result.changelog_rows.length >= applied.length)) problems.push("the CHANGELOG rows were not confirmed");
+  return { ok: problems.length === 0, problems, written: applied.length };
+}
+
+/** A handoff entry is trusted when the bot read the cell back as exactly the sentence, or says it was already there. */
+export function checkHandoffAnswer(text: string, result: Record<string, unknown>): WriteCheck {
+  if (result.already === true) return { ok: true, problems: [], written: 0 };
+  const problems: string[] = [];
+  if (result.verified !== true) problems.push("the entry was not read back as equal");
+  if (typeof result.text === "string" && result.text.trim() !== text.trim()) problems.push("the bot wrote different words than asked");
+  if (!(Array.isArray(result.changelog_rows) && result.changelog_rows.length >= 1)) problems.push("the CHANGELOG row was not confirmed");
+  return { ok: problems.length === 0, problems, written: problems.length ? 0 : 1 };
+}
+
 // ---------------- handoff sentences (the monthly tabs' UPDATES cells) ----------------
 
 const mdy = (iso: string) => { const [y, m, d] = iso.split("-").map(Number); return { y, m, d }; };
