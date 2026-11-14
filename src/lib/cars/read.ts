@@ -16,6 +16,17 @@ export const carsSheetUrl = () => `https://docs.google.com/spreadsheets/d/${cars
 
 export interface CarsData { cars: CarRow[]; at: number; stale: boolean }
 
+/** The inventory read now, with no keeping (for planning a write: the bot checks the cells again anyway). */
+export async function readCarsNow(): Promise<CarsData> {
+  const id = carsSheetId();
+  if (!id) throw new SheetError("The inventory sheet is not set up on this server (CARS_SHEET_ID).");
+  const text = await fetchText(`https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${encodeURIComponent(carsSheetGid())}`);
+  if (/^\s*<(!doctype|html)/i.test(text)) throw new SheetError('Could not read the inventory tab. Check that the sheet is shared as "Anyone with the link can view".');
+  const cars = parseInventoryRows(parseCsv(text), manilaToday());
+  if (cars.length === 0) throw new SheetError("No cars were found in the inventory tab. Check the tab and its header row.");
+  return { cars, at: Date.now(), stale: false };
+}
+
 export async function loadCars(): Promise<CarsData> {
   "use cache";
   cacheLife({ stale: 30, revalidate: 120, expire: 3600 });

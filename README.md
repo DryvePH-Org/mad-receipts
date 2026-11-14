@@ -215,6 +215,12 @@ Server settings: `GROKBOT_WEBHOOK_URL` and `GROKBOT_WEBHOOK_SECRET` (`BRIDGE_URL
 
 Admin → Sync jobs → **Grokbot → Test the connection** sends a `ping` and shows how long the bot took. The text for the bot's saved instructions is `Docs/GROKBOT_MAD_ROUTINE.md`. The bot works in the background, so an answer takes from several seconds to a minute or two: the app saves a copy of the inventory and refreshes it by a job, and sheet updates go through the sync jobs.
 
+### How reading and writing the sheets are split
+
+**Reading is direct and instant; writing goes through the sheet editor bot.** Everything the app needs to know about a car's row (the Docs Bible's units tab, the pricelist's inventory tab) is read straight from the workbook as plain CSV, which needs the workbook shared "Anyone with the link can view": exact, about a second, no bot job, no waiting in the bot's line. If a workbook is not shared that way, or the read fails, the app falls back to asking the bot (minutes; `SHEET_READ=bot` forces that). Writing always goes through the bot, one job at a time, and the bot checks every cell again just before writing (so a reading a few seconds old can never cause a wrong write). A background step may wait up to 12 minutes for the bot, counting the time in its line; the page never waits for it.
+
+The bot's callbacks come through Cloudflare, which may refuse one now and then with a 403 (the bot repeats its answer, so nothing is lost). To stop that, add a Cloudflare rule (Security, WAF, Custom rules) that skips the bot checks for the paths `/api/grokbot/callback` and `/api/docs/scan-file/`; both are protected by their own one-job tokens.
+
 ### The car page: one stage at a time
 
 Each car in **Car documents** shows a **stage bar** (When the car comes in: Photos in, Scanned, Reviewed, Approved; When it is sold: Sold papers, In Sold, Handoff, Done) and one **Do this next** box with a link to the right section. The page has two columns: on the left the photos (with **What the bot saw** under each: every document found, how sure the bot was, original or photocopy, damage, and the numbers and names it read), the papers needed, About the car, and a **What the scan checks** card that explains which red flags exist and who raises them; on the right the steps in order: Approval, the Sheets (Docs Bible and pricelist), the sold papers with the **Move to Sold** button, and the Handoff.

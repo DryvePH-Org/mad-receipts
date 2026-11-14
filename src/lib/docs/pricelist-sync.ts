@@ -1,10 +1,10 @@
 import "server-only";
-import { loadCars } from "@/lib/cars/read";
+import { loadCars, readCarsNow } from "@/lib/cars/read";
 import { GrokbotError, sendJob } from "@/lib/grokbot/client";
 import { SheetsFrozenError, sheetsFrozen } from "@/lib/google/freeze";
 import { normalizePlate } from "@/lib/rules/plate";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { carInput, saveSyncRecord, type BibleDeps } from "./bible-sync";
+import { BACKGROUND_WAIT_MS, carInput, saveSyncRecord, type BibleDeps } from "./bible-sync";
 import { checkWriteAnswer } from "./bible";
 import { detectionsOf } from "./car";
 import { planPricelist, PRICELIST_FIELDS, type PricelistChange, type PricelistField, type PricelistInput } from "./pricelist";
@@ -40,8 +40,6 @@ export async function previewPricelistFast(plate: string, admin: Admin = createA
   return { changes: plan.changes.map((c) => ({ header: PRICELIST_FIELDS[c.field].header, before: c.before, after: c.after })), notes: plan.notes, found: true };
 }
 
-const asDate = (v: unknown) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
-
 /** Reads the unit's row through the bot (the real cells), plans, and writes only what still applies. */
 export async function sendPricelist(plate: string, actor: string, deps: BibleDeps): Promise<{ ok: true; written: number } | { ok: false; status: "frozen" | "failed"; message: string }> {
   const key = normalizePlate(plate), sheet = pricelistSheetId();
@@ -49,13 +47,12 @@ export async function sendPricelist(plate: string, actor: string, deps: BibleDep
     if (!sheet) throw new GrokbotError("The MAD Pricelist is not set (PRICELIST_SHEET_ID).");
     if (sheetsFrozen("docs")) throw new SheetsFrozenError();
     const facts = await documentFacts(key, deps.admin);
-    const read = await sendJob("inventory_row", { plate: key, tab: pricelistTab() }, deps.grok, { sheetId: sheet, timeoutMs: 110_000, createdBy: actor });
-    if (read.result.found !== true) { const message = typeof read.result.message === "string" ? read.result.message : "This plate is not in the pricelist's inventory tab."; await saveSyncRecord(deps.admin, key, "pricelist", "failed", {}, message.slice(0, 500), read.jobId, actor); return { ok: false, status: "failed", message }; }
-    const v = (read.result.values && typeof read.result.values === "object" ? read.result.values : {}) as Record<string, unknown>;
-    const s = (k: string) => (typeof v[k] === "string" ? (v[k] as string) : "");
-    const plan = planPricelist({ ...facts, current: { docs: s("docs"), orExp: asDate(v.or_exp), spareKey: s("sparekey"), encumbrance: s("encumbrance") } });
-    if (!plan.changes.length) { await saveSyncRecord(deps.admin, key, "pricelist", "done", { changes: [], notes: plan.notes }, null, read.jobId, actor); return { ok: true, written: 0 }; }
-    const { jobId, result } = await sendJob("inventory_update", { plate: key, tab: pricelistTab(), changes: plan.changes, log_sheet_id: deps.sheetId ?? "", reason: "Documents approved in the MAD app", actor: actor.slice(0, 8), dry_run: false }, deps.grok, { sheetId: sheet, timeoutMs: 150_000, createdBy: actor });
+    // the current cells come from the inventory tab read now as plain CSV (exact, about a second); the bot checks every cell again before writing
+    const unit = (await readCarsNow()).cars.find((c) => c.plate === key);
+    if (!unit) { const message = "This plate is not in the pricelist's inventory tab."; await saveSyncRecord(deps.admin, key, "pricelist", "failed", {}, message, null, actor); return { ok: false, status: "failed", message }; }
+    const plan = planPricelist({ ...facts, current: { docs: unit.docsCode, orExp: unit.orExp, spareKey: unit.spareKey, encumbrance: unit.encumbrance } });
+    if (!plan.changes.length) { await saveSyncRecord(deps.admin, key, "pricelist", "done", { changes: [], notes: plan.notes }, null, null, actor); return { ok: true, written: 0 }; }
+    const { jobId, result } = await sendJob("inventory_update", { plate: key, tab: pricelistTab(), changes: plan.changes, log_sheet_id: deps.sheetId ?? "", reason: "Documents approved in the MAD app", actor: actor.slice(0, 8), dry_run: false }, deps.grok, { sheetId: sheet, timeoutMs: BACKGROUND_WAIT_MS, createdBy: actor });
     const check = checkWriteAnswer(plan.changes.map((c: PricelistChange) => ({ field: c.field as PricelistField })), result);
     if (!check.ok) { const message = `The bot's answer could not be trusted (${check.problems.join("; ")}). Open the row in the pricelist and check it.`; await saveSyncRecord(deps.admin, key, "pricelist", "failed", { problems: check.problems }, message.slice(0, 500), jobId, actor); return { ok: false, status: "failed", message }; }
     await saveSyncRecord(deps.admin, key, "pricelist", "done", { applied: result.applied ?? [], notes: plan.notes }, null, jobId, actor);

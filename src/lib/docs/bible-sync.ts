@@ -9,6 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
 import { loadCar } from "./service";
 import { loadWorkflow } from "./workflow";
+import { readBibleRowFast } from "./bible-read";
 import { checkHandoffAnswer, checkWriteAnswer, desiredValues, DOCS_FIELDS, noteAlreadyThere, planChanges, receivedText, scanNote, submittedText, type Change, type DocsField, type Plan } from "./bible";
 
 // Talks to the grokbot about the Docs Bible: read a unit's row, work out what should change, and (when Google Sheets are not frozen) send the changes.
@@ -66,11 +67,23 @@ function ready(deps: BibleDeps): string | null {
   return null;
 }
 
-/** Asks the grokbot for this unit's row in DOCS 2026 (read only). */
+/** How long a background step may wait for the bot, counting the time in its line (the page never waits for it). */
+export const BACKGROUND_WAIT_MS = 12 * 60_000;
+
+/**
+ * This unit's row in the units tab. Read straight from the workbook as plain CSV when it is shared by link (exact, about a second, no bot);
+ * otherwise (or when that fails) by asking the grokbot, which takes minutes. Writes always go through the bot, which checks each cell again.
+ */
 export async function readBibleRow(plate: string, deps: BibleDeps = defaultBibleDeps(), createdBy: string | null = null): Promise<BibleRow> {
+  if (deps.sheetId && process.env.SHEET_READ !== "bot") {
+    try {
+      const r = await readBibleRowFast(plate, deps.sheetId, docsTabs().docs);
+      return { found: r.found, matches: r.matches, row: r.row, arrival: r.arrival, values: r.values, monthly: null, message: r.found ? null : "plate not in the units tab" };
+    } catch (e) { console.info(`[docs] direct read failed, asking the bot: ${e instanceof Error ? e.message.slice(0, 80) : "unknown"}`); }
+  }
   const problem = ready(deps);
   if (problem) throw new GrokbotError(problem);
-  const { result } = await sendJob("docs_row", { plate: normalizePlate(plate), tabs: docsTabs() }, deps.grok, { sheetId: deps.sheetId, timeoutMs: 110_000, createdBy });
+  const { result } = await sendJob("docs_row", { plate: normalizePlate(plate), tabs: docsTabs() }, deps.grok, { sheetId: deps.sheetId, timeoutMs: BACKGROUND_WAIT_MS, createdBy });
   const values = result.values && typeof result.values === "object" ? (result.values as Record<string, unknown>) : {};
   const clean: Partial<Record<DocsField, string>> = {};
   for (const k of Object.keys(DOCS_FIELDS) as DocsField[]) if (typeof values[k] === "string") clean[k] = values[k] as string;
@@ -113,7 +126,7 @@ const save = async (admin: Admin, plate: string, kind: SyncKind, status: string,
 
 export interface Working { action: "check" | "send"; since: string }
 /** A bot job takes a minute or two, so the page does not wait for it: it marks the car as "working" and shows the result when it is in. */
-export const STALE_WORK_MS = 8 * 60_000;
+export const STALE_WORK_MS = 25 * 60_000;
 
 async function currentDetail(admin: Admin, plate: string): Promise<{ status: string; detail: Record<string, unknown>; jobId: string | null } | null> {
   const { data } = await admin.from("unit_sheet_sync").select("status, detail, job_id").eq("plate_no", plate).eq("kind", "checklist").maybeSingle();
@@ -160,7 +173,7 @@ export async function sendBible(plate: string, actor: string, deps: BibleDeps = 
     if (!preview.row.found) return { ok: false, status: "failed", message: preview.notes[0] ?? "Not found in the sheet." };
     const changes: Change[] = [...preview.changes, ...(preview.note && !noteAlreadyThere(preview.row.values.remarks_1, preview.note) ? [{ field: "remarks_1" as DocsField, before: preview.row.values.remarks_1 ?? "", after: preview.note, mode: "append" as const }] : [])];
     if (!changes.length) { await save(deps.admin, key, "checklist", "done", { changes: [], note: "nothing to change" }, null, null, actor); return { ok: true, written: 0, skipped: preview.notes }; }
-    const { jobId, result } = await sendJob("docs_update", { plate: key, tabs: docsTabs(), expected_arrival: preview.row.arrival, changes, reason: "Documents approved in the MAD app", actor: actor.slice(0, 8), dry_run: false }, deps.grok, { sheetId: deps.sheetId, timeoutMs: 150_000, createdBy: actor });
+    const { jobId, result } = await sendJob("docs_update", { plate: key, tabs: docsTabs(), expected_arrival: preview.row.arrival, changes, reason: "Documents approved in the MAD app", actor: actor.slice(0, 8), dry_run: false }, deps.grok, { sheetId: deps.sheetId, timeoutMs: BACKGROUND_WAIT_MS, createdBy: actor });
     const check = checkWriteAnswer(changes, result);
     if (!check.ok) { // do not trust it: the sheet may be half written, so the stored reading is dropped and the person is told to look
       const message = `The bot's answer could not be trusted (${check.problems.join("; ")}). Open the row in the sheet and press Check the sheet now.`;
@@ -189,7 +202,7 @@ export async function sendHandoffToSheet(plate: string, event: "submitted" | "re
     if (problem) throw new GrokbotError(problem);
     const receiver = (await getSettings()).print.sheetReceiverName;
     const text = event === "submitted" ? submittedText(receiver, isoDate) : receivedText(receiver, isoDate);
-    const { jobId, result } = await sendJob("docs_handoff", { plate: key, tabs: docsTabs(), event, text, date: isoDate, reason: event === "submitted" ? "Documents handed off in the MAD app" : "Documents returned, marked done in the MAD app", actor: actor.slice(0, 8), dry_run: false }, deps.grok, { sheetId: deps.sheetId, timeoutMs: 150_000, createdBy: actor });
+    const { jobId, result } = await sendJob("docs_handoff", { plate: key, tabs: docsTabs(), event, text, date: isoDate, reason: event === "submitted" ? "Documents handed off in the MAD app" : "Documents returned, marked done in the MAD app", actor: actor.slice(0, 8), dry_run: false }, deps.grok, { sheetId: deps.sheetId, timeoutMs: BACKGROUND_WAIT_MS, createdBy: actor });
     const check = checkHandoffAnswer(text, result);
     if (!check.ok) {
       const message = `The bot's answer could not be trusted (${check.problems.join("; ")}). Look at the monthly tab in the sheet.`;
