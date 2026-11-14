@@ -22,6 +22,8 @@ export interface CarViewData {
   files: { id: string; rotation: number; name: string; url: string | null; source: string; readStatus: string; readError: string | null; types: string[]; manual: boolean; flags: string[]; duplicateOf: string | null; confidence: number | null }[];
   /** the grokbot reads the photos (together, in the background) instead of a picture API */
   botMode: boolean; scanning: boolean;
+  /** what the bots are doing or waiting to do for this car, with the place in line */
+  botWork: { label: string; waiting: boolean }[];
   scanned: boolean; pending: number; failed: number; statusLabel: string; statusKey: string;
 }
 
@@ -36,10 +38,10 @@ export function CarView({ data }: { data: CarViewData }) {
   const asked = useRef(false);
   // While the bot is scanning, look again every few seconds so the result appears by itself.
   useEffect(() => {
-    if (!data.scanning) return;
+    if (!data.scanning && data.botWork.length === 0) return;
     const t = setInterval(() => router.refresh(), 4000);
     return () => clearInterval(t);
-  }, [data.scanning, router]);
+  }, [data.scanning, data.botWork.length, router]);
   const unchecked = !data.scanned || data.pending > 0; // the list is not final until every photo has been read
 
   // A car whose folder was never listed lists its files the first time it is opened (no AI is used for this).
@@ -106,6 +108,12 @@ export function CarView({ data }: { data: CarViewData }) {
           {data.match === "linked" && data.location === "available" && <Button disabled={busy} onClick={openMove}><FolderInput /> Move to Sold</Button>}
         </div>
       </div>
+
+      {data.botWork.length > 0 && (
+        <ul className="space-y-1 rounded-lg bg-blue-50 p-3 text-sm text-blue-950 dark:bg-blue-500/10 dark:text-blue-100" role="status" aria-live="polite">
+          {data.botWork.map((w) => <li key={w.label} className="flex items-center gap-2"><Loader2 className={`size-4 shrink-0 ${w.waiting ? "" : "animate-spin"}`} aria-hidden />{w.label}</li>)}
+        </ul>
+      )}
 
       {data.match !== "linked" && (
         <Card>

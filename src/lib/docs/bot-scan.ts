@@ -14,7 +14,7 @@ export const readerMode = (): "grokbot" | "api" => (process.env.DOCS_READER?.tri
 
 /** Photos per bot job. */
 export const SCAN_BATCH = 6;
-/** A scan job the bot has not answered after this long no longer counts as running (its photos can be scanned again). */
+/** Scan jobs older than this no longer count as running (the queue gives up unanswered ones itself). */
 export const SCAN_STALE_MS = 15 * 60_000;
 /** The most bot jobs started for one car in an hour, so a loop can never run away. */
 const MAX_JOBS_PER_HOUR = 12;
@@ -25,6 +25,7 @@ export function defaultScanDeps(): ScanDeps {
   return { docs: defaultDocsDeps(), grok: defaultGrokbotDeps(), baseUrl: cfg?.callbackBase ?? "", secret: cfg?.callbackSecret ?? "" };
 }
 
+// The links last 90 minutes: a scan may wait in the queue before the bot gets to it.
 // Photos added one by one are grouped: a scan starts shortly after the LAST one (this server process).
 const g = globalThis as unknown as { __madScanTimers?: Map<string, ReturnType<typeof setTimeout>> };
 const timers = () => (g.__madScanTimers ??= new Map());
@@ -33,7 +34,7 @@ const timers = () => (g.__madScanTimers ??= new Map());
 export async function isScanning(plate: string, admin: DocsDeps["admin"] = defaultDocsDeps().admin, now = Date.now()): Promise<boolean> {
   const key = normalizePlate(plate);
   if (timers().has(key)) return true;
-  const { count } = await admin.from("grokbot_jobs").select("id", { count: "exact", head: true }).eq("action", "docs_scan").eq("status", "sent").eq("request->>plate", key).gte("created_at", new Date(now - SCAN_STALE_MS).toISOString());
+  const { count } = await admin.from("grokbot_jobs").select("id", { count: "exact", head: true }).eq("action", "docs_scan").in("status", ["queued", "sent"]).eq("plate_no", key).gte("created_at", new Date(now - SCAN_STALE_MS - 3_600_000).toISOString());
   return (count ?? 0) > 0;
 }
 
@@ -43,13 +44,13 @@ export async function startBotScan(plate: string, deps: ScanDeps = defaultScanDe
   if (!deps.baseUrl || !deps.secret) return { started: false, sent: 0, message: "The grokbot is not set up on this server." };
   if (await isScanning(key, deps.docs.admin, now)) return { started: false, sent: 0, message: "A scan of this car is already running." };
   const since = new Date(now - 3_600_000).toISOString();
-  const { count: recent } = await deps.docs.admin.from("grokbot_jobs").select("id", { count: "exact", head: true }).eq("action", "docs_scan").eq("request->>plate", key).gte("created_at", since);
+  const { count: recent } = await deps.docs.admin.from("grokbot_jobs").select("id", { count: "exact", head: true }).eq("action", "docs_scan").eq("plate_no", key).gte("created_at", since);
   if ((recent ?? 0) >= MAX_JOBS_PER_HOUR) return { started: false, sent: 0, message: "Too many scans for this car in the last hour." };
   const { data: todo } = await deps.docs.admin.from("folder_files").select("id, filename").eq("plate_no", key).eq("read_status", "pending").order("created_at").order("filename").limit(SCAN_BATCH);
   if (!todo?.length) return { started: false, sent: 0, message: null };
-  const files = todo.map((f) => ({ file_id: f.id, name: f.filename, url: `${deps.baseUrl}/api/docs/scan-file/${signFileToken(f.id, deps.secret, now)}` }));
+  const files = todo.map((f) => ({ file_id: f.id, name: f.filename, url: `${deps.baseUrl}/api/docs/scan-file/${signFileToken(f.id, deps.secret, now, 90)}` }));
   try {
-    await startJob("docs_scan", { plate: key, files }, deps.grok);
+    await startJob("docs_scan", { plate: key, files }, deps.grok, { plate: key });
     return { started: true, sent: files.length, message: null };
   } catch (err) {
     const message = err instanceof GrokbotError || err instanceof Error ? err.message : "The bot could not start.";

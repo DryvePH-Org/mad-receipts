@@ -1,19 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { grokbotConfig, grokbotMissing, GrokbotError, receiveAnswer, sendJob, tokenFor, tokenMatches, type GrokbotConfig, type JobRow, type JobStore } from "@/lib/grokbot/client";
+import { botOf, dispatch, enqueueJob, grokbotConfig, grokbotMissing, GrokbotError, lineOf, priorityOf, receiveAnswer, sendJob, tokenFor, tokenMatches, type BotName, type GrokbotConfig, type JobRow, type JobStore } from "@/lib/grokbot/client";
 
 const config: GrokbotConfig = { webhookUrl: "https://bot.example.test/hook", webhookSecret: "bot-key", callbackSecret: "cb-secret", callbackBase: "https://app.example.test" };
 
 function memoryStore() {
-  const rows = new Map<string, JobRow & { request: unknown }>();
+  type Row = JobRow & { request: unknown; bot: BotName; priority: number; plate: string | null; created: number; started: number | null };
+  const rows = new Map<string, Row>();
+  let tick = 0;
   const store: JobStore = {
-    async create(j) { rows.set(j.id, { id: j.id, action: j.action, status: "sent", result: null, error: null, request: j.request }); },
+    async create(j) { rows.set(j.id, { id: j.id, action: j.action, status: "queued", result: null, error: null, request: j.request, bot: j.bot, priority: j.priority, plate: j.plate, created: ++tick, started: null }); },
     async get(id) { return rows.get(id) ?? null; },
     async complete(id, result, ok, error) {
       const r = rows.get(id);
       if (!r) return "unknown";
-      if (r.status !== "sent") return "already";
+      if (r.status === "done" || r.status === "failed") return "already";
       Object.assign(r, { status: ok ? "done" : "failed", result, error });
       return "stored";
+    },
+    async claim(bot, limit) {
+      const waiting = [...rows.values()].filter((r) => r.bot === bot && r.status === "queued").sort((a, b) => b.priority - a.priority || a.created - b.created).slice(0, limit);
+      for (const r of waiting) { r.status = "sent"; r.started = Date.now(); }
+      return waiting.map((r) => ({ id: r.id, action: r.action, bot: r.bot, priority: r.priority, request: r.request as Record<string, unknown> }));
+    },
+    async running(bot, since) { return [...rows.values()].filter((r) => r.bot === bot && r.status === "sent" && (r.started ?? 0) >= since.getTime()).length; },
+    async expire(bot, before) {
+      const old = [...rows.values()].filter((r) => r.bot === bot && r.status === "sent" && (r.started ?? 0) < before.getTime());
+      for (const r of old) Object.assign(r, { status: "failed", error: "The bot did not answer in time." });
+      return old.map((r) => r.id);
     },
   };
   return { store, rows };
@@ -85,7 +98,7 @@ describe("sending a job", () => {
 describe("receiving an answer", () => {
   it("refuses a wrong token, an unknown job and a second answer", async () => {
     const m = memoryStore();
-    await m.store.create({ id: "ping-0123456789", action: "ping", request: {}, createdBy: null });
+    await m.store.create({ id: "ping-0123456789", action: "ping", bot: "sheet", priority: 8, plate: null, request: {}, createdBy: null });
     const good = tokenFor("cb-secret", "ping-0123456789");
     expect((await receiveAnswer({ ok: true, job_id: "ping-0123456789" }, "nope", { store: m.store, config })).status).toBe(401);
     expect((await receiveAnswer({ ok: true }, good, { store: m.store, config })).status).toBe(401);
@@ -123,5 +136,77 @@ describe("the freeze and the bot", () => {
       await expect(sendJob("docs_update", {}, { store: m.store, config, fetch: fetchMock as unknown as typeof fetch, ...noWait }, { timeoutMs: 1 })).rejects.toThrow(/in time/);
       expect(fetchMock).toHaveBeenCalledTimes(1);
     } finally { vi.unstubAllEnvs(); }
+  });
+});
+
+describe("the queue and the two bots", () => {
+  const withScan: GrokbotConfig = { ...config, scan: { webhookUrl: "https://scanner.example.test/hook", webhookSecret: "scan-key" } };
+  const recorder = () => { const calls: { url: string; auth: string; body: Record<string, unknown> }[] = []; const fetchMock = (async (url: string, init: RequestInit) => { calls.push({ url, auth: (init.headers as Record<string, string>).Authorization, body: JSON.parse(String(init.body)) }); return new Response("{}"); }) as unknown as typeof fetch; return { calls, fetchMock }; };
+
+  it("sends photos to the scanner and everything else to the sheet bot, each with its own key", async () => {
+    const m = memoryStore(), { calls, fetchMock } = recorder();
+    const deps = { store: m.store, config: withScan, fetch: fetchMock, ...noWait };
+    await enqueueJob("docs_scan", { plate: "NBU4875", files: [] }, deps);
+    await enqueueJob("docs_row", { plate: "NBU4875" }, deps);
+    expect(calls.map((c) => [c.url, c.auth])).toEqual([["https://scanner.example.test/hook", "Bearer scan-key"], ["https://bot.example.test/hook", "Bearer bot-key"]]);
+    expect(botOf("docs_scan")).toBe("scan");
+    expect(botOf("docs_update")).toBe("sheet");
+  });
+  it("uses the main bot for scanning when there is no separate scanner", async () => {
+    const m = memoryStore(), { calls, fetchMock } = recorder();
+    await enqueueJob("docs_scan", { plate: "NBU4875" }, { store: m.store, config, fetch: fetchMock, ...noWait });
+    expect(calls[0].url).toBe("https://bot.example.test/hook");
+    expect(lineOf(config, "scan").webhookSecret).toBe("bot-key");
+  });
+  it("the sheet bot does one job at a time: the next waits until the first is answered", async () => {
+    const m = memoryStore(), { calls, fetchMock } = recorder();
+    const deps = { store: m.store, config, fetch: fetchMock, ...noWait };
+    const a = await enqueueJob("docs_row", { plate: "AAA1111" }, deps);
+    const b = await enqueueJob("docs_row", { plate: "BBB2222" }, deps);
+    expect(calls).toHaveLength(1);
+    expect(m.rows.get(b.jobId)!.status).toBe("queued");
+    await receiveAnswer({ ok: true, job_id: a.jobId }, tokenFor("cb-secret", a.jobId), deps);
+    await dispatch(deps); // what the callback does after an answer
+    expect(calls).toHaveLength(2);
+    expect(m.rows.get(b.jobId)!.status).toBe("sent");
+  });
+  it("lets the scanner run as many at once as allowed", async () => {
+    const m = memoryStore(), { calls, fetchMock } = recorder();
+    const deps = { store: m.store, config, capacity: { scan: 2, sheet: 1 }, fetch: fetchMock, ...noWait };
+    for (const p of ["AAA1111", "BBB2222", "CCC3333"]) await enqueueJob("docs_scan", { plate: p }, deps);
+    expect(calls).toHaveLength(2);
+  });
+  it("sends a write before a scan, and a read someone waits for before a scan, when they wait for the same bot", async () => {
+    const m = memoryStore(), { calls, fetchMock } = recorder();
+    const deps = { store: m.store, config, fetch: fetchMock, ...noWait };
+    const busy = await enqueueJob("docs_row", { plate: "AAA1111" }, deps); // takes the only place
+    const scan = await enqueueJob("docs_scan", { plate: "BBB2222" }, deps); // another bot
+    expect(m.rows.get(scan.jobId)!.status).toBe("sent");
+    const low = await enqueueJob("ping", {}, deps), high = await enqueueJob("docs_row", { plate: "CCC3333" }, deps);
+    void low; void high;
+    await receiveAnswer({ ok: true, job_id: busy.jobId }, tokenFor("cb-secret", busy.jobId), deps);
+    await dispatch(deps);
+    const next = calls[calls.length - 1].body;
+    expect(next.action).toBe("ping"); // ping (8) goes before docs_row (5)
+    expect(priorityOf("docs_update")).toBeGreaterThan(priorityOf("docs_row"));
+    expect(priorityOf("docs_row")).toBeGreaterThan(priorityOf("docs_scan"));
+  });
+  it("gives up a job the bot never answered, so it cannot block the queue", async () => {
+    const m = memoryStore(), { fetchMock } = recorder();
+    const t0 = new Date("2026-11-14T00:00:00Z");
+    const first = await enqueueJob("docs_row", {}, { store: m.store, config, fetch: fetchMock, now: () => t0, ...noWait });
+    m.rows.get(first.jobId)!.started = t0.getTime();
+    const second = await enqueueJob("docs_row", {}, { store: m.store, config, fetch: fetchMock, now: () => new Date(t0.getTime() + 9 * 60_000), ...noWait });
+    void second;
+    expect(m.rows.get(first.jobId)!.status).toBe("failed");
+    expect(m.rows.get(first.jobId)!.error).toMatch(/did not answer/);
+  });
+  it("a webhook that refuses a job fails that job only", async () => {
+    const m = memoryStore();
+    const refuse = (async () => new Response("{}", { status: 403 })) as unknown as typeof fetch;
+    const deps = { store: m.store, config, fetch: refuse, ...noWait };
+    const a = await enqueueJob("docs_row", {}, deps);
+    expect(m.rows.get(a.jobId)).toMatchObject({ status: "failed", error: expect.stringMatching(/refused our key/) });
+    await expect(sendJob("docs_row", {}, deps)).rejects.toThrow(/refused our key/);
   });
 });

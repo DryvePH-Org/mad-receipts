@@ -6,6 +6,8 @@ import { requireModule } from "@/lib/auth";
 import { getCarDetail } from "@/lib/docs/data";
 import { rotationOf } from "@/lib/docs/car";
 import { isScanning, readerMode } from "@/lib/docs/bot-scan";
+import { workLabel } from "@/lib/grokbot/labels";
+import { workForPlate } from "@/lib/grokbot/store";
 import { CarView, type CarViewData } from "./car-view";
 import { UnitFlow } from "./unit-flow";
 import { SheetCard } from "./sheet-card";
@@ -28,6 +30,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
   if (!detail) notFound();
   const { car, deal } = detail;
   const [flow, settings] = await Promise.all([loadWorkflow(car.folder.plate_no).catch(() => ({ workflow: { scanNotifiedAt: null, soldReadyNotifiedAt: null, approvedAt: null, marketingNotifiedAt: null, handoffAt: null, handoffNote: null, handoffChecked: [], handoffReturnedAt: null }, details: cleanDetails({}), detailsSaved: false })), getSettings()]);
+  const botWork = await workForPlate(car.folder.plate_no).catch(() => []);
   const [sheetStatuses, sheetPreview, sheetWorking] = await Promise.all([loadSheetStatus(car.folder.plate_no).catch(() => []), previewBibleFast(car.folder.plate_no).then(toSheetPreview).catch(() => null), loadWorking(car.folder.plate_no).catch(() => null)]);
   const data: CarViewData = {
     plate: car.folder.plate_no, plateDisplay: car.folder.plate_display, name: car.folder.folder_name ?? car.folder.plate_display, location: car.folder.location as "available" | "sold",
@@ -40,6 +43,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
       return { id: f.id, rotation: rotationOf(f.details), name: f.filename, url: f.drive_url, source: f.source, readStatus: f.read_status, readError: f.read_error, types: f.doc_types, manual: f.doc_types_source === "manual", flags: f.flags, duplicateOf: r?.duplicateOf ? car.files.find((x) => x.id === r.duplicateOf)?.filename ?? null : null, confidence: f.confidence };
     }),
     botMode: readerMode() === "grokbot", scanning: await isScanning(car.folder.plate_no),
+    botWork: botWork.map((w) => ({ label: workLabel(w.action, w.status, w.position), waiting: w.status === "queued" })),
     scanned: !!car.folder.scanned_at, pending: car.pending, failed: car.files.filter((f) => f.read_status === "failed").length, statusLabel: car.status.label, statusKey: car.status.key,
   };
   return (

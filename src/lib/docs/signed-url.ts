@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-// A short-lived link to one document photo, so the grokbot can open it without logging in. The link carries the photo's id, an expiry
+// A short-lived link to one document photo (a scan job may wait in the queue, so the bot-scan module asks for 90 minutes), so the grokbot can open it without logging in. The link carries the photo's id, an expiry
 // and a signature made with the callback secret; it cannot be changed to open another photo, and it stops working after a few minutes.
 
 export const SCAN_LINK_MINUTES = 20;
