@@ -27,8 +27,8 @@ describe("the Google Sheets freeze", () => {
   });
   it("stops every write to a sheet before anything is sent, but reading still works", async () => {
     vi.stubEnv("SHEETS_WRITES", "");
-    vi.stubEnv("BRIDGE_URL", "https://gateway.example.test/hook");
-    vi.stubEnv("BRIDGE_SECRET", "s");
+    vi.stubEnv("APPS_SCRIPT_URL", "https://gateway.example.test/hook");
+    vi.stubEnv("APPS_SCRIPT_SECRET", "s");
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ ok: true, data: [["A"]] })));
     vi.stubGlobal("fetch", fetchMock);
     const client = createAppsScriptSheetsClient();
@@ -40,8 +40,8 @@ describe("the Google Sheets freeze", () => {
   });
   it("writes again once it is switched on", async () => {
     vi.stubEnv("SHEETS_WRITES", "on");
-    vi.stubEnv("BRIDGE_URL", "https://gateway.example.test/hook");
-    vi.stubEnv("BRIDGE_SECRET", "s");
+    vi.stubEnv("APPS_SCRIPT_URL", "https://gateway.example.test/hook");
+    vi.stubEnv("APPS_SCRIPT_SECRET", "s");
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ok: true, data: null }))));
     expect(() => assertSheetsWritable()).not.toThrow();
     await expect(createAppsScriptSheetsClient().appendValues("sheet", "'Tab'", [["x"]])).resolves.toBeUndefined();

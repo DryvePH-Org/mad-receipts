@@ -115,6 +115,7 @@ async function SyncContent({ searchParams }: { searchParams: PageProps<"/admin/s
         actions={
           <>
             {me.role === "admin" && <ReplayPanel />}
+            {me.role === "admin" && <Button variant="outline" nativeButton={false} render={<Link href="/admin/golive" />}>Go-live check</Button>}
             <Button variant="outline" nativeButton={false} render={<Link href={showAll ? "/admin/sync" : "/admin/sync?show=all"} />}>
               {showAll ? "Hide finished" : "Show finished"}
             </Button>

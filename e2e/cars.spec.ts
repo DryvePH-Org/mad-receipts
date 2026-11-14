@@ -65,3 +65,22 @@ test("Car status is also on the documentation staff's menu", async ({ browser })
   await expect(docs.getByText(/^Showing \d+ of \d+ cars/)).toBeVisible({ timeout: 40_000 });
   await docs.close();
 });
+
+test("the Admin's go-live check runs and reports on the settings, the database and the sheets", async ({ browser }) => {
+  const admin = await as(browser, "admin");
+  await admin.goto("/admin/golive");
+  await expect(admin.getByRole("heading", { name: "Go-live check" })).toBeVisible();
+  await admin.getByRole("button", { name: "Run the checks" }).click();
+  await expect(admin.getByRole("heading", { name: "Settings" })).toBeVisible({ timeout: 90_000 });
+  await expect(admin.getByRole("heading", { name: "Database" })).toBeVisible();
+  await expect(admin.getByRole("heading", { name: "MAD Pricelist" })).toBeVisible();
+  await expect(admin.getByText("Cars in the tab")).toBeVisible();
+  await expect(admin.getByRole("heading", { name: "Docs Bible" })).toBeVisible();
+  await admin.close();
+
+  // nobody else can open it
+  const sales = await as(browser, "sales");
+  await sales.goto("/admin/golive");
+  await expect(sales.getByText("You don't have access to this page.")).toBeVisible();
+  await sales.close();
+});

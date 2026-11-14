@@ -5,12 +5,12 @@ import type { CellValue, SheetsClient } from "./sheets";
 
 // Google access through an Apps Script web app that runs as a normal Google account
 // (apps-script/Code.gs). Used when a service account key can't be created.
-// Env: BRIDGE_URL and BRIDGE_SECRET (any gateway that follows Docs/bridge-contract.md), or the older names APPS_SCRIPT_URL
-// (the web app's /exec URL) and APPS_SCRIPT_SECRET (same as the script's SECRET). The BRIDGE_* names win when both are set.
-const bridgeUrl = () => process.env.BRIDGE_URL || process.env.APPS_SCRIPT_URL;
-const bridgeSecret = () => process.env.BRIDGE_SECRET || process.env.APPS_SCRIPT_SECRET;
-
+// Env: APPS_SCRIPT_URL (the web app's /exec URL) and APPS_SCRIPT_SECRET (same as the script's SECRET). The grokbots are NOT reached through
+// this: they have their own settings (GROKBOT_*), so a bot's address can never be mistaken for the Apps Script's.
 const TIMEOUT_MS = 25_000;
+
+const bridgeUrl = () => process.env.APPS_SCRIPT_URL;
+const bridgeSecret = () => process.env.APPS_SCRIPT_SECRET;
 
 export const appsScriptConfigured = () =>
   Boolean(bridgeUrl() && bridgeSecret());
@@ -27,7 +27,7 @@ export async function appsScriptCall<T>(action: string, params: Record<string, u
   const url = bridgeUrl();
   const secret = bridgeSecret();
   if (!url || !secret) {
-    throw new Error("The Google Apps Script bridge is not configured (BRIDGE_URL, BRIDGE_SECRET)");
+    throw new Error("The Google Apps Script bridge is not configured (APPS_SCRIPT_URL, APPS_SCRIPT_SECRET)");
   }
 
   let response: Response;

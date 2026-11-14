@@ -24,7 +24,7 @@ One JSON job per call. Fields: `job_id`, `action`, `today` (YYYY-MM-DD, Asia/Man
 
 - **MAD Pricelist** (a different workbook): the tab `INVENTORY 2026` lists the cars; a header row holds `DOCS`, `OR EXP`, `SPAREKEY`, `ENCUMBRANCE`, `PLATE NUMBER` and more. See the `inventory_*` actions.
 
-Always locate columns by their header text, never by a fixed letter, and rows by plate, never by row number. Tab names come in the job (`tab`) when the app sends them; the ones named here are the usual ones.
+Always locate columns by their header text, never by a fixed letter, and rows by plate, never by row number. Tab names come in the job when the app sends them (`tabs.docs` and `tabs.changelog` for the Docs Bible, `tab` for the pricelist): use those. The names written in this document (`DOCS 2026`, `CHANGELOG`, `INVENTORY 2026`) are only the usual ones; a new year brings new tab names.
 
 ## Finding a unit's row
 Normalise plates by removing spaces and dashes and using capitals. In DOCS 2026 match the `PLATE NO.` column. If there are several rows for the plate (a unit bought back and listed again), the row with the **latest `DATE ARRIVAL`** is the current one; older rows are history and are never changed. If the latest `DATE ARRIVAL` is tied or unreadable, answer `{"ok":false,...,"error":"ambiguous plate"}`.

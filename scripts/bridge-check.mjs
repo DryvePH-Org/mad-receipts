@@ -4,8 +4,8 @@ import { readFileSync, existsSync } from "node:fs";
 
 const env = { ...process.env };
 if (existsSync(".env.local")) for (const l of readFileSync(".env.local", "utf8").split("\n")) { const m = /^([A-Z_0-9]+)=(.*?)(\s+#.*)?$/.exec(l); if (m && !(m[1] in env)) env[m[1]] = m[2].trim(); }
-const url = env.BRIDGE_URL || env.APPS_SCRIPT_URL, secret = env.BRIDGE_SECRET || env.APPS_SCRIPT_SECRET;
-if (!url || !secret) { console.error("Set BRIDGE_URL and BRIDGE_SECRET (or APPS_SCRIPT_URL and APPS_SCRIPT_SECRET)."); process.exit(2); }
+const url = env.APPS_SCRIPT_URL, secret = env.APPS_SCRIPT_SECRET;
+if (!url || !secret) { console.error("Set APPS_SCRIPT_URL and APPS_SCRIPT_SECRET."); process.exit(2); }
 
 let bad = 0;
 const call = async (action, params = {}, withSecret = secret) => {

@@ -7,10 +7,10 @@ import { readFileSync, existsSync } from "node:fs";
 
 const env = { ...process.env };
 if (existsSync(".env.local")) for (const l of readFileSync(".env.local", "utf8").split("\n")) { const m = /^([A-Z_0-9]+)=(.*?)(\s+#.*)?$/.exec(l); if (m && !(m[1] in env)) env[m[1]] = m[2].trim(); }
-const url = env.BRIDGE_URL || env.APPS_SCRIPT_URL, secret = env.BRIDGE_SECRET || env.APPS_SCRIPT_SECRET;
+const url = env.APPS_SCRIPT_URL, secret = env.APPS_SCRIPT_SECRET;
 const sheet = env.BRIDGE_TEST_SHEET_ID;
 const tab = process.argv.includes("--tab") ? process.argv[process.argv.indexOf("--tab") + 1] : env.BRIDGE_TEST_TAB || "BRIDGE TEST";
-if (!url || !secret) { console.error("Set BRIDGE_URL and BRIDGE_SECRET (or APPS_SCRIPT_URL and APPS_SCRIPT_SECRET)."); process.exit(2); }
+if (!url || !secret) { console.error("Set APPS_SCRIPT_URL and APPS_SCRIPT_SECRET."); process.exit(2); }
 if (!sheet) { console.error("Set BRIDGE_TEST_SHEET_ID to a TEST spreadsheet (never the real one)."); process.exit(2); }
 for (const k of ["INVENTORY_SHEET_ID", "GOOGLE_SHEET_ID", "DASHBOARD_BUY_SHEET_ID", "DASHBOARD_SELL_SHEET_ID"]) {
   if (env[k] && env[k] === sheet) { console.error(`Refusing: BRIDGE_TEST_SHEET_ID is the same as ${k}. Use a separate test spreadsheet.`); process.exit(2); }

@@ -34,16 +34,14 @@ describe("apps script clients", () => {
     expect(appsScriptConfigured()).toBe(false);
   });
 
-  it("uses the BRIDGE_* settings first, so a new gateway can replace the Apps Script by settings alone", async () => {
-    process.env.BRIDGE_URL = "https://gateway.example.test/hook";
-    process.env.BRIDGE_SECRET = "gw-secret";
+  it("never sends the Apps Script's calls to a grokbot's address, even when BRIDGE_URL or a grokbot setting is present", async () => {
+    process.env.BRIDGE_URL = "https://bot.example.test/hook";
+    process.env.GROKBOT_WEBHOOK_URL = "https://bot.example.test/hook";
     try {
       fetchMock.mockResolvedValue(reply({ ok: true, data: "pong" }));
       await pingAppsScript();
-      const [url, init] = fetchMock.mock.calls[0];
-      expect(url).toBe("https://gateway.example.test/hook");
-      expect(JSON.parse(init.body)).toMatchObject({ secret: "gw-secret", action: "ping" });
-    } finally { delete process.env.BRIDGE_URL; delete process.env.BRIDGE_SECRET; }
+      expect(fetchMock.mock.calls[0][0]).toBe(URL_);
+    } finally { delete process.env.BRIDGE_URL; delete process.env.GROKBOT_WEBHOOK_URL; }
   });
 
   it("posts the secret and action as JSON, following redirects", async () => {

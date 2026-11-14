@@ -1,3 +1,5 @@
+> **Superseded.** The grokbots do not answer this synchronous protocol: the app sends them jobs (see `Docs/GROKBOT_SHEET_ROUTINE.md` and `Docs/GROKBOT_SCANNER_ROUTINE.md`) and they answer by callback. The `BRIDGE_URL` / `BRIDGE_SECRET` names are no longer used: bots use `GROKBOT_*`, the Apps Script uses `APPS_SCRIPT_*`. Kept only as a record of what the app asks of Google.
+
 # The Google gateway contract
 
 Everything the app needs from Google goes through **one web endpoint**. Today that is the Apps Script (`apps-script/Code.gs`). The grokbot gateway has to answer the same requests in the same format. Then the only change in the app is the address and the secret in the server settings (`APPS_SCRIPT_URL` and `APPS_SCRIPT_SECRET` today; Phase 2 adds `BRIDGE_URL` and `BRIDGE_SECRET` as the same thing under neutral names).

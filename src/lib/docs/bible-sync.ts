@@ -17,6 +17,9 @@ type Admin = ReturnType<typeof createAdminClient>;
 export interface BibleDeps { grok: Deps; admin: Admin; sheetId: string | undefined }
 export const defaultBibleDeps = (): BibleDeps => ({ grok: defaultGrokbotDeps(), admin: createAdminClient(), sheetId: process.env.DOCS_BIBLE_SHEET_ID?.trim() || undefined });
 
+/** The tab names in the Docs Bible workbook. They change with the year ("DOCS 2027"), so they come from the settings and travel with every job. */
+export const docsTabs = () => ({ docs: process.env.DOCS_BIBLE_DOCS_TAB?.trim() || "DOCS 2026", changelog: process.env.DOCS_BIBLE_CHANGELOG_TAB?.trim() || "CHANGELOG" });
+
 export interface BibleRow { found: boolean; matches: number; row: number | null; arrival: string; values: Partial<Record<DocsField, string>>; monthly: { tab: string; row: number } | null; message: string | null }
 export interface BiblePreview extends Plan { row: BibleRow; note: string; frozen: boolean }
 
@@ -67,7 +70,7 @@ function ready(deps: BibleDeps): string | null {
 export async function readBibleRow(plate: string, deps: BibleDeps = defaultBibleDeps(), createdBy: string | null = null): Promise<BibleRow> {
   const problem = ready(deps);
   if (problem) throw new GrokbotError(problem);
-  const { result } = await sendJob("docs_row", { plate: normalizePlate(plate) }, deps.grok, { sheetId: deps.sheetId, timeoutMs: 110_000, createdBy });
+  const { result } = await sendJob("docs_row", { plate: normalizePlate(plate), tabs: docsTabs() }, deps.grok, { sheetId: deps.sheetId, timeoutMs: 110_000, createdBy });
   const values = result.values && typeof result.values === "object" ? (result.values as Record<string, unknown>) : {};
   const clean: Partial<Record<DocsField, string>> = {};
   for (const k of Object.keys(DOCS_FIELDS) as DocsField[]) if (typeof values[k] === "string") clean[k] = values[k] as string;
@@ -157,7 +160,7 @@ export async function sendBible(plate: string, actor: string, deps: BibleDeps = 
     if (!preview.row.found) return { ok: false, status: "failed", message: preview.notes[0] ?? "Not found in the sheet." };
     const changes: Change[] = [...preview.changes, ...(preview.note && !noteAlreadyThere(preview.row.values.remarks_1, preview.note) ? [{ field: "remarks_1" as DocsField, before: preview.row.values.remarks_1 ?? "", after: preview.note, mode: "append" as const }] : [])];
     if (!changes.length) { await save(deps.admin, key, "checklist", "done", { changes: [], note: "nothing to change" }, null, null, actor); return { ok: true, written: 0, skipped: preview.notes }; }
-    const { jobId, result } = await sendJob("docs_update", { plate: key, expected_arrival: preview.row.arrival, changes, reason: "Documents approved in the MAD app", actor: actor.slice(0, 8), dry_run: false }, deps.grok, { sheetId: deps.sheetId, timeoutMs: 150_000, createdBy: actor });
+    const { jobId, result } = await sendJob("docs_update", { plate: key, tabs: docsTabs(), expected_arrival: preview.row.arrival, changes, reason: "Documents approved in the MAD app", actor: actor.slice(0, 8), dry_run: false }, deps.grok, { sheetId: deps.sheetId, timeoutMs: 150_000, createdBy: actor });
     const check = checkWriteAnswer(changes, result);
     if (!check.ok) { // do not trust it: the sheet may be half written, so the stored reading is dropped and the person is told to look
       const message = `The bot's answer could not be trusted (${check.problems.join("; ")}). Open the row in the sheet and press Check the sheet now.`;
@@ -186,7 +189,7 @@ export async function sendHandoffToSheet(plate: string, event: "submitted" | "re
     if (problem) throw new GrokbotError(problem);
     const receiver = (await getSettings()).print.sheetReceiverName;
     const text = event === "submitted" ? submittedText(receiver, isoDate) : receivedText(receiver, isoDate);
-    const { jobId, result } = await sendJob("docs_handoff", { plate: key, event, text, date: isoDate, reason: event === "submitted" ? "Documents handed off in the MAD app" : "Documents returned, marked done in the MAD app", actor: actor.slice(0, 8), dry_run: false }, deps.grok, { sheetId: deps.sheetId, timeoutMs: 150_000, createdBy: actor });
+    const { jobId, result } = await sendJob("docs_handoff", { plate: key, tabs: docsTabs(), event, text, date: isoDate, reason: event === "submitted" ? "Documents handed off in the MAD app" : "Documents returned, marked done in the MAD app", actor: actor.slice(0, 8), dry_run: false }, deps.grok, { sheetId: deps.sheetId, timeoutMs: 150_000, createdBy: actor });
     const check = checkHandoffAnswer(text, result);
     if (!check.ok) {
       const message = `The bot's answer could not be trusted (${check.problems.join("; ")}). Look at the monthly tab in the sheet.`;
