@@ -28,6 +28,8 @@ export interface Change { field: DocsField; before: string; after: string; mode:
 
 export interface BibleInput {
   caseType: CaseType;
+  /** what this app itself last wrote in each cell: such a cell may be corrected by the app, a cell a person typed never is */
+  appWrote?: Partial<Record<string, string>>;
   /** which checklist items have a file in the car's folder: the app's DocType keys */
   present: ReadonlySet<string>;
   /** what the sheet shows now for this unit, by field (blank when empty) */
@@ -67,6 +69,8 @@ export function planChanges(i: BibleInput): Plan {
   for (const [field, after] of Object.entries(desiredValues(i)) as [Exclude<DocsField, "remarks_1">, string][]) {
     const before = (i.current[field] ?? "").trim();
     if (before === after) continue;
+    const mine = i.appWrote?.[field] !== undefined && i.appWrote[field] === before; // the app's own earlier value, still there
+    if (mine && !(after === "N/A" && before === "Yes")) { changes.push({ field, before, after, mode: "set" }); continue; }
     if (field === "classification") {
       if (!before) changes.push({ field, before, after, mode: "set" });
       else notes.push(`The sheet says ${before} but the documents suggest ${after}. Left as it is: change it in the sheet if the documents are right.`);

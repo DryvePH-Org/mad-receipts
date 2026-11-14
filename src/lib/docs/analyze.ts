@@ -53,6 +53,8 @@ export function detectCase(detections: Detection[], types: DocType[]): CaseType 
   if (has("board_resolution")) return "company";
   if (has("secretary_certificate")) return ownerIsBank || has("chattel_cancellation") || has("promissory_note") ? "repo_bank" : ownerIsCompany ? "company" : "repo_bank";
   if (has("chattel_cancellation") || has("promissory_note")) return "encumbered";
+  // a deed whose seller is a bank is a repossessed car, even before the secretary's papers are in
+  if (detections.some((d) => d.type === "deed_of_sale" && looksLikeBank(d.sellerName))) return "repo_bank";
   return "clean";
 }
 

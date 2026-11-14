@@ -1,4 +1,5 @@
 import "server-only";
+import { workForPlate } from "@/lib/grokbot/store";
 import { getSettings } from "@/lib/data";
 import { manilaToday } from "@/lib/dates";
 import { grokbotMissing, GrokbotError, sendJob, type Deps } from "@/lib/grokbot/client";
@@ -42,7 +43,7 @@ export async function previewBibleFast(plate: string, deps: Pick<BibleDeps, "adm
   const [input, snap] = await Promise.all([carInput(key, deps.admin), loadSnapshot(deps.admin, key)]);
   const note = scanNote({ now, carName: input.name, items: input.car.checklist.items.map((i) => ({ label: i.label, present: i.present, stage: i.stage })), flags: input.flags, details: input.details });
   if (snap) {
-    const plan = planChanges({ caseType: input.car.caseType, present: input.present, current: snap.values });
+    const plan = planChanges({ caseType: input.car.caseType, present: input.present, current: snap.values, appWrote: await loadAppWrote(deps.admin, key) });
     return { changes: plan.changes, notes: plan.notes, note, frozen: sheetsFrozen("docs"), checkedAt: snap.fetchedAt, row: snap.row };
   }
   const wanted = desiredValues({ caseType: input.car.caseType, present: input.present, current: {} });
@@ -135,6 +136,17 @@ async function currentDetail(admin: Admin, plate: string): Promise<{ status: str
   return data ? { status: data.status, detail: data.detail && typeof data.detail === "object" && !Array.isArray(data.detail) ? (data.detail as Record<string, unknown>) : {}, jobId: data.job_id } : null;
 }
 
+/** The cell values this app wrote last time (kept with the checklist record). */
+export async function loadAppWrote(admin: Admin, plate: string): Promise<Record<string, string>> {
+  const w = (await currentDetail(admin, plate))?.detail.appWrote;
+  return w && typeof w === "object" && !Array.isArray(w) ? (w as Record<string, string>) : {};
+}
+
+/** True while a sheet write for this car is waiting or running, so a second click or a second trigger does not send it twice. */
+export async function writeInFlight(admin: Admin, plate: string): Promise<boolean> {
+  return (await workForPlate(plate, admin)).some((w) => w.action === "docs_update" || w.action === "inventory_update");
+}
+
 /** Marks that the bot is working on this car's sheet row. The next record saved for the car (done, failed...) replaces the mark. */
 export async function markWorking(plate: string, action: Working["action"], actor: string | null, admin: Admin = createAdminClient(), now = new Date()): Promise<void> {
   const key = normalizePlate(plate);
@@ -159,7 +171,7 @@ export async function previewBible(plate: string, actor: string | null, deps: Bi
   const key = normalizePlate(plate);
   const [row, input] = await Promise.all([readBibleRow(key, deps, actor), carInput(key, deps.admin)]);
   if (!row.found) return { row, note: "", changes: [], notes: [row.message ?? (row.matches > 1 ? "More than one row in the sheet has this plate." : "This plate is not in the Docs Bible yet.")], frozen: sheetsFrozen("docs") };
-  const plan = planChanges({ caseType: input.car.caseType, present: input.present, current: row.values });
+  const plan = planChanges({ caseType: input.car.caseType, present: input.present, current: row.values, appWrote: await loadAppWrote(deps.admin, key) });
   const note = scanNote({ now, carName: input.name, items: input.car.checklist.items.map((i) => ({ label: i.label, present: i.present, stage: i.stage })), flags: input.flags, details: input.details });
   if (row.found) await keepSnapshot(deps.admin, key, { row: row.row, arrival: row.arrival, values: row.values, monthly: row.monthly, fetchedAt: now.toISOString() }, actor);
   return { row, ...plan, note, frozen: sheetsFrozen("docs") };
@@ -175,6 +187,7 @@ export async function sendBible(plate: string, actor: string, deps: BibleDeps = 
     if (!preview.row.found) return { ok: false, status: "failed", message: preview.notes[0] ?? "Not found in the sheet." };
     const changes: Change[] = [...preview.changes, ...(preview.note && !noteAlreadyThere(preview.row.values.remarks_1, preview.note) ? [{ field: "remarks_1" as DocsField, before: preview.row.values.remarks_1 ?? "", after: preview.note, mode: "append" as const }] : [])];
     if (!changes.length) { await save(deps.admin, key, "checklist", "done", { changes: [], note: "nothing to change" }, null, null, actor); return { ok: true, written: 0, skipped: preview.notes }; }
+    if (await writeInFlight(deps.admin, key)) return { ok: true, written: 0, skipped: ["The bot is already updating this car's sheet row."] };
     const { jobId, result } = await sendJob("docs_update", { plate: key, tabs: docsTabs(), expected_arrival: preview.row.arrival, changes, reason: "Documents approved in the MAD app", actor: actor.slice(0, 8), dry_run: false }, deps.grok, { sheetId: deps.sheetId, timeoutMs: BACKGROUND_WAIT_MS, createdBy: actor });
     const check = checkWriteAnswer(changes, result);
     if (!check.ok) { // do not trust it: the sheet may be half written, so the stored reading is dropped and the person is told to look
@@ -185,7 +198,8 @@ export async function sendBible(plate: string, actor: string, deps: BibleDeps = 
     const applied = check.written;
     const after = { ...preview.row.values };
     for (const c of changes) after[c.field] = c.mode === "append" ? [after[c.field], c.after].filter(Boolean).join("\n\n") : c.after;
-    await save(deps.admin, key, "checklist", "done", { applied: result.applied ?? [], skipped: result.skipped ?? [], snapshot: { row: preview.row.row, arrival: preview.row.arrival, values: after, monthly: preview.row.monthly, fetchedAt: now.toISOString() } }, null, jobId, actor);
+    const appWrote = { ...(await loadAppWrote(deps.admin, key)), ...Object.fromEntries(changes.filter((c) => c.mode === "set").map((c) => [c.field, c.after])) };
+    await save(deps.admin, key, "checklist", "done", { appWrote, applied: result.applied ?? [], skipped: result.skipped ?? [], snapshot: { row: preview.row.row, arrival: preview.row.arrival, values: after, monthly: preview.row.monthly, fetchedAt: now.toISOString() } }, null, jobId, actor);
     return { ok: true, written: applied, skipped: preview.notes };
   } catch (err) {
     if (err instanceof SheetsFrozenError) { await save(deps.admin, key, "checklist", "frozen", {}, null, null, actor); return { ok: false, status: "frozen", message: err.message }; }

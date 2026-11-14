@@ -126,3 +126,12 @@ describe("not simply believing the bot's answer", () => {
     expect(checkHandoffAnswer(text, { text, changelog_rows: [5] }).ok).toBe(false);
   });
 });
+
+describe("cells the app wrote itself", () => {
+  it("corrects the classification it wrote earlier, but never one a person typed", () => {
+    const base = { caseType: "repo_bank" as const, present: new Set<string>(), current: { classification: "Clean" } };
+    expect(planChanges(base).changes.some((c) => c.field === "classification")).toBe(false);
+    const mine = planChanges({ ...base, appWrote: { classification: "Clean" } });
+    expect(mine.changes.find((c) => c.field === "classification")).toMatchObject({ before: "Clean", after: "Repo (bank)" });
+  });
+});

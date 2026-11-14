@@ -52,6 +52,7 @@ export async function sendPricelist(plate: string, actor: string, deps: BibleDep
     if (!unit) { const message = "This plate is not in the pricelist's inventory tab."; await saveSyncRecord(deps.admin, key, "pricelist", "failed", {}, message, null, actor); return { ok: false, status: "failed", message }; }
     const plan = planPricelist({ ...facts, current: { docs: unit.docsCode, orExp: unit.orExp, spareKey: unit.spareKey, encumbrance: unit.encumbrance } });
     if (!plan.changes.length) { await saveSyncRecord(deps.admin, key, "pricelist", "done", { changes: [], notes: plan.notes }, null, null, actor); return { ok: true, written: 0 }; }
+    if (await (await import("./bible-sync")).writeInFlight(deps.admin, key)) return { ok: true, written: 0 };
     const { jobId, result } = await sendJob("inventory_update", { plate: key, tab: pricelistTab(), changes: plan.changes, log_sheet_id: deps.sheetId ?? "", reason: "Documents approved in the MAD app", actor: actor.slice(0, 8), dry_run: false }, deps.grok, { sheetId: sheet, timeoutMs: BACKGROUND_WAIT_MS, createdBy: actor });
     const check = checkWriteAnswer(plan.changes.map((c: PricelistChange) => ({ field: c.field as PricelistField })), result);
     if (!check.ok) { const message = `The bot's answer could not be trusted (${check.problems.join("; ")}). Open the row in the pricelist and check it.`; await saveSyncRecord(deps.admin, key, "pricelist", "failed", { problems: check.problems }, message.slice(0, 500), jobId, actor); return { ok: false, status: "failed", message }; }
