@@ -40,20 +40,20 @@ describe("planning the changes", () => {
     expect(p.changes.map((c) => `${c.field}:${c.before}>${c.after}`)).toEqual(expect.arrayContaining(["classification:>Clean", "cr:To follow>Yes", "or:No>Yes", "deed:>Yes"]));
     expect(p.changes.some((c) => c.field === "sellers_id")).toBe(false);
   });
-  it("never downgrades a Yes and never overwrites what a person typed", () => {
-    const p = planChanges({ caseType: "clean", present: present("official_receipt"), current: { cr: "Yes", or: "Yes", sec_cert: "Yes", chattel: "To follow" } });
-    expect(p.changes.some((c) => c.field === "cr")).toBe(false);
-    expect(p.changes.some((c) => c.field === "sec_cert")).toBe(false); // a person said Yes: left alone
-    expect(p.changes.find((c) => c.field === "chattel")).toBeUndefined(); // To follow stays: the paper is not there
+  it("overwrites what the sheet holds: the app always wins", () => {
+    const p = planChanges({ caseType: "clean", present: present("official_receipt"), current: { cr: "Yes", or: "No", sec_cert: "Yes", chattel: "To follow" } });
+    expect(p.changes.find((c) => c.field === "or")).toMatchObject({ before: "No", after: "Yes", mode: "set" });
+    expect(p.changes.find((c) => c.field === "sec_cert")).toMatchObject({ before: "Yes", after: "N/A" }); // a Clean car needs no secretary's certificate
+    expect(p.changes.find((c) => c.field === "chattel")).toMatchObject({ before: "To follow", after: "N/A" });
+    expect(p.changes.find((c) => c.field === "cr")).toBeUndefined(); // no CR in the folder: no value to write, the column is left alone
   });
-  it("reports a classification that disagrees instead of changing it", () => {
+  it("changes a classification that disagrees", () => {
     const p = planChanges({ ...base, current: { classification: "Repo (bank)" } });
-    expect(p.changes.some((c) => c.field === "classification")).toBe(false);
-    expect(p.notes.join(" ")).toMatch(/Repo \(bank\).*Clean/);
+    expect(p.changes.find((c) => c.field === "classification")).toMatchObject({ before: "Repo (bank)", after: "Clean" });
   });
-  it("says so when a paper is in the folder but the sheet says N/A", () => {
+  it("sets a paper that is in the folder even when the sheet says N/A", () => {
     const p = planChanges({ caseType: "clean", present: present(...CLEAN_PAPERS, "secretary_certificate"), current: { sec_cert: "N/A" } });
-    expect(p.notes.join(" ")).toMatch(/SEC CERT is N\/A/);
+    expect(p.changes.find((c) => c.field === "sec_cert")).toMatchObject({ before: "N/A", after: "Yes" });
   });
   it("has nothing to write when the sheet already matches", () => {
     const current = Object.fromEntries(Object.entries(desiredValues({ ...base, current: {} })));
@@ -124,14 +124,5 @@ describe("not simply believing the bot's answer", () => {
     expect(checkHandoffAnswer(text, { already: true }).ok).toBe(true);
     expect(checkHandoffAnswer(text, { verified: true, text: "SUBMITTED TO LEO 9/28", changelog_rows: [5] }).ok).toBe(false);
     expect(checkHandoffAnswer(text, { text, changelog_rows: [5] }).ok).toBe(false);
-  });
-});
-
-describe("cells the app wrote itself", () => {
-  it("corrects the classification it wrote earlier, but never one a person typed", () => {
-    const base = { caseType: "repo_bank" as const, present: new Set<string>(), current: { classification: "Clean" } };
-    expect(planChanges(base).changes.some((c) => c.field === "classification")).toBe(false);
-    const mine = planChanges({ ...base, appWrote: { classification: "Clean" } });
-    expect(mine.changes.find((c) => c.field === "classification")).toMatchObject({ before: "Clean", after: "Repo (bank)" });
   });
 });

@@ -31,36 +31,20 @@ export const SPAREKEY_NO = "N/A";
 export const encumbranceText = (lender: string, released: boolean): string => `${clean(lender).toUpperCase()}${released ? " - RELEASED" : ""}`.slice(0, 80);
 
 /**
- * What to write: only blanks are filled, except the OR date (a later date from a renewed OR replaces the old one). What a person typed is
- * never overwritten; where the documents disagree with it, a note says so.
+ * What to write: the app always wins. Each of the four cells is set to what the documents and the staff say, whatever the sheet held; the bot
+ * still checks the cell is unchanged since we read it, and every change is logged.
  */
 export function planPricelist(i: PricelistInput): { changes: PricelistChange[]; notes: string[] } {
   const changes: PricelistChange[] = [], notes: string[] = [];
   const cur = i.current;
+  const set = (field: PricelistChange["field"], have: string | null | undefined, want: string) => { if ((have ?? "").trim() !== want) changes.push({ field, before: (have ?? "").trim(), after: want }); };
 
-  // DOCS: C when the papers are complete; the codes people type (L:NAME, EW, K...) stay
-  const docs = clean(cur.docs);
-  if (i.docsComplete) { if (!docs) changes.push({ field: "docs", before: "", after: "C" }); else if (docs.toUpperCase() !== "C") notes.push(`DOCS says ${docs}, typed by staff: left as it is although the papers are complete.`); }
-
-  // OR EXP: the registration date from the official receipt
-  if (i.orValidUntil) {
-    if (!cur.orExp) changes.push({ field: "or_exp", before: "", after: i.orValidUntil });
-    else if (i.orValidUntil > cur.orExp) changes.push({ field: "or_exp", before: cur.orExp, after: i.orValidUntil });
-    else if (i.orValidUntil < cur.orExp) notes.push(`OR EXP in the sheet (${cur.orExp}) is later than the official receipt in the folder (${i.orValidUntil}): left as it is.`);
-  }
-
-  // SPAREKEY: from the staff's answer
+  if (i.docsComplete) set("docs", clean(cur.docs), "C"); // C when the papers are complete
+  if (i.orValidUntil) set("or_exp", cur.orExp, i.orValidUntil); // the registration date from the official receipt
   if (i.spareKey) {
     const want = i.spareKey === "yes" ? SPAREKEY_YES : SPAREKEY_NO, have = clean(cur.spareKey);
-    if (!have) changes.push({ field: "sparekey", before: "", after: want });
-    else if (have.toUpperCase().replace(/[\s/]/g, "") !== want.replace(/[\s/]/g, "") && i.spareKey === "yes" !== /^W/i.test(have)) notes.push(`SPAREKEY says ${have} but the staff answered ${i.spareKey}: left as it is.`);
+    if (have.toUpperCase().replace(/[\s/]/g, "") !== want.replace(/[\s/]/g, "")) set("sparekey", have, want);
   }
-
-  // ENCUMBRANCE: the lender from the chattel mortgage or the promissory note
-  if (clean(i.lender)) {
-    const want = encumbranceText(i.lender as string, i.released), have = clean(cur.encumbrance);
-    if (!have) changes.push({ field: "encumbrance", before: "", after: want });
-    else if (have.toUpperCase() !== want) notes.push(`ENCUMBRANCE says ${have}; the documents say ${want}. Left as it is.`);
-  }
+  if (clean(i.lender)) set("encumbrance", clean(cur.encumbrance), encumbranceText(i.lender as string, i.released));
   return { changes, notes };
 }

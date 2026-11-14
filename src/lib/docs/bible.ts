@@ -61,25 +61,16 @@ export function desiredValues(i: BibleInput): Partial<Record<Exclude<DocsField, 
 export interface Plan { changes: Change[]; notes: string[] }
 
 /**
- * What to write: only what moves the sheet forward. A cell a person already filled is left alone, except that a "No" or "To follow"
- * becomes "Yes" once the paper is in the folder; a "Yes" is never downgraded; a classification that disagrees is reported, not overwritten.
+ * What to write: the app always wins. Every typed column whose value differs from what the checklist says is set to the app's value, whatever
+ * the sheet held (a person's "No", "N/A", an old "Yes", another classification). The one exception is a paper the folder lacks: the app has no
+ * value for it, so the column is left alone. The bot still checks that each cell holds what we read before it writes (a cell someone changed
+ * in the meantime stops the job, it is never overwritten blind), and every change is logged in the CHANGELOG.
  */
 export function planChanges(i: BibleInput): Plan {
   const changes: Change[] = [], notes: string[] = [];
   for (const [field, after] of Object.entries(desiredValues(i)) as [Exclude<DocsField, "remarks_1">, string][]) {
     const before = (i.current[field] ?? "").trim();
-    if (before === after) continue;
-    const mine = i.appWrote?.[field] !== undefined && i.appWrote[field] === before; // the app's own earlier value, still there
-    if (mine && !(after === "N/A" && before === "Yes")) { changes.push({ field, before, after, mode: "set" }); continue; }
-    if (field === "classification") {
-      if (!before) changes.push({ field, before, after, mode: "set" });
-      else notes.push(`The sheet says ${before} but the documents suggest ${after}. Left as it is: change it in the sheet if the documents are right.`);
-      continue;
-    }
-    const blank = before === "";
-    const upgrade = after === "Yes" && (before === "No" || before.toLowerCase() === "to follow");
-    if (blank || upgrade) changes.push({ field, before, after, mode: "set" });
-    else if (after === "Yes" && before === "N/A") notes.push(`${DOCS_FIELDS[field].header} is N/A in the sheet but a paper is in the folder.`);
+    if (before !== after) changes.push({ field, before, after, mode: "set" });
   }
   return { changes, notes };
 }

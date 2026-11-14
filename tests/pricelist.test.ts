@@ -14,34 +14,26 @@ describe("what the documents add to the pricelist", () => {
   it("writes C only when the papers are complete", () => {
     expect(planPricelist(input({ docsComplete: false })).changes.some((c) => c.field === "docs")).toBe(false);
   });
-  it("never overwrites a code staff typed, and says so", () => {
-    const p = planPricelist(input({ current: { ...blank, docs: "L:CAMILA" } }));
-    expect(p.changes.some((c) => c.field === "docs")).toBe(false);
-    expect(p.notes.join(" ")).toMatch(/L:CAMILA/);
+  it("replaces a DOCS code staff typed when the papers are complete", () => {
+    expect(planPricelist(input({ current: { ...blank, docs: "L:CAMILA" } })).changes.find((c) => c.field === "docs")).toEqual({ field: "docs", before: "L:CAMILA", after: "C" });
     expect(planPricelist(input({ current: { ...blank, docs: "C" } })).changes.some((c) => c.field === "docs")).toBe(false);
   });
-  it("replaces the OR date only with a later one (a renewal), and keeps a later one already there", () => {
+  it("sets the OR date to the official receipt's, earlier or later", () => {
     expect(planPricelist(input({ current: { ...blank, orExp: "2026-02-01" } })).changes.find((c) => c.field === "or_exp")).toEqual({ field: "or_exp", before: "2026-02-01", after: "2027-02-01" });
-    const later = planPricelist(input({ current: { ...blank, orExp: "2028-01-01" } }));
-    expect(later.changes.some((c) => c.field === "or_exp")).toBe(false);
-    expect(later.notes.join(" ")).toMatch(/later than the official receipt/);
+    expect(planPricelist(input({ current: { ...blank, orExp: "2028-01-01" } })).changes.find((c) => c.field === "or_exp")).toEqual({ field: "or_exp", before: "2028-01-01", after: "2027-02-01" });
     expect(planPricelist(input({ current: { ...blank, orExp: "2027-02-01" } })).changes.some((c) => c.field === "or_exp")).toBe(false);
     expect(planPricelist(input({ orValidUntil: null })).changes.some((c) => c.field === "or_exp")).toBe(false);
   });
-  it("writes the spare key as the sheet already does, only when blank", () => {
+  it("sets the spare key as the staff answered, and leaves it when they did not answer", () => {
     expect(planPricelist(input({ spareKey: "no" })).changes.find((c) => c.field === "sparekey")?.after).toBe("N/A");
     expect(planPricelist(input({ spareKey: "" })).changes.some((c) => c.field === "sparekey")).toBe(false);
-    expect(planPricelist(input({ current: { ...blank, spareKey: "W/ SPARE KEY" } })).changes.some((c) => c.field === "sparekey")).toBe(false);
-    const clash = planPricelist(input({ spareKey: "no", current: { ...blank, spareKey: "W/SPAREKEY" } }));
-    expect(clash.changes.some((c) => c.field === "sparekey")).toBe(false);
-    expect(clash.notes.join(" ")).toMatch(/SPAREKEY says/);
+    expect(planPricelist(input({ current: { ...blank, spareKey: "W/ SPARE KEY" } })).changes.some((c) => c.field === "sparekey")).toBe(false); // the same thing written another way
+    expect(planPricelist(input({ spareKey: "no", current: { ...blank, spareKey: "W/SPAREKEY" } })).changes.find((c) => c.field === "sparekey")).toEqual({ field: "sparekey", before: "W/SPAREKEY", after: "N/A" });
   });
-  it("names the lender, with RELEASED only when a cancellation is on file, and keeps what is typed", () => {
+  it("names the lender, with RELEASED only when a cancellation is on file, replacing what is there", () => {
     expect(encumbranceText("  jaccs   finance ", false)).toBe("JACCS FINANCE");
     expect(planPricelist(input({ released: false })).changes.find((c) => c.field === "encumbrance")?.after).toBe("EASTWEST BANK");
-    const typed = planPricelist(input({ current: { ...blank, encumbrance: "EWB (RELEASED 08/2025)" } }));
-    expect(typed.changes.some((c) => c.field === "encumbrance")).toBe(false);
-    expect(typed.notes.join(" ")).toMatch(/EWB/);
+    expect(planPricelist(input({ current: { ...blank, encumbrance: "EWB (RELEASED 08/2025)" } })).changes.find((c) => c.field === "encumbrance")).toMatchObject({ before: "EWB (RELEASED 08/2025)", after: "EASTWEST BANK - RELEASED" });
     expect(planPricelist(input({ lender: null })).changes.some((c) => c.field === "encumbrance")).toBe(false);
   });
   it("has nothing to do when the sheet already agrees", () => {
