@@ -83,12 +83,15 @@ const parse = (raw: string): unknown => { try { return JSON.parse(raw.replace(/^
 
 /**
  * The same document listed twice in one photo (it happens: an OR and a CR each came back twice) is one document.
- * Two IDs with different names stay two IDs; the same person's ID twice is one.
+ * Two IDs with different names stay two IDs, and so do two different cards of one person (different numbers); the same card twice is one.
  */
+/** Two readings of an ID are one card only if their numbers agree (or one has none): a passport and a driver's license of one person are two. */
+const sameIdNumber = (a: string | null | undefined, b: string | null | undefined) => { const x = (a ?? "").replace(/\W/g, "").toUpperCase(), y = (b ?? "").replace(/\W/g, "").toUpperCase(); return !x || !y || x === y; };
+
 export function mergeRepeats(list: Detection[]): Detection[] {
   const out: Detection[] = [];
   for (const d of list) {
-    const same = out.find((x) => x.type === d.type && (d.type === "government_id" ? sameName(x.holderName, d.holderName) || (!x.holderName && !d.holderName) : d.type === "other" ? false : true));
+    const same = out.find((x) => x.type === d.type && (d.type === "government_id" ? (sameName(x.holderName, d.holderName) || (!x.holderName && !d.holderName)) && sameIdNumber(x.documentNumber, d.documentNumber) : d.type === "other" ? false : true));
     if (!same) { out.push({ ...d }); continue; }
     for (const key of Object.keys(d) as (keyof Detection)[]) {
       if (key === "type") continue;

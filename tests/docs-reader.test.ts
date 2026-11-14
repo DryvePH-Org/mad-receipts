@@ -130,3 +130,12 @@ describe("the same document listed twice in one photo", () => {
     expect(mergeRepeats([d("other"), d("other")])).toHaveLength(2);
   });
 });
+
+describe("two cards of one person", () => {
+  it("stay two IDs when their numbers differ, and merge when they agree or one has no number", () => {
+    const id = (over: Record<string, unknown>) => ({ type: "government_id" as const, confidence: 0.9, holderName: "ALER, MARIA", ...over });
+    expect(mergeRepeats([id({ idType: "Passport", documentNumber: "P1916961C" }), id({ idType: "Driver's license", documentNumber: "N26-05-070504" })])).toHaveLength(2);
+    expect(mergeRepeats([id({ documentNumber: "N26-05-070504" }), id({ documentNumber: "N26 05 070504" })])).toHaveLength(1);
+    expect(mergeRepeats([id({ documentNumber: "N26-05-070504" }), id({ documentNumber: null })])).toHaveLength(1);
+  });
+});
