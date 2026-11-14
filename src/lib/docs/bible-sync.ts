@@ -55,6 +55,8 @@ export async function checkSheet(plate: string, actor: string | null, deps: Bibl
   const row = await readBibleRow(key, deps, actor);
   const snap: Snapshot = { row: row.row, arrival: row.arrival, values: row.values, monthly: row.monthly, fetchedAt: now.toISOString() };
   if (row.found) await keepSnapshot(deps.admin, key, snap, actor);
+  // a reading that worked replaces an old failure (a timeout, a frozen day): the card must not keep saying "Failed" about what is now readable
+  if (row.found) await deps.admin.from("unit_sheet_sync").update({ status: "previewed", error: null }).eq("plate_no", key).in("kind", ["checklist", "pricelist"]).in("status", ["failed", "frozen", "conflict"]);
   const fast = await previewBibleFast(key, deps, now);
   if (!row.found) return { ...fast, changes: [], checkedAt: null, notes: [row.message ?? (row.matches > 1 ? "More than one row in the sheet has this plate." : "This plate is not in the Docs Bible yet.")] };
   return fast;
@@ -149,7 +151,7 @@ const keepSnapshot = async (admin: Admin, plate: string, snapshot: Snapshot, act
   const { data } = await admin.from("unit_sheet_sync").select("status, detail, job_id").eq("plate_no", plate).eq("kind", "checklist").maybeSingle();
   const { working: _working, ...rest } = (data?.detail && typeof data.detail === "object" && !Array.isArray(data.detail) ? (data.detail as Record<string, unknown>) : {}) as Record<string, unknown>; void _working;
   const detail = { ...rest, snapshot };
-  await save(admin, plate, "checklist", data?.status ?? "previewed", detail, null, data?.job_id ?? null, actor);
+  await save(admin, plate, "checklist", data?.status === "done" ? "done" : "previewed", detail, null, data?.job_id ?? null, actor);
 };
 
 /** What would be written, after reading the sheet through the bot, without writing anything (works while Google Sheets are frozen). */
