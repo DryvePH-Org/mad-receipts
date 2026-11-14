@@ -301,6 +301,44 @@ export async function setFileTypes(fileId: string, types: DocType[] | null, acto
   await log(deps.admin, actor, "docs.set_types", file.plate_no, { file: file.filename, types });
 }
 
+const EDITABLE = ["documentNumber", "plate", "motorNo", "chassisNo", "ownerName", "holderName", "sellerName", "buyerName", "secretaryName", "representativeName", "idType", "validUntil", "lender"] as const;
+export type ReadingPatch = Partial<Record<(typeof EDITABLE)[number], string>> & { copy?: "original" | "photocopy" | null; noDamage?: boolean };
+
+/** A person corrects what the bot read on one document of a photo. Only known fields, trimmed and limited; the original reading is kept in `original`. */
+export async function editReading(fileId: string, index: number, patch: ReadingPatch, actor: string, deps: DocsDeps = defaultDocsDeps()): Promise<void> {
+  const { data: file } = await deps.admin.from("folder_files").select("plate_no, filename, details").eq("id", fileId).single();
+  if (!file) throw new Error("File not found.");
+  const details = (file.details && typeof file.details === "object" && !Array.isArray(file.details) ? file.details : {}) as Record<string, unknown>;
+  const dets = Array.isArray(details.detections) ? ([...details.detections] as Record<string, unknown>[]) : [];
+  if (!dets[index]) throw new Error("That document is not on this photo.");
+  const next = { ...dets[index] };
+  for (const k of EDITABLE) if (k in patch) {
+    const v = String(patch[k] ?? "").trim().slice(0, 120);
+    if (k === "validUntil" && v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new Error("The date must look like 2027-03-31.");
+    next[k] = v || null;
+  }
+  if ("copy" in patch) next.copy = patch.copy === "original" || patch.copy === "photocopy" ? patch.copy : null;
+  if (patch.noDamage) next.defects = null;
+  dets[index] = next;
+  const original = details.original ?? details.detections;
+  await deps.admin.from("folder_files").update({ details: { ...details, detections: dets, original, edited: true, reviewed: [] } as unknown as Json }).eq("id", fileId);
+  await recompute(file.plate_no, deps);
+  await log(deps.admin, actor, "docs.edit_reading", file.plate_no, { file: file.filename, index, fields: Object.keys(patch) });
+}
+
+/** "Checked, this is fine": the warning is not raised again for this file (until the photo is scanned again). */
+export async function reviewFlag(fileId: string, flag: string, accept: boolean, actor: string, deps: DocsDeps = defaultDocsDeps()): Promise<void> {
+  const { data: file } = await deps.admin.from("folder_files").select("plate_no, filename, details, flags").eq("id", fileId).single();
+  if (!file) throw new Error("File not found.");
+  const details = (file.details && typeof file.details === "object" && !Array.isArray(file.details) ? file.details : {}) as Record<string, unknown>;
+  const now = Array.isArray(details.reviewed) ? (details.reviewed as string[]) : [];
+  if (accept && !(file.flags ?? []).includes(flag)) throw new Error("That warning is no longer on this file.");
+  const reviewed = accept ? [...new Set([...now, flag.slice(0, 300)])] : now.filter((x) => x !== flag);
+  await deps.admin.from("folder_files").update({ details: { ...details, reviewed } as unknown as Json }).eq("id", fileId);
+  await recompute(file.plate_no, deps);
+  await log(deps.admin, actor, accept ? "docs.accept_flag" : "docs.unaccept_flag", file.plate_no, { file: file.filename });
+}
+
 export async function setCase(plate: string, caseType: CaseType | null, actor: string, deps: DocsDeps = defaultDocsDeps()): Promise<void> {
   const key = normalizePlate(plate);
   await deps.admin.from("unit_folders").update(caseType ? { case_type: caseType, case_source: "manual" } : { case_source: "auto" }).eq("plate_no", key);

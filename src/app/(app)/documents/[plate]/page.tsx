@@ -7,7 +7,7 @@ import { getSettings } from "@/lib/data";
 import { loadSheetStatus, loadWorking, previewBibleFast } from "@/lib/docs/bible-sync";
 import { toSheetPreview } from "@/lib/docs/bible-view";
 import { isScanning, readerMode } from "@/lib/docs/bot-scan";
-import { readingNotes, rotationOf, detectionsOf } from "@/lib/docs/car";
+import { readingNotes, reviewedOf, rotationOf, detectionsOf, wasEdited } from "@/lib/docs/car";
 import { getCarDetail } from "@/lib/docs/data";
 import { cleanDetails, missingDetails } from "@/lib/docs/details";
 import { previewPricelistFast } from "@/lib/docs/pricelist-sync";
@@ -52,7 +52,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
     getSettings(), workForPlate(key).catch(() => []), isScanning(key).catch(() => false), loadStageInput(key, admin).catch(() => null),
   ]);
   const linked = car.folder.match_status === "linked" && !!car.folder.folder_id;
-  const stage = deriveStage(input ?? { linked, location: car.folder.location as "available" | "sold", filesTotal: car.files.length, pending: car.pending, failed: 0, scanning, flaggedFiles: 0, missingBefore: 0, missingSold: 0, hasDeal: !!deal, approved: !!flow.workflow.approvedAt, handoffAt: flow.workflow.handoffAt, returnedAt: flow.workflow.handoffReturnedAt, receiver: settings.print.transmittalReceiver || "the receiver" });
+  const stage = deriveStage(input ?? { linked, location: car.folder.location as "available" | "sold", filesTotal: car.files.length, pending: car.pending, failed: 0, scanning, flaggedFiles: 0, missingBefore: 0, missingSold: 0, hasDeal: !!deal, approved: !!flow.workflow.approvedAt, caseChosen: car.folder.case_source === "manual", handoffAt: flow.workflow.handoffAt, returnedAt: flow.workflow.handoffReturnedAt, receiver: settings.print.transmittalReceiver || "the receiver" });
   const [pricelist, sheetStatuses, sheetPreview, sheetWorking] = await Promise.all([
     linked ? previewPricelistFast(key, admin).catch(() => null) : null,
     linked ? loadSheetStatus(key).catch(() => []) : [],
@@ -65,13 +65,13 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
   const data: CarViewData = {
     plate: key, plateDisplay: car.folder.plate_display, name: car.folder.folder_name ?? car.folder.plate_display, location: car.folder.location as "available" | "sold",
     match: car.folder.match_status as "linked" | "none" | "several", folderUrl: car.folder.folder_url, candidates: (car.folder.candidates ?? []) as unknown as { id: string; name: string; url: string; root: string }[],
-    caseType: car.caseType, suggestedCase: car.suggestedCase, caseSource: car.folder.case_source as "auto" | "manual",
+    caseType: car.caseType, suggestedCase: car.suggestedCase, caseReason: car.caseReason, caseSource: car.folder.case_source as "auto" | "manual",
     deal: deal ? { id: deal.id, dealNo: deal.dealNo, buyerName: deal.buyerName, hasReceipt: deal.hasReceipt } : null,
     items,
     files: car.files.map((f) => {
       const r = car.analysis.files.find((x) => x.id === f.id);
       return {
-        id: f.id, rotation: rotationOf(f.details), name: f.filename, url: f.drive_url, source: f.source, readStatus: f.read_status, readError: f.read_error, types: f.doc_types, manual: f.doc_types_source === "manual",
+        id: f.id, rotation: rotationOf(f.details), name: f.filename, url: f.drive_url, source: f.source, readStatus: f.read_status, readError: f.read_error, types: f.doc_types, manual: f.doc_types_source === "manual", edited: wasEdited(f.details), reviewed: reviewedOf(f.details),
         flags: f.flags, duplicateOf: r?.duplicateOf ? car.files.find((x) => x.id === r.duplicateOf)?.filename ?? null : null, confidence: f.confidence,
         seen: { detections: detectionsOf(f.details) ?? [], notes: readingNotes(f.details).notes },
       };

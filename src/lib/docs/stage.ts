@@ -17,6 +17,8 @@ export interface StageInput {
   /** the car has a deal (an AR was made) */
   hasDeal: boolean;
   approved: boolean;
+  /** a person chose the case (the bot only suggests it) */
+  caseChosen?: boolean;
   handoffAt: string | null; returnedAt: string | null;
   receiver: string;
 }
@@ -46,7 +48,7 @@ export function deriveStage(i: StageInput): StageModel {
   else if (out) current = "handoff";
   else if (i.filesTotal === 0) current = "photos";
   else if (scanning || i.pending > 0 || i.failed > 0) current = "scan";
-  else if (!i.approved && (i.flaggedFiles > 0 || i.missingBefore > 0)) current = "review";
+  else if (!i.approved && (i.caseChosen === false || i.flaggedFiles > 0 || i.missingBefore > 0)) current = "review";
   else if (!i.approved) current = "approve";
   else if (i.missingSold > 0) current = "sold_docs";
   else current = "move";
@@ -69,8 +71,8 @@ export function deriveStage(i: StageInput): StageModel {
         if (i.pending > 0) return { title: `Scan the ${plural(i.pending, "waiting photo")}`, body: "The bot reads each photo: what it is, how it is turned, original or copy, and any damage. Press Scan.", anchor: "files" };
         return { title: `${plural(i.failed, "photo")} could not be read`, body: "Scan them again, or say what each one is by hand.", anchor: "files" };
       case "review": {
-        const bits = [i.flaggedFiles ? plural(i.flaggedFiles, "file") + " to check" : "", i.missingBefore ? plural(i.missingBefore, "paper") + " missing" : ""].filter(Boolean).join(" and ");
-        return { title: "Review what the bot found", body: `${bits}. Fix a wrong type with "Change what this is", add a missing paper with Add documents, then scan again. You can still approve with these open; you will be asked to confirm.`, anchor: "files" };
+        const bits = [i.caseChosen === false ? "the case is not chosen yet" : "", i.flaggedFiles ? plural(i.flaggedFiles, "file") + " to check" : "", i.missingBefore ? plural(i.missingBefore, "paper") + " missing" : ""].filter(Boolean).join(" and ");
+        return { title: "Review what the bot found", body: `${bits}. Choose the case under Papers needed (the bot only suggests it). Fix a wrong type with "Change what this is", add a missing paper with Add documents, then scan again. You can still approve with these open; you will be asked to confirm.`, anchor: "files" };
       }
       case "approve": return { title: "Approve the documents", body: "The scan is clean. Fill in About the car if you have not, then approve: marketing is told and the sheets are updated.", anchor: "approval" };
       case "sold_docs":
@@ -97,7 +99,8 @@ export function deriveStage(i: StageInput): StageModel {
       : i.filesTotal === 0 ? no("Add the car's documents first.")
       : scanning ? no("Wait for the scan to finish.")
       : i.pending > 0 ? no(`${plural(i.pending, "photo")} still to be scanned.`)
-      : i.failed > 0 ? no(`${plural(i.failed, "photo")} could not be read: scan them again or say what they are.`) : ok,
+      : i.failed > 0 ? no(`${plural(i.failed, "photo")} could not be read: scan them again or say what they are.`)
+      : i.caseChosen === false ? no("Choose the case first (Papers needed). The bot only suggests it; you decide.") : ok,
     sendSheet: !i.approved ? no("Approve the documents first.") : ok,
     moveToSold: !i.linked ? no("Link the folder first.")
       : out ? no("This car is already in Sold units.")

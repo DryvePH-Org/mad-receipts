@@ -245,3 +245,37 @@ describe("copies and defects", () => {
     expect(a.files[0].flags.join(" ")).toMatch(/torn, cut off/);
   });
 });
+
+describe("the bot's case suggestion", () => {
+  it("is Repo bank when the deed's seller is a bank, even with only the CR, OR and deed", () => {
+    const a = analyze([file([det("certificate_of_registration", { ownerName: "VILLAROQUE, DAISY" })]), file([det("deed_of_sale", { sellerName: "BANK OF COMMERCE", buyerName: null })])], folder, deal);
+    expect(a.suggestedCase).toBe("repo_bank");
+    expect(a.caseReason).toMatch(/bank as the seller/);
+  });
+  it("is Clean when nothing points to a bank, company or loan, and says a person decides", () => {
+    const a = analyze([file([det("certificate_of_registration", { ownerName: OWNER })])], folder, deal);
+    expect(a.suggestedCase).toBe("clean");
+    expect(a.caseReason).toMatch(/choose that case yourself/);
+  });
+});
+
+describe("warnings a person accepted", () => {
+  const photocopy = () => file([det("certificate_of_registration", { ownerName: OWNER, copy: "photocopy" })]);
+  it("are not raised again, and other warnings stay", () => {
+    const f = photocopy();
+    const first = analyze([f], folder, deal).files[0].flags;
+    expect(first.length).toBeGreaterThan(0);
+    expect(analyze([{ ...f, reviewedFlags: first }], folder, deal).files[0].flags).toEqual([]);
+    const other = file([det("certificate_of_registration", { ownerName: OWNER, copy: "photocopy", defects: ["torn"] })]);
+    const flags = analyze([{ ...other, reviewedFlags: first }], folder, deal).files[0].flags;
+    expect(flags.some((x) => /torn/.test(x))).toBe(true);
+  });
+  it("also silence a motor-number mismatch only on the file where it was accepted", () => {
+    const a = file([det("certificate_of_registration", { motorNo: "3A92UMG5024" })]), b = file([det("official_receipt", { motorNo: "3A92UMG5999" })]);
+    const flags = analyze([a, b], folder, deal).files.map((x) => x.flags.length);
+    expect(flags).toEqual([1, 1]);
+    const msg = analyze([a, b], folder, deal).files[0].flags[0];
+    const after = analyze([{ ...a, reviewedFlags: [msg] }, b], folder, deal).files.map((x) => x.flags.length);
+    expect(after).toEqual([0, 1]);
+  });
+});

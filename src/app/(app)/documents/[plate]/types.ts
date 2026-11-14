@@ -4,7 +4,7 @@ import type { Rules, StageModel } from "@/lib/docs/stage";
 
 export interface FileView {
   id: string; rotation: number; name: string; url: string | null; source: string; readStatus: string; readError: string | null;
-  types: string[]; manual: boolean; flags: string[]; duplicateOf: string | null; confidence: number | null;
+  types: string[]; manual: boolean; edited: boolean; reviewed: string[]; flags: string[]; duplicateOf: string | null; confidence: number | null;
   /** what the bot saw on this photo, shown under "What the bot saw" */
   seen: { detections: Detection[]; notes: string | null };
 }
@@ -12,7 +12,7 @@ export interface FileView {
 export interface CarViewData {
   plate: string; plateDisplay: string; name: string; location: "available" | "sold"; match: "linked" | "none" | "several"; folderUrl: string | null;
   candidates: { id: string; name: string; url: string; root: string }[];
-  caseType: CaseType; suggestedCase: CaseType; caseSource: "auto" | "manual";
+  caseType: CaseType; suggestedCase: CaseType; caseReason: string; caseSource: "auto" | "manual";
   deal: { id: string; dealNo: string; buyerName: string; hasReceipt: boolean } | null;
   items: { key: string; label: string; stage: "available" | "sold"; present: boolean; fileIds: string[] }[];
   files: FileView[];

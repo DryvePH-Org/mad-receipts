@@ -5,6 +5,7 @@ import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { requireModule } from "@/lib/auth";
 import { forRole } from "@/lib/cars/model";
 import { carsSheetUrl, loadCars, type CarsData } from "@/lib/cars/read";
+import { loadDocsSummaries } from "@/lib/docs/summary";
 import { CarsBoard } from "./cars-board";
 
 export default function CarsPage() {
@@ -29,8 +30,9 @@ async function Content() {
       </div>
     );
   }
+  const docs = Object.fromEntries(await loadDocsSummaries().catch(() => new Map()));
   const canOpenSheet = user.role === "admin" || user.role === "approver";
   return (
-    <CarsBoard cars={data.cars.map((c) => forRole(c, user.role))} at={data.at} stale={data.stale} role={user.role} sheetUrl={canOpenSheet ? carsSheetUrl() : null} canOpenDocs={user.role === "admin" || user.role === "documentation"} />
+    <CarsBoard cars={data.cars.map((c) => forRole(c, user.role))} at={data.at} stale={data.stale} role={user.role} docs={docs} sheetUrl={canOpenSheet ? carsSheetUrl() : null} canOpenDocs={user.role === "admin" || user.role === "documentation"} />
   );
 }

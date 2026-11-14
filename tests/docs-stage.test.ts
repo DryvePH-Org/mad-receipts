@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { allowed, deriveStage, type StageInput } from "@/lib/docs/stage";
 
-const base: StageInput = { linked: true, location: "available", filesTotal: 6, pending: 0, failed: 0, scanning: false, flaggedFiles: 0, missingBefore: 0, missingSold: 3, hasDeal: false, approved: false, handoffAt: null, returnedAt: null, receiver: "Jepthee Ramos" };
+const base: StageInput = { linked: true, location: "available", filesTotal: 6, pending: 0, failed: 0, scanning: false, flaggedFiles: 0, missingBefore: 0, missingSold: 3, hasDeal: false, approved: false, caseChosen: true, handoffAt: null, returnedAt: null, receiver: "Jepthee Ramos" };
 const at = (over: Partial<StageInput>) => deriveStage({ ...base, ...over });
 
 describe("where a car is in the workflow", () => {
@@ -71,5 +71,15 @@ describe("what may be pressed", () => {
     expect(at({ location: "sold" }).rules.markReturned.allowed).toBe(false);
     expect(at({ location: "sold", handoffAt: "2026-11-10T01:00:00Z" }).rules.markReturned.allowed).toBe(true);
     expect(at({ location: "sold", handoffAt: "2026-11-10T01:00:00Z", returnedAt: "2026-11-12T01:00:00Z" }).rules.markReturned.reason).toMatch(/already back/);
+  });
+});
+
+describe("the case must be chosen by a person", () => {
+  it("blocks approval and keeps the car in review until it is chosen", () => {
+    const s = at({ caseChosen: false });
+    expect(s.current).toBe("review");
+    expect(s.rules.approve.allowed).toBe(false);
+    expect(s.rules.approve.reason).toMatch(/Choose the case/);
+    expect(at({ caseChosen: true }).rules.approve.allowed).toBe(true);
   });
 });

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
 import { requireModule } from "@/lib/auth";
-import { chooseFolder, defaultDocsDeps, docsErrorText, linkFolder, previewCarFolder, type FolderPreview, moveToSold, readPending, refreshFolders, scanFolder, setCase, setFileTypes, type MoveResult, type ReadProgress } from "@/lib/docs/service";
+import { editReading, reviewFlag, chooseFolder, defaultDocsDeps, docsErrorText, linkFolder, previewCarFolder, type FolderPreview, moveToSold, readPending, refreshFolders, scanFolder, setCase, setFileTypes, type MoveResult, type ReadProgress } from "@/lib/docs/service";
 import { CASES, CHOOSABLE, type CaseType, type DocType } from "@/lib/docs/types";
 import { inventory } from "@/lib/inventory";
 import { readerMode, scheduleScan } from "@/lib/docs/bot-scan";
@@ -79,6 +79,37 @@ export async function setFileTypesAction(fileId: string, types: string[] | null)
     await setFileTypes(id.data, chosen, user.id);
     revalidatePath("/documents", "layout");
     return { ok: true as const, message: chosen ? "Saved." : "Back to what was read." };
+  }, (message) => ({ ok: false as const, message }));
+}
+
+const patchSchema = z.object({
+  documentNumber: z.string().max(120).optional(), plate: z.string().max(120).optional(), motorNo: z.string().max(120).optional(), chassisNo: z.string().max(120).optional(),
+  ownerName: z.string().max(120).optional(), holderName: z.string().max(120).optional(), sellerName: z.string().max(120).optional(), buyerName: z.string().max(120).optional(),
+  secretaryName: z.string().max(120).optional(), representativeName: z.string().max(120).optional(), idType: z.string().max(120).optional(), validUntil: z.string().max(10).optional(), lender: z.string().max(120).optional(),
+  copy: z.enum(["original", "photocopy"]).nullable().optional(), noDamage: z.boolean().optional(),
+}).strict();
+
+/** The staff correct what the bot read on one document of a photo. */
+export async function editReadingAction(fileId: string, index: number, patch: unknown): Promise<Done> {
+  const user = await requireModule("documents");
+  const id = z.uuid().safeParse(fileId), p = patchSchema.safeParse(patch);
+  if (!id.success || !p.success || !Number.isInteger(index) || index < 0 || index > 9) return { ok: false, message: "Bad request." };
+  return guard<Done>(async () => {
+    await editReading(id.data, index, p.data, user.id);
+    revalidatePath("/documents", "layout");
+    return { ok: true as const, message: "Saved. The warnings were checked again." };
+  }, (message) => ({ ok: false as const, message }));
+}
+
+/** "Checked, this is fine" on a warning (or take it back). */
+export async function reviewFlagAction(fileId: string, flag: string, accept: boolean): Promise<Done> {
+  const user = await requireModule("documents");
+  const id = z.uuid().safeParse(fileId);
+  if (!id.success || typeof flag !== "string" || !flag || flag.length > 300) return { ok: false, message: "Bad request." };
+  return guard<Done>(async () => {
+    await reviewFlag(id.data, flag, !!accept, user.id);
+    revalidatePath("/documents", "layout");
+    return { ok: true as const, message: accept ? "Marked as checked." : "The warning is back." };
   }, (message) => ({ ok: false as const, message }));
 }
 

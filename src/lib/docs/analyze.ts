@@ -20,12 +20,25 @@ export interface FileInput {
   /** null until the photo has been read */
   detections: Detection[] | null;
   readStatus: "pending" | "done" | "failed" | "unreadable";
+  /** warnings a person looked at and accepted for this file: they are not raised again */
+  reviewedFlags?: string[];
   /** Types a person chose by hand; these win. */
   manualTypes: DocType[] | null;
 }
 
 export interface FileResult { id: string; types: DocType[]; flags: string[]; duplicateOf: string | null }
-export interface Analysis { files: FileResult[]; suggestedCase: CaseType }
+/** Why the bot suggests a case, in words the staff can check against the papers. */
+export function caseReason(detections: Detection[], types: DocType[]): string {
+  const suggested = detectCase(detections, types);
+  const bankSeller = detections.find((d) => d.type === "deed_of_sale" && looksLikeBank(d.sellerName));
+  const owner = detections.find((d) => d.type === "certificate_of_registration" && d.ownerName)?.ownerName;
+  if (suggested === "company") return types.includes("board_resolution" as DocType) ? "A board resolution is in the folder." : "The registered owner looks like a company.";
+  if (suggested === "repo_bank") return bankSeller ? `The deed names a bank as the seller (${bankSeller.sellerName}).` : owner && looksLikeBank(owner) ? `The registered owner is a bank (${owner}).` : "A secretary's certificate is in the folder.";
+  if (suggested === "encumbered") return "A chattel mortgage cancellation or promissory note is in the folder.";
+  return "No bank, company or loan papers were seen. If the car was repossessed or financed, choose that case yourself.";
+}
+
+export interface Analysis { files: FileResult[]; suggestedCase: CaseType; caseReason: string }
 
 export interface FolderContext { plate: string; caseType: CaseType | null }
 /** `linked`: an AR (deal) is attached to this car. Without one, the buyer is taken from a signed deed and the AR line is left out. */
@@ -103,17 +116,18 @@ export function analyze(files: FileInput[], folder: FolderContext, deal: DealCon
     }
     if (f.readStatus === "failed") flags.push("Could not read this file. Try reading it again, or choose what it is.");
     if (f.readStatus === "unreadable") flags.push("The picture is too unclear to read. Retake it, or choose what it is.");
-    return { id: f.id, types: types.length ? types : f.readStatus === "done" ? ["other"] : [], flags, duplicateOf: null };
+    return { id: f.id, types: types.length ? types : f.readStatus === "done" ? ["other"] : [], flags: flags.filter((x) => !f.reviewedFlags?.includes(x)), duplicateOf: null };
   });
 
   // Motor and chassis numbers should be the same wherever they appear (OR, CR, deeds).
+  const byFile = new Map(files.map((f) => [f.id, f]));
   for (const key of ["motorNo", "chassisNo"] as const) {
     const seen = files.flatMap((f) => (f.detections ?? []).filter((d) => VEHICLE_PAPERS.has(d.type)).map((d) => ({ file: f.id, v: squash(d[key]) }))).filter((x) => x.v.length >= 6);
     const first = seen[0];
     if (first) for (const x of seen) {
       if (!nearlySame(x.v, first.v, allowedEdits(first.v))) {
         const label = key === "motorNo" ? "motor" : "chassis";
-        for (const id of new Set([first.file, x.file])) results.find((r) => r.id === id)?.flags.push(`The ${label} number does not match between documents (${first.v} and ${x.v}).`);
+        for (const id of new Set([first.file, x.file])) { const msg = `The ${label} number does not match between documents (${first.v} and ${x.v}).`; if (!byFile.get(id)?.reviewedFlags?.includes(msg)) results.find((r) => r.id === id)?.flags.push(msg); }
       }
     }
   }
@@ -131,13 +145,13 @@ export function analyze(files: FileInput[], folder: FolderContext, deal: DealCon
       const earlier = firstSeen.get(key);
       if (earlier && earlier !== f.id) {
         r.duplicateOf ??= earlier;
-        r.flags.push(`Looks like the same document as ${byId.get(earlier)?.filename ?? "another photo"} (two photos of one document).`);
+        { const msg = `Looks like the same document as ${byId.get(earlier)?.filename ?? "another photo"} (two photos of one document).`; if (!f.reviewedFlags?.includes(msg)) r.flags.push(msg); }
       } else firstSeen.set(key, f.id);
     }
   }
 
   const allTypes = results.flatMap((r) => r.types);
-  return { files: results.map((r) => ({ ...r, flags: [...new Set(r.flags)] })), suggestedCase: detectCase(all, allTypes) };
+  return { files: results.map((r) => ({ ...r, flags: [...new Set(r.flags)] })), suggestedCase: detectCase(all, allTypes), caseReason: caseReason(all, allTypes) };
 }
 
 // ---------------- the checklist ----------------

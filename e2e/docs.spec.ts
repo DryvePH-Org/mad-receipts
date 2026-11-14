@@ -140,6 +140,10 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   // the buttons follow the workflow: the folder cannot move before the documents are approved
   await expect(docs.getByRole("button", { name: "Move to Sold" })).toBeDisabled();
   await expect(docs.getByText("Approve the documents first.").first()).toBeVisible();
+  // the bot only suggests the case: approval waits until a person chooses it
+  await expect(docs.getByText("Choose the case first").first()).toBeVisible();
+  await docs.getByRole("combobox", { name: "Case" }).selectOption({ label: "Clean" });
+  await expect(docs.getByRole("button", { name: "Approve: documents are OK" })).toBeEnabled({ timeout: 15_000 });
   await docs.getByRole("button", { name: "Approve: documents are OK" }).click();
   await expect(docs.getByRole("heading", { name: "Approve with things still open?" })).toBeVisible(); // the details about the car are still blank
   await docs.getByRole("dialog").getByRole("button", { name: "Go on anyway" }).click();

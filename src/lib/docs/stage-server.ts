@@ -21,7 +21,7 @@ export async function loadStageInput(plate: string, admin = createAdminClient())
     missingBefore: car.checklist.items.filter((i) => i.stage === "available" && !i.present).length,
     missingSold: car.checklist.items.filter((i) => i.stage === "sold" && !i.present).length,
     hasDeal: !!car.folder.deal_id,
-    approved: !!workflow.approvedAt, handoffAt: workflow.handoffAt, returnedAt: workflow.handoffReturnedAt,
+    approved: !!workflow.approvedAt, caseChosen: car.folder.case_source === "manual", handoffAt: workflow.handoffAt, returnedAt: workflow.handoffReturnedAt,
     receiver: settings.print.transmittalReceiver || "the receiver",
   };
 }

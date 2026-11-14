@@ -183,6 +183,8 @@ export type SendResult = { ok: true; written: number; skipped: string[] } | { ok
 export async function sendBible(plate: string, actor: string, deps: BibleDeps = defaultBibleDeps(), now = new Date()): Promise<SendResult> {
   const key = normalizePlate(plate);
   try {
+    const { data: folder } = await deps.admin.from("unit_folders").select("case_source").eq("plate_no", key).maybeSingle();
+    if (folder && folder.case_source !== "manual") return { ok: false, status: "failed", message: "Choose the case first (Papers needed). The sheet is only written with the case a person chose." };
     const preview = await previewBible(key, actor, deps, now); // reading is allowed while frozen; writing below is not
     if (!preview.row.found) return { ok: false, status: "failed", message: preview.notes[0] ?? "Not found in the sheet." };
     const changes: Change[] = [...preview.changes, ...(preview.note && !noteAlreadyThere(preview.row.values.remarks_1, preview.note) ? [{ field: "remarks_1" as DocsField, before: preview.row.values.remarks_1 ?? "", after: preview.note, mode: "append" as const }] : [])];

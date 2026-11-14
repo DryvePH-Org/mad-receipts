@@ -20,7 +20,7 @@ const nice = (iso: string | null) => (iso ? new Date(`${iso}T00:00:00Z`).toLocal
 const time = (ms: number) => new Date(ms).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Manila" });
 const title = (c: CarRow) => [c.year, c.brand, c.make].filter(Boolean).join(" ");
 
-export function CarsBoard({ cars, at, stale, role, sheetUrl, canOpenDocs }: { cars: CarRow[]; at: number; stale: boolean; role: string; sheetUrl: string | null; canOpenDocs: boolean }) {
+export function CarsBoard({ cars, at, stale, role, sheetUrl, canOpenDocs, docs }: { cars: CarRow[]; at: number; stale: boolean; role: string; sheetUrl: string | null; canOpenDocs: boolean; docs: Record<string, { label: string; tone: Tone; case: string | null }> }) {
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
   const [f, setF] = useState<CarFilter>(EMPTY_FILTER);
@@ -124,6 +124,7 @@ export function CarsBoard({ cars, at, stale, role, sheetUrl, canOpenDocs }: { ca
                 <div className="flex flex-wrap gap-1.5 text-xs">
                   {c.availability === "reserved" && c.reservedFor.length > 0 && <span className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-900 dark:bg-blue-500/10 dark:text-blue-200">by {c.reservedFor.join(", ")}{c.reservedOn ? ` · ${c.reservedOn}` : ""}</span>}
                   {c.repairStatus && <span className="inline-flex items-center gap-1 rounded bg-red-50 px-1.5 py-0.5 text-red-900 dark:bg-red-500/10 dark:text-red-200"><Wrench className="size-3" aria-hidden />{c.repairStatus}</span>}
+                  {docs[c.plate] && <Pill tone={docs[c.plate].tone}>{docs[c.plate].label}</Pill>}
                   {c.location && <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5"><MapPin className="size-3" aria-hidden />{c.location}</span>}
                   {spareKeyState(c.spareKey) === "yes" && <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5"><Key className="size-3" aria-hidden />spare key</span>}
                 </div>
@@ -133,8 +134,8 @@ export function CarsBoard({ cars, at, stale, role, sheetUrl, canOpenDocs }: { ca
         </ul>
       ) : (
         <div className="overflow-x-auto rounded-xl ring-1 ring-foreground/10">
-          <table className="w-full min-w-[56rem] text-sm">
-            <thead className="bg-muted/50 text-left text-xs tracking-wide text-muted-foreground uppercase"><tr>{["Plate", "Car", "Color", "Price", "Status", "Days", "Repair", "Location"].map((h) => <th key={h} className="px-3 py-2 font-medium">{h}</th>)}</tr></thead>
+          <table className="w-full min-w-[64rem] text-sm">
+            <thead className="bg-muted/50 text-left text-xs tracking-wide text-muted-foreground uppercase"><tr>{["Plate", "Car", "Color", "Price", "Status", "Documents", "Days", "Repair", "Location"].map((h) => <th key={h} className="px-3 py-2 font-medium">{h}</th>)}</tr></thead>
             <tbody className="divide-y">
               {shown.map((c) => (
                 <tr key={c.plate} className="cursor-pointer hover:bg-muted/40" onClick={() => setOpen(c)}>
@@ -143,6 +144,7 @@ export function CarsBoard({ cars, at, stale, role, sheetUrl, canOpenDocs }: { ca
                   <td className="px-3 py-2 text-muted-foreground">{c.color || "—"}</td>
                   <td className="px-3 py-2 tabular-nums">{peso(c.price)}{c.repriced && <span className="ml-1 text-xs text-muted-foreground line-through">{peso(c.originalPrice)}</span>}</td>
                   <td className="px-3 py-2"><Pill tone={TONE[c.availability]}>{AVAILABILITY_LABEL[c.availability]}</Pill></td>
+                  <td className="px-3 py-2">{docs[c.plate] ? <Pill tone={docs[c.plate].tone}>{docs[c.plate].label}</Pill> : <span className="text-muted-foreground">Not started</span>}</td>
                   <td className="px-3 py-2 tabular-nums">{c.daysInStock ?? "—"}</td>
                   <td className="px-3 py-2">{c.repairStatus || "—"}</td>
                   <td className="px-3 py-2">{c.location || "—"}</td>
@@ -161,6 +163,7 @@ export function CarsBoard({ cars, at, stale, role, sheetUrl, canOpenDocs }: { ca
               {([
                 ["Price", peso(open.price)], ...(open.repriced ? [["Original price", peso(open.originalPrice)] as [string, string]] : []), ...(showTarget && role !== "sales" ? [["Target", peso(open.target)] as [string, string]] : []),
                 ["Body type", open.bodyType || "—"], ["Color", open.color || "—"], ["Mileage", open.mileage || "—"], ["Transmission", open.trans || "—"], ["Fuel", open.fuel || "—"],
+                ["Documents", docs[open.plate] ? docs[open.plate].label : "Not started"],
                 ["Arrived", nice(open.arrived)], ["Days in stock", open.daysInStock !== null ? String(open.daysInStock) : "—"], ["Location", open.location || "—"],
                 ["Spare key", spareKeyState(open.spareKey) === "yes" ? "Yes" : spareKeyState(open.spareKey) === "no" ? "No" : open.spareKey || "—"],
                 ...(open.encumbrance || role !== "sales" ? [["Encumbrance", open.encumbrance || "None"] as [string, string]] : []),

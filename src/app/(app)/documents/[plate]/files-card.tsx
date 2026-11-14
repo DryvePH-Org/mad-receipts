@@ -8,9 +8,11 @@ import { ResponsiveDialog } from "@/components/shared/responsive-dialog";
 import { Pill } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import type { Rules } from "@/lib/docs/stage";
 import { CHOOSABLE, DOC_LABELS, type Detection, type DocType } from "@/lib/docs/types";
-import { readNextAction, rescanAction, setFileTypesAction } from "../actions";
+import { editReadingAction, readNextAction, reviewFlagAction, rescanAction, setFileTypesAction } from "../actions";
 import type { CarViewData, FileView } from "./types";
 
 const typeLabel = (t: string) => DOC_LABELS[t as DocType] ?? t;
@@ -61,7 +63,7 @@ export function FilesCard({ data, rules }: { data: CarViewData; rules: Rules }) 
       <CardContent>
         {!data.scanned ? <p className="text-sm text-muted-foreground">Looking at the folder…</p> : data.files.length === 0 ? <p className="text-sm text-muted-foreground">No photos in this folder yet. Use <b>Add documents</b> in Car documents to add them.</p> : (
           <ul className="divide-y">
-            {data.files.map((f) => <FileRow key={f.id} f={f} busy={busy || data.scanning} onSave={(types) => run(() => setFileTypesAction(f.id, types))} />)}
+            {data.files.map((f) => <FileRow key={f.id} f={f} busy={busy || data.scanning} onSave={(types) => run(() => setFileTypesAction(f.id, types))} run={run} />)}
           </ul>
         )}
       </CardContent>
@@ -69,7 +71,7 @@ export function FilesCard({ data, rules }: { data: CarViewData; rules: Rules }) 
   );
 }
 
-function FileRow({ f, busy, onSave }: { f: FileView; busy: boolean; onSave: (types: string[] | null) => void }) {
+function FileRow({ f, busy, onSave, run }: { f: FileView; busy: boolean; onSave: (types: string[] | null) => void; run: (fn: () => Promise<{ ok: boolean; message: string }>) => void }) {
   const [editing, setEditing] = useState(false);
   const [picked, setPicked] = useState<string[]>(f.types);
   const unread = f.readStatus === "pending";
@@ -82,14 +84,21 @@ function FileRow({ f, busy, onSave }: { f: FileView; busy: boolean; onSave: (typ
           {unread ? <Pill tone="blue">Not read yet</Pill> : f.readStatus === "failed" ? <Pill tone="red">Could not read</Pill> : f.readStatus === "unreadable" ? <Pill tone="red">Too unclear</Pill>
             : f.types.length === 0 ? <Pill tone="zinc">Nothing recognised</Pill> : f.types.map((t) => <Pill key={t} tone={t === "other" || t.endsWith("unmatched") ? "amber" : "emerald"}>{typeLabel(t)}</Pill>)}
           {f.manual && <Pill tone="purple">Set by a person</Pill>}
+          {f.edited && <Pill tone="purple">Corrected by a person</Pill>}
         </span>
       </div>
       <div className="flex flex-wrap items-start gap-3">
         {f.readStatus === "done" && <Thumb id={f.id} name={f.name} rotation={f.rotation} />}
         <div className="min-w-0 flex-1 space-y-2">
-          {f.flags.map((x) => <p key={x} className="flex gap-2 rounded-lg bg-amber-50 p-2.5 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200"><CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />{x}</p>)}
+          {f.flags.map((x) => (
+            <div key={x} className="flex flex-wrap items-start gap-2 rounded-lg bg-amber-50 p-2.5 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+              <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden /><span className="min-w-0 flex-1">{x}</span>
+              <Button size="xs" variant="outline" disabled={busy} onClick={() => run(() => reviewFlagAction(f.id, x, true))}>Checked, it is fine</Button>
+            </div>
+          ))}
+          {f.reviewed.length > 0 && <p className="text-xs text-muted-foreground">{f.reviewed.length} warning{f.reviewed.length === 1 ? "" : "s"} checked by a person. <button type="button" className="underline underline-offset-2" disabled={busy} onClick={() => run(async () => { let last = { ok: true, message: "The warnings are back." }; for (const x of f.reviewed) last = await reviewFlagAction(f.id, x, false); return last; })}>Show again</button></p>}
           {f.readError && f.readStatus === "failed" && <p className="text-xs text-muted-foreground">{f.readError}</p>}
-          {f.readStatus === "done" && <Seen f={f} />}
+          {f.readStatus === "done" && <Seen f={f} busy={busy} run={run} />}
         </div>
       </div>
       {editing ? (
@@ -115,7 +124,8 @@ const DETAIL_ROWS: [keyof Detection, string][] = [
 ];
 
 /** "What the bot saw": every document the bot found on this photo with what it read, how sure it was, and what it saw wrong with it. */
-function Seen({ f }: { f: FileView }) {
+function Seen({ f, busy, run }: { f: FileView; busy: boolean; run: (fn: () => Promise<{ ok: boolean; message: string }>) => void }) {
+  const [editing, setEditing] = useState<number | null>(null);
   const dets = f.seen.detections;
   return (
     <details className="group rounded-lg border">
@@ -131,12 +141,37 @@ function Seen({ f }: { f: FileView }) {
             <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
               {DETAIL_ROWS.filter(([k]) => d[k]).map(([k, name]) => <div key={k} className="flex gap-2"><dt className="w-36 shrink-0 text-xs text-muted-foreground">{name}</dt><dd className="min-w-0 break-words">{String(d[k])}</dd></div>)}
             </dl>
+            {editing === i ? <EditReading d={d} busy={busy} onCancel={() => setEditing(null)} onSave={(patch) => { run(() => editReadingAction(f.id, i, patch)); setEditing(null); }} />
+              : <button type="button" className="text-xs underline underline-offset-2 disabled:opacity-50" disabled={busy} onClick={() => setEditing(i)}>Correct what the bot read</button>}
           </div>
         ))}
         {f.seen.notes && <p className="text-xs text-muted-foreground">Bot&apos;s note: {f.seen.notes}</p>}
         <p className="text-xs text-muted-foreground">A number or name the bot could not read in full is left blank, never guessed.</p>
       </div>
     </details>
+  );
+}
+
+/** Fix a wrong or missing reading by hand. A blank box clears the field; the bot's first reading is kept in the record. */
+function EditReading({ d, busy, onSave, onCancel }: { d: Detection; busy: boolean; onSave: (patch: Record<string, unknown>) => void; onCancel: () => void }) {
+  const [v, setV] = useState<Record<string, string>>(() => Object.fromEntries(DETAIL_ROWS.map(([k]) => [k, String(d[k] ?? "")])));
+  const [copy, setCopy] = useState<string>(d.copy ?? "");
+  const [noDamage, setNoDamage] = useState(false);
+  const show = DETAIL_ROWS.filter(([k]) => k !== "validUntil" || d.type === "official_receipt");
+  return (
+    <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+      <p className="text-xs text-muted-foreground">Type what the paper really says. Leave a box empty if it cannot be read.</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {show.map(([k, name]) => <label key={k} className="space-y-1 text-xs">{name}{k === "validUntil" ? " (2027-03-31)" : ""}<Input value={v[k]} maxLength={k === "validUntil" ? 10 : 120} onChange={(e) => setV({ ...v, [k]: e.target.value })} /></label>)}
+        <label className="space-y-1 text-xs">Original or photocopy
+          <NativeSelect value={copy} onChange={(e) => setCopy(e.target.value)}><option value="">Not sure</option><option value="original">Original</option><option value="photocopy">Photocopy</option></NativeSelect></label>
+      </div>
+      {d.defects?.length ? <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={noDamage} onChange={(e) => setNoDamage(e.target.checked)} /> No damage: clear “{d.defects.join(", ")}”</label> : null}
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" disabled={busy} onClick={() => onSave({ ...Object.fromEntries(show.map(([k]) => [k, v[k]])), copy: copy || null, ...(noDamage ? { noDamage: true } : {}) })}>Save the correction</Button>
+        <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>
+      </div>
+    </div>
   );
 }
 
