@@ -80,7 +80,7 @@ export async function readBibleRow(plate: string, deps: BibleDeps = defaultBible
   };
 }
 
-async function carInput(plate: string, admin: Admin) {
+export async function carInput(plate: string, admin: Admin) {
   const car = await loadCar(plate, { admin });
   if (!car) throw new Error("This car is not in Car documents.");
   const present = new Set(car.analysis.files.flatMap((f) => f.types));
@@ -98,7 +98,8 @@ async function loadSnapshot(admin: Admin, plate: string): Promise<Snapshot | nul
   return s && typeof s === "object" ? (s as Snapshot) : null;
 }
 
-const save = async (admin: Admin, plate: string, kind: "checklist" | "submitted" | "received", status: string, detail: unknown, error: string | null, jobId: string | null, actor: string | null) => {
+export type SyncKind = "checklist" | "submitted" | "received" | "pricelist";
+const save = async (admin: Admin, plate: string, kind: SyncKind, status: string, detail: unknown, error: string | null, jobId: string | null, actor: string | null) => {
   let merged = detail as Record<string, unknown>;
   if (kind === "checklist" && merged && typeof merged === "object" && !("snapshot" in merged)) {
     const snap = await loadSnapshot(admin, plate); // what the app last read in the sheet is kept across status changes
@@ -203,10 +204,11 @@ export async function sendHandoffToSheet(plate: string, event: "submitted" | "re
 }
 
 /** After the staff approve, hand off or mark done: tell the sheet in the background. While Google Sheets are frozen it only records that the update is waiting. */
-export async function queueSheetSync(plate: string, kind: "checklist" | "submitted" | "received", actor: string, deps: BibleDeps = defaultBibleDeps()): Promise<void> {
+export async function queueSheetSync(plate: string, kind: SyncKind, actor: string, deps: BibleDeps = defaultBibleDeps()): Promise<void> {
   const key = normalizePlate(plate);
   if (sheetsFrozen("docs")) { await save(deps.admin, key, kind, "frozen", {}, null, null, actor); return; }
   if (kind === "checklist") await sendBible(key, actor, deps);
+  else if (kind === "pricelist") { if (process.env.PRICELIST_SHEET_ID || process.env.CARS_SHEET_ID) await (await import("./pricelist-sync")).sendPricelist(key, actor, deps); }
   else await sendHandoffToSheet(key, kind, actor, deps);
 }
 
@@ -219,9 +221,14 @@ export async function runCheckInBackground(plate: string, actor: string, deps: B
 
 export async function runSendInBackground(plate: string, actor: string, deps: BibleDeps = defaultBibleDeps()): Promise<void> {
   const key = normalizePlate(plate);
-  try { await sendBible(key, actor, deps); } // records its own result
+  try {
+    await sendBible(key, actor, deps); // records its own result
+    if (process.env.PRICELIST_SHEET_ID || process.env.CARS_SHEET_ID) await (await import("./pricelist-sync")).sendPricelist(key, actor, deps); // then the pricelist
+  }
   catch (err) { await save(deps.admin, key, "checklist", "failed", {}, (err instanceof Error ? err.message : "Could not update the sheet.").slice(0, 500), null, actor); }
 }
+
+export const saveSyncRecord = (...args: Parameters<typeof save>) => save(...args);
 
 export async function loadSheetStatus(plate: string, admin: Admin = createAdminClient()): Promise<{ kind: string; status: string; error: string | null; updatedAt: string; detail: unknown }[]> {
   const { data } = await admin.from("unit_sheet_sync").select("kind, status, error, updated_at, detail").eq("plate_no", normalizePlate(plate));

@@ -75,6 +75,10 @@ export interface Detection {
   secretaryName?: string | null;
   representativeName?: string | null;
   idType?: string | null;
+  /** official receipt: the date the registration payment is valid until or due for renewal (YYYY-MM-DD) */
+  validUntil?: string | null;
+  /** chattel mortgage, its cancellation or the promissory note: the bank or financing company named */
+  lender?: string | null;
   /** original paper or a photocopy (xerox) */
   copy?: "original" | "photocopy" | null;
   /** problems seen on this document: torn, cut off, blurry, altered, missing signature or stamp... */

@@ -8,6 +8,7 @@ import { Pill, type Tone } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { SheetPreview } from "@/lib/docs/bible-view";
+import type { PricelistPreview } from "@/lib/docs/pricelist-sync";
 import { checkSheetAction, sendSheetAction } from "../actions";
 
 export interface SheetCardData {
@@ -17,9 +18,11 @@ export interface SheetCardData {
   preview: SheetPreview | null;
   /** the bot is busy with this car's row (since when) */
   working: { action: "check" | "send"; since: string } | null;
+  /** what would go into the MAD Pricelist (INVENTORY 2026), from the inventory the Car status page reads */
+  pricelist: PricelistPreview | null;
 }
 
-const KIND: Record<string, string> = { checklist: "Checklist after approval", submitted: "Handed off (monthly tab)", received: "Documents back (monthly tab)" };
+const KIND: Record<string, string> = { checklist: "Checklist after approval", pricelist: "MAD Pricelist (INVENTORY 2026)", submitted: "Handed off (monthly tab)", received: "Documents back (monthly tab)" };
 const TONE: Record<string, Tone> = { done: "emerald", previewed: "blue", frozen: "amber", conflict: "red", failed: "red" };
 const LABEL: Record<string, string> = { done: "Written", previewed: "Read from the sheet", frozen: "Waiting (sheets frozen)", conflict: "Needs a look", failed: "Failed" };
 const when = (iso: string) => new Date(iso).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Manila" });
@@ -83,6 +86,16 @@ export function SheetCard({ data }: { data: SheetCardData }) {
             )}
             <details><summary className="cursor-pointer text-muted-foreground">The note added to REMARKS I</summary><p className="mt-2 whitespace-pre-line rounded-lg bg-muted p-2 text-xs">{preview.note}</p></details>
             {preview.notes.map((n) => <p key={n} className="text-amber-800 dark:text-amber-300">{n}</p>)}
+          </div>
+        )}
+
+        {data.pricelist && (
+          <div className="space-y-2 rounded-lg border p-3">
+            <p className="font-medium">MAD Pricelist (INVENTORY 2026): {data.pricelist.found ? (data.pricelist.changes.length ? `${data.pricelist.changes.length} cell${data.pricelist.changes.length === 1 ? "" : "s"} would be written` : "nothing to change") : "this plate is not in the tab"}</p>
+            {data.pricelist.changes.length > 0 && (
+              <ul className="space-y-1">{data.pricelist.changes.map((c) => <li key={c.header} className="flex flex-wrap gap-2"><b className="w-32">{c.header}</b><span className="text-muted-foreground">{c.before || "(blank)"}</span><span aria-hidden>→</span><span>{c.after}</span></li>)}</ul>
+            )}
+            {data.pricelist.notes.map((n) => <p key={n} className="text-amber-800 dark:text-amber-300">{n}</p>)}
           </div>
         )}
 

@@ -11,15 +11,15 @@ import { assertSheetsWritable } from "@/lib/google/freeze";
 export class GrokbotError extends Error {}
 
 /** Jobs that change a sheet. While the Google Sheets freeze is on they are never sent (reads still are). */
-export const WRITE_ACTIONS: ReadonlySet<string> = new Set(["docs_update", "docs_handoff", "set_unit_status", "append_receipt_row"]);
+export const WRITE_ACTIONS: ReadonlySet<string> = new Set(["docs_update", "docs_handoff", "inventory_update", "set_unit_status", "append_receipt_row"]);
 /** Which freeze scope a write job falls under: the Docs Bible jobs have their own. */
-const scopeOf = (action: string): "app" | "docs" => (action.startsWith("docs_") ? "docs" : "app");
+const scopeOf = (action: string): "app" | "docs" => (action.startsWith("docs_") || action === "inventory_update" ? "docs" : "app");
 
 export type BotName = "scan" | "sheet";
 /** The scanner reads photos; every other job is the sheet bot's. */
 export const botOf = (action: string): BotName => (action === "docs_scan" ? "scan" : "sheet");
 /** Higher goes first: a person waiting for an answer, or a write, before a scan. */
-export const priorityOf = (action: string): number => (action === "docs_update" || action === "docs_handoff" ? 10 : action === "ping" ? 8 : action === "docs_row" ? 5 : 0);
+export const priorityOf = (action: string): number => (action === "docs_update" || action === "docs_handoff" || action === "inventory_update" ? 10 : action === "ping" ? 8 : action === "docs_row" || action === "inventory_row" ? 5 : 0);
 /** A job the bot has not answered after this long is given up, so it never blocks the queue. */
 export const STALE_MS: Record<BotName, number> = { scan: 15 * 60_000, sheet: 8 * 60_000 };
 

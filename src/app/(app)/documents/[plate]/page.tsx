@@ -12,6 +12,8 @@ import { CarView, type CarViewData } from "./car-view";
 import { UnitFlow } from "./unit-flow";
 import { SheetCard } from "./sheet-card";
 import { loadSheetStatus, loadWorking, previewBibleFast } from "@/lib/docs/bible-sync";
+import { previewPricelistFast } from "@/lib/docs/pricelist-sync";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { toSheetPreview } from "@/lib/docs/bible-view";
 import { sheetsFrozen } from "@/lib/google/freeze";
 import { grokbotMissing } from "@/lib/grokbot/client";
@@ -31,6 +33,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
   const { car, deal } = detail;
   const [flow, settings] = await Promise.all([loadWorkflow(car.folder.plate_no).catch(() => ({ workflow: { scanNotifiedAt: null, soldReadyNotifiedAt: null, approvedAt: null, marketingNotifiedAt: null, handoffAt: null, handoffNote: null, handoffChecked: [], handoffReturnedAt: null }, details: cleanDetails({}), detailsSaved: false })), getSettings()]);
   const botWork = await workForPlate(car.folder.plate_no).catch(() => []);
+  const pricelist = await previewPricelistFast(car.folder.plate_no, createAdminClient()).catch(() => null);
   const [sheetStatuses, sheetPreview, sheetWorking] = await Promise.all([loadSheetStatus(car.folder.plate_no).catch(() => []), previewBibleFast(car.folder.plate_no).then(toSheetPreview).catch(() => null), loadWorking(car.folder.plate_no).catch(() => null)]);
   const data: CarViewData = {
     plate: car.folder.plate_no, plateDisplay: car.folder.plate_display, name: car.folder.folder_name ?? car.folder.plate_display, location: car.folder.location as "available" | "sold",
@@ -51,7 +54,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
       <PageHeader title={data.name} description={`Plate ${data.plateDisplay}`} />
       <CarView data={data} />
       {data.match === "linked" && <UnitFlow data={{ plate: data.plate, location: data.location, recipient: settings.print.transmittalReceiver || "the receiver", details: flow.details, detailsMissing: missingDetails(flow.details), approvedAt: flow.workflow.approvedAt, marketingNotifiedAt: flow.workflow.marketingNotifiedAt, handoff: { at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt }, items: data.items.map((i) => ({ key: i.key, label: i.label, present: i.present })) }} />}
-      {data.match === "linked" && <SheetCard data={{ plate: data.plate, frozen: sheetsFrozen("docs"), configured: grokbotMissing().length === 0 && !!process.env.DOCS_BIBLE_SHEET_ID, statuses: sheetStatuses, preview: sheetPreview, working: sheetWorking }} />}
+      {data.match === "linked" && <SheetCard data={{ plate: data.plate, frozen: sheetsFrozen("docs"), configured: grokbotMissing().length === 0 && !!process.env.DOCS_BIBLE_SHEET_ID, statuses: sheetStatuses, preview: sheetPreview, working: sheetWorking, pricelist }} />}
     </div>
   );
 }

@@ -142,7 +142,7 @@ export async function approveUnitAction(plate: string, confirmIncomplete: boolea
   if (!p.success) return { ok: false, message: "Bad plate." };
   return guard<StepOutcome>(async () => {
     const r = await approveUnit(p.data, user.id, confirmIncomplete);
-    if (r.ok) { revalidatePath("/documents", "layout"); after(() => queueSheetSync(p.data, "checklist", user.id).catch((e) => console.warn(`[docs] sheet update failed: ${e instanceof Error ? e.message : "unknown"}`))); }
+    if (r.ok) { revalidatePath("/documents", "layout"); after(async () => { for (const kind of ["checklist", "pricelist"] as const) await queueSheetSync(p.data, kind, user.id).catch((e) => console.warn(`[docs] sheet update failed: ${e instanceof Error ? e.message : "unknown"}`)); }); }
     return outcome(r, "Approved. Marketing was told on Telegram.");
   }, (message) => ({ ok: false as const, message }));
 }

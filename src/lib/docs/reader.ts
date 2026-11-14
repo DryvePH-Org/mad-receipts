@@ -23,6 +23,7 @@ const doc = z.object({
   document_number: text, plate: text, motor_no: text, chassis_no: text,
   copy: z.preprocess((v) => (v === "original" || v === "photocopy" ? v : null), z.enum(["original", "photocopy"]).nullable()).default(null),
   defects: z.preprocess((v) => (Array.isArray(v) ? v.filter((x) => typeof x === "string" && x.trim()).map((x: string) => x.trim().slice(0, 80)).slice(0, 5) : []), z.array(z.string())).default([]),
+  valid_until: z.preprocess((v) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.trim()) ? v.trim() : null), z.string().nullable()).default(null), lender_name: text,
   owner_name: text, holder_name: text, seller_name: text, buyer_name: text, secretary_name: text, representative_name: text, id_type: text,
 });
 const rotation = z.preprocess((v) => { const n = Number(v); return [0, 90, 180, 270].includes(n) ? n : 0; }, z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)])).default(0);
@@ -36,7 +37,7 @@ Return ONLY a JSON object:
   "rotation": 0,
   "documents": [
     { "type": "...", "confidence": 0.0-1.0, "copy": "original", "defects": [], "document_number": null, "plate": null, "motor_no": null, "chassis_no": null,
-      "owner_name": null, "holder_name": null, "seller_name": null, "buyer_name": null, "secretary_name": null, "representative_name": null, "id_type": null }
+      "owner_name": null, "holder_name": null, "seller_name": null, "buyer_name": null, "secretary_name": null, "representative_name": null, "id_type": null, "valid_until": null, "lender_name": null }
   ],
   "notes": "one short sentence if something is unusual, else null"
 }
@@ -64,6 +65,8 @@ Rules:
 - "plate": ONLY a vehicle plate number, letters then digits like "NBR 9511" or "ABC 1234" (it is not the MV file number, CR number, OR number, transaction number or conduction sticker, and not an engine or chassis number). The plate box on an old certificate of registration is often EMPTY: then it is null. On an LTO payment slip it is written after "Plate No:". null if you cannot see a plate. "motor_no" is the engine or motor number. "chassis_no" is the chassis or VIN.
 - "document_number": the number that identifies THIS document (the CR number, the OR number, the ID number, the note number). null if none is readable.
 - "owner_name": the registered owner on a certificate of registration or official receipt. "holder_name": the name of the person on an ID. "seller_name" and "buyer_name": the parties on a deed of sale. "secretary_name": who signs a secretary's certificate as the corporate secretary. "representative_name": the person the certificate or resolution authorises to sign or sell for the company. "id_type": for example "Driver's license" or "UMID".
+- "valid_until": ONLY for an official receipt or an LTO payment slip: the date the registration payment is valid until, or the date it is due for renewal, as YYYY-MM-DD (for "02/2027" or "February 2027" give the first day, 2027-02-01). null on every other document or when you cannot read it.
+- "lender_name": ONLY for a chattel mortgage, a release or cancellation of chattel mortgage, or a promissory note: the bank or financing company named as mortgagee or lender, as printed (for example "EASTWEST BANK", "JACCS FINANCE PHILIPPINES"). null otherwise.
 - Copy names as printed (any order, any capitals). Do not complete or correct them.
 - "confidence" is how sure you are about the TYPE: 0.9 or more when the title is clearly readable, lower when you are inferring it from the layout.
 - If the picture is too blurry, dark, glared or cut off to tell what it is, set "legible" to false and "documents" to [].`;
@@ -108,7 +111,7 @@ export function readingFromReply(raw: unknown): Reading | null {
     detections: mergeRepeats(r.documents.map((d) => ({
       type: d.type, confidence: d.confidence, documentNumber: d.document_number, plate: cleanPlate(d.plate), motorNo: d.motor_no, chassisNo: d.chassis_no,
       copy: d.copy, defects: d.defects.length ? d.defects : null, ownerName: d.owner_name, holderName: d.holder_name, sellerName: d.seller_name, buyerName: d.buyer_name,
-      secretaryName: d.secretary_name, representativeName: d.representative_name, idType: d.id_type,
+      secretaryName: d.secretary_name, representativeName: d.representative_name, idType: d.id_type, validUntil: d.valid_until, lender: d.lender_name,
     }))),
   };
 }

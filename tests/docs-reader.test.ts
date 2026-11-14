@@ -17,6 +17,17 @@ describe("plates the reader gives", () => {
   });
 });
 
+describe("dates and lenders for the pricelist", () => {
+  it("keeps the valid-until date only when it is a full date, and the lender as printed", async () => {
+    const r = await readDocument(image, async () => JSON.stringify({ legible: true, rotation: 0, documents: [
+      { type: "official_receipt", confidence: 0.9, valid_until: "2027-02-01" },
+      { type: "chattel_cancellation", confidence: 0.9, lender_name: " EASTWEST BANK ", valid_until: "02/2027" },
+    ] }));
+    expect(r.detections[0]).toMatchObject({ validUntil: "2027-02-01", lender: null });
+    expect(r.detections[1]).toMatchObject({ validUntil: null, lender: "EASTWEST BANK" });
+  });
+});
+
 describe("rotation, copy and defects", () => {
   it("keeps how far to turn the photo, original or copy, and the problems seen", async () => {
     const r = await readDocument(image, async () => JSON.stringify({ legible: true, rotation: "90", documents: [{ type: "official_receipt", confidence: 0.9, copy: "photocopy", defects: ["torn", " ", 5, "cut off"] }, { type: "government_id", confidence: 0.9, copy: "weird" }] }));
