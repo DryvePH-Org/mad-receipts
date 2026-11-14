@@ -44,6 +44,7 @@ async function tidy() {
 const JPEG = Buffer.from("/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACv/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==", "base64");
 
 test("an AR finds its car folder; Documentation checks the papers, Sales adds the rest, the folder moves to Sold", async ({ browser, playwright, baseURL }) => {
+  test.setTimeout(240_000); // the longest flow: three cars, two roles, every step
   await makeAr("ZZT 7001"); // one folder in Available: links
   await makeAr("ZZT 7002"); // two folders: a person chooses
   await makeAr("ZZT 7004"); // no folder: a person looks
@@ -64,7 +65,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await docs.getByRole("link", { name: /ZZT-7002|ZZT 7002/ }).first().click();
   await expect(docs.getByText("More than one folder matches this plate")).toBeVisible();
   await docs.getByRole("button", { name: "Use this one" }).first().click();
-  await expect(docs.getByText("Papers needed")).toBeVisible();
+  await expect(docs.locator("#checklist")).toBeVisible();
 
   // the clean car: read the three photos in the folder
   await docs.goto("/documents/ZZT7001");
@@ -191,7 +192,7 @@ test("Documentation adds photos by typing only the plate: the folder is made, th
   expect((await res.json()).result.types).toContain("official_receipt");
   // the car now has its folder and both files
   await docs.goto("/documents/ZZT7010");
-  await expect(docs.getByText("Papers needed")).toBeVisible();
+  await expect(docs.locator("#checklist")).toBeVisible();
   await expect(docs.getByText("Official receipt (OR)").first()).toBeVisible();
 
   const db = adminClient();
