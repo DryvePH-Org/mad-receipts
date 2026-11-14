@@ -66,3 +66,35 @@ Ways to fix the copy for testing (your choice): (a) click **Allow access** on ea
 - Return: `ORIG DOCS RECEIVED FROM JEP 11/07/2026` (14 times), or `WILL RECEIVE THE DOCS ON 11/29`.
 - Status column: `LTO`, `PENDING DOCS`, `FOR SUBMISSION`, `FOR TRANSFER`.
 - `REMARKS` in the monthly tabs often holds a batch code like `B2102026`.
+
+
+## 6. The MAD Pricelist copy, tab by tab (read-only study, 2026-11-14)
+
+| Tab | What it is | Written by the documents flow? |
+|---|---|---|
+| **INVENTORY 2026** (header row 2, 74 units) | The live stock list, grouped under body-type headings (HATCHBACK, SEDAN, CROSSOVER, SUV/MPV, PICK UP, VAN, HIGH-END/LUXURY, MANILA UNIT TO CEBU). | **Yes, four cells (below)** |
+| **REMARKS** (72 units) | An older per-unit master: OR EXPIRATION, MO FILE (the registration office), STENCIL, REGISTRY OF DEEDS, DOCUMENTS code, SPARE KEY, starting and target price. Only 11 of today's 74 units are in it. | Maybe: ask if it is still kept up |
+| **FOR RENEWAL (2026)** | The OR-renewal tracker: OR EXP, DAYS LATE (a formula), and five REMARKS columns ("RECEIVED", "OP"). | Maybe: ask |
+| **ORCR WITH MAD** | Sold units whose ORCR papers MAD holds: buyer, address, CR date, transaction date, ageing, liaison, balance. | Maybe: ask |
+| Available units, REPRICED (hidden), 2025 NEW UNITS (hidden), 2026 NEW UNITS, INCOMING CARS, BY PRICE, BRAND PRICE SUMMARY, Sheet16, PRICELIST 2025 (hidden) | Marketing lists, price history, buying lists, summaries. | No |
+| **REPAIRS REPORT** | Written by the repairs bot. | No |
+
+### INVENTORY 2026, column by column
+`A DOCS` a short code typed by staff: `C` (papers complete), `L:NAME` (originals with a liaison, e.g. `L:CAMILA`), `EW` (at the bank), `K`. `B OR EXP` the OR expiry date. `C SPAREKEY` `W/SPAREKEY`, `N/A` (sometimes `W/SPAREKEY TBF`). `D` a 1/0 flag (1 = available, 0 = reserved; the total is in a footer row). `E` days in inventory (a formula, today minus DATE ARRIVED). `F YM`, `G BRAND`, `H MAKE`, `I COLOR`, `J MILEAGE`, `K TRANS`, `L FUEL`, `M PLATE NUMBER`, `N PRICE`, `O TARGET`, `P DATE ARRIVED`, `Q REPRICE`, `R RE-TARGET`, `S REMARKS` (the status note the receipts sync writes: `RESERVED - ELLA 11/10`), `T ENCUMBRANCE` (the bank, e.g. `JACCS FINANCE - RELEASED`, `EWB (RELEASED 08/2025)`), `U TOOLS`, `V LOCATION`, `W REPAIR STATUS` (dropdown: READY TO SELL, SELL AS IS, FOR REPAIR; written by the repairs bot).
+
+### Where the sheet editor bot can update from the car documents (proposal)
+| Cell | From | Rule |
+|---|---|---|
+| **B OR EXP** | The OR / LTO payment slip: the date it is valid until (new field for the scanner) | Write only if blank, or if the new date is later (a renewal). Same date format as its neighbours. |
+| **C SPAREKEY** | The staff's "About the car" | Yes becomes `W/SPAREKEY`; No becomes `N/A`. Only if blank. |
+| **T ENCUMBRANCE** | The lender named on the chattel mortgage, its cancellation or the promissory note (new field for the scanner) | `<LENDER>`, with ` - RELEASED` when a cancellation or release is on file. Only if blank. |
+| **A DOCS** | The Docs Bible's COMPLETE DOCS? (all the case's papers present, nothing flagged) | `C`, only if blank. Never overwrite `L:...`, `EW`, `K` or any other typed code. |
+
+Not written from documents: `S REMARKS` (the receipts sync owns it), `V LOCATION`, `W REPAIR STATUS` (the repairs bot), prices and dates of arrival.
+
+### Questions
+1. Are the four cells above the right ones, with those rules?
+2. What do `K` and `EW` in `A DOCS` mean, and should `C` mean "papers complete"?
+3. Should `T ENCUMBRANCE` show only the bank name, or also the release status as in `JACCS FINANCE - RELEASED`?
+4. Is the **REMARKS** tab (older master) still kept up? If so, `OR EXPIRATION`, `MO FILE`, `STENCIL`, `DOCUMENTS` and `SPARE KEY` could be filled from the same papers.
+5. **FOR RENEWAL (2026)** and **ORCR WITH MAD**: should the documents flow touch them, or stay out?

@@ -3,10 +3,10 @@ import { NAV_ITEMS, effectiveModules, isActivePath, navFor, navGroups, roleModul
 
 describe("navigation", () => {
   it("each role sees its own pages", () => {
-    expect(navFor("sales").map((i) => i.href)).toEqual(["/new", "/deals", "/reminders", "/upload-documents"]);
-    expect(navFor("documentation").map((i) => i.href)).toEqual(["/deals", "/documents"]); // no receipts, no money pages
-    expect(navFor("approver").map((i) => i.href)).toEqual(["/dashboard", "/new", "/deals", "/approvals", "/reminders", "/upload-documents", "/activity"]);
-    expect(navFor("admin").map((i) => i.href)).toEqual(["/dashboard", "/new", "/deals", "/approvals", "/reminders", "/documents", "/upload-documents", "/activity", "/settings", "/admin/users", "/admin/sync"]);
+    expect(navFor("sales").map((i) => i.href)).toEqual(["/new", "/deals", "/cars", "/reminders", "/upload-documents"]);
+    expect(navFor("documentation").map((i) => i.href)).toEqual(["/deals", "/cars", "/documents"]); // no receipts, no money pages
+    expect(navFor("approver").map((i) => i.href)).toEqual(["/dashboard", "/new", "/deals", "/cars", "/approvals", "/reminders", "/upload-documents", "/activity"]);
+    expect(navFor("admin").map((i) => i.href)).toEqual(["/dashboard", "/new", "/deals", "/cars", "/approvals", "/reminders", "/documents", "/upload-documents", "/activity", "/settings", "/admin/users", "/admin/sync"]);
   });
 
   it("settings, users and sync jobs are for the Admin only", () => {
@@ -14,16 +14,17 @@ describe("navigation", () => {
   });
 
   it("groups the sidebar into Operations and Administration (Sales have no Administration)", () => {
-    expect(navGroups("admin").map((g) => [g.label, g.items.length])).toEqual([["Operations", 8], ["Administration", 3]]);
+    expect(navGroups("admin").map((g) => [g.label, g.items.length])).toEqual([["Operations", 9], ["Administration", 3]]);
     expect(navGroups("sales").map((g) => g.label)).toEqual(["Operations"]);
   });
 
   it("the phone tab bar shows four items and puts the rest in More", () => {
-    expect(tabBarItems("sales")).toMatchObject({ more: [] });
+    expect(tabBarItems("sales").tabs.map((i) => i.label)).toEqual(["New receipt", "Transactions", "Car status", "Reminders"]);
+    expect(tabBarItems("sales").more.map((i) => i.label)).toEqual(["Upload documents"]);
     expect(tabBarItems("documentation")).toMatchObject({ more: [] });
     const admin = tabBarItems("admin");
-    expect(admin.tabs.map((i) => i.label)).toEqual(["Dashboard", "New receipt", "Transactions", "Approvals"]);
-    expect(admin.more.map((i) => i.label)).toEqual(["Reminders", "Car documents", "Upload documents", "Activity log", "Settings", "Users", "Sync jobs"]);
+    expect(admin.tabs.map((i) => i.label)).toEqual(["Dashboard", "New receipt", "Transactions", "Car status"]);
+    expect(admin.more.map((i) => i.label)).toEqual(["Approvals", "Reminders", "Car documents", "Upload documents", "Activity log", "Settings", "Users", "Sync jobs"]);
   });
 
   it("marks the current page", () => {
@@ -53,7 +54,7 @@ describe("navigation", () => {
 
   it("the menu follows the modules a person has", () => {
     const mods = effectiveModules("sales", ["dashboard"], ["reminders"]);
-    expect(navFor("sales", mods).map((i) => i.href)).toEqual(["/dashboard", "/new", "/deals", "/upload-documents"]);
-    expect(tabBarItems("sales", mods).tabs.map((i) => i.label)).toEqual(["Dashboard", "New receipt", "Transactions", "Upload documents"]);
+    expect(navFor("sales", mods).map((i) => i.href)).toEqual(["/dashboard", "/new", "/deals", "/cars", "/upload-documents"]);
+    expect(tabBarItems("sales", mods).tabs.map((i) => i.label)).toEqual(["Dashboard", "New receipt", "Transactions", "Car status"]);
   });
 });

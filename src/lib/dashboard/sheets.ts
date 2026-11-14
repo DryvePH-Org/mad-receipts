@@ -19,7 +19,7 @@ export class SheetError extends Error {}
 const MAX_BYTES = 20 * 1024 * 1024; // a runaway answer must not fill the server's memory
 
 /** One try, or two when Google hiccups (a network error or a 5xx). 429 and 4xx are answered straight away. */
-async function fetchText(url: string): Promise<string> {
+export async function fetchText(url: string): Promise<string> {
   let last: SheetError = new SheetError("Could not reach Google Sheets. Try again in a moment.");
   for (let attempt = 0; attempt < 2; attempt++) {
     let res: Response;
@@ -37,7 +37,7 @@ async function fetchText(url: string): Promise<string> {
 
 /** The last good answer for each address, kept in this server process: if Google cannot be reached, the dashboards still show it, marked as old. */
 const lastGood = new Map<string, { value: unknown; at: number }>();
-async function withFallback<T>(key: string, load: () => Promise<T>): Promise<{ value: T; at: number; stale: boolean }> {
+export async function withFallback<T>(key: string, load: () => Promise<T>): Promise<{ value: T; at: number; stale: boolean }> {
   try {
     const value = await load();
     const at = Date.now();

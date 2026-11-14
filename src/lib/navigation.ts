@@ -1,6 +1,7 @@
 import {
   Bell,
   Car,
+  CarFront,
   FolderCheck,
   History,
   LayoutDashboard,
@@ -15,7 +16,7 @@ import {
 
 export type Role = "sales" | "admin" | "approver" | "documentation";
 
-export type ModuleId = "dashboard" | "new" | "deals" | "approvals" | "reminders" | "documents" | "upload" | "activity" | "settings" | "users" | "sync";
+export type ModuleId = "dashboard" | "cars" | "new" | "deals" | "approvals" | "reminders" | "documents" | "upload" | "activity" | "settings" | "users" | "sync";
 
 export interface NavItem {
   id: ModuleId;
@@ -36,6 +37,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "dashboard", href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, group: "Operations", roles: ["admin", "approver"] },
   { id: "new", href: "/new", label: "New receipt", icon: Receipt, group: "Operations", roles: MONEY },
   { id: "deals", href: "/deals", label: "Transactions", icon: Car, group: "Operations", roles: ALL },
+  { id: "cars", href: "/cars", label: "Car status", icon: CarFront, group: "Operations", roles: ALL },
   { id: "approvals", href: "/approvals", label: "Approvals", icon: ShieldCheck, group: "Operations", roles: ["admin", "approver"], badge: "approvals" },
   { id: "reminders", href: "/reminders", label: "Reminders", icon: Bell, group: "Operations", roles: MONEY, badge: "reminders" },
   { id: "documents", href: "/documents", label: "Car documents", icon: FolderCheck, group: "Operations", roles: ["admin", "documentation"] },
