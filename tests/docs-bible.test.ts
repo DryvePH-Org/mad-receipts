@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { EMPTY_DETAILS } from "@/lib/docs/details";
 import { toSheetPreview } from "@/lib/docs/bible-view";
-import { desiredValues, phtStamp, planChanges, receivedText, scanNote, submittedText } from "@/lib/docs/bible";
+import { noteAlreadyThere, desiredValues, phtStamp, planChanges, receivedText, scanNote, submittedText } from "@/lib/docs/bible";
 
 const present = (...t: string[]) => new Set(t);
 const CLEAN_PAPERS = ["official_receipt", "certificate_of_registration", "owner_id", "deed_owner_to_dealer"];
@@ -89,5 +89,19 @@ describe("the sheet plan as the car page shows it", () => {
   it("uses the sheet's own column names, and keeps 'not read yet' apart from a blank cell", () => {
     const v = toSheetPreview({ changes: [{ field: "sellers_id", before: null, after: "Yes", mode: "set" }, { field: "remarks_1", before: "", after: "note", mode: "append" }], notes: [], note: "n", frozen: true, row: null, checkedAt: null });
     expect(v.changes).toEqual([{ header: "SELLER'S ID", before: null, after: "Yes", append: false }, { header: "REMARKS I", before: "", after: "note", append: true }]);
+  });
+});
+
+describe("sending the same note again", () => {
+  const note = "13 Nov 2026, 5:50 PM PHT\n14 Toyota Vios (AAX-3622)\n✅ Official receipt (OR)\n❌ Board resolution";
+  it("is skipped when the sheet already says the same thing, whatever the time", () => {
+    const existing = "13 Nov 2026, 5:10 PM PHT\n14 Toyota Vios (AAX-3622)\n✅ Official receipt (OR)\n❌ Board resolution";
+    expect(noteAlreadyThere(existing, note)).toBe(true);
+    expect(noteAlreadyThere(`older text\n\n${existing}`, note)).toBe(true);
+  });
+  it("is written when the papers, flags or details changed, or the cell is empty", () => {
+    expect(noteAlreadyThere("13 Nov 2026, 5:10 PM PHT\n14 Toyota Vios (AAX-3622)\n✅ Official receipt (OR)\n✅ Board resolution", note)).toBe(false);
+    expect(noteAlreadyThere("", note)).toBe(false);
+    expect(noteAlreadyThere(undefined, note)).toBe(false);
   });
 });

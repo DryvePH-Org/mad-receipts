@@ -110,6 +110,15 @@ export function scanNote(n: NoteInput): string {
   return lines.join("\n").slice(0, 1800);
 }
 
+/** The note without its time line: what it says about the papers, flags and details. */
+export const noteBody = (note: string): string => note.split("\n").slice(1).join("\n").trim();
+
+/** Whether the sheet's REMARKS I already holds a note saying the same thing (only the time differs), so sending again does not stack copies. */
+export function noteAlreadyThere(existing: string | undefined, note: string): boolean {
+  const body = noteBody(note);
+  return !body || (existing ?? "").replace(/\r/g, "").includes(body);
+}
+
 // ---------------- handoff sentences (the monthly tabs' UPDATES cells) ----------------
 
 const mdy = (iso: string) => { const [y, m, d] = iso.split("-").map(Number); return { y, m, d }; };

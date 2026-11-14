@@ -9,7 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
 import { loadCar } from "./service";
 import { loadWorkflow } from "./workflow";
-import { desiredValues, DOCS_FIELDS, planChanges, receivedText, scanNote, submittedText, type Change, type DocsField, type Plan } from "./bible";
+import { desiredValues, DOCS_FIELDS, noteAlreadyThere, planChanges, receivedText, scanNote, submittedText, type Change, type DocsField, type Plan } from "./bible";
 
 // Talks to the grokbot about the Docs Bible: read a unit's row, work out what should change, and (when Google Sheets are not frozen) send the changes.
 
@@ -154,7 +154,7 @@ export async function sendBible(plate: string, actor: string, deps: BibleDeps = 
   try {
     const preview = await previewBible(key, actor, deps, now); // reading is allowed while frozen; writing below is not
     if (!preview.row.found) return { ok: false, status: "failed", message: preview.notes[0] ?? "Not found in the sheet." };
-    const changes: Change[] = [...preview.changes, ...(preview.note && !preview.row.values.remarks_1?.includes(preview.note.split("\n")[0]) ? [{ field: "remarks_1" as DocsField, before: preview.row.values.remarks_1 ?? "", after: preview.note, mode: "append" as const }] : [])];
+    const changes: Change[] = [...preview.changes, ...(preview.note && !noteAlreadyThere(preview.row.values.remarks_1, preview.note) ? [{ field: "remarks_1" as DocsField, before: preview.row.values.remarks_1 ?? "", after: preview.note, mode: "append" as const }] : [])];
     if (!changes.length) { await save(deps.admin, key, "checklist", "done", { changes: [], note: "nothing to change" }, null, null, actor); return { ok: true, written: 0, skipped: preview.notes }; }
     const { jobId, result } = await sendJob("docs_update", { plate: key, expected_arrival: preview.row.arrival, changes, reason: "Documents approved in the MAD app", actor: actor.slice(0, 8), dry_run: false }, deps.grok, { sheetId: deps.sheetId, timeoutMs: 150_000, createdBy: actor });
     const applied = Array.isArray(result.applied) ? result.applied.length : 0;
