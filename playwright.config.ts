@@ -32,6 +32,8 @@ export default defineConfig({
         TELEGRAM_BOT_TOKEN: "",
         TELEGRAM_CHAT_ID: "",
         INVENTORY_SHEET_ID: "",
+        CARS_SHEET_ID: "1JncMJXHsyZna7Wr_KkYns72P8w0aM-4B6zsSHNx1ncI", // the MAD Pricelist copy (read only, shared by link)
+        CARS_SHEET_GID: "84826590",
         DOCS_MOCK: "1", // a stand-in Drive with a few car folders
         DOCS_FAKE_READER: "1", // the picture reader decides from the file name: nothing is sent to Groq
       },

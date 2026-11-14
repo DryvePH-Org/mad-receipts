@@ -68,9 +68,9 @@ export function CarsBoard({ cars, at, stale, role, sheetUrl, canOpenDocs }: { ca
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
             <Input aria-label="Search cars" value={f.q} onChange={(e) => set({ q: e.target.value })} placeholder="Search plate, brand, model, color…" className="pl-9" />
           </div>
-          <NativeSelect aria-label="Sort" className="w-48" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+          <div className="w-48 shrink-0"><NativeSelect aria-label="Sort" className="w-full" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
             <option value="newest">Newest arrival</option><option value="oldest">Longest in stock</option><option value="priceLow">Price: low to high</option><option value="priceHigh">Price: high to low</option><option value="yearNew">Year: newest</option><option value="brand">Brand A to Z</option><option value="days">Days in stock</option>
-          </NativeSelect>
+          </NativeSelect></div>
           <Button type="button" variant={more ? "secondary" : "outline"} onClick={() => setMore((m) => !m)} aria-expanded={more}><SlidersHorizontal /> Filters</Button>
           <div className="flex rounded-lg ring-1 ring-foreground/10" role="group" aria-label="View">
             <Button type="button" size="icon" variant={view === "cards" ? "secondary" : "ghost"} aria-label="Cards" aria-pressed={view === "cards"} onClick={() => setView("cards")}><LayoutGrid /></Button>
