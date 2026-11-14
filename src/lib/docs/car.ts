@@ -11,6 +11,12 @@ export function detectionsOf(details: Json): Detection[] | null {
   return Array.isArray(raw) ? (raw as unknown as Detection[]) : null;
 }
 
+/** What the reader wrote about a photo besides the documents: whether it was legible and its own note. */
+export function readingNotes(details: Json): { legible: boolean | null; notes: string | null } {
+  const d = details && typeof details === "object" && !Array.isArray(details) ? (details as Record<string, Json>) : {};
+  return { legible: typeof d.legible === "boolean" ? d.legible : null, notes: typeof d.notes === "string" && d.notes.trim() ? d.notes.trim() : null };
+}
+
 /** How far the photo must be turned (clockwise) to read upright; for showing it only, Drive is never changed. */
 export function rotationOf(details: Json): 0 | 90 | 180 | 270 {
   const raw = details && typeof details === "object" && !Array.isArray(details) ? Number((details as Record<string, Json>).rotation) : 0;

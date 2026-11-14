@@ -1,26 +1,32 @@
-# Testing the whole documents workflow with a fresh car (on the copies)
+# Testing the whole documents workflow on two cars (on the copies), up to the move to Sold
 
-Goal: a car that is new to the app goes through IN and OUT exactly like the picture, without touching a real car or the live workbooks.
+Cars: **DAU6444** (a Clean car, 4 photos) and **DAR4015** (Encumbered, 3 photos). Both are in Available units and have a row in the Docs Bible copy. Test only on the copies; never in the live workbooks.
 
-## One-time setup (the copies)
-1. **Docs Bible copy, tab `DOCS 2026`:** the unit details in columns B to U come from one import formula. Paste them as values so a test row can be added: in the LIVE workbook select columns B:U of DOCS 2026, copy; in the COPY click cell B1 and paste values only (Cmd+Shift+V). Never paste into the live workbook.
-2. **Add the test car as a new row** at the bottom of the units in the copy (below the last plate): column A `=L<row>`, column L the plate `ZZT1001`, plus E (year) `24`, F `TOYOTA`, G `VIOS 1.3 XLE` and N `Onhand`. Leave W to AN blank: the app must fill them.
-3. **Monthly tab for the OUT step:** in the copy's `NOV` tab (after re-pasting NOV from the live NOV tab, values only), add a row for `ZZT1001` in the plate column (`PLATE #`) with market STATUS `FULLY PAID`.
-4. **MAD Pricelist copy, tab `INVENTORY 2026`:** add a row for `ZZT1001` (plate column `PLATE NUMBER`, year, brand, make).
-5. **Server settings:** `DOCS_READER=grokbot`, `DOCS_BIBLE_SHEET_ID` (the copy), `SHEETS_WRITES=docs`. Apps Script: the updated `Code.gs` deployed (it makes the car's folder). Bot: routine version 2 saved.
+## Before you start
+1. Settings and updates are in place: migrations 24 to 29 applied, the bots have routine version 5 (scanner: `Docs/GROKBOT_SCANNER_ROUTINE.md`; sheet editor: `Docs/GROKBOT_SHEET_ROUTINE.md`), `DOCS_READER=grokbot`, `SHEETS_WRITES=docs`, `DOCS_BIBLE_SHEET_ID` and `CARS_SHEET_ID` set.
+2. **Admin → Sync jobs → Go-live check → Run the checks**: nothing red.
+3. In the Docs Bible COPY, DOCS 2026, clear for each plate's row: `CLASSIFICATION`, `CR` to `PROMISSORY` and `REMARKS I`. In the pricelist COPY (INVENTORY 2026) clear, for each plate's row: `DOCS`, `OR EXP`, `SPAREKEY`, `ENCUMBRANCE`.
+4. Baseline: `node scripts/test-report.mjs DAU6444 DAR4015` (read only).
 
-## IN: the new car comes in
-1. **Add documents** (Car documents), plate `ZZT1001`: the page says a new folder will be created. Add photos of sample documents (an OR, a CR, an ID, a deed). Test photos only; do not upload a real owner's papers.
-2. When the batch ends the page shows "Saved"; the car's page says the bot is scanning. After about 1 to 3 minutes the files show what the bot read (type, orientation, original or photocopy, flags) and Telegram says "Scanned".
-3. Review: change a type if it is wrong; fill **About the car** (spare key, casa, battery, where bought).
-4. **Docs Bible sheet** card: it already lists what would be written. Press **Check the sheet now**, then **Approve**. The checklist is queued to the sheet; marketing gets the Telegram message.
-5. Check the copy: row of `ZZT1001` in DOCS 2026 (classification, CR, OR, deed, seller's ID filled; the dated note in REMARKS I) and one new CHANGELOG row per cell.
+## IN: the car comes in
+1. Open **DAU6444** in Car documents. The stage bar is at "Scanned" (step 2) and **Do this next** says to scan the waiting photos. The **Approve** button is grey and says "photos still to be scanned".
+2. Press **Scan 4 photos**, then open **DAR4015** and press **Scan 3 photos** straight away. On Admin → Sync jobs, the **Grokbot queue** shows the scanner working on one and the other waiting (with one scanner place). The car page shows a blue box with its place in line.
+3. When a scan ends, the photos fill in. Under each photo open **What the bot saw**: the document type and how sure it was, Original or Photocopy, damage seen, and the numbers and names it read. Compare with the photo itself (click the picture to see it larger). The card **What the scan checks** lists every flag and who raises it.
+4. **Review.** A red or amber flag is a question: read it, look at the photo, and fix with **Change what this is** if the bot was wrong. Check **Papers needed**: the sold papers (AR, buyer's ID, deed) are expected to be missing at this point.
+5. **About the car**: fill a few answers and press **Save the details**.
+6. **Approve: documents are OK**. If flags or blank details remain, it asks you to confirm: press **Go on anyway**. Marketing gets a Telegram message.
+7. **Sheets: Docs Bible and pricelist** card: it lists what would be written (Docs Bible cells and the four pricelist cells). Press **Check the sheet now** to compare with the real cells, then (or after approving, it is queued by itself) **Send to the sheet now**. Check the Docs Bible row, the pricelist row and the CHANGELOG. `node scripts/test-report.mjs DAU6444 DAR4015` shows both sides.
 
-## OUT: the unit is sold
-1. Make an AR for `ZZT1001` (New receipt) as Sales, approve it as Approver.
-2. As Sales, **Upload documents** for the plate: the signed AR, the buyer's ID and the signed deed. The bot scans them; the sold checklist fills.
-3. Documentation gets "Sold, documents complete": **Move to Sold**.
-4. **Handoff**: tick the papers, **Handed off**: `SUBMITTED TO JEP m/d` appears in the next empty UPDATES cell of the NOV row. Later **Mark as done**: `ORIG DOCS RECEIVED FROM JEP mm/dd/yyyy`. Telegram reminds every 3 days in between.
+## Try the wrong order (nothing should happen, and each says why)
+- Before the scan ends: **Approve** is grey ("still to be scanned").
+- Before approving: **Send to the sheet** is grey ("Approve the documents first") and **Move to Sold** is grey ("Approve the documents first"). Only an Admin sees **Move anyway** and must confirm.
+- **Handoff** says "This step comes after the sale".
+
+## OUT: the car is sold, up to the move to Sold
+1. Make an AR for the plate (New receipt, as Sales) and approve it as Approver. The car page links the AR.
+2. As Sales, **Upload documents** for the plate: the signed AR, the buyer's ID, the signed deed. The scanner reads them; the sold papers show "Uploaded" in **Sold papers and the Sold folder**, and the stage moves to "In Sold" (step 6).
+3. Documentation gets "Sold, documents complete" on Telegram. **Move to Sold** is now active: press it, confirm. The folder moves to Sold units in Drive and the stage moves to **Handoff**.
+4. (Next test, after the move) tick the papers, **Handed off to**, and later **Mark as done**.
 
 ## Clean up
-Delete the `ZZT1001` rows in the copies and the test folder in Drive; the app's rows for `ZZT1001` can be removed from Admin → Settings → Delete data (typed confirmation) or left (they are marked by the ZZT prefix).
+Clear your test cells again in both copies; the cars stay. Nothing in the live workbooks is ever touched.

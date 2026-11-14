@@ -64,7 +64,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await docs.getByRole("link", { name: /ZZT-7002|ZZT 7002/ }).first().click();
   await expect(docs.getByText("More than one folder matches this plate")).toBeVisible();
   await docs.getByRole("button", { name: "Use this one" }).first().click();
-  await expect(docs.getByText("Checklist")).toBeVisible();
+  await expect(docs.getByText("Papers needed")).toBeVisible();
 
   // the clean car: read the three photos in the folder
   await docs.goto("/documents/ZZT7001");
@@ -73,7 +73,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   // the OR and the CR are one photo; the ID belongs to the owner on the CR; the deed is seller to dealership
   await expect(docs.getByText("Official receipt (OR)").first()).toBeVisible();
   await expect(docs.getByText("ID of the registered owner").first()).toBeVisible();
-  const missingBefore = docs.locator("li", { hasText: "Missing" });
+  const missingBefore = docs.locator("#checklist li", { hasText: "Missing" });
   await expect(missingBefore).toHaveCount(3); // the buyer's ID and the signed deed: Sales provides them
 
   // the transmittal receipt: starts from what the folder shows, the staff fill in the rest, save, and print
@@ -82,7 +82,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await expect(docs.getByLabel("Plate no.")).toHaveValue(/ZZT.?7001/);
   await expect(docs.getByText("in the folder").first()).toBeVisible(); // the papers the workflow found are ticked
   await expect(docs.getByLabel("Original copy of Certificate of Registration #", { exact: false }).first()).toBeChecked();
-  await docs.getByLabel("Spare Key").check(); // handed over by hand: not in any folder
+  await docs.getByRole("checkbox", { name: "Spare Key" }).check(); // handed over by hand: not in any folder
   await docs.getByLabel("Received by").fill("ZZT E2E Receiver");
   await docs.getByLabel("Other 1").fill("Plate cover");
   await docs.getByRole("button", { name: "Save", exact: true }).click();
@@ -92,7 +92,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
     await expect(docs.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
     await docs.reload(); // saved: it comes back as typed
     await expect(docs.getByLabel("Received by")).toHaveValue("ZZT E2E Receiver");
-    await expect(docs.getByLabel("Spare Key")).toBeChecked();
+    await expect(docs.getByRole("checkbox", { name: "Spare Key" })).toBeChecked();
   }
   await docs.goto("/print/transmittal/ZZT7001");
   await expect(docs.locator(".paper.tm")).toHaveCount(2);
@@ -119,7 +119,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await expect(sales.getByText(BUYER).first()).toBeVisible();
   await expect(sales.getByText("Buyer's ID")).toBeVisible();
   await sales.getByRole("button", { name: "Yes, this is the car" }).click();
-  await expect(sales.getByText("Still needed")).toHaveCount(2);
+  await expect(sales.getByText("Still needed")).toHaveCount(3); // the signed AR, the buyer's ID and the deed
 
   // a photo through the screen (the stand-in reader cannot tell what it is) ...
   await sales.locator("#doc-photos").setInputFiles({ name: "x.jpg", mimeType: "image/jpeg", buffer: JPEG });
@@ -134,19 +134,29 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
 
   // Documentation sees it complete, and moving asks first
   await docs.reload();
-  await expect(docs.getByText("Everything is in. The car can move to Sold.")).toBeVisible();
+  await expect(docs.getByText("Every paper is in.")).toBeVisible();
   await expect(docs.getByText("From Sales").first()).toBeVisible();
-  await docs.getByRole("button", { name: "Move to Sold" }).click();
-  await expect(docs.getByRole("heading", { name: "Move to Sold?" })).toBeVisible();
-  await docs.getByRole("dialog").getByRole("button", { name: "Move to Sold" }).click();
-  await expect(docs.getByText("In Sold units")).toBeVisible({ timeout: 20_000 });
 
-  // an incomplete car warns first
-  await docs.goto("/documents/ZZT7002");
+  // the buttons follow the workflow: the folder cannot move before the documents are approved
+  await expect(docs.getByRole("button", { name: "Move to Sold" })).toBeDisabled();
+  await expect(docs.getByText("Approve the documents first.").first()).toBeVisible();
+  await docs.getByRole("button", { name: "Approve: documents are OK" }).click();
+  await expect(docs.getByRole("heading", { name: "Approve with things still open?" })).toBeVisible(); // the details about the car are still blank
+  await docs.getByRole("dialog").getByRole("button", { name: "Go on anyway" }).click();
+  await expect(docs.getByText(/^Approved /).first()).toBeVisible({ timeout: 20_000 });
+  await docs.reload();
+  await expect(docs.getByRole("button", { name: "Move to Sold" })).toBeEnabled();
   await docs.getByRole("button", { name: "Move to Sold" }).click();
-  await expect(docs.getByRole("heading", { name: "Move to Sold with things missing?" })).toBeVisible();
-  await expect(docs.getByRole("dialog").getByText("Certificate of registration (CR)")).toBeVisible();
-  await docs.getByRole("button", { name: "Cancel" }).click();
+  await expect(docs.getByRole("dialog").getByRole("heading", { name: "Move to Sold?" })).toBeVisible();
+  await docs.getByRole("dialog").getByRole("button", { name: "Move to Sold" }).click();
+  await expect(docs.getByText("In Sold units").first()).toBeVisible({ timeout: 20_000 });
+  await expect(docs.getByText("Handoff to").first()).toBeVisible();
+
+  // a car that is not approved cannot be moved (only an Admin may go past that), and it says why
+  await docs.goto("/documents/ZZT7002");
+  await expect(docs.getByRole("button", { name: "Move to Sold" })).toBeDisabled();
+  await expect(docs.getByText(/Approve the documents first\./).first()).toBeVisible();
+  await expect(docs.getByRole("button", { name: /Move anyway/ })).toHaveCount(0); // that button is the Admin's
 
   await tidy();
   await docs.close(); await sales.close(); await cron.dispose();
@@ -163,7 +173,7 @@ test("Documentation adds photos by typing only the plate: the folder is made, th
   // a plate that already has one: the photos are added to it
   await docs.getByLabel("Plate number").fill("ZZT 7001");
   await docs.getByRole("button", { name: "Check" }).click();
-  await expect(docs.getByText(/The folder already exists in Available units/)).toBeVisible();
+  await expect(docs.getByText(/The folder already exists in (Available|Sold) units/)).toBeVisible();
 
   // one photo through the screen
   await docs.getByLabel("Plate number").fill("ZZT 7010");
@@ -177,7 +187,7 @@ test("Documentation adds photos by typing only the plate: the folder is made, th
   expect((await res.json()).result.types).toContain("official_receipt");
   // the car now has its folder and both files
   await docs.goto("/documents/ZZT7010");
-  await expect(docs.getByText("Checklist")).toBeVisible();
+  await expect(docs.getByText("Papers needed")).toBeVisible();
   await expect(docs.getByText("Official receipt (OR)").first()).toBeVisible();
 
   const db = adminClient();

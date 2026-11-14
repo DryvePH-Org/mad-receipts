@@ -48,6 +48,9 @@ export async function cleanup() {
     await admin.from("audit_logs").delete().in("entity_id", dealIds);
     await admin.from("deals").delete().in("id", dealIds);
   }
+  // what the document workflow keeps per car (approval, details, handoff, sheet sync, transmittal) for the test plates, and the bot jobs they started
+  for (const table of ["unit_workflow", "unit_details", "unit_sheet_sync", "transmittals"] as const) await admin.from(table).delete().like("plate_no", "ZZT%");
+  await admin.from("grokbot_jobs").delete().like("plate_no", "ZZT%");
   await admin.from("unit_folders").delete().like("plate_no", "ZZT%"); // the car folders the browser tests linked (their files go too)
   const { data: list } = await admin.auth.admin.listUsers({ perPage: 200 });
   for (const user of list?.users ?? []) {
@@ -55,6 +58,7 @@ export async function cleanup() {
     const { data: stray } = await admin.storage.from("payment-proofs").list(user.id, { limit: 500 });
     if (stray?.length) await admin.storage.from("payment-proofs").remove(stray.map((f) => `${user.id}/${f.name}`));
     await admin.from("audit_logs").delete().eq("actor_id", user.id);
+    await admin.from("grokbot_jobs").delete().eq("created_by", user.id);
     await admin.from("app_settings").delete().eq("updated_by", user.id); // settings the test Admin saved
     await admin.auth.admin.deleteUser(user.id);
   }

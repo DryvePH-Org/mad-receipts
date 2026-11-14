@@ -8,6 +8,8 @@ import { chooseFolder, defaultDocsDeps, docsErrorText, linkFolder, previewCarFol
 import { CASES, CHOOSABLE, type CaseType, type DocType } from "@/lib/docs/types";
 import { inventory } from "@/lib/inventory";
 import { readerMode, scheduleScan } from "@/lib/docs/bot-scan";
+import { allowed } from "@/lib/docs/stage";
+import { stageFor } from "@/lib/docs/stage-server";
 import { markWorking, queueSheetSync, runCheckInBackground, runSendInBackground } from "@/lib/docs/bible-sync";
 import { sheetsFrozen } from "@/lib/google/freeze";
 import { afterReading, approveUnit, handoffUnit, returnUnit, saveDetails, setHandoffChecked, type StepResult } from "@/lib/docs/workflow";
@@ -16,6 +18,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export type Done = { ok: true; message: string } | { ok: false; message: string };
 const plateSchema = z.string().min(5).max(20);
+
+/** The rules for this car right now. The server enforces them, so pressing a button out of order never works, whatever the page showed. */
+async function rulesFor(plate: string) {
+  const stage = await stageFor(plate);
+  if (!stage) throw new Error("This car is not in Car documents.");
+  return stage.rules;
+}
 
 async function guard<T>(fn: () => Promise<T>, fail: (message: string) => T): Promise<T> {
   try { return await fn(); } catch (err) {
@@ -52,6 +61,8 @@ export async function readNextAction(plate: string, retryFailed = false): Promis
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { read: 0, remaining: 0, waitSeconds: null, error: "Bad plate." };
   return guard<ReadProgress>(async () => {
+    const rule = (await rulesFor(p.data)).scan;
+    if (!rule.allowed) return { read: 0, remaining: 0, waitSeconds: null, error: rule.reason };
     const r = await readPending(p.data, 3, defaultDocsDeps(), { retryFailed });
     revalidatePath(`/documents/${normalizePlate(p.data)}`);
     return r;
@@ -114,6 +125,10 @@ export async function moveToSoldAction(plate: string, confirmIncomplete: boolean
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { ok: false, error: "Bad plate." };
   return guard<MoveResult>(async () => {
+    const rule = (await rulesFor(p.data)).moveToSold;
+    if (!allowed(rule, user.role === "admin")) return { ok: false as const, error: rule.reason ?? "This car cannot be moved yet." };
+    // an Admin going past a rule must say so: the confirmation lists what is open (the page asks for it)
+    if (!rule.allowed && !confirmIncomplete) return { ok: false as const, needsConfirm: true as const, missing: [rule.reason ?? "Not ready"] };
     const r = await moveToSold(p.data, user.id, confirmIncomplete);
     if (r.ok) revalidatePath("/documents", "layout");
     return r;
@@ -141,6 +156,8 @@ export async function approveUnitAction(plate: string, confirmIncomplete: boolea
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { ok: false, message: "Bad plate." };
   return guard<StepOutcome>(async () => {
+    const rule = (await rulesFor(p.data)).approve;
+    if (!rule.allowed) return { ok: false as const, message: rule.reason ?? "This cannot be approved yet." };
     const r = await approveUnit(p.data, user.id, confirmIncomplete);
     if (r.ok) { revalidatePath("/documents", "layout"); after(async () => { for (const kind of ["checklist", "pricelist"] as const) await queueSheetSync(p.data, kind, user.id).catch((e) => console.warn(`[docs] sheet update failed: ${e instanceof Error ? e.message : "unknown"}`)); }); }
     return outcome(r, "Approved. Marketing was told on Telegram.");
@@ -163,6 +180,8 @@ export async function handoffAction(plate: string, note: string, confirmIncomple
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { ok: false, message: "Bad plate." };
   return guard<StepOutcome>(async () => {
+    const rule = (await rulesFor(p.data)).handoff;
+    if (!rule.allowed) return { ok: false as const, message: rule.reason ?? "This cannot be handed off yet." };
     const r = await handoffUnit(p.data, String(note ?? ""), user.id, confirmIncomplete);
     if (r.ok) { revalidatePath("/documents", "layout"); after(() => queueSheetSync(p.data, "submitted", user.id).catch((e) => console.warn(`[docs] sheet update failed: ${e instanceof Error ? e.message : "unknown"}`))); }
     return outcome(r, "Handed off. You will be reminded every 3 days until it is marked as done.");
@@ -174,6 +193,8 @@ export async function returnUnitAction(plate: string): Promise<Done> {
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { ok: false, message: "Bad plate." };
   return guard<Done>(async () => {
+    const rule = (await rulesFor(p.data)).markReturned;
+    if (!rule.allowed) return { ok: false as const, message: rule.reason ?? "This cannot be marked as done." };
     const r = await returnUnit(p.data, user.id);
     if (!r.ok) return { ok: false as const, message: "error" in r ? r.error : "Could not do that." };
     revalidatePath("/documents", "layout");
@@ -231,6 +252,8 @@ export async function sendSheetAction(plate: string): Promise<Done> {
   if (!p.success) return { ok: false, message: "Bad plate." };
   if (sheetsFrozen("docs")) return { ok: false, message: "The Docs Bible is frozen: nothing is written to the sheet right now." };
   return guard<Done>(async () => {
+    const rule = (await rulesFor(p.data)).sendSheet;
+    if (!rule.allowed) return { ok: false as const, message: rule.reason ?? "Approve the documents first." };
     await markWorking(p.data, "send", user.id);
     after(() => runSendInBackground(p.data, user.id).then(() => undefined, () => undefined));
     revalidatePath(`/documents/${normalizePlate(p.data)}`);

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { SheetPreview } from "@/lib/docs/bible-view";
 import type { PricelistPreview } from "@/lib/docs/pricelist-sync";
+import type { Rule } from "@/lib/docs/stage";
 import { checkSheetAction, sendSheetAction } from "../actions";
 
 export interface SheetCardData {
@@ -20,6 +21,8 @@ export interface SheetCardData {
   working: { action: "check" | "send"; since: string } | null;
   /** what would go into the MAD Pricelist (INVENTORY 2026), from the inventory the Car status page reads */
   pricelist: PricelistPreview | null;
+  /** may the checklist be sent now (it waits for the approval) */
+  sendRule: Rule;
 }
 
 const KIND: Record<string, string> = { checklist: "Checklist after approval", pricelist: "MAD Pricelist (INVENTORY 2026)", submitted: "Handed off (monthly tab)", received: "Documents back (monthly tab)" };
@@ -55,8 +58,8 @@ export function SheetCard({ data }: { data: SheetCardData }) {
   const doSend = () => begin(() => sendSheetAction(data.plate));
 
   return (
-    <Card>
-      <CardHeader><CardTitle className="flex flex-wrap items-center gap-3">Docs Bible sheet
+    <Card id="sheet">
+      <CardHeader><CardTitle className="flex flex-wrap items-center gap-3">Sheets: Docs Bible and pricelist
         {data.frozen && <Pill tone="amber">Sheets frozen: nothing is written</Pill>}</CardTitle></CardHeader>
       <CardContent className="space-y-4 text-sm">
         {data.statuses.length > 0 && (
@@ -101,8 +104,9 @@ export function SheetCard({ data }: { data: SheetCardData }) {
 
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" disabled={busy || !!working || !data.configured} onClick={doCheck}>{working?.action === "check" ? <Loader2 className="animate-spin" /> : <RefreshCw />} Check the sheet now</Button>
-          <Button disabled={busy || !!working || data.frozen || !data.configured} onClick={doSend}>{working?.action === "send" ? <Loader2 className="animate-spin" /> : <Send />} Send to the sheet now</Button>
+          <Button disabled={busy || !!working || data.frozen || !data.configured || !data.sendRule.allowed} onClick={doSend}>{working?.action === "send" ? <Loader2 className="animate-spin" /> : <Send />} Send to the sheet now</Button>
         </div>
+        {!data.sendRule.allowed && data.sendRule.reason && <p className="text-xs text-muted-foreground">Sending: {data.sendRule.reason}</p>}
         {!data.configured && <p className="text-muted-foreground">The grokbot or the sheet is not set up on this server yet.</p>}
         {working && <p role="status" className="text-muted-foreground">{working.action === "send" ? "The bot is updating the sheet…" : "The bot is reading the sheet…"} This takes a minute or two; you can leave this page and come back.</p>}
         {problem && <p role="alert" className="text-destructive">{problem}</p>}
