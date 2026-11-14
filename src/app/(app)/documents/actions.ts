@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
 import { requireModule } from "@/lib/auth";
-import { editReading, reviewFlag, chooseFolder, defaultDocsDeps, docsErrorText, linkFolder, previewCarFolder, type FolderPreview, moveToSold, readPending, refreshFolders, scanFolder, setCase, setFileTypes, type MoveResult, type ReadProgress } from "@/lib/docs/service";
+import { resetFile, editReading, reviewFlag, chooseFolder, defaultDocsDeps, docsErrorText, linkFolder, previewCarFolder, type FolderPreview, moveToSold, readPending, refreshFolders, scanFolder, setCase, setFileTypes, type MoveResult, type ReadProgress } from "@/lib/docs/service";
 import { CASES, CHOOSABLE, type CaseType, type DocType } from "@/lib/docs/types";
 import { inventory } from "@/lib/inventory";
 import { readerMode, scheduleScan } from "@/lib/docs/bot-scan";
@@ -98,6 +98,18 @@ export async function editReadingAction(fileId: string, index: number, patch: un
     await editReading(id.data, index, p.data, user.id);
     revalidatePath("/documents", "layout");
     return { ok: true as const, message: "Saved. The warnings were checked again." };
+  }, (message) => ({ ok: false as const, message }));
+}
+
+/** Read one photo again from scratch. */
+export async function rescanFileAction(fileId: string): Promise<Done> {
+  const user = await requireModule("documents");
+  const id = z.uuid().safeParse(fileId);
+  if (!id.success) return { ok: false, message: "Bad file." };
+  return guard<Done>(async () => {
+    const plate = await resetFile(id.data, user.id);
+    revalidatePath("/documents", "layout");
+    return { ok: true as const, message: `This photo is waiting to be scanned again (${plate}). Press Scan.` };
   }, (message) => ({ ok: false as const, message }));
 }
 

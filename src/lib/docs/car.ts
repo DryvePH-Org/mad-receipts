@@ -23,6 +23,12 @@ export function reviewedOf(details: Json): string[] {
   return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
 }
 
+/** The plate of another car whose photo this reading repeats word for word (a sign the bot mixed them up), if any. */
+export function lookalikeOf(details: Json): string | null {
+  const raw = details && typeof details === "object" && !Array.isArray(details) ? (details as Record<string, Json>).lookalike : null;
+  return typeof raw === "string" && raw ? raw : null;
+}
+
 /** True when a person corrected what the bot read on this photo. */
 export const wasEdited = (details: Json): boolean => !!(details && typeof details === "object" && !Array.isArray(details) && (details as Record<string, Json>).edited === true);
 
@@ -37,7 +43,7 @@ const isDocType = (t: string): t is DocType => (DOC_TYPES as readonly string[]).
 export const toInput = (f: FileRow): FileInput => ({
   id: f.id, filename: f.filename, createdAt: f.created_at, detections: detectionsOf(f.details),
   readStatus: f.read_status as FileInput["readStatus"],
-  reviewedFlags: reviewedOf(f.details),
+  reviewedFlags: reviewedOf(f.details), lookalike: lookalikeOf(f.details),
   manualTypes: f.doc_types_source === "manual" ? f.doc_types.filter(isDocType) : null,
 });
 

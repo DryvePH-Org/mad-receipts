@@ -279,3 +279,12 @@ describe("warnings a person accepted", () => {
     expect(after).toEqual([0, 1]);
   });
 });
+
+describe("a reading that repeats another car's photo", () => {
+  it("raises a warning naming the other car, and a person can accept it", () => {
+    const f = { ...file([det("certificate_of_registration", { ownerName: OWNER })]), lookalike: "DAR4015" };
+    const flags = analyze([f], folder, deal).files[0].flags;
+    expect(flags.some((x) => /DAR4015/.test(x) && /mixed the photos up/.test(x))).toBe(true);
+    expect(analyze([{ ...f, reviewedFlags: flags }], folder, deal).files[0].flags).toEqual([]);
+  });
+});

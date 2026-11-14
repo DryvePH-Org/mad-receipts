@@ -69,6 +69,32 @@ export function planScanResults(fileIds: string[], items: unknown): { readings: 
 }
 
 /**
+ * A reading that repeats, word for word, the names or numbers on another car's photo is suspicious: the bot may have answered from memory
+ * (or the paper belongs to that other car). The file is marked, and the page raises a warning a person must look at. Never blocks a reading.
+ */
+export async function markLookalikes(admin: DocsDeps["admin"], plate: string, ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  const { data: mine } = await admin.from("folder_files").select("id, details, read_status").in("id", ids).eq("read_status", "done");
+  for (const f of mine ?? []) {
+    const details = (f.details && typeof f.details === "object" && !Array.isArray(f.details) ? f.details : {}) as Record<string, unknown>;
+    const dets = (Array.isArray(details.detections) ? details.detections : []) as { type?: string; ownerName?: string | null; holderName?: string | null; documentNumber?: string | null }[];
+    const probes: Record<string, string>[] = [];
+    for (const d of dets) {
+      if (!d.type || d.type === "other") continue;
+      if (d.documentNumber && d.documentNumber.replace(/\W/g, "").length >= 6) probes.push({ type: d.type, documentNumber: d.documentNumber });
+      if (d.ownerName && d.ownerName.trim().length >= 8) probes.push({ type: d.type, ownerName: d.ownerName });
+      if (d.holderName && d.holderName.trim().length >= 8) probes.push({ type: d.type, holderName: d.holderName });
+    }
+    let other: string | null = null;
+    for (const probe of probes) {
+      const { data } = await admin.from("folder_files").select("plate_no").neq("plate_no", plate).eq("read_status", "done").contains("details", { detections: [probe] }).limit(1);
+      if (data?.[0]) { other = data[0].plate_no; break; }
+    }
+    if (other !== (details.lookalike ?? null)) await admin.from("folder_files").update({ details: { ...details, lookalike: other } as never }).eq("id", f.id);
+  }
+}
+
+/**
  * The bot's answer to a scan job arrived: save what each photo showed, update the car, and start the next batch if photos are still waiting.
  * Safe to run twice and safe after a long wait: a photo that is already read is left alone.
  */
@@ -90,6 +116,7 @@ export async function applyScanAnswer(jobId: string, deps: ScanDeps = defaultSca
     for (const [id, reading] of readings) if (open.has(id)) { await saveReading(admin, { id }, reading); read++; }
     for (const id of missing) if (open.has(id)) { await admin.from("folder_files").update({ read_status: "failed", read_error: "The bot did not return this photo. Press Scan again.", read_at: new Date().toISOString() }).eq("id", id); failed++; }
   }
+  await markLookalikes(admin, plate, [...open]);
   await recompute(plate, deps.docs);
   if (read > 0) await deps.docs.after?.(plate).catch(() => undefined);
   if (job.status === "done") await startBotScan(plate, deps).catch(() => undefined); // more photos waiting: the next batch

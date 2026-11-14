@@ -22,6 +22,8 @@ export interface FileInput {
   readStatus: "pending" | "done" | "failed" | "unreadable";
   /** warnings a person looked at and accepted for this file: they are not raised again */
   reviewedFlags?: string[];
+  /** another car's plate whose photo this reading repeats exactly */
+  lookalike?: string | null;
   /** Types a person chose by hand; these win. */
   manualTypes: DocType[] | null;
 }
@@ -114,6 +116,7 @@ export function analyze(files: FileInput[], folder: FolderContext, deal: DealCon
       if (t === "id_unmatched" && d.holderName) flags.push(`${d.holderName} is not the owner, the secretary, the representative or the buyer on file. Choose whose ID this is.`);
       if (t === "deed_unmatched") flags.push("The buyer on this deed is neither the dealership nor the buyer of this deal. Choose what it is.");
     }
+    if (f.lookalike) flags.push(`The names or numbers on this photo are exactly the same as on a photo in ${f.lookalike}'s folder. The paper may belong to that car, or the bot may have mixed the photos up. Scan this photo again, or check it yourself.`);
     if (f.readStatus === "failed") flags.push("Could not read this file. Try reading it again, or choose what it is.");
     if (f.readStatus === "unreadable") flags.push("The picture is too unclear to read. Retake it, or choose what it is.");
     return { id: f.id, types: types.length ? types : f.readStatus === "done" ? ["other"] : [], flags: flags.filter((x) => !f.reviewedFlags?.includes(x)), duplicateOf: null };

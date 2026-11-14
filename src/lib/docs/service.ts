@@ -339,6 +339,16 @@ export async function reviewFlag(fileId: string, flag: string, accept: boolean, 
   await log(deps.admin, actor, accept ? "docs.accept_flag" : "docs.unaccept_flag", file.plate_no, { file: file.filename });
 }
 
+/** Puts one photo back to "not read yet" so the next scan reads it again (a person's corrections on it are dropped). */
+export async function resetFile(fileId: string, actor: string, deps: DocsDeps = defaultDocsDeps()): Promise<string> {
+  const { data: file } = await deps.admin.from("folder_files").select("plate_no, filename").eq("id", fileId).single();
+  if (!file) throw new Error("File not found.");
+  await deps.admin.from("folder_files").update({ read_status: "pending", read_error: null, details: {}, confidence: null, doc_types_source: "auto" }).eq("id", fileId);
+  await recompute(file.plate_no, deps);
+  await log(deps.admin, actor, "docs.reset_file", file.plate_no, { file: file.filename });
+  return file.plate_no;
+}
+
 export async function setCase(plate: string, caseType: CaseType | null, actor: string, deps: DocsDeps = defaultDocsDeps()): Promise<void> {
   const key = normalizePlate(plate);
   await deps.admin.from("unit_folders").update(caseType ? { case_type: caseType, case_source: "manual" } : { case_source: "auto" }).eq("plate_no", key);

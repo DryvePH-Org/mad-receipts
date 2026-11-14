@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import type { Rules } from "@/lib/docs/stage";
 import { CHOOSABLE, DOC_LABELS, type Detection, type DocType } from "@/lib/docs/types";
-import { editReadingAction, readNextAction, reviewFlagAction, rescanAction, setFileTypesAction } from "../actions";
+import { rescanFileAction, editReadingAction, readNextAction, reviewFlagAction, rescanAction, setFileTypesAction } from "../actions";
 import type { CarViewData, FileView } from "./types";
 
 const typeLabel = (t: string) => DOC_LABELS[t as DocType] ?? t;
@@ -113,7 +113,8 @@ function FileRow({ f, busy, onSave, run }: { f: FileView; busy: boolean; onSave:
             <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
           </div>
         </div>
-      ) : <button type="button" className="text-xs underline underline-offset-2 disabled:opacity-50" disabled={busy} onClick={() => { setPicked(f.types.filter((t) => (CHOOSABLE as string[]).includes(t))); setEditing(true); }}>Change what this is</button>}
+      ) : <div className="flex flex-wrap gap-3"><button type="button" className="text-xs underline underline-offset-2 disabled:opacity-50" disabled={busy} onClick={() => { setPicked(f.types.filter((t) => (CHOOSABLE as string[]).includes(t))); setEditing(true); }}>Change what this is</button>
+        {f.readStatus !== "pending" && <button type="button" className="text-xs underline underline-offset-2 disabled:opacity-50" disabled={busy} onClick={() => run(() => rescanFileAction(f.id))}>Scan this photo again</button>}</div>}
     </li>
   );
 }
