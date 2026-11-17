@@ -1,5 +1,6 @@
 "use client";
 
+import { UploadButton } from "./upload-button";
 import { useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -40,7 +41,7 @@ export function CarTop({ data, readOnly = false }: { data: CarViewData; readOnly
         <Card id="folder">
           <CardHeader><CardTitle>{data.match === "none" ? "No folder found for this plate" : "More than one folder matches this plate"}</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <p className="text-muted-foreground">{data.match === "none" ? "Add documents for this plate (it makes the folder), or create or rename the car's folder in Drive so its name ends with the plate in brackets, like “14 Toyota Vios (AAX-3622)”, then search again." : "Choose the right one. The others stay where they are."}</p>
+            <p className="text-muted-foreground">{data.match === "none" ? "Upload the documents here and the folder is made in Available units for you. Or create or rename the car's folder in Drive so its name ends with the plate in brackets, like “14 Toyota Vios (AAX-3622)”, then search again." : "Choose the right one. The others stay where they are."}</p>
             {data.candidates.map((c) => (
               <div key={c.id} className="flex flex-wrap items-center gap-2 rounded-lg border p-2.5">
                 <span className="min-w-0 flex-1 truncate">{c.name} <span className="text-muted-foreground">({c.root})</span></span>
@@ -48,7 +49,10 @@ export function CarTop({ data, readOnly = false }: { data: CarViewData; readOnly
                 <Button size="sm" disabled={busy} onClick={() => run(() => chooseFolderAction(data.plate, c.id))}>Use this one</Button>
               </div>
             ))}
-            <Button variant="outline" disabled={busy} onClick={() => run(() => relinkAction(data.plate))}><RefreshCw /> Search Drive again</Button>
+            <div className="flex flex-wrap items-start gap-2">
+              {data.match === "none" && <UploadButton plate={data.plate} botScans={data.botMode} />}
+              <Button variant="outline" disabled={busy} onClick={() => run(() => relinkAction(data.plate))}><RefreshCw /> Search Drive again</Button>
+            </div>
           </CardContent>
         </Card>
       )}
