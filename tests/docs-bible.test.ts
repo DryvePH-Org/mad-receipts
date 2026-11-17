@@ -32,6 +32,13 @@ describe("what the checklist says for each column", () => {
   });
 });
 
+describe("the stencil column", () => {
+  it("is Yes when a stencil is in the folder, and otherwise left as the staff typed it", () => {
+    expect(desiredValues({ caseType: "clean", present: new Set(["stencil"]), current: {} }).stencil).toBe("Yes");
+    expect(desiredValues({ caseType: "clean", present: new Set(), current: {} }).stencil).toBeUndefined();
+  });
+});
+
 describe("planning the changes", () => {
   const base = { caseType: "clean" as const, present: present(...CLEAN_PAPERS) };
   it("fills blanks, and turns No or To follow into Yes once the paper is in", () => {

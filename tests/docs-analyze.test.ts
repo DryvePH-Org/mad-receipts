@@ -142,7 +142,7 @@ describe("the checklist", () => {
   it("a clean car needs OR, CR, owner ID and the deed; the sold extras come on top", () => {
     const a = analyze(clean, folder, deal);
     const c = checklist("clean", a.files, deal);
-    expect(c.items.filter((i) => i.stage === "available").every((i) => i.present)).toBe(true);
+    expect(c.items.filter((i) => i.stage === "available" && !i.optional).every((i) => i.present)).toBe(true);
     expect(c.missing.map((m) => m.key)).toEqual(["ack", "buyer_id", "deed_to_buyer"]);
     expect(c.complete).toBe(false);
   });
@@ -286,5 +286,27 @@ describe("a reading that repeats another car's photo", () => {
     const flags = analyze([f], folder, deal).files[0].flags;
     expect(flags.some((x) => /DAR4015/.test(x) && /mixed the photos up/.test(x))).toBe(true);
     expect(analyze([{ ...f, reviewedFlags: flags }], folder, deal).files[0].flags).toEqual([]);
+  });
+});
+
+describe("the stencil", () => {
+  const stencil = () => file([det("stencil", { chassisNo: "PAEA13RJRRA001156" })]);
+  it("is on the checklist for every case, and never counts as missing", () => {
+    for (const c of ["clean", "encumbered", "repo_bank", "company"] as const) {
+      const item = checklist(c, analyze([], folder, deal).files, deal).items.find((i) => i.key === "stencil");
+      expect(item).toMatchObject({ optional: true, present: false, stage: "available" });
+      expect(checklist(c, analyze([], folder, deal).files, deal).missing.some((m) => m.key === "stencil")).toBe(false);
+    }
+  });
+  it("is present once a stencil photo is in the folder", () => {
+    const list = checklist("clean", analyze([stencil()], folder, deal).files, deal);
+    expect(list.items.find((i) => i.key === "stencil")?.present).toBe(true);
+  });
+  it("is compared with the papers: a chassis number that differs from the CR raises a warning on both", () => {
+    const cr = file([det("certificate_of_registration", { ownerName: OWNER, chassisNo: "PAEA13RJRRA001156" })]);
+    const bad = file([det("stencil", { chassisNo: "WDB1234567890ABCD" })]);
+    const a = analyze([cr, bad], folder, deal);
+    expect(a.files[0].flags.some((x) => /chassis number does not match/.test(x))).toBe(true);
+    expect(a.files[1].flags.some((x) => /chassis number does not match/.test(x))).toBe(true);
   });
 });

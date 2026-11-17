@@ -3,7 +3,7 @@
 /** What the reader sees on a photo, before anyone knows whose ID or which deed it is. */
 export const RAW_TYPES = [
   "official_receipt", "certificate_of_registration", "government_id", "deed_of_sale", "chattel_cancellation",
-  "promissory_note", "secretary_certificate", "board_resolution", "acknowledgement_receipt", "transmittal_receipt", "other",
+  "promissory_note", "secretary_certificate", "board_resolution", "acknowledgement_receipt", "transmittal_receipt", "stencil", "other",
 ] as const;
 export type RawType = (typeof RAW_TYPES)[number];
 
@@ -11,7 +11,7 @@ export type RawType = (typeof RAW_TYPES)[number];
 export const DOC_TYPES = [
   "official_receipt", "certificate_of_registration", "owner_id", "deed_owner_to_dealer", "chattel_cancellation", "promissory_note",
   "secretary_certificate", "secretary_id", "representative_id", "board_resolution", "buyer_id", "deed_to_buyer",
-  "acknowledgement_receipt", "transmittal_receipt",
+  "acknowledgement_receipt", "transmittal_receipt", "stencil",
   // seen but not tied to anyone yet: a person decides
   "id_unmatched", "deed_unmatched", "other",
 ] as const;
@@ -32,6 +32,7 @@ export const DOC_LABELS: Record<DocType, string> = {
   deed_to_buyer: "Deed of sale signed with the buyer",
   acknowledgement_receipt: "Acknowledgement of payment (paper copy)",
   transmittal_receipt: "Transmittal receipt",
+  stencil: "Stencil (chassis or engine rubbing)",
   id_unmatched: "An ID (whose is not clear)",
   deed_unmatched: "A deed of sale (between whom is not clear)",
   other: "Other / not recognised",
@@ -40,8 +41,11 @@ export const DOC_LABELS: Record<DocType, string> = {
 /** Documents the app can recognise as a type a person may choose by hand. */
 export const CHOOSABLE: DocType[] = [
   "official_receipt", "certificate_of_registration", "owner_id", "deed_owner_to_dealer", "chattel_cancellation", "promissory_note",
-  "secretary_certificate", "secretary_id", "representative_id", "board_resolution", "buyer_id", "deed_to_buyer", "acknowledgement_receipt", "transmittal_receipt", "other",
+  "secretary_certificate", "secretary_id", "representative_id", "board_resolution", "buyer_id", "deed_to_buyer", "acknowledgement_receipt", "transmittal_receipt", "stencil", "other",
 ];
+
+/** Papers a car may have but does not need: they show on the checklist and never count as missing. */
+export const OPTIONAL_DOCS: DocType[] = ["stencil"];
 
 export const CASES = ["clean", "encumbered", "repo_bank", "company"] as const;
 export type CaseType = (typeof CASES)[number];

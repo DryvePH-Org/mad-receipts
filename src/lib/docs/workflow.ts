@@ -69,7 +69,7 @@ export async function approveUnit(plate: string, actor: string, confirmIncomplet
   if (!car?.folder.folder_id) return { ok: false, error: "This car has no folder linked." };
   const { workflow, details } = await loadWorkflow(key, deps.admin);
   if (workflow.approvedAt) return { ok: false, error: "These documents are already approved." };
-  const before = car.checklist.items.filter((i) => i.stage === "available" && !i.present).map((i) => i.label);
+  const before = car.checklist.items.filter((i) => i.stage === "available" && !i.present && !i.optional).map((i) => i.label);
   const flagged = car.analysis.files.filter((r) => r.flags.length || r.types.some((t) => t === "id_unmatched" || t === "deed_unmatched")).length;
   const missing = [
     ...before, ...(car.pending ? [`${car.pending} photo${car.pending === 1 ? "" : "s"} not read yet`] : []),
@@ -91,7 +91,7 @@ export async function afterReading(plate: string, deps: WorkflowDeps = defaultWo
   if (!car || car.pending > 0 || !car.files.some((f) => f.read_status === "done")) return;
   const { workflow } = await loadWorkflow(key, deps.admin);
   if (!workflow.scanNotifiedAt) {
-    const flagged = car.analysis.files.filter((r) => r.flags.length).length, missing = car.checklist.items.filter((i) => i.stage === "available" && !i.present).length;
+    const flagged = car.analysis.files.filter((r) => r.flags.length).length, missing = car.checklist.items.filter((i) => i.stage === "available" && !i.present && !i.optional).length;
     await upsertWorkflow(deps.admin, key, { scan_notified_at: new Date().toISOString() });
     await deps.notify(`🔎 Scanned: ${carName(car)}\n${flagged ? `${flagged} file${flagged === 1 ? "" : "s"} to check` : "No red flags"}${missing ? `, ${missing} paper${missing === 1 ? "" : "s"} missing` : ""}.\nOpen it in the app, check, add the details and approve.`).catch(() => undefined);
   }
@@ -114,7 +114,7 @@ export async function handoffUnit(plate: string, note: string, actor: string, co
   const { workflow } = await loadWorkflow(key, deps.admin);
   if (workflow.handoffAt && !workflow.handoffReturnedAt) return { ok: false, error: "These documents are already handed off." };
   const unchecked = car.checklist.items.filter((i) => !workflow.handoffChecked.includes(i.key)).map((i) => `Not ticked: ${i.label}`);
-  const missing = [...car.checklist.items.filter((i) => !i.present).map((i) => `Missing: ${i.label}`), ...unchecked.filter((u) => !car.checklist.items.some((i) => !i.present && u.endsWith(i.label)))];
+  const missing = [...car.checklist.items.filter((i) => !i.present && !i.optional).map((i) => `Missing: ${i.label}`), ...unchecked.filter((u) => !car.checklist.items.some((i) => !i.optional && !i.present && u.endsWith(i.label)))];
   if (missing.length && !confirmIncomplete) return { ok: false, needsConfirm: true, missing };
   const now = new Date().toISOString();
   await upsertWorkflow(deps.admin, key, { handoff_at: now, handoff_by: actor, handoff_note: note.trim().slice(0, 300) || null, handoff_returned_at: null, handoff_returned_by: null, handoff_last_reminded_at: now });

@@ -56,7 +56,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
   const register = await loadRegisterRow(key).catch(() => null);
 
   const recipient = settings.print.transmittalReceiver || "the receiver";
-  const items = car.checklist.items.map((i) => ({ key: i.key, label: i.label, stage: i.stage, present: i.present, fileIds: i.fileIds }));
+  const items = car.checklist.items.map((i) => ({ key: i.key, label: i.label, stage: i.stage, present: i.present, fileIds: i.fileIds, optional: !!i.optional }));
   const data: CarViewData = {
     plate: key, plateDisplay: car.folder.plate_display, name: car.folder.folder_name ?? car.folder.plate_display, location: car.folder.location as "available" | "sold",
     match: car.folder.match_status as "linked" | "none" | "several", folderUrl: car.folder.folder_url, candidates: (car.folder.candidates ?? []) as unknown as { id: string; name: string; url: string; root: string }[],
@@ -80,7 +80,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
 
   // what is still open when a car is moved to Sold, listed in the confirmation
   const flagged = car.analysis.files.filter((r) => r.flags.length || r.types.some((t) => t === "id_unmatched" || t === "deed_unmatched")).length;
-  const openItems = [...items.filter((i) => !i.present).map((i) => i.label), ...(car.pending ? [`${car.pending} photo${car.pending === 1 ? "" : "s"} not read yet`] : []), ...(flagged ? [`${flagged} file${flagged === 1 ? "" : "s"} still to check`] : [])];
+  const openItems = [...items.filter((i) => !i.present && !i.optional).map((i) => i.label), ...(car.pending ? [`${car.pending} photo${car.pending === 1 ? "" : "s"} not read yet`] : []), ...(flagged ? [`${flagged} file${flagged === 1 ? "" : "s"} still to check`] : [])];
   const soldItems = items.filter((i) => i.stage === "sold").map((i) => ({ key: i.key, label: i.label, present: i.present }));
   const busy = scanning || data.botWork.length > 0;
 
@@ -102,7 +102,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
             {canAct && <ApprovalCard plate={key} approvedAt={flow.workflow.approvedAt} marketingNotifiedAt={flow.workflow.marketingNotifiedAt} rule={stage.rules.approve} />}
             {canUpload && <SoldUploadCard plate={key} items={soldItems} deal={data.deal ? { dealNo: data.deal.dealNo, buyerName: data.deal.buyerName } : null} />}
             {canAct && <SoldCard plate={key} location={data.location} items={soldItems} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />}
-            {canAct && <HandoffCard rules={stage.rules} data={{ plate: key, location: data.location, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, items: items.map((i) => ({ key: i.key, label: i.label, present: i.present })) }} />}
+            {canAct && <HandoffCard rules={stage.rules} data={{ plate: key, location: data.location, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, items: items.map((i) => ({ key: i.key, label: i.label, present: i.present, optional: i.optional })) }} />}
           </aside>
         </div>
       )}

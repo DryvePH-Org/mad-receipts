@@ -19,7 +19,7 @@ import type { CarViewData, FileView } from "./types";
 
 const typeLabel = (t: string) => DOC_LABELS[t as DocType] ?? t;
 
-const SLOT_COLUMN: Record<string, string> = { official_receipt: "or_receipt", certificate_of_registration: "cr", deed_owner_to_dealer: "deed", owner_id: "sellers_id", representative_id: "sellers_id", chattel_cancellation: "chattel", promissory_note: "promissory", secretary_certificate: "sec_cert", secretary_id: "sec_ids", board_resolution: "boards_reso" };
+const SLOT_COLUMN: Record<string, string> = { official_receipt: "or_receipt", certificate_of_registration: "cr", deed_owner_to_dealer: "deed", owner_id: "sellers_id", representative_id: "sellers_id", chattel_cancellation: "chattel", promissory_note: "promissory", secretary_certificate: "sec_cert", secretary_id: "sec_ids", board_resolution: "boards_reso", stencil: "stencil" };
 const REG_CHOICES = ["Yes", "No", "To follow", "N/A"] as const;
 const REG_CHIP: Record<string, string> = { "Yes": "bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-200", "No": "bg-red-100 text-red-900 dark:bg-red-500/20 dark:text-red-200", "To follow": "bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200", "N/A": "bg-zinc-100 text-zinc-600 dark:bg-zinc-500/20 dark:text-zinc-300" };
 
@@ -63,7 +63,7 @@ export function PapersCard({ data, rules, readOnly = false, register, canEditReg
   const byId = new Map(data.files.map((f) => [f.id, f]));
   const used = new Set(data.items.flatMap((i) => i.fileIds));
   const others = data.files.filter((f) => !used.has(f.id));
-  const inFolder = data.items.filter((i) => i.stage === "available" && i.present).length, needed = data.items.filter((i) => i.stage === "available").length;
+  const inFolder = data.items.filter((i) => i.stage === "available" && !i.optional && i.present).length, needed = data.items.filter((i) => i.stage === "available" && !i.optional).length;
   const unchecked = !data.scanned || data.pending > 0 || data.scanning;
   const label = data.scanning ? "The bot is scanning…" : reading ?? (data.pending ? `${data.botMode ? "Scan" : "Read"} ${data.pending} photo${data.pending === 1 ? "" : "s"}` : data.failed ? `Scan ${data.failed} again` : "All scanned");
   const groups = [["Before the sale", data.items.filter((i) => i.stage === "available")], ["After the sale", data.items.filter((i) => i.stage === "sold")]] as const;
@@ -123,7 +123,7 @@ export function PapersCard({ data, rules, readOnly = false, register, canEditReg
             {groups.map(([title, list]) => list.length > 0 && (
               <div key={title} className="space-y-1.5">
                 <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{title}</p>
-                <ul className="divide-y rounded-lg ring-1 ring-foreground/10">{list.map((i) => row(i.key, i.label, i.present, i.fileIds, i.present ? "In the folder" : unchecked ? "Not checked yet" : "Missing"))}</ul>
+                <ul className="divide-y rounded-lg ring-1 ring-foreground/10">{list.map((i) => row(i.key, i.label, i.present, i.fileIds, i.present ? "In the folder" : unchecked ? "Not checked yet" : i.optional ? "Optional" : "Missing"))}</ul>
               </div>
             ))}
             {others.length > 0 && (

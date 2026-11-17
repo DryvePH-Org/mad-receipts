@@ -18,7 +18,7 @@ export async function loadStageInput(plate: string, admin = createAdminClient())
     linked: car.folder.match_status === "linked" && !!car.folder.folder_id, location: car.folder.location as "available" | "sold",
     filesTotal: car.files.length, pending: car.pending, failed: car.files.filter((f) => f.read_status === "failed").length, scanning,
     flaggedFiles: flagged,
-    missingBefore: car.checklist.items.filter((i) => i.stage === "available" && !i.present).length,
+    missingBefore: car.checklist.items.filter((i) => i.stage === "available" && !i.present && !i.optional).length,
     missingSold: car.checklist.items.filter((i) => i.stage === "sold" && !i.present).length,
     hasDeal: !!car.folder.deal_id,
     approved: !!workflow.approvedAt, caseChosen: car.folder.case_source === "manual", handoffAt: workflow.handoffAt, returnedAt: workflow.handoffReturnedAt,

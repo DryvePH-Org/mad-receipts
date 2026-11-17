@@ -17,6 +17,7 @@ export const DOCS_FIELDS = {
   encumbered: { header: "Encumbered", list: ["Yes", "No", "To follow", "N/A"] },
   chattel: { header: "CHATTEL", list: ["Yes", "No", "To follow", "N/A"] },
   promissory: { header: "PROMISSORY", list: ["Yes", "No", "To follow", "N/A"] },
+  stencil: { header: "STENCIL", list: ["Yes", "No", "To follow", "N/A"] },
   remarks_1: { header: "REMARKS I", list: null },
 } as const;
 export type DocsField = keyof typeof DOCS_FIELDS;
@@ -54,6 +55,7 @@ export function desiredValues(i: BibleInput): Partial<Record<Exclude<DocsField, 
     encumbered: c === "encumbered" || c === "repo_bank" ? "Yes" : "N/A",
     chattel: want(has(i, "chattel_cancellation"), c === "encumbered" || c === "repo_bank"),
     promissory: want(has(i, "promissory_note"), c === "encumbered" || c === "repo_bank"),
+    stencil: has(i, "stencil") ? "Yes" : null, // a stencil is optional: it is marked Yes when one is in the folder, and otherwise left as the staff typed it
   };
   return Object.fromEntries(Object.entries(out).filter(([, v]) => v !== null)) as Partial<Record<Exclude<DocsField, "remarks_1">, string>>;
 }
@@ -85,12 +87,12 @@ export function phtStamp(d: Date): string {
   return `${g("day")} ${MONTHS[Number(g("month")) - 1]} ${g("year")}, ${g("hour")}:${g("minute")} ${g("dayPeriod")} PHT`;
 }
 
-export interface NoteInput { now: Date; carName: string; items: { label: string; present: boolean; stage: "available" | "sold" }[]; flags: string[]; details: UnitDetails | null }
+export interface NoteInput { now: Date; carName: string; items: { label: string; present: boolean; stage: "available" | "sold"; optional?: boolean }[]; flags: string[]; details: UnitDetails | null }
 
 /** The scan report for REMARKS I, in the style already in the sheet: dated, the car, one line per paper. */
 export function scanNote(n: NoteInput): string {
   const lines = [phtStamp(n.now), n.carName];
-  for (const i of n.items.filter((x) => x.stage === "available")) lines.push(`${i.present ? "✅" : "❌"} ${i.label}`);
+  for (const i of n.items.filter((x) => x.stage === "available" && !(x.optional && !x.present))) lines.push(`${i.present ? "✅" : "❌"} ${i.label}`);
   for (const f of n.flags.slice(0, 6)) lines.push(`⚠ ${f}`);
   const d = n.details;
   if (d) {

@@ -1,6 +1,6 @@
 import { editDistance } from "@/lib/rules/words";
 import { looksLikeBank, looksLikeCompany, normName, sameName } from "./names";
-import { ACK_LABEL, CASE_LABELS, DOC_LABELS, REQUIRED_BY_CASE, SOLD_EXTRAS, type CaseType, type Detection, type DocType } from "./types";
+import { ACK_LABEL, CASE_LABELS, DOC_LABELS, OPTIONAL_DOCS, REQUIRED_BY_CASE, SOLD_EXTRAS, type CaseType, type Detection, type DocType } from "./types";
 
 /*
  * Turns what the reader saw on each photo into what each document is FOR, and says what is wrong.
@@ -56,7 +56,7 @@ const allowedEdits = (v: string) => (v.length >= 12 ? Math.floor(v.length * 0.25
 const looksLikePlate = (v: string) => /^[A-Z]{3}\d{3,4}$/.test(v);
 /** Papers that must be the original, not a xerox. IDs are not on this list: a copy of an ID is normal. */
 const ORIGINAL_ONLY = new Set(["official_receipt", "certificate_of_registration", "deed_of_sale", "chattel_cancellation", "secretary_certificate", "board_resolution"]);
-const VEHICLE_PAPERS = new Set(["official_receipt", "certificate_of_registration", "deed_of_sale"]);
+const VEHICLE_PAPERS = new Set(["official_receipt", "certificate_of_registration", "deed_of_sale", "stencil"]); // the stencil carries the chassis or motor number, so it is compared with the papers too
 /** The same person written in any order gives the same key. */
 const nameKey = (n: string | null | undefined) => normName(n).split(" ").filter(Boolean).sort().join(" ");
 const labelOf = (t: DocType) => DOC_LABELS[t].replace(/ \(.*\)$/, "");
@@ -159,17 +159,18 @@ export function analyze(files: FileInput[], folder: FolderContext, deal: DealCon
 
 // ---------------- the checklist ----------------
 
-export interface ChecklistItem { key: string; type: DocType | "ack"; label: string; stage: "available" | "sold"; present: boolean; fileIds: string[] }
+export interface ChecklistItem { key: string; type: DocType | "ack"; label: string; stage: "available" | "sold"; present: boolean; fileIds: string[]; /** may be absent without the car being incomplete */ optional?: boolean }
 export interface Checklist { items: ChecklistItem[]; missing: ChecklistItem[]; complete: boolean }
 
 export function checklist(caseType: CaseType, results: FileResult[], deal: DealContext): Checklist {
   const items: ChecklistItem[] = [
     ...REQUIRED_BY_CASE[caseType].map((type) => ({ key: type, type, label: DOC_LABELS[type], stage: "available" as const, ...presence(type, results) })),
+    ...OPTIONAL_DOCS.map((type) => ({ key: type, type, label: type === "stencil" ? "Stencil (if the car has one)" : DOC_LABELS[type], stage: "available" as const, optional: true, ...presence(type, results) })),
     // the AR is a file Sales uploads (the signed paper), like the buyer's ID and the deed; the app's own receipt is not filed in the folder
     ...(deal.linked === false ? [] : [{ key: "ack", type: "ack" as const, label: ACK_LABEL, stage: "sold" as const, ...presence("acknowledgement_receipt", results) }]),
     ...SOLD_EXTRAS.map((type) => ({ key: type, type, label: DOC_LABELS[type], stage: "sold" as const, ...presence(type, results) })),
   ];
-  const missing = items.filter((i) => !i.present);
+  const missing = items.filter((i) => !i.present && !i.optional);
   return { items, missing, complete: missing.length === 0 };
 }
 

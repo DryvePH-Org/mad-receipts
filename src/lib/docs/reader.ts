@@ -53,6 +53,7 @@ Return ONLY a JSON object:
 - "board_resolution": a Board Resolution.
 - "acknowledgement_receipt": the dealership's own yellow "ACKNOWLEDGEMENT OF PAYMENT" form (Manila Auto Display), with a red number, "Received from", the sum of pesos and the vehicle described. It is mostly handwritten. Put the buyer on it in "buyer_name" and its red number in "document_number".
 - "transmittal_receipt": a "Transmittal Receipt" or acknowledgement of the papers handed over with a car, a checklist of documents (CR, OR, deed...).
+- "stencil": a stencil: the chassis number or engine number copied by rubbing or tracing it from the car onto a paper (or a photo of the stamped number on the car). It shows a long number of letters and digits, usually with a car-sized frame or tape marks. Put the number in "chassis_no" or "motor_no" as printed, and the plate if one is written.
 - "other": anything else, or a picture that is not a document.
 
 Rules:
@@ -153,6 +154,7 @@ export function fakeReading(filename: string, plate: string): Reading {
   if (n.includes("chattel") || n.includes("rcm")) detections.push(d("chattel_cancellation"));
   if (n.includes("secretary-cert")) detections.push(d("secretary_certificate", { secretaryName: "Ana Reyes", representativeName: "Pedro Santos" }));
   if (n.includes("board")) detections.push(d("board_resolution"));
+  if (n.includes("stencil")) detections.push(d("stencil", { chassisNo: "PAEA13RJRRA001156" }));
   if (n.includes("blurry")) return { legible: false, rotation: 0, detections: [], notes: null };
   return { legible: true, rotation: 0, detections: detections.length ? detections : [{ type: "other", confidence: 0.9 }], notes: null };
 }

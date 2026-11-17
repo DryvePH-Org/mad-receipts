@@ -10,7 +10,7 @@ import { docsDb } from "./review-server";
 
 // The car's scan and checklist become the car's row in the Docs Bible register (the database), at once. Nothing is written to a Google Sheet.
 
-const COLUMN: Record<DocsField, string> = { classification: "classification", cr: "cr", or: "or_receipt", deed: "deed", sellers_id: "sellers_id", sec_cert: "sec_cert", sec_ids: "sec_ids", boards_reso: "boards_reso", encumbered: "encumbered", chattel: "chattel", promissory: "promissory", remarks_1: "remarks_1" };
+const COLUMN: Record<DocsField, string> = { classification: "classification", cr: "cr", or: "or_receipt", deed: "deed", sellers_id: "sellers_id", sec_cert: "sec_cert", sec_ids: "sec_ids", boards_reso: "boards_reso", encumbered: "encumbered", chattel: "chattel", promissory: "promissory", stencil: "stencil", remarks_1: "remarks_1" };
 
 async function carInput(plate: string) {
   const car = await loadCar(plate);
@@ -61,7 +61,7 @@ export async function syncRegister(plate: string, actor: string, now = new Date(
   const plan = planChanges({ caseType: input.car.caseType, present: input.present, current });
   const patch: Record<string, string | null> = {};
   for (const c of plan.changes) patch[COLUMN[c.field]] = c.after;
-  const note = scanNote({ now, carName: input.name, items: input.car.checklist.items.map((i) => ({ label: i.label, present: i.present, stage: i.stage })), flags: input.flags, details: input.details });
+  const note = scanNote({ now, carName: input.name, items: input.car.checklist.items.map((i) => ({ label: i.label, present: i.present, stage: i.stage, optional: i.optional })), flags: input.flags, details: input.details });
   if (!noteAlreadyThere(current.remarks_1, note)) patch.remarks_1 = [current.remarks_1, note].filter(Boolean).join("\n\n");
   if (Object.keys(patch).length === 0) return { ok: true, changed: [], created };
   const r = await db.from("docs_units").update({ ...patch, updated_by: actor, last_change_source: "app" }).eq("id", unit.id as string);

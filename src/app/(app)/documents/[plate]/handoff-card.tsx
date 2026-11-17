@@ -14,7 +14,7 @@ import { useStep } from "./use-step";
 const day = (iso: string) => new Date(iso).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Manila" });
 const daysSince = (iso: string) => Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 86_400_000));
 
-export interface HandoffData { plate: string; location: "available" | "sold"; recipient: string; at: string | null; note: string | null; checked: string[]; returnedAt: string | null; items: { key: string; label: string; present: boolean }[] }
+export interface HandoffData { plate: string; location: "available" | "sold"; recipient: string; at: string | null; note: string | null; checked: string[]; returnedAt: string | null; items: { key: string; label: string; present: boolean; optional?: boolean }[] }
 
 /** The last steps: tick the papers, hand them to the receiver, and mark it done when they are back. Available only after the folder is in Sold. */
 export function HandoffCard({ data, rules }: { data: HandoffData; rules: Rules }) {
@@ -41,7 +41,7 @@ export function HandoffCard({ data, rules }: { data: HandoffData; rules: Rules }
             <ul className="divide-y rounded-lg ring-1 ring-foreground/10">
               {data.items.map((i) => (
                 <li key={i.key}><label className="flex cursor-pointer items-center gap-3 px-3 py-2.5"><input type="checkbox" className="size-4" checked={checked.includes(i.key)} onChange={(e) => tick(i.key, e.target.checked)} />
-                  <span className="flex-1">{i.label}</span>{!i.present && <Pill tone="amber">Missing</Pill>}</label></li>
+                  <span className="flex-1">{i.label}</span>{!i.present && !i.optional && <Pill tone="amber">Missing</Pill>}</label></li>
               ))}
             </ul>
             <div className="space-y-1.5"><Label htmlFor="ho-note">Note (optional)</Label><Input id="ho-note" value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} /></div>

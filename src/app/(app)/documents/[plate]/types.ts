@@ -14,7 +14,7 @@ export interface CarViewData {
   candidates: { id: string; name: string; url: string; root: string }[];
   caseType: CaseType; suggestedCase: CaseType; caseReason: string; caseSource: "auto" | "manual";
   deal: { id: string; dealNo: string; buyerName: string; hasReceipt: boolean } | null;
-  items: { key: string; label: string; stage: "available" | "sold"; present: boolean; fileIds: string[] }[];
+  items: { key: string; label: string; stage: "available" | "sold"; present: boolean; fileIds: string[]; optional: boolean }[];
   files: FileView[];
   /** the grokbot reads the photos (together, in the background) instead of a picture API */
   botMode: boolean; scanning: boolean;
