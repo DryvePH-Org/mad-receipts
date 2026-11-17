@@ -31,7 +31,8 @@ export async function POST(request: Request) {
     console.info(`[docs] add status=${result.readStatus}`);
     return Response.json({ result, folder: { name: folder.folderName, created: folder.created, location: folder.location } });
   } catch (err) {
-    console.info("[docs] add status=failed");
-    return fail(docsErrorText(err), 502);
+    const text = docsErrorText(err);
+    console.info(`[docs] add status=failed reason=${text}`);
+    return fail(text, 422); // not a 5xx: Cloudflare would swap the body for its own error page and the reason would be lost
   }
 }

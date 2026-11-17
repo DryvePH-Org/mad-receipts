@@ -24,7 +24,7 @@ export async function uploadPhotos(plate: string, batch: { id: number; file: Fil
       body.set("label", `doc${id}`);
       const res = await fetch("/api/docs/add", { method: "POST", body });
       const json = (await res.json().catch(() => ({}))) as { result?: { types: string[]; flags: string[]; readStatus: string }; error?: string };
-      if (!res.ok || !json.result) throw new Error(json.error ?? "The upload failed. Try again.");
+      if (!res.ok || !json.result) throw new Error(json.error ?? `The upload failed (error ${res.status}). Try again.`);
       saved++;
       onUpdate(id, { state: "done", types: json.result.types, flags: json.result.flags, message: json.result.readStatus === "failed" ? "Saved in the folder. It could not be read yet; it will be read again." : undefined });
     } catch (e) {
