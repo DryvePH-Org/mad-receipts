@@ -87,14 +87,13 @@ test("Add a car: a plate that is already in the Docs Bible is not added twice, u
   const docs = await as(browser, "docs");
   await docs.goto("/documents/add");
   await docs.getByLabel("Plate number").fill("ZZT 9001");
-  await docs.getByRole("button", { name: "Check" }).click();
   await expect(docs.getByText(/This car is already in the Docs Bible/)).toBeVisible();
   await expect(docs.getByRole("button", { name: "Save the car" })).toHaveCount(0);
   // a second arrival keeps the first row
   await docs.getByRole("button", { name: /arrived again/ }).click();
   await docs.getByLabel("Make *").fill("honda"); await docs.getByLabel("Model *").fill("city"); await docs.getByLabel("Year *").fill("21"); await docs.getByLabel("Color *").fill("grey");
   await docs.getByRole("button", { name: "Save the car" }).click();
-  await expect(docs.getByText(/is in the Docs Bible\. Now add its photos/)).toBeVisible();
+  await expect(docs.getByText(/is in the Docs Bible\. Now add its documents/)).toBeVisible();
   const rows = await db().from("docs_units").select("make").eq("plate_no", PLATE);
   expect((rows.data as { make: string }[]).map((r) => r.make).sort()).toEqual(["HONDA", "TESTMAKE"]);
   const review = await db().from("docs_review_items").select("kind, status").eq("plate_no", PLATE); // the staff are told, to decide later

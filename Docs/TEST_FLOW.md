@@ -104,11 +104,10 @@ Use a car that has an **AR** (a deal) in the app.
 
 This is the start of the workflow for every car, and the last test: a car that is not in the system at all.
 
-1. As **Documentation**: **Car documents** → **Add a car**. Type the **new plate** and press **Check**.
-   - You should see: **1. Which car?** says whether a Drive folder exists or will be made, and **2. The car** says *This plate is not in the Docs Bible yet*. The documents step says *Save the car first*.
-2. Press **Save the car** with the form empty. It tells you what is missing (make, model, year, color). Fill them (suggestions appear as you type), plus whatever else you know (body type, transmission, fuel, mileage, registered owner, bought from, spare key, arrival date; **More details** has the rest). Press **Save the car**.
-   - You should see: *… is in the Docs Bible. Now add its photos.* In **Car documents → Table**, the car is there with its details, vehicle status AVAILABLE and today's arrival date, and no classification yet.
-3. **3. The documents**: a box lists the papers to add (OR, CR, seller's ID, deed, stencil; a bank or financed car also the chattel cancellation or promissory note; a company also the secretary's papers). Choose the photos of them.
+1. As **Documentation**: **Car documents** → **Add a car**. The page is one form: type the **new plate** at the top (there is no Check button). As you type, a line under it says by itself whether a Drive folder already exists or will be made, and whether the car is already in the Docs Bible.
+2. Fill in the car's details (make, model, year, color are needed; the rest is optional, and suggestions appear as you type) and press **Save the car**. Press it once with the form empty to see what it asks for.
+   - You should see: *… is in the Docs Bible. Now add its documents.* In **Car documents → Table**, the car is there with its details, vehicle status AVAILABLE and today's arrival date, and no classification yet.
+3. **2. The documents** (it appears once the car is saved): a box lists the papers to add (OR, CR, seller's ID, deed, stencil; a bank or financed car also the chattel cancellation or promissory note; a company also the secretary's papers). Choose the photos of them.
    - You should see: the folder is **found or created in Drive** (named like `21 Toyota Vios (ABC1234)`), each photo is filed and read, and the team gets one Telegram message when the batch ends.
 4. Open the car (**Open this car**). Scan the photos, choose the **case**, review the warnings, fill **About the car**, then press **Approve**.
 5. After approving, the car's row has its classification, its papers and the dated scan note. 
