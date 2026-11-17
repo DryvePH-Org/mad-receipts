@@ -6,7 +6,7 @@ import { credentials } from "./support";
 const SIZES = [{ name: "phone", width: 375, height: 812 }, { name: "tablet", width: 768, height: 1024 }, { name: "laptop", width: 1280, height: 800 }];
 const PAGES: [keyof typeof credentials, string, number][] = [
   ["admin", "/deals", 800], ["admin", "/new", 800], ["admin", "/approvals", 800], ["admin", "/reminders", 800], ["admin", "/activity", 800],
-  ["admin", "/settings", 800], ["admin", "/admin/users", 800], ["admin", "/admin/sync", 800], ["admin", "/documents", 800], ["sales", "/upload-documents", 800],
+  ["admin", "/settings", 800], ["admin", "/admin/users", 800], ["admin", "/admin/sync", 800], ["admin", "/documents", 800], ["sales", "/documents", 800],
   ["admin", "/dashboard/buy", 5000], ["admin", "/dashboard/sell", 5000],
 ];
 

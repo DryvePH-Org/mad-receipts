@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import imageCompression from "browser-image-compression";
 import { Camera, CircleAlert, FolderPlus, FolderOpen, Loader2, Search, CarFront, Check } from "lucide-react";
@@ -18,8 +18,8 @@ import { addUnitAction, finishAddAction, previewAddAction, unitStatusAction } fr
 interface Photo { id: number; name: string; state: "sending" | "done" | "error"; types: string[]; flags: string[]; message?: string }
 
 /** Plate → what will happen to the folder → photos. Each photo is filed and read; when the batch ends the team is told once. */
-export function AddFlow({ suggestions }: { suggestions: { makes: string[]; colors: string[]; models: string[] } }) {
-  const [plate, setPlate] = useState("");
+export function AddFlow({ suggestions, initialPlate = "", botScans = false }: { suggestions: { makes: string[]; colors: string[]; models: string[] }; initialPlate?: string; botScans?: boolean }) {
+  const [plate, setPlate] = useState(initialPlate);
   const [preview, setPreview] = useState<FolderPreview | null>(null);
   const [looking, setLooking] = useState(false);
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -35,10 +35,10 @@ export function AddFlow({ suggestions }: { suggestions: { makes: string[]; color
   const next = useRef(0);
   const input = useRef<HTMLInputElement>(null);
 
-  async function check() {
-    if (plate.replace(/[^A-Za-z0-9]/g, "").length < 5) { setPreview({ state: "invalid", message: "Type the whole plate number, like NKF 4771." }); return; }
+  async function check(typed: string = plate) {
+    if (typed.replace(/[^A-Za-z0-9]/g, "").length < 5) { setPreview({ state: "invalid", message: "Type the whole plate number, like NKF 4771." }); return; }
     setLooking(true); setFinished(null); setPhotos([]); setSaved(null); setAgain(false); setErrors({}); setFormError(null);
-    const [folder, status] = await Promise.all([previewAddAction(plate), unitStatusAction(plate)]);
+    const [folder, status] = await Promise.all([previewAddAction(typed), unitStatusAction(typed)]);
     setPreview(folder); setUnit(status);
     setLooking(false);
   }
@@ -72,6 +72,7 @@ export function AddFlow({ suggestions }: { suggestions: { makes: string[]; color
     setFinished(preview.plate);
   }
 
+  useEffect(() => { if (initialPlate) void check(initialPlate); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const ready = preview && (preview.state === "existing" || preview.state === "new");
   const inBible = !!unit && (unit.exists && !again || !!saved);
   const set = (k: keyof UnitDetailsInput, v: string) => { setDetails((d) => ({ ...d, [k]: v })); setErrors((e) => { const { [k]: _gone, ...rest } = e; void _gone; return rest; }); };
@@ -103,7 +104,7 @@ export function AddFlow({ suggestions }: { suggestions: { makes: string[]; color
           <div className="flex flex-wrap items-end gap-2">
             <div className="w-full max-w-xs space-y-1.5"><Label htmlFor="add-plate">Plate number</Label>
               <Input id="add-plate" value={plate} autoComplete="off" autoCapitalize="characters" placeholder="e.g. NKF 4771" onChange={(e) => { setPlate(e.target.value.toUpperCase()); setPreview(null); setUnit(null); setSaved(null); setFinished(null); }} onKeyDown={(e) => { if (e.key === "Enter") void check(); }} /></div>
-            <Button type="button" disabled={looking || sending} onClick={check}>{looking ? <Loader2 className="animate-spin" /> : <Search />} Check</Button>
+            <Button type="button" disabled={looking || sending} onClick={() => check()}>{looking ? <Loader2 className="animate-spin" /> : <Search />} Check</Button>
           </div>
           {preview && (preview.state === "invalid" || preview.state === "several") && <p className="flex gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200"><CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />{preview.message}</p>}
           {preview?.state === "existing" && (
@@ -164,11 +165,15 @@ export function AddFlow({ suggestions }: { suggestions: { makes: string[]; color
       {ready && !inBible && unit && <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">Save the car first, then add its photos.</p>}
       {ready && inBible && (
         <Card>
-          <CardHeader><CardTitle>3. The photos</CardTitle></CardHeader>
+          <CardHeader><CardTitle>3. The documents</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <input ref={input} type="file" accept="image/*" multiple className="sr-only" id="add-photos" onChange={(e) => void send(e.target.files)} />
-            <Button type="button" size="lg" disabled={sending} onClick={() => input.current?.click()}>{sending ? <Loader2 className="animate-spin" /> : <Camera />} Take or choose photos</Button>
-            <p className="text-xs text-muted-foreground">One photo for each document, or the OR and CR together. You can add more later, one at a time or many at once. Keep each page whole, flat and well lit.</p>
+            <Button type="button" size="lg" disabled={sending} onClick={() => input.current?.click()}>{sending ? <Loader2 className="animate-spin" /> : <Camera />} Take or choose photos of the documents</Button>
+            <div className="space-y-1 rounded-lg bg-muted p-3 text-xs text-muted-foreground">
+              <p className="font-medium text-foreground">Add every paper you have, so the car is ready to scan:</p>
+              <p>Every car: the official receipt (OR), the certificate of registration (CR), the seller&apos;s ID, the deed of sale from the owner, and the stencil. A bank or financed car: also the chattel mortgage cancellation or the promissory note. A company: also the secretary&apos;s certificate and the IDs.</p>
+              <p>One photo for each paper, or the OR and CR together. Keep each page whole, flat and well lit. You can add more later.</p>
+            </div>
             {photos.length > 0 && (
               <ul className="space-y-2" aria-live="polite">
                 {photos.map((p) => (
@@ -183,7 +188,7 @@ export function AddFlow({ suggestions }: { suggestions: { makes: string[]; color
                 ))}
               </ul>
             )}
-            {finished && <p className="flex flex-wrap items-center gap-3 text-sm">The team has been told that these photos were scanned. <Button size="sm" nativeButton={false} render={<Link href={`/documents/${finished}`} />}>Open this car</Button></p>}
+            {finished && <p className="flex flex-wrap items-center gap-3 text-sm">{botScans ? "The bot is scanning these documents now; open the car to follow it." : "The team has been told that these photos were scanned."} <Button size="sm" nativeButton={false} render={<Link href={`/documents/${finished}`} />}>Open this car</Button></p>}
           </CardContent>
         </Card>
       )}

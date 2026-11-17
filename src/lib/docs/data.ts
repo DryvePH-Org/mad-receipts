@@ -61,10 +61,3 @@ export async function getCarDetail(plate: string): Promise<CarDetail | null> {
   return { car: buildCar(folder, files ?? [], { buyerName: deal?.buyerName ?? null, hasReceipt: deal?.hasReceipt ?? false }), deal };
 }
 
-/** Cars Sales can upload for: those on a deal, newest first, with whether their folder is linked. */
-export async function listUploadTargets(): Promise<{ plate: string; display: string; folderName: string | null; buyer: string; dealNo: string; linked: boolean }[]> {
-  const admin = createAdminClient();
-  const { data: folders } = await admin.from("unit_folders").select("*").not("deal_id", "is", null).order("created_at", { ascending: false }).limit(300);
-  const deals = await dealsById([...new Set((folders ?? []).map((f) => f.deal_id).filter((x): x is string => !!x))]);
-  return (folders ?? []).map((f) => ({ plate: f.plate_no, display: f.plate_display, folderName: f.folder_name, buyer: deals.get(f.deal_id!)?.buyerName ?? "", dealNo: deals.get(f.deal_id!)?.dealNo ?? "", linked: f.match_status === "linked" && !!f.folder_id }));
-}

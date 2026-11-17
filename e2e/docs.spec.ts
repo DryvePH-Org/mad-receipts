@@ -107,23 +107,26 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await expect(sales.getByRole("link", { name: "Car documents" }).first()).toBeVisible(); // everyone can look, nobody but Documentation and Admin can act
   await sales.goto("/documents/ZZT7001/transmittal"); // not part of the Sales role
   await expect(sales.getByText("You don't have access to this page.")).toBeVisible();
-  await sales.goto("/documents/ZZT7001"); // the car page is read only for Sales: no photos, no buttons
-  await expect(sales.getByText("Photos of the papers are shown to Documentation only.")).toBeVisible();
+  await sales.goto("/documents/ZZT7001"); // the car page for Sales: all the information and the photos, no action button
+  await expect(sales.locator("#files")).toBeVisible();
+  await expect(sales.getByRole("button", { name: /^View .* larger$/ }).first()).toBeVisible(); // they can see the photos
   await expect(sales.getByRole("button", { name: "Approve: documents are OK" })).toHaveCount(0);
-  await expect(sales.getByRole("button", { name: "Scan 3 photos" })).toHaveCount(0);
-  await sales.goto("/upload-documents");
-  await sales.getByLabel("Plate number").fill("ZZT 7004");
-  await sales.getByRole("button", { name: "Find the car" }).click();
-  await expect(sales.getByText(/no folder in Drive for this plate/)).toBeVisible(); // not an accurate pipeline if it guessed
-  await sales.getByLabel("Plate number").fill("ZZT 9999");
-  await sales.getByRole("button", { name: "Find the car" }).click();
-  await expect(sales.getByText(/No AR has been made for ZZT 9999/)).toBeVisible();
-  await sales.getByLabel("Plate number").fill("ZZT 7001");
-  await sales.getByRole("button", { name: "Find the car" }).click();
-  await expect(sales.getByText(BUYER).first()).toBeVisible();
-  await expect(sales.getByText("Buyer's ID")).toBeVisible();
-  await sales.getByRole("button", { name: "Yes, this is the car" }).click();
+  await expect(sales.getByRole("button", { name: /^Scan / })).toHaveCount(0);
+  await expect(sales.getByRole("link", { name: "Add documents" })).toHaveCount(0);
+  await expect(sales.getByRole("button", { name: "Change what this is" })).toHaveCount(0);
+  await expect(sales.getByRole("combobox", { name: "Case" })).toBeDisabled();
+  // the only thing Sales can do here: add the sold papers (the AR's buyer is shown)
+  await expect(sales.locator("#sold-upload")).toContainText(BUYER);
   await expect(sales.getByText("Still needed")).toHaveCount(3); // the signed AR, the buyer's ID and the deed
+  // a plate nobody has sold never gets a photo, whatever is sent to the server
+  const refused = await sales.request.post("/api/docs/upload", { multipart: { plate: "ZZT 9999", file: { name: "p.jpg", mimeType: "image/jpeg", buffer: JPEG } } });
+  expect(refused.status()).toBe(409);
+  expect((await refused.json()).error).toMatch(/No AR has been made for ZZT 9999/);
+  // the old page is gone: its address leads to Car documents
+  await sales.goto("/upload-documents");
+  await expect(sales.getByRole("heading", { name: "Car documents" })).toBeVisible();
+  await expect(sales.getByRole("link", { name: "Upload documents" })).toHaveCount(0);
+  await sales.goto("/documents/ZZT7001");
 
   // a photo through the screen (the stand-in reader cannot tell what it is) ...
   await sales.locator("#doc-photos").setInputFiles({ name: "x.jpg", mimeType: "image/jpeg", buffer: JPEG });
@@ -217,7 +220,7 @@ test("Documentation adds photos by typing only the plate: the folder is made, th
 
 test("each role sees only its own pages", async ({ browser }) => {
   const docs = await as(browser, "docs");
-  for (const path of ["/new", "/approvals", "/settings", "/upload-documents"]) {
+  for (const path of ["/new", "/approvals", "/settings"]) {
     await docs.goto(path);
     await expect(docs.getByText("You don't have access to this page."), path).toBeVisible();
   }

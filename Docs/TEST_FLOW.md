@@ -15,7 +15,7 @@ Before you start: the push is deployed, and migrations 30, 31 and 32 are applied
 | Log in as **Documentation**. Open **Car documents** in the menu. | One menu item called Car documents. The list shows about 400 cars with plate, car, case, a stage chip, papers like `5/7`, and a warning sign on some. |
 | Click the stage chips (Needs scan, In review, Approved…) and type a plate in the search box. | The list narrows; the counts on the chips make sense. |
 | Click **Table (like the sheet)**. | The table with the sheet's columns and order. Scroll right: the plate stays in place. Switch the column set (Checklist, Handoff, Everything). |
-| Log in as **Sales** in the other browser. Open **Car documents**, click a car. | The same list and the car page, but **no photos and no buttons**; it says photos are for Documentation. |
+| Log in as **Sales** in the other browser. Open **Car documents**, click a car. | The same list and the same car page, **with the photos and all the information** (what the bot saw, the papers, the Docs Bible row), but **no action buttons**. The one thing Sales can do there is add the sold papers (part 5). |
 | Log in as **Approver**. Same page. | Read only too. |
 
 **Proves:** one module for everyone, each role sees the right amount.
@@ -92,7 +92,7 @@ Pick a car that has photos in Drive but is not approved yet (the chip **Needs sc
 
 Use a car that has an **AR** (a deal) in the app.
 
-1. As **Sales**: **Upload documents** → type the plate → **Find the car** → add the signed AR, the buyer's ID and the deed.
+1. As **Sales**: open the car in **Car documents**. The **Sold papers** card shows the buyer and the three papers still needed. Press **Take or choose photos** and add the signed AR, the buyer's ID and the deed. (There is no separate Upload documents page any more.)
 2. As **Documentation**: on the car, the stage says the sold papers are in. Press **Move to Sold**. The button is **disabled until the car is approved** and the sold papers are in (the reason is written next to it).
 3. **Handoff**: tick each paper, press **Handed off**. A Telegram reminder is sent every 3 days (check **Documents on handoff**).
 4. Press **Papers are back** when they return.
@@ -105,10 +105,10 @@ Use a car that has an **AR** (a deal) in the app.
 This is the start of the workflow for every car, and the last test: a car that is not in the system at all.
 
 1. As **Documentation**: **Car documents** → **Add a car**. Type the **new plate** and press **Check**.
-   - You should see: **1. Which car?** says whether a Drive folder exists or will be made, and **2. The car** says *This plate is not in the Docs Bible yet*. The photos step says *Save the car first*.
+   - You should see: **1. Which car?** says whether a Drive folder exists or will be made, and **2. The car** says *This plate is not in the Docs Bible yet*. The documents step says *Save the car first*.
 2. Press **Save the car** with the form empty. It tells you what is missing (make, model, year, color). Fill them (suggestions appear as you type), plus whatever else you know (body type, transmission, fuel, mileage, registered owner, bought from, spare key, arrival date; **More details** has the rest). Press **Save the car**.
    - You should see: *… is in the Docs Bible. Now add its photos.* In **Car documents → Table**, the car is there with its details, vehicle status AVAILABLE and today's arrival date, and no classification yet.
-3. **3. The photos**: choose the photos of its papers (OR, CR, ID, deed; add the stencil and any bank papers).
+3. **3. The documents**: a box lists the papers to add (OR, CR, seller's ID, deed, stencil; a bank or financed car also the chattel cancellation or promissory note; a company also the secretary's papers). Choose the photos of them.
    - You should see: the folder is **found or created in Drive** (named like `21 Toyota Vios (ABC1234)`), each photo is filed and read, and the team gets one Telegram message when the batch ends.
 4. Open the car (**Open this car**). Scan the photos, choose the **case**, review the warnings, fill **About the car**, then press **Approve**.
 5. After approving, the car's row has its classification, its papers and the dated scan note. 
@@ -130,3 +130,6 @@ This is the start of the workflow for every car, and the last test: a car that i
 - Anything that surprised you, even if it "worked".
 
 If something fails, send me the plate, the step number and what was on the screen. The history of the car (click the plate in the table) and **Admin → Sync jobs → Grokbot queue** usually show what happened.
+
+## Adding more documents to a car later
+Open the car → the **Photos in the folder** card → **Add documents**. It opens the same page with the plate already filled in and checked, so you only add photos. (Sales do not have this button.)

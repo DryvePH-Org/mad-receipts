@@ -7,7 +7,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** A document photo for the Car documents page, as a picture the browser can show (HEIC and PDF pages come as JPEG). Drive is never changed. */
 export async function GET(_request: Request, ctx: RouteContext<"/api/docs/file/[id]">) {
   const user = await getCurrentUser();
-  if (!user || !user.modules.includes("documents")) return new Response("Not allowed", { status: 403 });
+  if (!user || !user.modules.includes("register")) return new Response("Not allowed", { status: 403 });
   const { id } = await ctx.params;
   if (!UUID.test(id)) return new Response("Not found", { status: 404 });
   const { data: file } = await createAdminClient().from("folder_files").select("drive_file_id").eq("id", id).maybeSingle();

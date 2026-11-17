@@ -12,7 +12,7 @@ import { setCaseAction } from "../actions";
 import type { CarViewData } from "./types";
 
 /** The papers the car's case needs, ticked from the photos. The case is worked out from the papers and can be set by hand. */
-export function ChecklistCard({ data }: { data: CarViewData }) {
+export function ChecklistCard({ data, readOnly = false }: { data: CarViewData; readOnly?: boolean }) {
   const router = useRouter();
   const [busy, start] = useTransition();
   const chosen = data.caseSource === "manual";
@@ -24,7 +24,7 @@ export function ChecklistCard({ data }: { data: CarViewData }) {
     <Card id="checklist">
       <CardHeader><CardTitle className="flex flex-wrap items-center gap-3">Papers needed
         <label className="ml-auto flex items-center gap-2 text-sm font-normal text-muted-foreground">Case
-          <NativeSelect aria-label="Case" className="w-48" value={chosen ? data.caseType : ""} disabled={busy} onChange={(e) => choose(e.target.value)}>
+          <NativeSelect aria-label="Case" className="w-48" value={chosen ? data.caseType : ""} disabled={busy || readOnly} onChange={(e) => choose(e.target.value)}>
             {!chosen && <option value="" disabled>Choose the case…</option>}
             {CASES.map((c) => <option key={c} value={c}>{CASE_LABELS[c]}</option>)}
           </NativeSelect></label></CardTitle></CardHeader>
@@ -32,7 +32,7 @@ export function ChecklistCard({ data }: { data: CarViewData }) {
         <div className={`flex flex-wrap items-center gap-3 rounded-lg p-3 text-sm ${chosen ? "bg-muted" : "bg-amber-50 text-amber-950 dark:bg-amber-500/10 dark:text-amber-100"}`}>
           <p className="min-w-0 flex-1"><b>You decide the case.</b> {data.scanned && data.pending === 0 ? <>The bot suggests <b>{CASE_LABELS[data.suggestedCase]}</b>: {data.caseReason}</> : "The bot suggests one after the scan."}{!chosen && " Approval needs the case chosen."}
             {chosen && data.caseType !== data.suggestedCase && data.scanned && <span className="block text-xs text-muted-foreground">You chose {CASE_LABELS[data.caseType]}; the bot suggested {CASE_LABELS[data.suggestedCase]}.</span>}</p>
-          {data.scanned && data.pending === 0 && (!chosen || data.caseType !== data.suggestedCase) && <Button size="sm" variant="outline" disabled={busy} onClick={() => choose(data.suggestedCase)}>Use {CASE_LABELS[data.suggestedCase]}</Button>}
+          {!readOnly && data.scanned && data.pending === 0 && (!chosen || data.caseType !== data.suggestedCase) && <Button size="sm" variant="outline" disabled={busy} onClick={() => choose(data.suggestedCase)}>Use {CASE_LABELS[data.suggestedCase]}</Button>}
         </div>
         {groups.map(([title, list]) => (
           <div key={title} className="space-y-2">

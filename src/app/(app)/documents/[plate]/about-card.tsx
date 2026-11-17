@@ -13,7 +13,7 @@ import { saveDetailsAction } from "../actions";
 import { useStep } from "./use-step";
 
 /** The staff's own checklist about the car (keys, maintenance, battery, where it was bought, EV). Saved with its own button; never blocks approval. */
-export function AboutCard({ plate, details, missing }: { plate: string; details: UnitDetails; missing: string[] }) {
+export function AboutCard({ plate, details, missing, readOnly = false }: { plate: string; details: UnitDetails; missing: string[]; readOnly?: boolean }) {
   const { busy, start, done } = useStep();
   const [d, setD] = useState<UnitDetails>(details);
   const set = (patch: Partial<UnitDetails>) => setD((x) => ({ ...x, ...patch }));
@@ -28,7 +28,7 @@ export function AboutCard({ plate, details, missing }: { plate: string; details:
     <Card id="about">
       <CardHeader><CardTitle className="flex flex-wrap items-center gap-3">About the car
         {missing.length ? <Pill tone="amber">{missing.length} to fill in</Pill> : <Pill tone="emerald">All filled in</Pill>}</CardTitle></CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4"><fieldset disabled={readOnly} className="m-0 min-w-0 space-y-4 border-0 p-0">
         <div className="grid gap-4 sm:grid-cols-2">
           {yn("ud-key", "Spare key", d.spareKey, (v) => set({ spareKey: v }))}
           {yn("ud-casa", "Maintained at the casa (dealer)", d.casaMaintained, (v) => set({ casaMaintained: v }))}
@@ -39,8 +39,9 @@ export function AboutCard({ plate, details, missing }: { plate: string; details:
         <label className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" className="size-4" checked={d.isEv} onChange={(e) => set({ isEv: e.target.checked })} /> This is an electric car (EV)</label>
         {d.isEv && <div className="grid gap-4 sm:grid-cols-2">{yn("ud-charger", "EV charger", d.evCharger, (v) => set({ evCharger: v }))}{yn("ud-card", "EV charging card", d.evCard, (v) => set({ evCard: v }))}</div>}
         {txt("ud-note", "Note", "note", 300)}
-        {missing.length > 0 && <p className="text-sm text-muted-foreground">Still blank: {missing.join("; ")}. You can approve with these blank; you will be asked to confirm.</p>}
-        <Button disabled={busy} onClick={() => start(async () => done(await saveDetailsAction(plate, d)))}>{busy ? <Loader2 className="animate-spin" /> : <Save />} Save the details</Button>
+        {!readOnly && missing.length > 0 && <p className="text-sm text-muted-foreground">Still blank: {missing.join("; ")}. You can approve with these blank; you will be asked to confirm.</p>}
+        {!readOnly && <Button disabled={busy} onClick={() => start(async () => done(await saveDetailsAction(plate, d)))}>{busy ? <Loader2 className="animate-spin" /> : <Save />} Save the details</Button>}
+      </fieldset>
       </CardContent>
     </Card>
   );

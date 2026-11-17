@@ -11,7 +11,7 @@ const fail = (error: string, status: number) => Response.json({ error }, { statu
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return fail("Not logged in", 401);
-  if (!user.modules.includes("upload")) return fail("You do not have the Upload documents module.", 403);
+  if (!user.modules.includes("upload") && !user.modules.includes("documents")) return fail("You cannot add sold papers.", 403);
 
   const form = await request.formData().catch(() => null);
   const plate = String(form?.get("plate") ?? "").slice(0, 20);

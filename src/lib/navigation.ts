@@ -45,7 +45,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "reminders", href: "/reminders", label: "Reminders", icon: Bell, group: "Operations", roles: MONEY, badge: "reminders" },
   { id: "documents", href: "/documents", label: "Car documents (act)", icon: FolderCheck, group: "Operations", roles: ["admin", "documentation"], menu: false }, // scan, approve, move, hand off: the menu entry is "register" below
   { id: "register", href: "/documents", label: "Car documents", icon: BookOpenCheck, group: "Operations", roles: ALL },
-  { id: "upload", href: "/upload-documents", label: "Upload documents", icon: Upload, group: "Operations", roles: ["sales", "admin", "approver"] },
+  { id: "upload", href: "/upload-documents", label: "Sold papers (add)", icon: Upload, group: "Operations", roles: ["sales", "admin", "approver"], menu: false }, // the module that lets someone add the sold papers on a car page of Car documents
   { id: "activity", href: "/activity", label: "Activity log", icon: History, group: "Operations", roles: ["admin", "approver"] },
   { id: "settings", href: "/settings", label: "Settings", icon: Settings, group: "Administration", roles: ["admin"] },
   { id: "users", href: "/admin/users", label: "Users", icon: Users, group: "Administration", roles: ["admin"] },

@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, CircleAlert, Loader2, RefreshCw, ScanText } from "lucide-react";
+import { ChevronDown, CircleAlert, FolderPlus, Loader2, RefreshCw, ScanText } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { ResponsiveDialog } from "@/components/shared/responsive-dialog";
 import { Pill } from "@/components/shared/status-badge";
@@ -18,7 +19,7 @@ import type { CarViewData, FileView } from "./types";
 const typeLabel = (t: string) => DOC_LABELS[t as DocType] ?? t;
 
 /** The car's photos: what the bot read from each, what it flagged, and the one button that scans what is waiting. */
-export function FilesCard({ data, rules }: { data: CarViewData; rules: Rules }) {
+export function FilesCard({ data, rules, readOnly = false }: { data: CarViewData; rules: Rules; readOnly?: boolean }) {
   const router = useRouter();
   const [busy, start] = useTransition();
   const [reading, setReading] = useState<string | null>(null);
@@ -53,10 +54,11 @@ export function FilesCard({ data, rules }: { data: CarViewData; rules: Rules }) 
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center gap-3">Photos in the folder
           <span className="text-sm font-normal text-muted-foreground">{data.files.length} file{data.files.length === 1 ? "" : "s"}</span>
-          <span className="ml-auto flex flex-wrap gap-2">
+          {!readOnly && <span className="ml-auto flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" nativeButton={false} render={<Link href={`/documents/add?plate=${data.plate}`} />}><FolderPlus /> Add documents</Button>
             <Button size="sm" variant="outline" disabled={busy || !!reading || data.scanning} onClick={() => run(() => rescanAction(data.plate))}><RefreshCw /> Look for new files</Button>
             <Button size="sm" disabled={busy || !!reading || !rules.scan.allowed} onClick={() => scan(data.pending === 0)}>{reading || data.scanning ? <Loader2 className="animate-spin" /> : <ScanText />}{label}</Button>
-          </span>
+          </span>}
         </CardTitle>
         {data.lastScan && !data.scanning && <p className="text-xs text-muted-foreground" role="status">Last scan: {new Date(data.lastScan.at).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Manila" })} · {data.lastScan.photos} {data.lastScan.photos === 1 ? "photo" : "photos"} · {data.lastScan.ok ? `finished${data.lastScan.seconds !== null ? ` in ${data.lastScan.seconds >= 60 ? `${Math.floor(data.lastScan.seconds / 60)} min ${data.lastScan.seconds % 60} s` : `${data.lastScan.seconds} s`}` : ""}` : `failed${data.lastScan.error ? `: ${data.lastScan.error}` : ""}`}</p>}
         {!rules.scan.allowed && rules.scan.reason && data.files.length > 0 && <p className="text-xs text-muted-foreground">{rules.scan.reason}</p>}
@@ -64,7 +66,7 @@ export function FilesCard({ data, rules }: { data: CarViewData; rules: Rules }) 
       <CardContent>
         {!data.scanned ? <p className="text-sm text-muted-foreground">Looking at the folder…</p> : data.files.length === 0 ? <p className="text-sm text-muted-foreground">No photos in this folder yet. Use <b>Add documents</b> in Car documents to add them.</p> : (
           <ul className="divide-y">
-            {data.files.map((f) => <FileRow key={f.id} f={f} busy={busy || data.scanning} onSave={(types) => run(() => setFileTypesAction(f.id, types))} run={run} />)}
+            {data.files.map((f) => <FileRow key={f.id} f={f} busy={busy || data.scanning} onSave={(types) => run(() => setFileTypesAction(f.id, types))} run={run} readOnly={readOnly} />)}
           </ul>
         )}
       </CardContent>
@@ -72,7 +74,7 @@ export function FilesCard({ data, rules }: { data: CarViewData; rules: Rules }) 
   );
 }
 
-function FileRow({ f, busy, onSave, run }: { f: FileView; busy: boolean; onSave: (types: string[] | null) => void; run: (fn: () => Promise<{ ok: boolean; message: string }>) => void }) {
+function FileRow({ f, busy, onSave, run, readOnly }: { f: FileView; busy: boolean; onSave: (types: string[] | null) => void; run: (fn: () => Promise<{ ok: boolean; message: string }>) => void; readOnly: boolean }) {
   const [editing, setEditing] = useState(false);
   const [picked, setPicked] = useState<string[]>(f.types);
   const unread = f.readStatus === "pending";
@@ -94,15 +96,15 @@ function FileRow({ f, busy, onSave, run }: { f: FileView; busy: boolean; onSave:
           {f.flags.map((x) => (
             <div key={x} className="flex flex-wrap items-start gap-2 rounded-lg bg-amber-50 p-2.5 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
               <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden /><span className="min-w-0 flex-1">{x}</span>
-              <Button size="xs" variant="outline" disabled={busy} onClick={() => run(() => reviewFlagAction(f.id, x, true))}>Checked, it is fine</Button>
+              {!readOnly && <Button size="xs" variant="outline" disabled={busy} onClick={() => run(() => reviewFlagAction(f.id, x, true))}>Checked, it is fine</Button>}
             </div>
           ))}
-          {f.reviewed.length > 0 && <p className="text-xs text-muted-foreground">{f.reviewed.length} warning{f.reviewed.length === 1 ? "" : "s"} checked by a person. <button type="button" className="underline underline-offset-2" disabled={busy} onClick={() => run(async () => { let last = { ok: true, message: "The warnings are back." }; for (const x of f.reviewed) last = await reviewFlagAction(f.id, x, false); return last; })}>Show again</button></p>}
+          {f.reviewed.length > 0 && <p className="text-xs text-muted-foreground">{f.reviewed.length} warning{f.reviewed.length === 1 ? "" : "s"} checked by a person. {!readOnly && <button type="button" className="underline underline-offset-2" disabled={busy} onClick={() => run(async () => { let last = { ok: true, message: "The warnings are back." }; for (const x of f.reviewed) last = await reviewFlagAction(f.id, x, false); return last; })}>Show again</button>}</p>}
           {f.readError && f.readStatus === "failed" && <p className="text-xs text-muted-foreground">{f.readError}</p>}
-          {f.readStatus === "done" && <Seen f={f} busy={busy} run={run} />}
+          {f.readStatus === "done" && <Seen f={f} busy={busy} run={run} readOnly={readOnly} />}
         </div>
       </div>
-      {editing ? (
+      {readOnly ? null : editing ? (
         <div className="space-y-2 rounded-lg border p-3">
           <p className="text-sm font-medium">What is in this photo? (tick more than one if it shows two documents)</p>
           <div className="grid gap-1.5 sm:grid-cols-2">
@@ -126,7 +128,7 @@ const DETAIL_ROWS: [keyof Detection, string][] = [
 ];
 
 /** "What the bot saw": every document the bot found on this photo with what it read, how sure it was, and what it saw wrong with it. */
-function Seen({ f, busy, run }: { f: FileView; busy: boolean; run: (fn: () => Promise<{ ok: boolean; message: string }>) => void }) {
+function Seen({ f, busy, run, readOnly }: { f: FileView; busy: boolean; run: (fn: () => Promise<{ ok: boolean; message: string }>) => void; readOnly: boolean }) {
   const [editing, setEditing] = useState<number | null>(null);
   const dets = f.seen.detections;
   return (
@@ -143,7 +145,7 @@ function Seen({ f, busy, run }: { f: FileView; busy: boolean; run: (fn: () => Pr
             <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
               {DETAIL_ROWS.filter(([k]) => d[k]).map(([k, name]) => <div key={k} className="flex gap-2"><dt className="w-36 shrink-0 text-xs text-muted-foreground">{name}</dt><dd className="min-w-0 break-words">{String(d[k])}</dd></div>)}
             </dl>
-            {editing === i ? <EditReading d={d} busy={busy} onCancel={() => setEditing(null)} onSave={(patch) => { run(() => editReadingAction(f.id, i, patch)); setEditing(null); }} />
+            {readOnly ? null : editing === i ? <EditReading d={d} busy={busy} onCancel={() => setEditing(null)} onSave={(patch) => { run(() => editReadingAction(f.id, i, patch)); setEditing(null); }} />
               : <button type="button" className="text-xs underline underline-offset-2 disabled:opacity-50" disabled={busy} onClick={() => setEditing(i)}>Correct what the bot read</button>}
           </div>
         ))}

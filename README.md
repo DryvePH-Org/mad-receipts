@@ -111,7 +111,7 @@ A fourth role, **Documentation**, watches each car's papers. Every car has a Dri
   Company = OR, CR, representative's ID, deed, secretary's certificate, secretary's ID, board resolution. For every case, before
   moving to Sold: the AR (the receipt the app already has), the buyer's ID and the deed signed with the buyer.
 - **Move to Sold** always asks first and lists whatever is missing; it moves the whole folder.
-- **Sales upload** (`Upload documents`): type the plate, confirm the car and buyer, take photos. Only a plate that has an AR is
+- **Sold papers** (on the car's page in Car documents; Sales, Approver and Admin, and Documentation): the buyer's ID, the signed deed and the signed AR are added from the car's own page (the "Sold papers" card, which shows the buyer and what is still needed), not from a separate page. Only a plate that has an AR is accepted, so a photo is never filed under a car nobody sold; each photo is filed in the car's folder and read. Sales see the whole car page (photos, what the bot saw, the checklist, the Docs Bible row) and have no other button. `/upload-documents` now leads to Car documents.
   accepted. Each photo is filed in that car's folder and read at once. This is optional: it never blocks printing an AR.
 - Needs the updated Apps Script (above), `GROQ_VISION_MODEL`, and migration 17. `DOCS_MOCK=1` and `DOCS_FAKE_READER=1` switch
   to a stand-in Drive and a file-name reader for development and the browser tests.

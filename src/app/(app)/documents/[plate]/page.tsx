@@ -23,7 +23,7 @@ import { ChecklistCard } from "./checklist-card";
 import { ChecksHelp } from "./checks-help";
 import { FilesCard } from "./files-card";
 import { HandoffCard } from "./handoff-card";
-import { ReadOnlyView } from "./readonly-view";
+import { SoldUploadCard } from "./sold-upload-card";
 import { RegisterCard } from "./register-card";
 import { SoldCard } from "./sold-card";
 import { StageCard } from "./stage-card";
@@ -38,6 +38,7 @@ const EMPTY_WORKFLOW = { scanNotifiedAt: null, soldReadyNotifiedAt: null, approv
 async function Content({ params }: { params: PageProps<"/documents/[plate]">["params"] }) {
   const user = await requireModule("register");
   const canAct = user.modules.includes("documents");
+  const canUpload = canAct || user.modules.includes("upload"); // Sales add the sold papers here; they have no other button
   const { plate } = await params;
   const detail = await getCarDetail(plate);
   if (!detail) return <RegisterOnly plate={plate} role={user.role} canAct={canAct} />;
@@ -89,20 +90,20 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
       <CarLive plate={key} linked={linked} scanned={data.scanned} busy={busy} />
       <CarTop data={data} readOnly={!canAct} />
       {linked && <StageCard stage={stage} />}
-      {linked && !canAct && <ReadOnlyView data={data} register={register} role={user.role} />}
-      {linked && canAct && (
+      {linked && (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
           <div className="space-y-6">
-            <FilesCard data={data} rules={stage.rules} />
-            <ChecklistCard data={data} />
-            <AboutCard plate={key} details={flow.details} missing={missingDetails(flow.details)} />
-            <RegisterCard plate={key} row={register} role={user.role} canAct />
-            <ChecksHelp />
+            <FilesCard data={data} rules={stage.rules} readOnly={!canAct} />
+            <ChecklistCard data={data} readOnly={!canAct} />
+            <AboutCard plate={key} details={flow.details} missing={missingDetails(flow.details)} readOnly={!canAct} />
+            <RegisterCard plate={key} row={register} role={user.role} canAct={canAct} />
+            {canAct && <ChecksHelp />}
           </div>
           <aside className="space-y-6">
-            <ApprovalCard plate={key} approvedAt={flow.workflow.approvedAt} marketingNotifiedAt={flow.workflow.marketingNotifiedAt} rule={stage.rules.approve} />
-            <SoldCard plate={key} location={data.location} items={soldItems} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />
-            <HandoffCard rules={stage.rules} data={{ plate: key, location: data.location, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, items: items.map((i) => ({ key: i.key, label: i.label, present: i.present })) }} />
+            {canAct && <ApprovalCard plate={key} approvedAt={flow.workflow.approvedAt} marketingNotifiedAt={flow.workflow.marketingNotifiedAt} rule={stage.rules.approve} />}
+            {canUpload && <SoldUploadCard plate={key} items={soldItems} deal={data.deal ? { dealNo: data.deal.dealNo, buyerName: data.deal.buyerName } : null} />}
+            {canAct && <SoldCard plate={key} location={data.location} items={soldItems} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />}
+            {canAct && <HandoffCard rules={stage.rules} data={{ plate: key, location: data.location, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, items: items.map((i) => ({ key: i.key, label: i.label, present: i.present })) }} />}
           </aside>
         </div>
       )}
