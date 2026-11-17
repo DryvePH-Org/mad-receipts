@@ -19,14 +19,20 @@ async function call<T>(action: string, params: Record<string, unknown> = {}): Pr
 }
 interface Folder { id: string; name: string; url: string; root: string }
 interface DriveFile { id: string; name: string; mimeType: string; size: number | null }
-const plateOf = (name: string) => { const m = /\(([^()]+)\)\s*$/.exec(name); return m ? m[1].toUpperCase().replace(/[^A-Z0-9]/g, "") : null; };
+const norm = (t: string) => t.toUpperCase().replace(/[^A-Z0-9]/g, "");
+const plateOf = (name: string) => { // the same rule as the app's plateOfFolderName
+  const b = [...name.matchAll(/\(([^()]+)\)/g)].map((m) => norm(m[1])).filter((p) => /^(?=.*[A-Z])(?=.*\d)[A-Z0-9]{5,8}$/.test(p));
+  if (b.length) return b[b.length - 1];
+  const loose = [...new Set([...name.toUpperCase().matchAll(/\b([A-Z]{3})[ -]?(\d{3,4})\b/g)].map((m) => m[1] + m[2]))];
+  return loose.length === 1 ? loose[0] : null;
+};
 
 async function main() {
   const [available, sold] = await Promise.all([call<Folder[]>("docs.listFolders", { root: "available" }), call<Folder[]>("docs.listFolders", { root: "sold" })]);
   console.log(`Available units: ${available.length} car folders. Sold units: ${sold.length} car folders.`);
   const all = [...available.map((f) => ({ ...f, where: "available" })), ...sold.map((f) => ({ ...f, where: "sold" }))];
   const noPlate = all.filter((f) => !plateOf(f.name));
-  console.log(`\nFolders with no plate in brackets at the end of the name (the app skips them): ${noPlate.length}`);
+  console.log(`\nFolders with no recognisable plate in the name (the app skips them): ${noPlate.length}`);
   for (const f of noPlate.slice(0, 15)) console.log(`  [${f.where}] ${f.name}`);
   const byPlate = new Map<string, typeof all>();
   for (const f of all) { const p = plateOf(f.name); if (p) byPlate.set(p, [...(byPlate.get(p) ?? []), f]); }

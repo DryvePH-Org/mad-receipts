@@ -94,6 +94,13 @@ describe("folder names", () => {
     expect(plateOfFolderName("No plate here")).toBeNull();
     expect(plateOfFolderName("Car (A1)")).toBeNull();
   });
+  it("still finds the plate when the name is written another way", () => {
+    expect(plateOfFolderName("Mitsubishi Xpander GLS 1.5 (IAE5345) PROBLEMATIC UNIT")).toBe("IAE5345");
+    expect(plateOfFolderName("NGC 8594 Mitsubishi Mirage")).toBe("NGC8594");
+    expect(plateOfFolderName("2021 Toyota Rush 1.5 DAU-6444 (copy)")).toBe("DAU6444");
+    expect(plateOfFolderName("21 Honda City 2020")).toBeNull(); // a year is not a plate
+    expect(plateOfFolderName("ABC 1234 and XYZ 5678")).toBeNull(); // two plates: never guess
+  });
 });
 
 describe("the docs sync job", () => {

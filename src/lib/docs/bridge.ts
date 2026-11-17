@@ -23,11 +23,17 @@ export interface DocsBridge {
   move(folderId: string): Promise<DriveFolder>;
 }
 
-/** "14 Toyota Vios (AAX-3622)" → "AAX3622". Null when the name has no plate in brackets. */
+const PLATEISH = /^(?=.*[A-Z])(?=.*\d)[A-Z0-9]{5,8}$/;
+/**
+ * The plate in a car folder's name, however the name is written: "14 Toyota Vios (AAX-3622)" → "AAX3622", also with words after the brackets
+ * ("(IAE5345) PROBLEMATIC UNIT"), or with the plate written without brackets ("NGC 8594 Mitsubishi Mirage"). Null when no plate can be told
+ * (or when two different plates are written), so a folder is never linked to a guess.
+ */
 export function plateOfFolderName(name: string): string | null {
-  const m = /\(([^()]+)\)\s*$/.exec(name.trim());
-  const plate = m ? normalizePlate(m[1]) : "";
-  return plate.length >= 5 ? plate : null;
+  const bracketed = [...name.matchAll(/\(([^()]+)\)/g)].map((m) => normalizePlate(m[1])).filter((p) => PLATEISH.test(p));
+  if (bracketed.length) return bracketed[bracketed.length - 1];
+  const loose = [...new Set([...name.toUpperCase().matchAll(/\b([A-Z]{3})[ -]?(\d{3,4})\b/g)].map((m) => m[1] + m[2]))];
+  return loose.length === 1 ? loose[0] : null;
 }
 
 export function createAppsScriptDocsBridge(): DocsBridge {
