@@ -3,6 +3,7 @@ import { getSettings } from "@/lib/data";
 import { manilaToday } from "@/lib/dates";
 import { noteAlreadyThere, planChanges, receivedText, scanNote, SHEET_CLASS, submittedText, type DocsField } from "@/lib/docs/bible";
 import { loadCar } from "@/lib/docs/service";
+import type { CaseType } from "@/lib/docs/types";
 import { loadWorkflow } from "@/lib/docs/workflow";
 import { normalizePlate } from "@/lib/rules/plate";
 import { docsDb } from "./review-server";
@@ -18,6 +19,22 @@ async function carInput(plate: string) {
   const flags = [...new Set(car.analysis.files.flatMap((f) => f.flags))];
   const { details } = await loadWorkflow(plate);
   return { car, present, flags, details, name: car.folder.folder_name ?? car.folder.plate_display };
+}
+
+/** The case a person chose is the car's classification in the register at once (a company car is filed as Clean). */
+export async function setRegisterClassification(plate: string, caseType: CaseType, actor: string): Promise<void> {
+  const db = docsDb();
+  const { data: unit } = await db.from("docs_units_current").select("id, classification").eq("plate_no", normalizePlate(plate)).maybeSingle();
+  const want = SHEET_CLASS[caseType];
+  if (unit && unit.classification !== want) await db.from("docs_units").update({ classification: want, updated_by: actor, last_change_source: "app" }).eq("id", unit.id);
+}
+
+/** How many papers of the register row differ from what the car's folder says (only meaningful once a person has chosen the case). */
+export function registerDiff(car: NonNullable<Awaited<ReturnType<typeof loadCar>>>, values: Record<string, string | null>): number {
+  const current: Partial<Record<DocsField, string>> = {};
+  for (const [field, col] of Object.entries(COLUMN) as [DocsField, string][]) current[field] = values[col] ?? "";
+  const present = new Set(car.analysis.files.flatMap((f) => f.types));
+  return planChanges({ caseType: car.caseType, present, current }).changes.length;
 }
 
 export type SyncResult = { ok: true; changed: string[]; created: boolean } | { ok: false; message: string };

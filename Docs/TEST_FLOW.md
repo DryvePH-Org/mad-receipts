@@ -62,7 +62,7 @@ Use a car whose row in the Docs Bible is already filled in by the staff: **that 
 
 1. Open the car, press **Scan**. The blue box says the bot is scanning; wait 1 to 3 minutes. The photos fill in by themselves.
 2. For each photo open **What the bot saw**: the document type, original or photocopy, damage, the numbers and names. Compare with the photo (click it to see it large).
-3. Look at **Papers needed**: does the checklist match the answer key? A paper the sheet says **Yes** that the scan does not find (or the other way round) is a finding: tell me the plate and the photo.
+3. Look at the **Papers** part: does it match the answer key? A paper the sheet says **Yes** that the scan does not find (or the other way round) is a finding: tell me the plate and the photo.
 4. Note what the bot got wrong: a wrong type, a number you can read that it left blank, a made-up number, a photo turned the wrong way, a warning that makes no sense.
 5. Try **Scan this photo again** on one photo: it should come back the same.
 6. Do **not** press Approve if you want the row to stay as the staff typed it (or approve, then undo the cells from the history).
@@ -77,11 +77,11 @@ Pick a car that has photos in Drive but is not approved yet (the chip **Needs sc
 |---|---|---|
 | a | Read the bar at the top and the box **Do this next**. | It tells you the next step in plain words. |
 | b | Press **Scan** (if photos are waiting). | The blue box says the bot is scanning. After a minute or two the photos fill in by themselves: each shows what the bot found (open **What the bot saw**). |
-| c | Look at the **Papers needed** card. | The case dropdown says **Choose the case…**. The bot's suggestion is shown *with its reason* ("The deed names a bank as the seller…"). **Approve is blocked** until you choose the case. |
+| c | Look at the **Papers** card (one list of every paper the car needs, each with a small picture, its state and a warning if something needs a look). | The **Case** dropdown at its top says **Choose the case…**. The bot's suggestion is shown *with its reason* ("The deed names a bank as the seller…"). **Approve is blocked** until you choose the case. |
 | d | Choose the case (use the bot's suggestion if right). | Saved; the checklist updates. |
-| e | On a photo with a warning, press **Checked, it is fine**, or **Correct what the bot read**, change a field, **Save the correction**. | The warning disappears; the photo says *Corrected by a person*. **Scan this photo again** reads it from scratch. |
+| e | Click a paper with a warning. A window opens with its photo, what the bot read and what you can do: **Checked, it is fine**, **Correct what the bot read** (change a field, **Save the correction**), **Change what this is**, **Scan this photo again**. Also try changing a photo's type so a paper becomes *Missing*. | The Papers list changes at once, and on a second screen showing the same car it changes by itself within a few seconds, without pressing anything. |
 | f | Fill **About the car** (spare key, maintenance, battery…) and **Save the details**. | Saved. |
-| g | Look at the **Docs Bible** card on the car page. | The car's row, all columns, editable. |
+| g | In the Papers window, each paper shows **Docs Bible says** (Yes / No / To follow / N/A): change it for a paper that is not coming (To follow) or not needed (N/A). Under the Papers list, a line says whether the Docs Bible row matches this checklist, with **Update the Docs Bible**. The **Docs Bible row** and **About the car** cards are closed: click one to open it. | One clear place for each paper; the rest is hidden until you click. |
 | h | Press **Approve**. | A message says the Docs Bible was updated and marketing was told on Telegram. The stage is **Approved**. |
 | i | Open the car in the **Table**. | CLASSIFICATION and the papers match what was in the folder; REMARKS I has a dated scan note; COMPLETE shows. Open the history: each changed column is listed as changed *by the app*. |
 | j | As **Sales**, open the same car. | The stage and the papers, read only. In **Car status** the car shows its documents status. |

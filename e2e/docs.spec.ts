@@ -66,17 +66,33 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await docs.getByRole("link", { name: /ZZT-7002|ZZT 7002/ }).first().click();
   await expect(docs.getByText("More than one folder matches this plate")).toBeVisible();
   await docs.getByRole("button", { name: "Use this one" }).first().click();
-  await expect(docs.locator("#checklist")).toBeVisible();
+  await expect(docs.locator("#papers")).toBeVisible();
 
   // the clean car: read the three photos in the folder
   await docs.goto("/documents/ZZT7001");
   await expect(docs.getByText(/Plate ZZT.?7001/)).toBeVisible();
-  await expect(docs.getByText("All read")).toBeVisible({ timeout: 30_000 }); // read automatically, nobody pressed anything
+  await expect(docs.getByText("All scanned")).toBeVisible({ timeout: 30_000 }); // read automatically, nobody pressed anything
   // the OR and the CR are one photo; the ID belongs to the owner on the CR; the deed is seller to dealership
   await expect(docs.getByText("Official receipt (OR)").first()).toBeVisible();
   await expect(docs.getByText("ID of the registered owner").first()).toBeVisible();
-  const missingBefore = docs.locator("#checklist li", { hasText: "Missing" });
+  const missingBefore = docs.locator("#papers li", { hasText: "Missing" });
   await expect(missingBefore).toHaveCount(3); // the buyer's ID and the signed deed: Sales provides them
+
+  // a correction by one person shows in the Papers part at once, and for another person without reloading
+  const other = await as(browser, "docs");
+  await other.goto("/documents/ZZT7001");
+  await other.locator("#papers li", { hasText: "Official receipt (OR)" }).click();
+  await other.getByRole("dialog").getByRole("button", { name: "Change what this is" }).first().click();
+  await other.getByRole("dialog").getByRole("checkbox", { name: "Official receipt (OR)" }).uncheck();
+  await other.getByRole("dialog").getByRole("button", { name: "Save", exact: true }).click();
+  await expect(docs.locator("#papers li", { hasText: "Official receipt (OR)" })).toContainText("Missing", { timeout: 30_000 }); // the first person's page was not reloaded by hand
+  await expect(other.locator("#papers li", { hasText: "Official receipt (OR)" })).toContainText("Missing", { timeout: 30_000 });
+  await other.keyboard.press("Escape");
+  await other.locator("#papers li", { hasText: "Certificate of registration" }).first().click();
+  await other.getByRole("dialog").getByRole("button", { name: "Change what this is" }).first().click();
+  await other.getByRole("dialog").getByRole("button", { name: "Go back to what was read" }).click();
+  await expect(docs.locator("#papers li", { hasText: "Official receipt (OR)" })).toContainText("In the folder", { timeout: 30_000 });
+  await other.close();
 
   // the transmittal receipt: starts from what the folder shows, the staff fill in the rest, save, and print
   await docs.locator("a[href$=\"/transmittal\"]").first().click();
@@ -108,8 +124,12 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await sales.goto("/documents/ZZT7001/transmittal"); // not part of the Sales role
   await expect(sales.getByText("You don't have access to this page.")).toBeVisible();
   await sales.goto("/documents/ZZT7001"); // the car page for Sales: all the information and the photos, no action button
-  await expect(sales.locator("#files")).toBeVisible();
-  await expect(sales.getByRole("button", { name: /^View .* larger$/ }).first()).toBeVisible(); // they can see the photos
+  await expect(sales.locator("#papers")).toBeVisible();
+  await expect(sales.locator("#papers img").first()).toBeVisible(); // they can see the photos
+  await sales.locator("#papers li", { hasText: "Official receipt (OR)" }).click(); // and open a paper: the photo large and what the bot read, with no button to change it
+  await expect(sales.getByRole("dialog").getByRole("button", { name: /^View .* larger$/ }).first()).toBeVisible();
+  await expect(sales.getByRole("dialog").getByRole("button", { name: "Change what this is" })).toHaveCount(0);
+  await sales.keyboard.press("Escape");
   await expect(sales.getByRole("button", { name: "Approve: documents are OK" })).toHaveCount(0);
   await expect(sales.getByRole("button", { name: /^Scan / })).toHaveCount(0);
   await expect(sales.getByRole("link", { name: "Add documents" })).toHaveCount(0);
@@ -141,8 +161,8 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
 
   // Documentation sees it complete, and moving asks first
   await docs.reload();
-  await expect(docs.getByText("Every paper is in.")).toBeVisible();
-  await expect(docs.getByText("From Sales").first()).toBeVisible();
+  await expect(docs.locator("#papers")).toContainText("4 of 4 in the folder");
+  await expect(docs.locator("#papers li", { hasText: "Buyer's ID" })).toContainText("In the folder"); // the papers Sales added
 
   // the buttons follow the workflow: the folder cannot move before the documents are approved
   await expect(docs.getByRole("button", { name: "Move to Sold" })).toBeDisabled();
@@ -209,7 +229,7 @@ test("Documentation adds photos by typing only the plate: the folder is made, th
   expect((await res.json()).result.types).toContain("official_receipt");
   // the car now has its folder and both files
   await docs.goto("/documents/ZZT7010");
-  await expect(docs.locator("#checklist")).toBeVisible();
+  await expect(docs.locator("#papers")).toBeVisible();
   await expect(docs.getByText("Official receipt (OR)").first()).toBeVisible();
 
   const db = adminClient();

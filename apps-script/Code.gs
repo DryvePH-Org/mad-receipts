@@ -12,7 +12,7 @@
  *  - It never inserts, deletes or reformats rows or cells. It only reads, writes the cells it is
  *    told to write, appends rows, and creates files in the allowed folder.
  *  - The car-documents actions (docs.*) only work inside the two folders named by the
- *    DOC_AVAILABLE_ID and DOC_SOLD_ID script properties. They can list, read previews, add files, make
+ *    DOC_AVAILABLE_ID and DOC_SOLD_ID script properties (or DOC_ROOT_ID, the folder that holds both). They can list, read previews, add files, make
  *    a car folder in Available and move a car folder from Available to Sold. They never delete or rename anything.
  *
  * Setup: see "Google Apps Script bridge" in README.md.
@@ -208,8 +208,36 @@ var DIRECT_TYPES = /^image\/(jpeg|png|webp)$/;
 function docRoot_(which) {
   var props = PropertiesService.getScriptProperties();
   var id = props.getProperty(which === 'sold' ? 'DOC_SOLD_ID' : 'DOC_AVAILABLE_ID');
-  if (!id) throw httpError_(400, 'Set the ' + (which === 'sold' ? 'DOC_SOLD_ID' : 'DOC_AVAILABLE_ID') + ' script property');
-  return id;
+  if (id) return id;
+  // One property is enough: DOC_ROOT_ID is the folder that holds "Available units" and "Sold units" (found by name, once, and remembered).
+  var root = props.getProperty('DOC_ROOT_ID');
+  if (!root) throw httpError_(400, 'Set the ' + (which === 'sold' ? 'DOC_SOLD_ID' : 'DOC_AVAILABLE_ID') + ' script property (or DOC_ROOT_ID, the folder that holds both)');
+  var want = which === 'sold' ? /sold/i : /available/i;
+  var it = DriveApp.getFolderById(root).getFolders();
+  var found = [];
+  while (it.hasNext()) { var f = it.next(); if (want.test(f.getName())) found.push(f); }
+  if (found.length !== 1) throw httpError_(400, 'Inside DOC_ROOT_ID there must be exactly one folder with "' + (which === 'sold' ? 'sold' : 'available') + '" in its name (found ' + found.length + ')');
+  return found[0].getId();
+}
+
+/**
+ * Run this by hand in the Apps Script editor (Run > inspectDocRoot) after setting DOC_ROOT_ID: it writes in the Execution log which
+ * folders it found for Available and Sold and how many car folders are in each. It changes nothing.
+ */
+function inspectDocRoot() {
+  var root = PropertiesService.getScriptProperties().getProperty('DOC_ROOT_ID');
+  var it = DriveApp.getFolderById(root).getFolders();
+  var names = [];
+  while (it.hasNext()) names.push(it.next().getName());
+  Logger.log('Folders inside DOC_ROOT_ID: ' + names.join(' | '));
+  ['available', 'sold'].forEach(function (which) {
+    try {
+      var id = docRoot_(which);
+      var n = 0, c = DriveApp.getFolderById(id).getFolders();
+      while (c.hasNext()) { c.next(); n++; }
+      Logger.log(which + ': ' + DriveApp.getFolderById(id).getName() + ' (' + id + ') with ' + n + ' car folders');
+    } catch (e) { Logger.log(which + ': ' + e.message); }
+  });
 }
 
 function normPlate_(text) {

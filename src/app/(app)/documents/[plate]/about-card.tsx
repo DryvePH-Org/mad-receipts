@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Loader2, Save } from "lucide-react";
 import { Pill } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -26,8 +26,10 @@ export function AboutCard({ plate, details, missing, readOnly = false }: { plate
   );
   return (
     <Card id="about">
-      <CardHeader><CardTitle className="flex flex-wrap items-center gap-3">About the car
-        {missing.length ? <Pill tone="amber">{missing.length} to fill in</Pill> : <Pill tone="emerald">All filled in</Pill>}</CardTitle></CardHeader>
+      <details className="group">
+      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-3 p-4 font-heading text-base font-medium">About the car
+        {missing.length ? <Pill tone="amber">{missing.length} to fill in</Pill> : <Pill tone="emerald">All filled in</Pill>}
+        <span className="ml-auto text-xs font-normal text-muted-foreground group-open:hidden">Show</span></summary>
       <CardContent className="space-y-4"><fieldset disabled={readOnly} className="m-0 min-w-0 space-y-4 border-0 p-0">
         <div className="grid gap-4 sm:grid-cols-2">
           {yn("ud-key", "Spare key", d.spareKey, (v) => set({ spareKey: v }))}
@@ -43,6 +45,7 @@ export function AboutCard({ plate, details, missing, readOnly = false }: { plate
         {!readOnly && <Button disabled={busy} onClick={() => start(async () => done(await saveDetailsAction(plate, d)))}>{busy ? <Loader2 className="animate-spin" /> : <Save />} Save the details</Button>}
       </fieldset>
       </CardContent>
+      </details>
     </Card>
   );
 }

@@ -15,13 +15,13 @@ import { workLabel } from "@/lib/grokbot/labels";
 import { workForPlate } from "@/lib/grokbot/store";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadRegisterRow } from "@/lib/docsbible/grid-server";
+import { registerDiff } from "@/lib/docsbible/sync";
 import { AboutCard } from "./about-card";
 import { ApprovalCard } from "./approval-card";
 import { CarLive } from "./car-live";
 import { CarTop } from "./car-top";
-import { ChecklistCard } from "./checklist-card";
 import { ChecksHelp } from "./checks-help";
-import { FilesCard } from "./files-card";
+import { PapersCard } from "./files-card";
 import { HandoffCard } from "./handoff-card";
 import { SoldUploadCard } from "./sold-upload-card";
 import { RegisterCard } from "./register-card";
@@ -93,8 +93,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
       {linked && (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
           <div className="space-y-6">
-            <FilesCard data={data} rules={stage.rules} readOnly={!canAct} />
-            <ChecklistCard data={data} readOnly={!canAct} />
+            <PapersCard data={data} rules={stage.rules} readOnly={!canAct} register={register ? { id: register.id, values: register.values } : null} canEditRegister={canAct} differs={register && car.folder.case_source === "manual" ? registerDiff(car, register.values) : null} />
             <AboutCard plate={key} details={flow.details} missing={missingDetails(flow.details)} readOnly={!canAct} />
             <RegisterCard plate={key} row={register} role={user.role} canAct={canAct} />
             {canAct && <ChecksHelp />}

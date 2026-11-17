@@ -5,15 +5,33 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { rescanAction } from "../actions";
 
-/** Keeps the page up to date while the bots work (a look every few seconds), and lists a never-opened folder's files the first time the car is opened. */
+/**
+ * Keeps the page true while people and bots work: every few seconds (while the tab is open on screen) it asks for a fingerprint of everything
+ * on the page and reloads when it changed, so a correction by one person, a finished scan or an approval shows for everybody without pressing
+ * anything. It also lists a never-opened folder's files the first time the car is opened.
+ */
 export function CarLive({ plate, linked, scanned, busy }: { plate: string; linked: boolean; scanned: boolean; busy: boolean }) {
   const router = useRouter();
   const asked = useRef(false);
+  const seen = useRef<string | null>(null);
   useEffect(() => {
-    if (!busy) return;
-    const t = setInterval(() => router.refresh(), 4000);
-    return () => clearInterval(t);
-  }, [busy, router]);
+    let stop = false;
+    const look = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const res = await fetch(`/api/docs/car-state/${encodeURIComponent(plate)}`, { cache: "no-store" });
+        if (!res.ok || stop) return;
+        const { version } = (await res.json()) as { version: string };
+        if (seen.current !== null && seen.current !== version) router.refresh();
+        seen.current = version;
+      } catch { /* a missed look is tried again */ }
+    };
+    void look();
+    const t = setInterval(look, busy ? 3000 : 6000);
+    const onShow = () => { if (document.visibilityState === "visible") void look(); };
+    document.addEventListener("visibilitychange", onShow);
+    return () => { stop = true; clearInterval(t); document.removeEventListener("visibilitychange", onShow); };
+  }, [plate, busy, router]);
   useEffect(() => {
     if (!linked || scanned || asked.current) return;
     asked.current = true;

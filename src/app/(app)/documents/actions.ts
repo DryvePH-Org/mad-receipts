@@ -11,7 +11,7 @@ import { readerMode, scheduleScan } from "@/lib/docs/bot-scan";
 import { allowed } from "@/lib/docs/stage";
 import { stageFor } from "@/lib/docs/stage-server";
 import { addUnit, unitStatus, type AddUnitResult, type UnitStatus } from "@/lib/docsbible/add-unit-server";
-import { recordHandoff, syncRegister } from "@/lib/docsbible/sync";
+import { recordHandoff, setRegisterClassification, syncRegister } from "@/lib/docsbible/sync";
 import { afterReading, approveUnit, handoffUnit, returnUnit, saveDetails, setHandoffChecked, type StepResult } from "@/lib/docs/workflow";
 import { normalizePlate } from "@/lib/rules/plate";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -133,6 +133,7 @@ export async function setCaseAction(plate: string, value: string): Promise<Done>
   if (caseType === undefined) return { ok: false, message: "Unknown case." };
   return guard<Done>(async () => {
     await setCase(p.data, caseType, user.id);
+    if (caseType) await setRegisterClassification(p.data, caseType, user.id).catch(() => undefined);
     revalidatePath("/documents", "layout");
     return { ok: true as const, message: "Saved." };
   }, (message) => ({ ok: false as const, message }));

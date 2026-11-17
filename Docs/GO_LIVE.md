@@ -12,6 +12,15 @@ The Docs Bible lives in the database now, so going live no longer means pointing
 7. **Cloudflare:** if the bot's answer is refused with a 403, add a skip rule for the paths `/api/grokbot/callback` and `/api/docs/scan-file/`.
 8. **Run the test flow** in `Docs/TEST_FLOW.md` with one real car.
 
+## Switching from the test Drive to the live Drive
+The app reads and files photos through the Apps Script, which only works inside the folders named in its script properties. To switch:
+1. In the Apps Script editor: paste the updated `apps-script/Code.gs`, then **Deploy → Manage deployments → edit → New version**.
+2. **Project settings → Script properties:** set `DOC_ROOT_ID` to the id of the live folder that holds the **Available units** and **Sold units** folders (the id is the last part of the folder's address, after `/folders/`). If those two folders are not inside one folder, set `DOC_AVAILABLE_ID` and `DOC_SOLD_ID` instead. Remove the old `DOC_AVAILABLE_ID` / `DOC_SOLD_ID` of the test Drive if you use `DOC_ROOT_ID`, because they take priority.
+3. Run `inspectDocRoot` once in the editor (Run). The Execution log lists the folders it found for Available and Sold and how many car folders each has. Check the numbers look right.
+4. Make sure the Google account that owns the script can open the live folders.
+5. In this project: `npx jiti scripts/reset-test-documents.ts` shows what it would delete (the test cars' folders, photos, scan results, approvals); `--apply` deletes it. It never touches the Docs Bible register.
+6. In the app: **Car documents → Refresh from Drive**. The live car folders appear (cars with a folder in the live Drive); open one and scan.
+
 ## After going live
 - A copy of the whole Docs Bible is saved every day (Car documents → Saved copies, Admin) and can be downloaded as CSV in the old sheet's layout at any time.
 - The old Google Sheet is kept as a read-only archive. Nobody types in it any more.
