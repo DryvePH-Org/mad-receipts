@@ -223,6 +223,9 @@ test("Documentation adds photos by typing only the plate: the folder is made, th
   await docs.locator("#add-photos").setInputFiles({ name: "x.jpg", mimeType: "image/jpeg", buffer: JPEG });
   await expect(docs.getByText("Saved ✓")).toBeVisible({ timeout: 30_000 });
   await expect(docs.getByText(/The team has been told/)).toBeVisible({ timeout: 30_000 });
+  // an iPhone photo (HEIC): the page turns it into a JPEG itself
+  await docs.locator("#add-photos").setInputFiles("e2e/fixtures/sample.heic");
+  await expect(docs.getByText("sample.heic").locator("..").getByText("Saved ✓")).toBeVisible({ timeout: 60_000 });
   // and one the stand-in reader knows by its name
   const res = await docs.request.post("/api/docs/add", { multipart: { plate: "ZZT 7010", label: "cr-or", file: { name: "p.jpg", mimeType: "image/jpeg", buffer: JPEG } } });
   expect(res.ok()).toBe(true);

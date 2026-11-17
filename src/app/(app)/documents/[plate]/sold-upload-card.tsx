@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import imageCompression from "browser-image-compression";
+import { isHeic, toJpeg } from "../upload-photos";
 import { Camera, Check, CircleAlert, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,8 +26,9 @@ export function SoldUploadCard({ plate, items, deal }: { plate: string; items: {
     for (const original of files) {
       const update = (patch: Partial<PhotoResult>) => setPhotos((p) => p.map((x) => (x.name === original.name && x.state === "sending" ? { ...x, ...patch } : x)));
       try {
-        if (!original.type.startsWith("image/")) throw new Error("Send a photo (JPEG or PNG).");
-        const file = await imageCompression(original, { maxWidthOrHeight: 2400, initialQuality: 0.85, maxSizeMB: 3, fileType: "image/jpeg", useWebWorker: true });
+        const heic = isHeic(original);
+        if (!heic && !original.type.startsWith("image/")) throw new Error("Send a photo (JPEG or PNG).");
+        const file = await imageCompression(heic ? await toJpeg(original) : original, { maxWidthOrHeight: 2400, initialQuality: 0.85, maxSizeMB: 3, fileType: "image/jpeg", useWebWorker: true });
         const body = new FormData();
         body.set("plate", plate);
         body.set("file", file, "photo.jpg");

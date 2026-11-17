@@ -6,6 +6,19 @@ import { finishAddAction } from "./actions";
 export interface PhotoState { id: number; name: string; state: "sending" | "done" | "error"; types: string[]; flags: string[]; message?: string }
 
 let counter = 0;
+
+export const isHeic = (f: File) => /^image\/hei[cf]/i.test(f.type) || /\.hei[cf]$/i.test(f.name);
+
+export async function toJpeg(photo: File): Promise<File> {
+  try {
+    const { default: heic2any } = await import("heic2any");
+    const out = await heic2any({ blob: photo, toType: "image/jpeg", quality: 0.85 });
+    const blob = Array.isArray(out) ? out[0] : out;
+    return new File([blob], photo.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
+  } catch {
+    throw new Error("This photo could not be converted. Send it as JPEG or PNG.");
+  }
+}
 export const newPhotoStates = (files: File[]): { id: number; file: File; state: PhotoState }[] => files.map((file) => { const id = ++counter; return { id, file, state: { id, name: file.name, state: "sending", types: [], flags: [] } }; });
 
 /**
@@ -16,8 +29,10 @@ export async function uploadPhotos(plate: string, batch: { id: number; file: Fil
   let saved = 0;
   for (const { id, file: original } of batch) {
     try {
-      if (!original.type.startsWith("image/")) throw new Error("Send a photo (JPEG or PNG).");
-      const file = await imageCompression(original, { maxWidthOrHeight: 2400, initialQuality: 0.85, maxSizeMB: 3, fileType: "image/jpeg", useWebWorker: true });
+      const heic = isHeic(original); // iPhone photos: the browser cannot shrink them, so they become JPEG first
+      if (!heic && !original.type.startsWith("image/")) throw new Error("Send a photo (JPEG or PNG).");
+      const readable = heic ? await toJpeg(original) : original;
+      const file = await imageCompression(readable, { maxWidthOrHeight: 2400, initialQuality: 0.85, maxSizeMB: 3, fileType: "image/jpeg", useWebWorker: true });
       const body = new FormData();
       body.set("plate", plate);
       body.set("file", file, "photo.jpg");
