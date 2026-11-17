@@ -52,7 +52,7 @@ async function main() {
   }
 
   // 3. what the staff must look at
-  const reviews = plan.issues.map((i) => ({ unit_id: i.sourceRow ? idByRow.get(i.sourceRow) ?? null : null, plate_no: i.plate, kind: i.kind, message: i.message, import_run_id: runId }));
+  const reviews = plan.issues.map((i) => ({ unit_id: i.sourceRow ? idByRow.get(i.sourceRow) ?? null : null, plate_no: i.plate, kind: i.kind, message: i.message, source_row: i.sourceRow, import_run_id: runId }));
   for (const part of chunks(reviews, 200)) ok(await db.from("docs_review_items").insert(part), "inserting review items");
 
   // 4. the handoff steps (to the current arrival of the plate)
