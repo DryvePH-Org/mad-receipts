@@ -57,9 +57,10 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await docs.goto("/documents");
   await expect(docs.getByRole("heading", { name: "Car documents" })).toBeVisible();
   // the two with no single folder need a person (the list also holds the real folders, so no counts here)
-  await expect(docs.getByRole("tab", { name: /Needs attention/ })).toBeVisible();
-  await expect(docs.getByText("Several folders").first()).toBeVisible();
-  await expect(docs.getByText("No folder found").first()).toBeVisible();
+  await docs.getByLabel("Search cars").fill("ZZT");
+  await expect(docs.getByRole("link", { name: /ZZT.?7002/ }).first()).toContainText("Folder not linked");
+  await expect(docs.getByRole("link", { name: /ZZT.?7004/ }).first()).toContainText("Folder not linked");
+  await docs.getByLabel("Search cars").fill("");
 
   // several folders: choose one
   await docs.getByRole("link", { name: /ZZT-7002|ZZT 7002/ }).first().click();
@@ -103,11 +104,13 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
 
   // Sales: the plate leads to the right car, then the papers go in
   const sales = await as(browser, "sales");
-  await expect(sales.getByRole("link", { name: "Car documents" })).toHaveCount(0);
+  await expect(sales.getByRole("link", { name: "Car documents" }).first()).toBeVisible(); // everyone can look, nobody but Documentation and Admin can act
   await sales.goto("/documents/ZZT7001/transmittal"); // not part of the Sales role
   await expect(sales.getByText("You don't have access to this page.")).toBeVisible();
-  await sales.goto("/documents");
-  await expect(sales.getByText("You don't have access to this page.")).toBeVisible();
+  await sales.goto("/documents/ZZT7001"); // the car page is read only for Sales: no photos, no buttons
+  await expect(sales.getByText("Photos of the papers are shown to Documentation only.")).toBeVisible();
+  await expect(sales.getByRole("button", { name: "Approve: documents are OK" })).toHaveCount(0);
+  await expect(sales.getByRole("button", { name: "Scan 3 photos" })).toHaveCount(0);
   await sales.goto("/upload-documents");
   await sales.getByLabel("Plate number").fill("ZZT 7004");
   await sales.getByRole("button", { name: "Find the car" }).click();

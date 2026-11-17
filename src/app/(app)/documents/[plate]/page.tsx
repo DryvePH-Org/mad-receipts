@@ -4,21 +4,17 @@ import { PageHeader } from "@/components/layout/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { requireModule } from "@/lib/auth";
 import { getSettings } from "@/lib/data";
-import { loadSheetStatus, loadWorking, previewBibleFast } from "@/lib/docs/bible-sync";
-import { toSheetPreview } from "@/lib/docs/bible-view";
 import { isScanning, readerMode } from "@/lib/docs/bot-scan";
 import { readingNotes, reviewedOf, rotationOf, detectionsOf, wasEdited } from "@/lib/docs/car";
 import { getCarDetail } from "@/lib/docs/data";
 import { cleanDetails, missingDetails } from "@/lib/docs/details";
-import { previewPricelistFast } from "@/lib/docs/pricelist-sync";
 import { deriveStage } from "@/lib/docs/stage";
 import { loadStageInput } from "@/lib/docs/stage-server";
 import { loadWorkflow } from "@/lib/docs/workflow";
-import { sheetsFrozen } from "@/lib/google/freeze";
-import { grokbotMissing } from "@/lib/grokbot/client";
 import { workLabel } from "@/lib/grokbot/labels";
 import { workForPlate } from "@/lib/grokbot/store";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { loadRegisterRow } from "@/lib/docsbible/grid-server";
 import { AboutCard } from "./about-card";
 import { ApprovalCard } from "./approval-card";
 import { CarLive } from "./car-live";
@@ -27,7 +23,8 @@ import { ChecklistCard } from "./checklist-card";
 import { ChecksHelp } from "./checks-help";
 import { FilesCard } from "./files-card";
 import { HandoffCard } from "./handoff-card";
-import { SheetCard } from "./sheet-card";
+import { ReadOnlyView } from "./readonly-view";
+import { RegisterCard } from "./register-card";
 import { SoldCard } from "./sold-card";
 import { StageCard } from "./stage-card";
 import type { CarViewData } from "./types";
@@ -39,10 +36,11 @@ export default function CarPage({ params }: PageProps<"/documents/[plate]">) {
 const EMPTY_WORKFLOW = { scanNotifiedAt: null, soldReadyNotifiedAt: null, approvedAt: null, marketingNotifiedAt: null, handoffAt: null, handoffNote: null, handoffChecked: [] as string[], handoffReturnedAt: null };
 
 async function Content({ params }: { params: PageProps<"/documents/[plate]">["params"] }) {
-  const user = await requireModule("documents");
+  const user = await requireModule("register");
+  const canAct = user.modules.includes("documents");
   const { plate } = await params;
   const detail = await getCarDetail(plate);
-  if (!detail) notFound();
+  if (!detail) return <RegisterOnly plate={plate} role={user.role} canAct={canAct} />;
   const { car, deal } = detail;
   const key = car.folder.plate_no;
   const admin = createAdminClient();
@@ -53,12 +51,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
   ]);
   const linked = car.folder.match_status === "linked" && !!car.folder.folder_id;
   const stage = deriveStage(input ?? { linked, location: car.folder.location as "available" | "sold", filesTotal: car.files.length, pending: car.pending, failed: 0, scanning, flaggedFiles: 0, missingBefore: 0, missingSold: 0, hasDeal: !!deal, approved: !!flow.workflow.approvedAt, caseChosen: car.folder.case_source === "manual", handoffAt: flow.workflow.handoffAt, returnedAt: flow.workflow.handoffReturnedAt, receiver: settings.print.transmittalReceiver || "the receiver" });
-  const [pricelist, sheetStatuses, sheetPreview, sheetWorking] = await Promise.all([
-    linked ? previewPricelistFast(key, admin).catch(() => null) : null,
-    linked ? loadSheetStatus(key).catch(() => []) : [],
-    linked ? previewBibleFast(key).then(toSheetPreview).catch(() => null) : null,
-    linked ? loadWorking(key).catch(() => null) : null,
-  ]);
+  const register = await loadRegisterRow(key).catch(() => null);
 
   const recipient = settings.print.transmittalReceiver || "the receiver";
   const items = car.checklist.items.map((i) => ({ key: i.key, label: i.label, stage: i.stage, present: i.present, fileIds: i.fileIds }));
@@ -92,24 +85,43 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
     <div className="space-y-6">
       <PageHeader title={data.name} description={`Plate ${data.plateDisplay}`} />
       <CarLive plate={key} linked={linked} scanned={data.scanned} busy={busy} />
-      <CarTop data={data} />
+      <CarTop data={data} readOnly={!canAct} />
       {linked && <StageCard stage={stage} />}
-      {linked && (
+      {linked && !canAct && <ReadOnlyView data={data} register={register} role={user.role} />}
+      {linked && canAct && (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
           <div className="space-y-6">
             <FilesCard data={data} rules={stage.rules} />
             <ChecklistCard data={data} />
             <AboutCard plate={key} details={flow.details} missing={missingDetails(flow.details)} />
+            <RegisterCard plate={key} row={register} role={user.role} canAct />
             <ChecksHelp />
           </div>
           <aside className="space-y-6">
             <ApprovalCard plate={key} approvedAt={flow.workflow.approvedAt} marketingNotifiedAt={flow.workflow.marketingNotifiedAt} rule={stage.rules.approve} />
-            <SheetCard data={{ plate: key, frozen: sheetsFrozen("docs"), configured: grokbotMissing().length === 0 && !!process.env.DOCS_BIBLE_SHEET_ID, statuses: sheetStatuses, preview: sheetPreview, working: sheetWorking, pricelist, sendRule: stage.rules.sendSheet }} />
             <SoldCard plate={key} location={data.location} items={soldItems} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />
             <HandoffCard rules={stage.rules} data={{ plate: key, location: data.location, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, items: items.map((i) => ({ key: i.key, label: i.label, present: i.present })) }} />
           </aside>
         </div>
       )}
+    </div>
+  );
+}
+
+/** A car that is in the Docs Bible register but has no folder in Car documents yet: its row, and the way to find its folder. */
+async function RegisterOnly({ plate, role, canAct }: { plate: string; role: "sales" | "admin" | "approver" | "documentation"; canAct: boolean }) {
+  const key = plate.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const register = await loadRegisterRow(key).catch(() => null);
+  if (!register) notFound();
+  const data: CarViewData = {
+    plate: key, plateDisplay: register.values.plate_display ?? key, name: [register.values.year_model, register.values.make, register.values.model_variant].filter(Boolean).join(" ") || key, location: "available", match: "none", folderUrl: null, candidates: [],
+    caseType: "clean", suggestedCase: "clean", caseReason: "", caseSource: "auto", deal: null, items: [], files: [], botMode: false, scanning: false, botWork: [], scanned: false, pending: 0, failed: 0, statusLabel: "No folder", statusKey: "unlinked", isAdmin: role === "admin",
+  };
+  return (
+    <div className="space-y-6">
+      <PageHeader title={data.name} description={`Plate ${data.plateDisplay}`} />
+      <CarTop data={data} readOnly={!canAct} />
+      <RegisterCard plate={key} row={register} role={role} canAct={false} />
     </div>
   );
 }

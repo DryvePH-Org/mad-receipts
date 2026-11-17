@@ -8,9 +8,11 @@ import { plateOfFolderName } from "@/lib/docs/bridge";
 import { normalizePlate } from "@/lib/rules/plate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { carsSheetGid, carsSheetId } from "@/lib/cars/read";
-import { docsTabs } from "@/lib/docs/bible-sync";
-import { pricelistSheetId, pricelistTab } from "@/lib/docs/pricelist-sync";
 import { CHANGELOG_HEADERS, DOCS_BIBLE_HEADERS, errorCells, findHeaders, INVENTORY_HEADERS, PRICELIST_WRITE_HEADERS } from "./headers";
+
+const docsTabs = () => ({ docs: process.env.DOCS_BIBLE_DOCS_TAB?.trim() || "DOCS 2026", changelog: process.env.DOCS_BIBLE_CHANGELOG_TAB?.trim() || "CHANGELOG" });
+const pricelistSheetId = () => process.env.PRICELIST_SHEET_ID?.trim() || process.env.CARS_SHEET_ID?.trim() || undefined;
+const pricelistTab = () => process.env.PRICELIST_TAB?.trim() || "INVENTORY 2026";
 
 // "Go-live check": everything the workflow depends on, looked at in one place and compared with what it expects, so that when the copies
 // (the sheets, the Drive folders) are replaced by the real ones, whatever is different shows up before anyone relies on it. Read only.

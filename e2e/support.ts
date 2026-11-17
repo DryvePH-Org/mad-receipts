@@ -51,6 +51,7 @@ export async function cleanup() {
   // what the document workflow keeps per car (approval, details, handoff, sheet sync, transmittal) for the test plates, and the bot jobs they started
   for (const table of ["unit_workflow", "unit_details", "unit_sheet_sync", "transmittals"] as const) await admin.from(table).delete().like("plate_no", "ZZT%");
   await admin.from("grokbot_jobs").delete().like("plate_no", "ZZT%");
+  for (const table of ["docs_handoff_events", "docs_review_items", "docs_units"] as const) await (admin as unknown as { from: (t: string) => { delete: () => { like: (c: string, v: string) => Promise<unknown> } } }).from(table).delete().like("plate_no", "ZZT%"); // the register rows the approval made for test cars (their history goes too)
   await admin.from("unit_folders").delete().like("plate_no", "ZZT%"); // the car folders the browser tests linked (their files go too)
   const { data: list } = await admin.auth.admin.listUsers({ perPage: 200 });
   for (const user of list?.users ?? []) {

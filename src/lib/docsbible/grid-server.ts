@@ -22,6 +22,17 @@ export async function loadGrid(): Promise<GridRow[]> {
   });
 }
 
+/** One car's current row of the register (null when the car is not in it). */
+export async function loadRegisterRow(plate: string): Promise<GridRow | null> {
+  const db = docsDb();
+  const { data: u } = await db.from("docs_units_current").select("*").eq("plate_no", plate).maybeSingle();
+  if (!u) return null;
+  const [{ data: c }, { count }] = await Promise.all([db.from("docs_complete").select("complete_docs").eq("id", u.id).maybeSingle(), db.from("docs_review_items").select("id", { count: "exact", head: true }).eq("plate_no", plate).eq("status", "open")]);
+  const values: Record<string, string | null> = {};
+  for (const col of COLUMNS) if (col.key !== "complete_docs") values[col.key] = ((u as Record<string, unknown>)[col.key] as string | null) ?? null;
+  return { id: u.id as string, values, complete: (c?.complete_docs as string | null) ?? null, decisions: count ?? 0 };
+}
+
 /**
  * One cell edited. The database change is conditional on the cell still holding what the person saw (`expected`), so two people
  * editing the same cell never overwrite each other silently. The history entry is written by the database itself.

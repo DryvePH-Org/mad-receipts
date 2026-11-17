@@ -14,7 +14,7 @@ import type { CarViewData } from "./types";
 const STATUS_TONE: Record<string, Tone> = { complete: "emerald", missing: "amber", review: "red", unread: "blue", unlinked: "zinc" };
 
 /** The line under the car's name (where it is, its AR, links), what the bots are doing for it, and the folder chooser when it has no single folder. */
-export function CarTop({ data }: { data: CarViewData }) {
+export function CarTop({ data, readOnly = false }: { data: CarViewData; readOnly?: boolean }) {
   const router = useRouter();
   const [busy, start] = useTransition();
   const run = (fn: () => Promise<{ ok: boolean; message: string }>) => start(async () => { const r = await fn(); if (r.ok) toast.success(r.message); else toast.error(r.message); router.refresh(); });
@@ -24,10 +24,10 @@ export function CarTop({ data }: { data: CarViewData }) {
         <Pill tone={data.location === "sold" ? "teal" : "grey"}>{data.location === "sold" ? "In Sold units" : "In Available units"}</Pill>
         {data.match === "linked" && <Pill tone={STATUS_TONE[data.statusKey] ?? "grey"}>{data.statusLabel}</Pill>}
         {data.deal ? <Link href={`/deals/${data.deal.id}`} className="text-sm underline underline-offset-2">AR {data.deal.dealNo} · {data.deal.buyerName}{data.deal.hasReceipt ? "" : " (no AR yet)"}</Link> : <span className="text-sm text-muted-foreground">No AR for this car yet</span>}
-        <div className="ml-auto flex flex-wrap gap-2">
+        {!readOnly && <div className="ml-auto flex flex-wrap gap-2">
           <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/documents/${data.plate}/transmittal`} />}><FileText /> Transmittal receipt</Button>
           {data.folderUrl && <Button variant="outline" size="sm" nativeButton={false} render={<a href={data.folderUrl} target="_blank" rel="noreferrer" />}><ExternalLink /> Open the folder</Button>}
-        </div>
+        </div>}
       </div>
 
       {data.botWork.length > 0 && (
@@ -36,7 +36,7 @@ export function CarTop({ data }: { data: CarViewData }) {
         </ul>
       )}
 
-      {data.match !== "linked" && (
+      {data.match !== "linked" && !readOnly && (
         <Card id="folder">
           <CardHeader><CardTitle>{data.match === "none" ? "No folder found for this plate" : "More than one folder matches this plate"}</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">

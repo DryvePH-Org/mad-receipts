@@ -5,7 +5,7 @@ export type StepKey = "photos" | "scan" | "review" | "approve" | "sold_docs" | "
 export type StepState = "done" | "current" | "todo";
 export interface Step { key: StepKey; label: string; state: StepState; group: "in" | "out" }
 export interface Rule { allowed: boolean; /** why not, in words staff understand (null when allowed) */ reason: string | null; /** an Admin may still do it after a confirmation */ adminOverride?: boolean }
-export interface Rules { scan: Rule; approve: Rule; sendSheet: Rule; moveToSold: Rule; handoff: Rule; markReturned: Rule }
+export interface Rules { scan: Rule; approve: Rule; moveToSold: Rule; handoff: Rule; markReturned: Rule }
 
 export interface StageInput {
   linked: boolean; location: "available" | "sold";
@@ -101,7 +101,6 @@ export function deriveStage(i: StageInput): StageModel {
       : i.pending > 0 ? no(`${plural(i.pending, "photo")} still to be scanned.`)
       : i.failed > 0 ? no(`${plural(i.failed, "photo")} could not be read: scan them again or say what they are.`)
       : i.caseChosen === false ? no("Choose the case first (Papers needed). The bot only suggests it; you decide.") : ok,
-    sendSheet: !i.approved ? no("Approve the documents first.") : ok,
     moveToSold: !i.linked ? no("Link the folder first.")
       : out ? no("This car is already in Sold units.")
       : !i.approved ? no("Approve the documents first.", true)

@@ -10,7 +10,7 @@ import { inventory } from "@/lib/inventory";
 import { readerMode, scheduleScan } from "@/lib/docs/bot-scan";
 import { allowed } from "@/lib/docs/stage";
 import { stageFor } from "@/lib/docs/stage-server";
-import { markWorking, queueSheetSync, runCheckInBackground, runSendInBackground } from "@/lib/docs/bible-sync";
+import { recordHandoff, syncRegister } from "@/lib/docsbible/sync";
 import { sheetsFrozen } from "@/lib/google/freeze";
 import { afterReading, approveUnit, handoffUnit, returnUnit, saveDetails, setHandoffChecked, type StepResult } from "@/lib/docs/workflow";
 import { normalizePlate } from "@/lib/rules/plate";
@@ -202,8 +202,10 @@ export async function approveUnitAction(plate: string, confirmIncomplete: boolea
     const rule = (await rulesFor(p.data)).approve;
     if (!rule.allowed) return { ok: false as const, message: rule.reason ?? "This cannot be approved yet." };
     const r = await approveUnit(p.data, user.id, confirmIncomplete);
-    if (r.ok) { revalidatePath("/documents", "layout"); after(async () => { for (const kind of ["checklist", "pricelist"] as const) await queueSheetSync(p.data, kind, user.id).catch((e) => console.warn(`[docs] sheet update failed: ${e instanceof Error ? e.message : "unknown"}`)); }); }
-    return outcome(r, "Approved. Marketing was told on Telegram.");
+    if (!r.ok) return outcome(r, "");
+    const reg = await syncRegister(p.data, user.id).catch((e) => ({ ok: false as const, message: e instanceof Error ? e.message : "unknown" }));
+    revalidatePath("/documents", "layout");
+    return outcome(r, reg.ok ? "Approved. The Docs Bible is updated and marketing was told on Telegram." : `Approved and marketing was told, but the Docs Bible was not updated: ${reg.message} Press “Update the Docs Bible” on the car.`);
   }, (message) => ({ ok: false as const, message }));
 }
 
@@ -226,7 +228,7 @@ export async function handoffAction(plate: string, note: string, confirmIncomple
     const rule = (await rulesFor(p.data)).handoff;
     if (!rule.allowed) return { ok: false as const, message: rule.reason ?? "This cannot be handed off yet." };
     const r = await handoffUnit(p.data, String(note ?? ""), user.id, confirmIncomplete);
-    if (r.ok) { revalidatePath("/documents", "layout"); after(() => queueSheetSync(p.data, "submitted", user.id).catch((e) => console.warn(`[docs] sheet update failed: ${e instanceof Error ? e.message : "unknown"}`))); }
+    if (r.ok) { revalidatePath("/documents", "layout"); after(() => recordHandoff(p.data, "submitted", user.id).catch((e) => console.warn(`[docs] handoff record failed: ${e instanceof Error ? e.message : "unknown"}`))); }
     return outcome(r, "Handed off. You will be reminded every 3 days until it is marked as done.");
   }, (message) => ({ ok: false as const, message }));
 }
@@ -241,7 +243,7 @@ export async function returnUnitAction(plate: string): Promise<Done> {
     const r = await returnUnit(p.data, user.id);
     if (!r.ok) return { ok: false as const, message: "error" in r ? r.error : "Could not do that." };
     revalidatePath("/documents", "layout");
-    after(() => queueSheetSync(p.data, "received", user.id).catch((e) => console.warn(`[docs] sheet update failed: ${e instanceof Error ? e.message : "unknown"}`)));
+    after(() => recordHandoff(p.data, "received", user.id).catch((e) => console.warn(`[docs] handoff record failed: ${e instanceof Error ? e.message : "unknown"}`)));
     return { ok: true as const, message: "Marked as done. No more reminders for this car." };
   }, (message) => ({ ok: false as const, message }));
 }
@@ -273,33 +275,16 @@ export async function finishAddAction(plate: string): Promise<Done> {
   }, (message) => ({ ok: false as const, message }));
 }
 
-// ---------------- the Docs Bible sheet ----------------
+// ---------------- the Docs Bible register ----------------
 
-/** Starts reading this car's row in the sheet (through the bot) and returns at once: the card shows "working" and then the result. Writes nothing. */
-export async function checkSheetAction(plate: string): Promise<Done> {
+/** Fills the car's row in the Docs Bible from its scan and checklist, now. Documentation and Admin. Needs the case chosen by a person. */
+export async function updateRegisterAction(plate: string): Promise<Done> {
   const user = await requireModule("documents");
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { ok: false, message: "Bad plate." };
   return guard<Done>(async () => {
-    await markWorking(p.data, "check", user.id);
-    after(() => runCheckInBackground(p.data, user.id).then(() => undefined, () => undefined));
-    revalidatePath(`/documents/${normalizePlate(p.data)}`);
-    return { ok: true as const, message: "The bot is reading the sheet. The result appears on this card in a minute or two." };
-  }, (message) => ({ ok: false as const, message }));
-}
-
-/** Starts sending the checklist to the sheet and returns at once. Refused while the Docs Bible is frozen. */
-export async function sendSheetAction(plate: string): Promise<Done> {
-  const user = await requireModule("documents");
-  const p = plateSchema.safeParse(plate);
-  if (!p.success) return { ok: false, message: "Bad plate." };
-  if (sheetsFrozen("docs")) return { ok: false, message: "The Docs Bible is frozen: nothing is written to the sheet right now." };
-  return guard<Done>(async () => {
-    const rule = (await rulesFor(p.data)).sendSheet;
-    if (!rule.allowed) return { ok: false as const, message: rule.reason ?? "Approve the documents first." };
-    await markWorking(p.data, "send", user.id);
-    after(() => runSendInBackground(p.data, user.id).then(() => undefined, () => undefined));
-    revalidatePath(`/documents/${normalizePlate(p.data)}`);
-    return { ok: true as const, message: "The bot is updating the sheet. The result appears on this card in a minute or two." };
+    const r = await syncRegister(p.data, user.id);
+    revalidatePath("/documents", "layout");
+    return r.ok ? { ok: true as const, message: r.changed.length ? `The Docs Bible row was updated (${r.changed.length} ${r.changed.length === 1 ? "column" : "columns"}).` : "The Docs Bible row already matches this car's papers." } : { ok: false as const, message: r.message };
   }, (message) => ({ ok: false as const, message }));
 }

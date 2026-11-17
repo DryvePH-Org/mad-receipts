@@ -50,10 +50,6 @@ describe("what may be pressed", () => {
     expect(at({ flaggedFiles: 3, missingBefore: 2 }).rules.approve.allowed).toBe(true);
     expect(at({ approved: true }).rules.approve.allowed).toBe(false);
   });
-  it("sending to the sheet needs approval", () => {
-    expect(at({}).rules.sendSheet).toMatchObject({ allowed: false, reason: expect.stringMatching(/Approve/) });
-    expect(at({ approved: true }).rules.sendSheet.allowed).toBe(true);
-  });
   it("moving to Sold needs approval and the sold papers; only an Admin may go past that", () => {
     const early = at({}).rules.moveToSold;
     expect(early).toMatchObject({ allowed: false, adminOverride: true });

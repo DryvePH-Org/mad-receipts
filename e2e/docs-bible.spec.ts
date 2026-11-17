@@ -25,8 +25,9 @@ test.afterAll(remove);
 
 test("Documentation edits a paper cell with undo and history; the car's identity is read only; Sales only look", async ({ browser }) => {
   const docs = await as(browser, "docs");
-  await docs.goto("/docs-bible");
-  await expect(docs.getByRole("heading", { name: "Docs Bible" })).toBeVisible();
+  await docs.goto("/documents");
+  await expect(docs.getByRole("heading", { name: "Car documents" })).toBeVisible();
+  await docs.getByRole("tab", { name: /Table/ }).click();
   await docs.getByLabel("Search").fill(PLATE);
   await expect(docs.getByText("1 of ", { exact: false })).toBeVisible();
 
@@ -56,7 +57,8 @@ test("Documentation edits a paper cell with undo and history; the car's identity
 
   // Sales can see the table but nothing is editable
   const sales = await as(browser, "sales");
-  await sales.goto("/docs-bible");
+  await sales.goto("/documents");
+  await sales.getByRole("tab", { name: /Table/ }).click();
   await sales.getByLabel("Search").fill(PLATE);
   await expect(sales.getByText(PLATE, { exact: true }).first()).toBeVisible();
   await expect(sales.getByRole("button", { name: `CR of ${PLATE}` })).toHaveCount(0);
@@ -69,7 +71,8 @@ test("Documentation edits a paper cell with undo and history; the car's identity
 
 test("an edit of a cell somebody else changed is refused, not overwritten", async ({ browser }) => {
   const docs = await as(browser, "docs");
-  await docs.goto("/docs-bible");
+  await docs.goto("/documents");
+  await docs.getByRole("tab", { name: /Table/ }).click();
   await docs.getByLabel("Search").fill(PLATE);
   await expect(docs.getByRole("button", { name: `CR of ${PLATE}` })).toBeVisible();
   await db().from("docs_units").update({ cr: "To follow" }).eq("plate_no", PLATE); // someone else, meanwhile

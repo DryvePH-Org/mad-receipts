@@ -26,6 +26,8 @@ export interface NavItem {
   icon: LucideIcon;
   group: "Operations" | "Administration";
   roles: Role[];
+  /** false: the module exists (it can be given or hidden, and its pages check it) but has no menu entry of its own */
+  menu?: false;
   /** Which live count (if any) is shown beside the item. */
   badge?: "approvals" | "reminders";
 }
@@ -41,8 +43,8 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "cars", href: "/cars", label: "Car status", icon: CarFront, group: "Operations", roles: ALL },
   { id: "approvals", href: "/approvals", label: "Approvals", icon: ShieldCheck, group: "Operations", roles: ["admin", "approver"], badge: "approvals" },
   { id: "reminders", href: "/reminders", label: "Reminders", icon: Bell, group: "Operations", roles: MONEY, badge: "reminders" },
-  { id: "documents", href: "/documents", label: "Car documents", icon: FolderCheck, group: "Operations", roles: ["admin", "documentation"] },
-  { id: "register", href: "/docs-bible", label: "Docs Bible", icon: BookOpenCheck, group: "Operations", roles: ALL },
+  { id: "documents", href: "/documents", label: "Car documents (act)", icon: FolderCheck, group: "Operations", roles: ["admin", "documentation"], menu: false }, // scan, approve, move, hand off: the menu entry is "register" below
+  { id: "register", href: "/documents", label: "Car documents", icon: BookOpenCheck, group: "Operations", roles: ALL },
   { id: "upload", href: "/upload-documents", label: "Upload documents", icon: Upload, group: "Operations", roles: ["sales", "admin", "approver"] },
   { id: "activity", href: "/activity", label: "Activity log", icon: History, group: "Operations", roles: ["admin", "approver"] },
   { id: "settings", href: "/settings", label: "Settings", icon: Settings, group: "Administration", roles: ["admin"] },
@@ -76,7 +78,7 @@ export function effectiveModules(role: Role, grants: readonly string[] = [], den
 export const ROLE_LABELS: Record<Role, string> = { sales: "Sales", admin: "Admin", approver: "Approver", documentation: "Documentation" };
 
 /** The menu items this role may see. (The pages and the database enforce access too.) */
-export const navFor = (role: Role, modules: readonly ModuleId[] = roleModules(role)): NavItem[] => NAV_ITEMS.filter((item) => modules.includes(item.id));
+export const navFor = (role: Role, modules: readonly ModuleId[] = roleModules(role)): NavItem[] => NAV_ITEMS.filter((item) => item.menu !== false && modules.includes(item.id));
 
 /** The nav groups for the sidebar, in order, each with its items. */
 export function navGroups(role: Role, modules?: readonly ModuleId[]): { label: NavItem["group"]; items: NavItem[] }[] {
