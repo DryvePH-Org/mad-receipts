@@ -46,6 +46,29 @@ As **Documentation**, in the table view, search one plate.
 
 **Proves:** edits are instant, undoable, recorded, and nobody overwrites anybody silently.
 
+## 3b. The scanner on its own (10 minutes, changes nothing in the Docs Bible)
+
+Scanning only reads the photos and fills in the car's page. The Docs Bible row changes **only** when you press **Approve** or **Fill the papers from this scan**, so you can scan as much as you like.
+
+Before you start: the scanner bot has the text of `Docs/GROKBOT_SCANNER_ROUTINE.md` (version 5.1) saved, and the server has `DOCS_READER=grokbot` and the scanner address set (Admin → Sync jobs → Grokbot → Test the connection should answer).
+
+Use a car whose row in the Docs Bible is already filled in by the staff: **that row is your answer key.** Cars with photos nobody has scanned yet:
+
+| Plate | Case in the Docs Bible | Photos | What the scan should find |
+|---|---|---|---|
+| **NBR3929** (Honda HR-V) | Clean | 4 | CR, OR, deed, seller's ID: all in |
+| **NAI6184** (Ford Everest) | Encumbered | 6 | the four above + chattel cancellation and promissory note |
+| **NBM7701** (Honda City) | Encumbered | 5 | CR and seller's ID are "To follow" in the sheet: the scan should show them **missing** |
+
+1. Open the car, press **Scan**. The blue box says the bot is scanning; wait 1 to 3 minutes. The photos fill in by themselves.
+2. For each photo open **What the bot saw**: the document type, original or photocopy, damage, the numbers and names. Compare with the photo (click it to see it large).
+3. Look at **Papers needed**: does the checklist match the answer key? A paper the sheet says **Yes** that the scan does not find (or the other way round) is a finding: tell me the plate and the photo.
+4. Note what the bot got wrong: a wrong type, a number you can read that it left blank, a made-up number, a photo turned the wrong way, a warning that makes no sense.
+5. Try **Scan this photo again** on one photo: it should come back the same.
+6. Do **not** press Approve if you want the row to stay as the staff typed it (or approve, then undo the cells from the history).
+
+A scan also sends one Telegram message per car ("Scanned: …"), so tell marketing you are testing.
+
 ## 4. One existing car, all the way in (15 minutes, as Documentation)
 
 Pick a car that has photos in Drive but is not approved yet (the chip **Needs scan** or **In review**). Open it.
