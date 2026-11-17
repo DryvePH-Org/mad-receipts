@@ -154,6 +154,11 @@ export async function chooseFolder(plate: string, folderId: string, deps: DocsDe
 }
 
 /** Lists Available and Sold and makes sure every car folder has a row, linked to its deal when there is one. */
+/** Cars whose folder is no longer in Drive (deleted or renamed away): their link is dropped so the page does not show a folder that is gone. */
+export function vanishedLinks(linked: readonly string[], found: ReadonlySet<string>, driveListingWasEmpty: boolean): string[] {
+  return driveListingWasEmpty ? [] : linked.filter((plate) => !found.has(plate)); // an empty answer from Drive is never taken as "everything was deleted"
+}
+
 export async function refreshFolders(deps: DocsDeps = defaultDocsDeps()): Promise<{ folders: number; skipped: number; duplicates: number }> {
   const lists = await Promise.all((["available", "sold"] as Root[]).map((r) => deps.bridge.listFolders(r)));
   const byPlate = new Map<string, DriveFolder[]>();
@@ -175,20 +180,37 @@ export async function refreshFolders(deps: DocsDeps = defaultDocsDeps()): Promis
       await deps.admin.from("unit_folders").upsert({ ...base, folder_id: null, folder_name: null, folder_url: null, match_status: "several", candidates: list as unknown as Json }, { onConflict: "plate_no" });
     }
   }
+  const { data: linkedRows } = await deps.admin.from("unit_folders").select("plate_no").eq("match_status", "linked");
+  const gone = vanishedLinks((linkedRows ?? []).map((r) => r.plate_no), new Set(byPlate.keys()), lists.flat().length === 0);
+  if (gone.length) await deps.admin.from("unit_folders").update({ match_status: "none", folder_id: null, folder_name: null, folder_url: null, candidates: [] }).in("plate_no", gone);
   return { folders: byPlate.size, skipped, duplicates };
 }
 
 // ---------------- files ----------------
 
-/** Reads the folder's file list into the database. New files wait to be read. */
-export async function scanFolder(plate: string, deps: DocsDeps = defaultDocsDeps()): Promise<number> {
+/**
+ * What a look at the Drive folder changes in the database: files that are in the folder and not yet known are added, and files that are known
+ * but are no longer in the folder (deleted or moved by someone in Drive) are removed, so the page never shows photos that are gone.
+ */
+export function planFolderSync<T extends { id: string; drive_file_id: string }>(inDrive: readonly string[], known: readonly T[]): { fresh: string[]; gone: T[] } {
+  const live = new Set(inDrive), have = new Set(known.map((k) => k.drive_file_id));
+  return { fresh: inDrive.filter((id) => !have.has(id)), gone: known.filter((k) => !live.has(k.drive_file_id)) };
+}
+
+/** Reads the folder's file list into the database: new files wait to be read, files that left the folder are dropped. */
+export async function scanFolder(plate: string, deps: DocsDeps = defaultDocsDeps()): Promise<{ added: number; removed: number }> {
   const key = normalizePlate(plate);
   const { data: folder } = await deps.admin.from("unit_folders").select("folder_id").eq("plate_no", key).single();
   if (!folder?.folder_id) throw new Error("This car has no folder linked yet.");
   const listing = await deps.bridge.listFiles(folder.folder_id);
-  const { data: known } = await deps.admin.from("folder_files").select("drive_file_id").eq("plate_no", key);
-  const have = new Set((known ?? []).map((k) => k.drive_file_id));
-  const fresh = listing.files.filter((f) => !have.has(f.id));
+  const { data: known } = await deps.admin.from("folder_files").select("id, drive_file_id").eq("plate_no", key);
+  const plan = planFolderSync(listing.files.map((f) => f.id), known ?? []);
+  const freshIds = new Set(plan.fresh);
+  const fresh = listing.files.filter((f) => freshIds.has(f.id));
+  if (plan.gone.length) {
+    const { error } = await deps.admin.from("folder_files").delete().in("id", plan.gone.map((g) => g.id));
+    if (error) throw new Error(`Could not remove the files that left the folder: ${error.message}`);
+  }
   if (fresh.length) {
     const { error } = await deps.admin.from("folder_files").insert(fresh.map((f) => ({
       plate_no: key, drive_file_id: f.id, filename: f.name, mime_type: f.mimeType, size_bytes: f.size, drive_url: f.url, source: "drive",
@@ -200,7 +222,7 @@ export async function scanFolder(plate: string, deps: DocsDeps = defaultDocsDeps
   }
   await deps.admin.from("unit_folders").update({ scanned_at: new Date().toISOString(), location: listing.root }).eq("plate_no", key);
   await recompute(key, deps);
-  return fresh.length;
+  return { added: fresh.length, removed: plan.gone.length };
 }
 
 /** Re-works the types, flags and duplicates of a car's files, and the suggested case. */

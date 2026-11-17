@@ -105,7 +105,9 @@ export function docsBridge(): DocsBridge {
   if (appsScriptConfigured() && process.env.DOCS_MOCK !== "1") bridge = createAppsScriptDocsBridge();
   else if (process.env.NODE_ENV !== "production" || process.env.DOCS_MOCK === "1") {
     console.warn("[docs] using the development stand-in for the documents folders");
-    bridge = createMockDocsBridge();
+    // one stand-in for the whole process: pages, server actions and routes are bundled apart and must see the same folders
+    const g = globalThis as unknown as { __madMockDocsBridge?: DocsBridge };
+    bridge = g.__madMockDocsBridge ??= createMockDocsBridge();
   } else throw new Error("The documents folders are not set up: the Apps Script bridge is not configured.");
   return bridge;
 }

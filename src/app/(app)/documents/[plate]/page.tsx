@@ -87,7 +87,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
   return (
     <div className="space-y-6">
       <PageHeader title={data.name} description={`Plate ${data.plateDisplay}`} />
-      <CarLive plate={key} linked={linked} scanned={data.scanned} busy={busy} />
+      <CarLive plate={key} linked={linked} scanned={data.scanned} busy={busy} canSync={canAct} />
       <CarTop data={data} readOnly={!canAct} />
       {linked && <StageCard stage={stage} />}
       {linked && (

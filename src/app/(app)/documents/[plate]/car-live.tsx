@@ -3,14 +3,14 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { rescanAction } from "../actions";
+import { rescanAction, syncFolderAction } from "../actions";
 
 /**
  * Keeps the page true while people and bots work: every few seconds (while the tab is open on screen) it asks for a fingerprint of everything
  * on the page and reloads when it changed, so a correction by one person, a finished scan or an approval shows for everybody without pressing
  * anything. It also lists a never-opened folder's files the first time the car is opened.
  */
-export function CarLive({ plate, linked, scanned, busy }: { plate: string; linked: boolean; scanned: boolean; busy: boolean }) {
+export function CarLive({ plate, linked, scanned, busy, canSync = false }: { plate: string; linked: boolean; scanned: boolean; busy: boolean; canSync?: boolean }) {
   const router = useRouter();
   const asked = useRef(false);
   const seen = useRef<string | null>(null);
@@ -32,6 +32,13 @@ export function CarLive({ plate, linked, scanned, busy }: { plate: string; linke
     document.addEventListener("visibilitychange", onShow);
     return () => { stop = true; clearInterval(t); document.removeEventListener("visibilitychange", onShow); };
   }, [plate, busy, router]);
+  // a quiet look at the Drive folder every minute: photos put in or taken out of the folder by hand show up here (and new ones are scanned)
+  useEffect(() => {
+    if (!linked || !canSync || !scanned) return;
+    const sync = async () => { if (document.visibilityState !== "visible") return; const r = await syncFolderAction(plate).catch(() => null); if (r?.changed) router.refresh(); };
+    const first = setTimeout(sync, 3000), t = setInterval(sync, 60_000);
+    return () => { clearTimeout(first); clearInterval(t); };
+  }, [linked, canSync, scanned, plate, router]);
   useEffect(() => {
     if (!linked || scanned || asked.current) return;
     asked.current = true;

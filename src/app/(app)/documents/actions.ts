@@ -49,10 +49,27 @@ export async function rescanAction(plate: string): Promise<Done> {
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { ok: false, message: "Bad plate." };
   return guard<Done>(async () => {
-    const added = await scanFolder(p.data);
+    const { added, removed } = await scanFolder(p.data);
     revalidatePath(`/documents/${normalizePlate(p.data)}`);
-    return { ok: true as const, message: added ? `${added} new file${added === 1 ? "" : "s"} found.` : "No new files." };
+    const said = [added ? `${added} new file${added === 1 ? "" : "s"} found` : "", removed ? `${removed} file${removed === 1 ? "" : "s"} no longer in the folder, removed from the list` : ""].filter(Boolean).join("; ");
+    return { ok: true as const, message: said ? `${said}.` : "The folder has not changed." };
   }, (message) => ({ ok: false as const, message }));
+}
+
+/**
+ * A quiet look at the car's Drive folder, asked by the car page every minute or so while it is open (no message): new photos put straight into
+ * the folder are listed and sent to the scanner, and photos taken out of the folder disappear from the page. Returns whether anything changed.
+ */
+export async function syncFolderAction(plate: string): Promise<{ changed: boolean }> {
+  await requireModule("documents");
+  const p = plateSchema.safeParse(plate);
+  if (!p.success) return { changed: false };
+  try {
+    const { added, removed } = await scanFolder(p.data);
+    if (added > 0 && readerMode() === "grokbot") scheduleScan(normalizePlate(p.data), 20_000);
+    if (added || removed) revalidatePath(`/documents/${normalizePlate(p.data)}`);
+    return { changed: added + removed > 0 };
+  } catch { return { changed: false }; }
 }
 
 /** Reads the next couple of photos. The page calls this again until nothing is waiting. */
