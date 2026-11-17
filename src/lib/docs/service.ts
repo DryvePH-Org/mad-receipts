@@ -193,6 +193,16 @@ export async function refreshFolders(deps: DocsDeps = defaultDocsDeps()): Promis
  * What a look at the Drive folder changes in the database: files that are in the folder and not yet known are added, and files that are known
  * but are no longer in the folder (deleted or moved by someone in Drive) are removed, so the page never shows photos that are gone.
  */
+/**
+ * Records files of a car folder. A file already recorded (the same Drive file) is skipped, so a photo that the folder check and the upload
+ * both find is listed once. Needs migration 33; until it is applied the plain insert is used.
+ */
+async function insertFiles(admin: DocsDeps["admin"], rows: Record<string, unknown>[]) {
+  const first = await admin.from("folder_files").upsert(rows as never, { onConflict: "plate_no,drive_file_id", ignoreDuplicates: true });
+  if (first.error && /no unique or exclusion constraint/i.test(first.error.message)) return admin.from("folder_files").insert(rows as never);
+  return first;
+}
+
 export function planFolderSync<T extends { id: string; drive_file_id: string }>(inDrive: readonly string[], known: readonly T[]): { fresh: string[]; gone: T[] } {
   const live = new Set(inDrive), have = new Set(known.map((k) => k.drive_file_id));
   return { fresh: inDrive.filter((id) => !have.has(id)), gone: known.filter((k) => !live.has(k.drive_file_id)) };
@@ -213,7 +223,7 @@ export async function scanFolder(plate: string, deps: DocsDeps = defaultDocsDeps
     if (error) throw new Error(`Could not remove the files that left the folder: ${error.message}`);
   }
   if (fresh.length) {
-    const { error } = await deps.admin.from("folder_files").insert(fresh.map((f) => ({
+    const { error } = await insertFiles(deps.admin, fresh.map((f) => ({
       plate_no: key, drive_file_id: f.id, filename: f.name, mime_type: f.mimeType, size_bytes: f.size, drive_url: f.url, source: "drive",
       created_at: f.createdAt,
       // a file that is not a picture or a PDF cannot be read: it is just "other"
@@ -410,9 +420,11 @@ export async function uploadPhoto(input: { plate: string; actor: string; bytes: 
   const stamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
   const filename = `${stamp}_${input.label ?? "upload"}.jpg`;
   const uploaded = await deps.bridge.upload(folder.folder_id, filename, input.bytes, input.mime);
-  const { data: row, error } = await deps.admin.from("folder_files").insert({
-    plate_no: key, drive_file_id: uploaded.id, filename, mime_type: input.mime, size_bytes: input.bytes.length, drive_url: uploaded.url, source: "upload", uploaded_by: input.actor,
-  }).select("*").single();
+  const record = { plate_no: key, drive_file_id: uploaded.id, filename, mime_type: input.mime, size_bytes: input.bytes.length, drive_url: uploaded.url, source: "upload", uploaded_by: input.actor };
+  // the folder check may have listed this very file a moment ago: then that row is the one (marked as an upload), never a second one
+  let saved = await deps.admin.from("folder_files").upsert(record, { onConflict: "plate_no,drive_file_id" }).select("*").single();
+  if (saved.error && /no unique or exclusion constraint/i.test(saved.error.message)) saved = await deps.admin.from("folder_files").insert(record).select("*").single();
+  const { data: row, error } = saved;
   if (error || !row) throw new Error(`Uploaded, but could not record the file: ${error?.message ?? "unknown"}`);
   if (!input.deferRead) try {
     const reading = await deps.read({ base64: Buffer.from(input.bytes).toString("base64"), mime: input.mime }, filename, key);

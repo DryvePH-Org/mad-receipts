@@ -8,11 +8,11 @@ import { plateOfFolderName } from "@/lib/docs/bridge";
 import { normalizePlate } from "@/lib/rules/plate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { carsSheetGid, carsSheetId } from "@/lib/cars/read";
-import { CHANGELOG_HEADERS, DOCS_BIBLE_HEADERS, errorCells, findHeaders, INVENTORY_HEADERS, PRICELIST_WRITE_HEADERS } from "./headers";
+import { sheetChangesSinceMove, type MovedRow } from "./cutover";
+import { findHeaders, INVENTORY_HEADERS } from "./headers";
 
-const docsTabs = () => ({ docs: process.env.DOCS_BIBLE_DOCS_TAB?.trim() || "DOCS 2026", changelog: process.env.DOCS_BIBLE_CHANGELOG_TAB?.trim() || "CHANGELOG" });
+const docsTab = () => process.env.DOCS_BIBLE_DOCS_TAB?.trim() || "DOCS 2026";
 const pricelistSheetId = () => process.env.PRICELIST_SHEET_ID?.trim() || process.env.CARS_SHEET_ID?.trim() || undefined;
-const pricelistTab = () => process.env.PRICELIST_TAB?.trim() || "INVENTORY 2026";
 
 // "Go-live check": everything the workflow depends on, looked at in one place and compared with what it expects, so that when the copies
 // (the sheets, the Drive folders) are replaced by the real ones, whatever is different shows up before anyone relies on it. Read only.
@@ -38,14 +38,12 @@ function settings(): Check[] {
   const out: Check[] = [];
   out.push(/^https:\/\//.test(e.APP_BASE_URL ?? "") ? ok(A, "App address", e.APP_BASE_URL as string) : fail(A, "App address", e.APP_BASE_URL ? "It must start with https://" : "APP_BASE_URL is not set", "The bots send their answers to this address."));
   const missing = grokbotMissing();
-  out.push(missing.length ? fail(A, "Grokbot connection", `Missing: ${missing.join(", ")}`) : ok(A, "Grokbot connection", e.GROKBOT_SCAN_WEBHOOK_URL ? "A scanner and a sheet editor" : "One bot does both jobs"));
+  out.push(missing.length ? fail(A, "Scanner bot connection", `Missing: ${missing.join(", ")}`) : ok(A, "Scanner bot connection", "address, key, callback secret and app address are set"));
   out.push(e.CRON_SECRET ? ok(A, "Scheduled jobs key", "set") : fail(A, "Scheduled jobs key", "CRON_SECRET is not set"));
-  out.push(e.DOCS_BIBLE_SHEET_ID ? info(A, "Docs Bible workbook", `ends ${tail(e.DOCS_BIBLE_SHEET_ID)} (the bot's routine must name the same one)`) : fail(A, "Docs Bible workbook", "DOCS_BIBLE_SHEET_ID is not set"));
-  out.push(pricelistSheetId() ? info(A, "MAD Pricelist workbook", `ends ${tail(pricelistSheetId())}, tab ${pricelistTab()}`) : warn(A, "MAD Pricelist workbook", "not set: the pricelist is not updated and Car status has nothing to show", "CARS_SHEET_ID"));
+  out.push(e.DOCS_BIBLE_SHEET_ID ? info(A, "Old Docs Bible sheet (watched for changes)", `ends ${tail(e.DOCS_BIBLE_SHEET_ID)}`) : warn(A, "Old Docs Bible sheet", "DOCS_BIBLE_SHEET_ID is not set: the cut-over check cannot look for changes made in the old sheet", "Set it to the live sheet's id (shared \"Anyone with the link can view\")."));
   out.push(info(A, "Car status sheet", `ends ${tail(carsSheetId())}, tab number ${carsSheetGid()}`));
   out.push(info(A, "Who reads the photos", (e.DOCS_READER ?? "").toLowerCase() === "grokbot" ? "the grokbot scanner" : "a picture API (Groq or Grok)"));
-  const w = (e.SHEETS_WRITES ?? "").trim().toLowerCase();
-  out.push(w === "on" ? warn(A, "Writing to Google Sheets", "ON everywhere (the receipts log and the inventory status too)", "Be sure those sheets are the right ones.") : w === "docs" ? info(A, "Writing to Google Sheets", "only the Docs Bible and the pricelist through the sheet editor; the receipts log and the inventory status stay frozen") : info(A, "Writing to Google Sheets", "frozen: nothing is written to any sheet"));
+  out.push((e.SHEETS_WRITES ?? "").trim().toLowerCase() === "on" ? warn(A, "Writing to Google Sheets", "ON (the receipts log and the inventory status)", "Be sure those sheets are the right ones.") : info(A, "Writing to Google Sheets", "frozen: the receipts log and the inventory status wait (the Docs Bible is in the database and never goes to a sheet)"));
   out.push(e.TELEGRAM_BOT_TOKEN && (e.TELEGRAM_DOCS_CHAT_ID || e.TELEGRAM_CHAT_ID) ? ok(A, "Telegram", e.TELEGRAM_DOCS_CHAT_ID ? "a separate chat for the documents team" : "the main chat") : warn(A, "Telegram", "not configured: no scan, approval or handoff messages will be sent"));
   return out;
 }
@@ -53,7 +51,7 @@ function settings(): Check[] {
 async function database(): Promise<Check[]> {
   const admin = createAdminClient(), A = "Database";
   const probes: [string, string, string, string][] = [
-    ["unit_workflow", "id", "24", "details, approval and handoff"], ["unit_sheet_sync", "plate_no", "26", "sheet sync records"],
+    ["unit_workflow", "id", "24", "details, approval and handoff"], ["docs_units", "plate_no", "30", "the Docs Bible"], ["docs_review_items", "kind", "30 and 31", "the review list"],
     ["grokbot_jobs", "bot, priority, plate_no", "25 and 27", "the grokbot queue"], ["transmittals", "plate_no", "22", "transmittal receipts"],
   ];
   const out: Check[] = [];
@@ -65,43 +63,47 @@ async function database(): Promise<Check[]> {
 }
 
 async function inventorySheet(): Promise<Check[]> {
-  const A = "MAD Pricelist", id = pricelistSheetId() ?? carsSheetId();
+  const A = "Car status sheet", id = pricelistSheetId() ?? carsSheetId();
   if (!id) return [fail(A, "Inventory tab", "no sheet is set")];
   const rows = await csvOf(id, `export?format=csv&gid=${encodeURIComponent(carsSheetGid())}`);
   const out: Check[] = [];
   const inv = findHeaders(rows, INVENTORY_HEADERS);
   out.push(inv.missing.length ? fail(A, "Car status columns", `Missing in the tab: ${inv.missing.join(", ")}`, `Header row found at row ${inv.rowIndex + 1}. Check the tab number (CARS_SHEET_GID) and the header names.`) : ok(A, "Car status columns", `all found (header on row ${inv.rowIndex + 1})`));
-  const wr = findHeaders(rows, PRICELIST_WRITE_HEADERS);
-  out.push(wr.missing.length ? fail(A, "Columns the bot writes", `Missing: ${wr.missing.join(", ")}`, "The sheet editor stops with an error rather than guess a column.") : ok(A, "Columns the bot writes", "DOCS, OR EXP, SPAREKEY, ENCUMBRANCE found"));
   const plateCol = rows[inv.rowIndex >= 0 ? inv.rowIndex : 1]?.findIndex((h) => h.replace(/\s+/g, " ").trim().toUpperCase() === "PLATE NUMBER") ?? -1;
   const plates = plateCol >= 0 ? rows.slice(inv.rowIndex + 1).map((r) => normalizePlate(r[plateCol])).filter(Boolean) : [];
   out.push(plates.length ? ok(A, "Cars in the tab", `${plates.length} units`) : fail(A, "Cars in the tab", "no plates were found"));
   const dup = plates.length - new Set(plates).size;
-  if (dup) out.push(warn(A, "Repeated plates", `${dup} plate${dup === 1 ? "" : "s"} appear more than once in the tab`, "The bot refuses an ambiguous plate."));
+  if (dup) out.push(warn(A, "Repeated plates", `${dup} plate${dup === 1 ? "" : "s"} appear more than once in the tab`, "Car status shows the first one."));
   return out;
 }
 
-async function docsBible(): Promise<Check[]> {
-  const A = "Docs Bible", id = process.env.DOCS_BIBLE_SHEET_ID?.trim();
-  if (!id) return [];
+/** The Docs Bible in the database: the cars, the review list, and today's saved copy. */
+async function docsBibleDatabase(): Promise<Check[]> {
+  const A = "Docs Bible (database)", db = createAdminClient() as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const cars = await db.from("docs_units_current").select("id", { count: "exact", head: true });
+  const open = await db.from("docs_review_items").select("id", { count: "exact", head: true }).eq("status", "open");
+  const out: Check[] = [cars.count ? ok(A, "Cars in the Docs Bible", `${cars.count}`) : fail(A, "Cars in the Docs Bible", "none: the data was not moved yet", "Run scripts/docs-bible-apply.ts.")];
+  out.push((open.count ?? 0) === 0 ? ok(A, "Review list", "nothing is waiting for a decision") : warn(A, "Review list", `${open.count} item${open.count === 1 ? "" : "s"} still need a decision`, "Car documents → Review list."));
+  const { data: files } = await createAdminClient().storage.from("docs-backups").list("", { limit: 5, sortBy: { column: "name", order: "desc" } });
+  out.push(files?.length ? ok(A, "Daily saved copy", `the latest is ${files[0].name}`) : warn(A, "Daily saved copy", "no saved copy yet", "Apply migration 32; the scheduled run saves one a day."));
+  return out;
+}
+
+/** Has anyone typed in the old Google Sheet since the move? (Read only.) */
+async function oldSheetChanges(): Promise<Check[]> {
+  const A = "Cut-over", id = process.env.DOCS_BIBLE_SHEET_ID?.trim();
+  if (!id) return [info(A, "Old sheet", "not checked: DOCS_BIBLE_SHEET_ID is not set")];
+  const tab = docsTab();
+  const gid = (await listTabInfo(id)).find((t) => t.name.trim().toUpperCase() === tab.toUpperCase())?.gid;
+  if (!gid) return [fail(A, "Old sheet", `the tab "${tab}" was not found`, "Check DOCS_BIBLE_DOCS_TAB.")];
+  const rows = await csvOf(id, `export?format=csv&gid=${encodeURIComponent(gid)}`);
+  const db = createAdminClient() as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const { data } = await db.from("docs_units").select("plate_no, source_row, raw").eq("source", "import").not("source_row", "is", null).limit(5000);
+  const moved: MovedRow[] = (data ?? []).map((u: { plate_no: string; source_row: number; raw: Record<string, string> | null }) => ({ plate: u.plate_no, sourceRow: u.source_row, raw: u.raw ?? {} }));
+  const r = sheetChangesSinceMove(rows, moved, (v) => normalizePlate(v));
   const out: Check[] = [];
-  const tabs = docsTabs();
-  const docs = await csvOf(id, `gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(tabs.docs)}`);
-  const dh = findHeaders(docs, DOCS_BIBLE_HEADERS, 3);
-  out.push(dh.missing.length ? fail(A, `${tabs.docs} columns`, `Missing: ${dh.missing.join(", ")}`, `Check the tab name "${tabs.docs}" (DOCS_BIBLE_DOCS_TAB) and the header names.`) : ok(A, `${tabs.docs} columns`, "all found"));
-  const col = docs[0]?.findIndex((h) => h.trim().toUpperCase() === "PLATE NO.") ?? -1;
-  const units = col >= 0 ? docs.slice(1).filter((r) => normalizePlate(r[col])).length : 0;
-  out.push(units ? ok(A, `Units in ${tabs.docs}`, `${units}`) : fail(A, `Units in ${tabs.docs}`, "none: the imported columns may be empty", "If the sheet is a copy, press Allow access on its import cells or paste their values."));
-  const errs = errorCells(docs.slice(1), 80);
-  if (errs) out.push(warn(A, "Errors in the sheet", `${errs} cells in the first rows show #REF! or similar`, "An import lost its access, or a formula points at a tab that is gone."));
-  const log = await csvOf(id, `gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(tabs.changelog)}`);
-  const ch = findHeaders(log, CHANGELOG_HEADERS, 2);
-  out.push(ch.missing.length ? fail(A, "CHANGELOG tab", `Missing: ${ch.missing.join(", ")}`, "Every bot change is logged here.") : ok(A, "CHANGELOG tab", `${Math.max(0, log.length - 1)} entries`));
-  try {
-    const tabs = (await listTabInfo(id)).map((t) => t.name.trim().toUpperCase());
-    const months = tabs.filter((t) => /^(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)/.test(t));
-    out.push(months.length ? ok(A, "Monthly tabs", months.join(", ")) : warn(A, "Monthly tabs", "none found", "The handoff entries go into the monthly tab of the sale."));
-  } catch { out.push(warn(A, "Monthly tabs", "the list of tabs could not be read")); }
+  out.push(r.changed.length === 0 ? ok(A, "Old sheet unchanged", `${r.checkedRows} moved rows still say what they said at the move`) : warn(A, "Old sheet was changed after the move", `${r.changed.length} cell${r.changed.length === 1 ? "" : "s"} on ${r.carsChanged} car${r.carsChanged === 1 ? "" : "s"}; for example ${r.changed.slice(0, 3).map((c) => `${c.plate} ${c.column}: "${c.was}" became "${c.now}"`).join("; ")}`, "These changes are not in the app. Copy them into the app, then check again."));
+  out.push(r.newPlates.length === 0 ? ok(A, "No new rows in the old sheet", "every plate in the sheet was moved") : warn(A, "Rows added to the old sheet after the move", `${r.newPlates.length}: ${r.newPlates.slice(0, 8).join(", ")}`, "Add these cars in the app (Add a car)."));
   return out;
 }
 
@@ -123,8 +125,8 @@ async function drive(): Promise<Check[]> {
 
 export async function runGoLiveChecks(): Promise<Check[]> {
   const parts = await Promise.all([
-    Promise.resolve(settings()), safe("Database", "Database", database), safe("MAD Pricelist", "Pricelist", inventorySheet),
-    safe("Docs Bible", "Docs Bible", docsBible), safe("Drive folders", "Drive", drive),
+    Promise.resolve(settings()), safe("Database", "Database", database), safe("Car status sheet", "Car status sheet", inventorySheet),
+    safe("Docs Bible (database)", "Docs Bible", docsBibleDatabase), safe("Cut-over", "Old sheet", oldSheetChanges), safe("Drive folders", "Drive", drive),
   ]);
   return parts.flat();
 }

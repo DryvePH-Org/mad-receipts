@@ -133,3 +133,15 @@ If something fails, send me the plate, the step number and what was on the scree
 
 ## Adding more documents to a car later
 Open the car → the **Photos in the folder** card → **Add documents**. It opens the same page with the plate already filled in and checked, so you only add photos. (Sales do not have this button.)
+
+## 7. The stencil, receipts in Drive, and the old sheet (15 minutes)
+
+**Stencil.** Open a car and look at **Papers**: a **Stencil (if the car has one)** row is on every car and says *Optional* when it is not there. It never makes the car incomplete. Add a stencil photo (Add documents) and scan: the row turns *In the folder*, and the **Docs Bible says** value for it becomes **Yes** after you press *Update the Docs Bible* or approve. If its chassis number differs from the CR's, both photos get a warning.
+
+**Receipt to Drive** (Documentation and Admin only). On a car that has an AR whose receipt is **approved**, the car page shows **Receipts in Drive**: each receipt says *Not in the folder*. Press **Put N receipts in the car's folder**: each goes into the car's Drive folder as a printable page with its proof photos. They appear in *Other photos* and are never scanned. Pressing it again does nothing new. Sales do not see this card. Nothing is filed by itself when a receipt is approved.
+
+**Move to Sold keeps the register true.** After Move to Sold, open the car's row in the table: STATUS says *Sold* and VEHICLE STATUS says *SOLD*.
+
+**Two screens, one folder.** Delete a photo directly in Drive, and upload another: after about a minute the page shows only the photos that are in Drive (not both), and the new one is scanned.
+
+**The old sheet (cut-over).** Admin → Sync jobs → **Go-live check** → Run. Under **Cut-over** it says whether anything was typed in the old Google Sheet after the move (needs `DOCS_BIBLE_SHEET_ID`), and under **Scanner bot connection** that the scanner is set up. When it is clean, lock the old sheet in Google (see `Docs/GO_LIVE.md`).

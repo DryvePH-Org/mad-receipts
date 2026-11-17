@@ -29,6 +29,14 @@ export async function setRegisterClassification(plate: string, caseType: CaseTyp
   if (unit && unit.classification !== want) await db.from("docs_units").update({ classification: want, updated_by: actor, last_change_source: "app" }).eq("id", unit.id);
 }
 
+/** The folder moved to Sold: the car's row says SOLD too, so the register and the folders never tell two different stories. */
+export async function markRegisterSold(plate: string, actor: string): Promise<void> {
+  const db = docsDb();
+  const { data: unit } = await db.from("docs_units_current").select("id, sale_status, vehicle_status").eq("plate_no", normalizePlate(plate)).maybeSingle();
+  if (!unit || (unit.sale_status === "Sold" && unit.vehicle_status === "SOLD")) return;
+  await db.from("docs_units").update({ sale_status: "Sold", vehicle_status: "SOLD", updated_by: actor, last_change_source: "app" }).eq("id", unit.id);
+}
+
 /** How many papers of the register row differ from what the car's folder says (only meaningful once a person has chosen the case). */
 export function registerDiff(car: NonNullable<Awaited<ReturnType<typeof loadCar>>>, values: Record<string, string | null>): number {
   const current: Partial<Record<DocsField, string>> = {};

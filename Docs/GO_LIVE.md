@@ -25,3 +25,11 @@ The app reads and files photos through the Apps Script, which only works inside 
 - A copy of the whole Docs Bible is saved every day (Car documents → Saved copies, Admin) and can be downloaded as CSV in the old sheet's layout at any time.
 - The old Google Sheet is kept as a read-only archive. Nobody types in it any more.
 - `SHEETS_WRITES` still controls the receipts log and the inventory status (frozen by default); it has nothing to do with the Docs Bible any more.
+
+## The cut-over: the old sheet becomes read only
+The Docs Bible in the database is the one place to work. The old Google Sheet is kept as an archive that nobody types in.
+1. **Check nobody typed in the old sheet since the move.** Admin → Sync jobs → Go-live check → "Cut-over" (needs `DOCS_BIBLE_SHEET_ID` set to the live sheet, shared by link). Or from your terminal (read only):
+   `npx jiti scripts/docs-bible-sheet-check.ts <sheet id>`. It compares the typed columns with what was moved and lists any change and any row added. Copy those into the app first (Car documents, Add a car).
+2. **Lock the old sheet** in Google, as the owner (the app cannot and never writes to it): open the sheet → **Data → Protect sheets and ranges** → for each tab (DOCS 2026, CHANGELOG, AUG, SEPT, OCT, NOV, 2026 NEW UNITS) choose **Sheet**, **Set permissions**, **Restrict who can edit this range: Only you**. Optionally put a note in cell A1 of DOCS 2026 first: "MOVED TO THE MAD APP: do not type here".
+3. **Tell the staff** the date, and that Car documents (List and Table) replaces the sheet. The table has the sheet's columns and order; Download as CSV gives the sheet layout any time.
+4. **Run the check again** a few days later: it should still say nothing changed.

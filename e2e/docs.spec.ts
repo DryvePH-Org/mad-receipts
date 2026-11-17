@@ -181,6 +181,8 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await expect(docs.getByRole("dialog").getByRole("heading", { name: "Move to Sold?" })).toBeVisible();
   await docs.getByRole("dialog").getByRole("button", { name: "Move to Sold" }).click();
   await expect(docs.getByText("In Sold units").first()).toBeVisible({ timeout: 20_000 });
+  // the register tells the same story as the folder: the car is SOLD there too
+  await expect.poll(async () => (await (adminClient() as unknown as { from: (t: string) => any }).from("docs_units_current").select("sale_status, vehicle_status").eq("plate_no", "ZZT7001").maybeSingle()).data, { timeout: 15_000 }).toMatchObject({ sale_status: "Sold", vehicle_status: "SOLD" }); // eslint-disable-line @typescript-eslint/no-explicit-any
   await expect(docs.getByText("Handoff to").first()).toBeVisible();
 
   // a car that is not approved cannot be moved (only an Admin may go past that), and it says why

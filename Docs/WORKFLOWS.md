@@ -133,6 +133,8 @@ Who edits: Documentation the papers and notes, Admin everything, Sales and Appro
 
 **Being tested:** Add a car (details and photos), the Papers part and live updates, folder checks every minute, sold papers on the car page, Sales seeing photos with no buttons. Not yet tested: Move to Sold, handoff with the 3-day reminders, papers are back.
 
-**Planned, not built:** stencil as a document (scan, checklist, column), receipt to Drive as a button for Documentation only (it no longer happens by itself), a help page ("where did my sheet column go?") and a first-visit tour, table paste / arrow keys / phone cards, retiring the old sheet-editor bot settings, the cut-over (the old sheet becomes read only), scanning the 367 photos still waiting.
+**Built, waiting for your test (19 Nov):** stencil as an optional paper (scan, checklist, Docs Bible column), receipts to Drive as a button for Documentation only, the sheet-editor bot retired (the scanner is the only bot), the cut-over check of the old sheet, Move to Sold marking the register SOLD.
+
+**Planned, not built:** a help page ("where did my sheet column go?") and a first-visit tour, table paste / arrow keys / phone cards, locking the old sheet (done by the owner in Google), scanning the 367 photos still waiting.
 
 Not changed by this project: the receipt log sheet and the inventory note.

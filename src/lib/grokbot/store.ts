@@ -44,10 +44,10 @@ export function dbJobStore(admin: Admin = createAdminClient()): JobStore {
   };
 }
 
-/** How many jobs each bot may run at once: the sheet bot one (so edits never overlap); the scanner GROKBOT_SCAN_PARALLEL (default 1). */
+/** How many scans may run at once: GROKBOT_SCAN_PARALLEL (1 to 4, default 1). */
 export function capacityFromEnv(env: Record<string, string | undefined> = process.env): Capacity {
   const n = Number(env.GROKBOT_SCAN_PARALLEL);
-  return { sheet: 1, scan: Number.isInteger(n) && n >= 1 && n <= 4 ? n : 1 };
+  return { scan: Number.isInteger(n) && n >= 1 && n <= 4 ? n : 1 };
 }
 
 export const defaultGrokbotDeps = (): Deps => ({

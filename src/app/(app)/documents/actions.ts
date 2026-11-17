@@ -12,7 +12,7 @@ import { allowed } from "@/lib/docs/stage";
 import { stageFor } from "@/lib/docs/stage-server";
 import { fileCarReceipts } from "@/lib/docs/receipts-drive";
 import { addUnit, unitStatus, type AddUnitResult, type UnitStatus } from "@/lib/docsbible/add-unit-server";
-import { recordHandoff, setRegisterClassification, syncRegister } from "@/lib/docsbible/sync";
+import { markRegisterSold, recordHandoff, setRegisterClassification, syncRegister } from "@/lib/docsbible/sync";
 import { afterReading, approveUnit, handoffUnit, returnUnit, saveDetails, setHandoffChecked, type StepResult } from "@/lib/docs/workflow";
 import { normalizePlate } from "@/lib/rules/plate";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -192,7 +192,7 @@ export async function moveToSoldAction(plate: string, confirmIncomplete: boolean
     // an Admin going past a rule must say so: the confirmation lists what is open (the page asks for it)
     if (!rule.allowed && !confirmIncomplete) return { ok: false as const, needsConfirm: true as const, missing: [rule.reason ?? "Not ready"] };
     const r = await moveToSold(p.data, user.id, confirmIncomplete);
-    if (r.ok) revalidatePath("/documents", "layout");
+    if (r.ok) { await markRegisterSold(p.data, user.id).catch(() => undefined); revalidatePath("/documents", "layout"); }
     return r;
   }, (error) => ({ ok: false as const, error }));
 }

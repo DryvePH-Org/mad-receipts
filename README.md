@@ -209,7 +209,7 @@ header rows are written automatically when a tab is empty.
 
 ## The grokbot scanner
 
-The only bot the app talks to now is the **scanner**: it reads the photos of a car's documents. (The sheet-editor bot is retired: nothing writes to the Docs Bible sheet any more, the Docs Bible lives in the database.) The app sends one job with signed links to the photos, does not wait, and the bot answers on `/api/grokbot/callback`; the answer is saved by the app. Settings: `GROKBOT_SCAN_WEBHOOK_URL` / `GROKBOT_SCAN_WEBHOOK_SECRET` (else `GROKBOT_WEBHOOK_URL` / `GROKBOT_WEBHOOK_SECRET`), `GROKBOT_CALLBACK_SECRET`, `APP_BASE_URL`, and `DOCS_READER=grokbot`. The text for the bot's saved instructions is `Docs/GROKBOT_SCANNER_ROUTINE.md`. Admin → Sync jobs → Grokbot → Test the connection sends a `ping`.
+The only bot the app talks to now is the **scanner**: it reads the photos of a car's documents. (The sheet-editor bot is retired: nothing writes to the Docs Bible sheet any more, the Docs Bible lives in the database.) The app sends one job with signed links to the photos, does not wait, and the bot answers on `/api/grokbot/callback`; the answer is saved by the app. Settings: `GROKBOT_SCAN_WEBHOOK_URL` / `GROKBOT_SCAN_WEBHOOK_SECRET` (the older `GROKBOT_WEBHOOK_URL` / `GROKBOT_WEBHOOK_SECRET` still work when there is only one bot), `GROKBOT_CALLBACK_SECRET`, `APP_BASE_URL`, and `DOCS_READER=grokbot`. The text for the bot's saved instructions is `Docs/GROKBOT_SCANNER_ROUTINE.md`. Admin → Sync jobs → Grokbot → Test the connection sends a `ping`.
 
 ### The car page: one stage at a time
 

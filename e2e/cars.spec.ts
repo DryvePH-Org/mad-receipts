@@ -72,10 +72,11 @@ test("the Admin's go-live check runs and reports on the settings, the database a
   await expect(admin.getByRole("heading", { name: "Go-live check" })).toBeVisible();
   await admin.getByRole("button", { name: "Run the checks" }).click();
   await expect(admin.getByRole("heading", { name: "Settings" })).toBeVisible({ timeout: 90_000 });
-  await expect(admin.getByRole("heading", { name: "Database" })).toBeVisible();
-  await expect(admin.getByRole("heading", { name: "MAD Pricelist" })).toBeVisible();
+  await expect(admin.getByRole("heading", { name: "Database", exact: true })).toBeVisible();
+  await expect(admin.getByRole("heading", { name: "Car status sheet" })).toBeVisible();
   await expect(admin.getByText("Cars in the tab")).toBeVisible();
-  await expect(admin.getByRole("heading", { name: "Docs Bible" })).toBeVisible();
+  await expect(admin.getByRole("heading", { name: "Docs Bible (database)" })).toBeVisible();
+  await expect(admin.getByRole("heading", { name: "Cut-over" })).toBeVisible(); // the old sheet is checked for changes made after the move
   await admin.close();
 
   // nobody else can open it
