@@ -1,4 +1,5 @@
 import "server-only";
+import { isReceiptFile } from "./receipt-names";
 import { normalizePlate } from "@/lib/rules/plate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
@@ -216,7 +217,7 @@ export async function scanFolder(plate: string, deps: DocsDeps = defaultDocsDeps
       plate_no: key, drive_file_id: f.id, filename: f.name, mime_type: f.mimeType, size_bytes: f.size, drive_url: f.url, source: "drive",
       created_at: f.createdAt,
       // a file that is not a picture or a PDF cannot be read: it is just "other"
-      ...(READABLE.test(f.mimeType) ? {} : { read_status: "done", doc_types: ["other"] }),
+      ...(READABLE.test(f.mimeType) && !isReceiptFile(f.name) ? {} : { read_status: "done", doc_types: ["other"] }), // receipt copies put there by Documentation are not car documents: never scanned
     })));
     if (error) throw new Error(`Could not save the file list: ${error.message}`);
   }

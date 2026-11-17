@@ -10,6 +10,7 @@ import { inventory } from "@/lib/inventory";
 import { readerMode, scheduleScan } from "@/lib/docs/bot-scan";
 import { allowed } from "@/lib/docs/stage";
 import { stageFor } from "@/lib/docs/stage-server";
+import { fileCarReceipts } from "@/lib/docs/receipts-drive";
 import { addUnit, unitStatus, type AddUnitResult, type UnitStatus } from "@/lib/docsbible/add-unit-server";
 import { recordHandoff, setRegisterClassification, syncRegister } from "@/lib/docsbible/sync";
 import { afterReading, approveUnit, handoffUnit, returnUnit, saveDetails, setHandoffChecked, type StepResult } from "@/lib/docs/workflow";
@@ -314,6 +315,21 @@ export async function finishAddAction(plate: string): Promise<Done> {
     revalidatePath(`/documents/${key}`);
     revalidatePath("/documents");
     return { ok: true as const, message: "Done." };
+  }, (message) => ({ ok: false as const, message }));
+}
+
+// ---------------- receipts in the car's folder ----------------
+
+/** Puts the car's approved receipts (and their proofs) into its Drive folder. Documentation and Admin only: it is never done by itself. */
+export async function fileReceiptsAction(plate: string): Promise<Done> {
+  await requireModule("documents");
+  const p = plateSchema.safeParse(plate);
+  if (!p.success) return { ok: false, message: "Bad plate." };
+  return guard<Done>(async () => {
+    const r = await fileCarReceipts(p.data);
+    await scanFolder(p.data).catch(() => undefined);
+    revalidatePath(`/documents/${normalizePlate(p.data)}`);
+    return { ok: true as const, message: r.filed ? `${r.filed} receipt${r.filed === 1 ? "" : "s"} put in the car's folder.` : "Every approved receipt is already in the folder." };
   }, (message) => ({ ok: false as const, message }));
 }
 

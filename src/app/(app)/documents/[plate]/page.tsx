@@ -23,6 +23,8 @@ import { CarTop } from "./car-top";
 import { ChecksHelp } from "./checks-help";
 import { PapersCard } from "./files-card";
 import { HandoffCard } from "./handoff-card";
+import { listCarReceipts } from "@/lib/docs/receipts-drive";
+import { ReceiptsCard } from "./receipts-card";
 import { SoldUploadCard } from "./sold-upload-card";
 import { RegisterCard } from "./register-card";
 import { SoldCard } from "./sold-card";
@@ -53,7 +55,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
   ]);
   const linked = car.folder.match_status === "linked" && !!car.folder.folder_id;
   const stage = deriveStage(input ?? { linked, location: car.folder.location as "available" | "sold", filesTotal: car.files.length, pending: car.pending, failed: 0, scanning, flaggedFiles: 0, missingBefore: 0, missingSold: 0, hasDeal: !!deal, approved: !!flow.workflow.approvedAt, caseChosen: car.folder.case_source === "manual", handoffAt: flow.workflow.handoffAt, returnedAt: flow.workflow.handoffReturnedAt, receiver: settings.print.transmittalReceiver || "the receiver" });
-  const register = await loadRegisterRow(key).catch(() => null);
+  const [register, receipts] = await Promise.all([loadRegisterRow(key).catch(() => null), canAct ? listCarReceipts(key).catch(() => []) : Promise.resolve([])]);
 
   const recipient = settings.print.transmittalReceiver || "the receiver";
   const items = car.checklist.items.map((i) => ({ key: i.key, label: i.label, stage: i.stage, present: i.present, fileIds: i.fileIds, optional: !!i.optional }));
@@ -101,6 +103,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
           <aside className="space-y-6">
             {canAct && <ApprovalCard plate={key} approvedAt={flow.workflow.approvedAt} marketingNotifiedAt={flow.workflow.marketingNotifiedAt} rule={stage.rules.approve} />}
             {canUpload && <SoldUploadCard plate={key} items={soldItems} deal={data.deal ? { dealNo: data.deal.dealNo, buyerName: data.deal.buyerName } : null} />}
+            {canAct && receipts.length > 0 && <ReceiptsCard plate={key} receipts={receipts} />}
             {canAct && <SoldCard plate={key} location={data.location} items={soldItems} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />}
             {canAct && <HandoffCard rules={stage.rules} data={{ plate: key, location: data.location, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, items: items.map((i) => ({ key: i.key, label: i.label, present: i.present, optional: i.optional })) }} />}
           </aside>

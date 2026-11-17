@@ -253,3 +253,37 @@ test("each role sees only its own pages", async ({ browser }) => {
   await expect(admin.getByRole("heading", { name: "Car documents" })).toBeVisible();
   await admin.close();
 });
+
+test("Documentation puts an approved receipt in the car's folder with a button; nothing is filed by itself", async ({ browser, playwright, baseURL }) => {
+  test.setTimeout(180_000);
+  const ar = await makeAr("ZZT 7003"); // a car with one folder (in Sold) and an AR
+  const receiptId = made[made.length - 1];
+  const cron = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { "x-cron-secret": cronSecret() } });
+  expect((await cron.post("/api/sync/run")).ok()).toBe(true); // the folder is linked to the deal
+  expect(ar.deal_id).toBeTruthy();
+
+  const docs = await as(browser, "docs");
+  await docs.goto("/documents/ZZT7003");
+  await expect(docs.locator("#papers")).toBeVisible();
+  // a receipt that is still waiting for approval is not offered
+  await expect(docs.locator("#receipts")).toHaveCount(0);
+
+  // approved: the card appears, and the receipt is not in the folder until the button is pressed
+  const approver = await userId(credentials.approver.email);
+  const r = await adminClient().rpc("review_receipt", { p_actor: approver, p_receipt_id: receiptId, p_approve: true, p_reason: null });
+  expect(r.error).toBeNull();
+  made.pop(); // approved on purpose: it is removed with the other test receipts at the end
+  await docs.reload();
+  await expect(docs.locator("#receipts")).toContainText("Not in the folder");
+  await docs.getByRole("button", { name: /^Put 1 receipt in the car's folder$/ }).click();
+  await expect(docs.locator("#receipts")).toContainText("In the folder", { timeout: 30_000 });
+  // the copy shows with the car's files, but it is not read as a car document
+  await expect(docs.locator("#papers")).toContainText("RECEIPT-", { timeout: 30_000 });
+  await expect(docs.getByRole("button", { name: /^Put .* in the car's folder$/ })).toHaveCount(0);
+
+  // Sales have no such button
+  const sales = await as(browser, "sales");
+  await sales.goto("/documents/ZZT7003");
+  await expect(sales.locator("#receipts")).toHaveCount(0);
+  await docs.close(); await sales.close();
+});
