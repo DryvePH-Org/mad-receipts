@@ -97,6 +97,8 @@ test("Add a car: a plate that is already in the Docs Bible is not added twice, u
   await expect(docs.getByText(/is in the Docs Bible\. Now add its photos/)).toBeVisible();
   const rows = await db().from("docs_units").select("make").eq("plate_no", PLATE);
   expect((rows.data as { make: string }[]).map((r) => r.make).sort()).toEqual(["HONDA", "TESTMAKE"]);
+  const review = await db().from("docs_review_items").select("kind, status").eq("plate_no", PLATE); // the staff are told, to decide later
+  expect(review.data).toEqual([{ kind: "duplicate_plate", status: "open" }]);
   // Sales cannot add cars
   const sales = await as(browser, "sales");
   await sales.goto("/documents/add");

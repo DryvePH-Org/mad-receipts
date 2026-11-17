@@ -43,5 +43,7 @@ export async function addUnit(plateTyped: string, details: UnitDetailsInput, act
     source: "app", last_change_source: "add", created_by: actor, updated_by: actor,
   }).select("id").single();
   if (r.error) return { ok: false, message: `Could not add the car: ${r.error.message}` };
+  // a second arrival is put on the review list, so the staff can decide later whether it is a real second arrival or a double entry
+  if (status.exists) await docsDb().from("docs_review_items").insert({ unit_id: r.data.id, plate_no: key, kind: "duplicate_plate", message: `${key} was added again with Add a car (the earlier arrival: ${status.arrival ?? "no date"}). Both rows are kept: decide whether it is a second arrival or a double entry.` });
   return { ok: true, id: r.data.id as string, plate: key };
 }
