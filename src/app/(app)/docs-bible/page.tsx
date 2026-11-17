@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { Button } from "@/components/ui/button";
 import { requireModule } from "@/lib/auth";
+import { listSavedCopies } from "@/lib/docsbible/export-server";
 import { loadGrid } from "@/lib/docsbible/grid-server";
 import { docsDb } from "@/lib/docsbible/review-server";
 import { DocsGrid } from "./docs-grid";
@@ -19,7 +20,7 @@ export default function DocsBiblePage() {
 
 async function Content() {
   const user = await requireModule("register");
-  const [rows, open] = await Promise.all([loadGrid(), docsDb().from("docs_review_items").select("id", { count: "exact", head: true }).eq("status", "open")]);
+  const [rows, open, copies] = await Promise.all([loadGrid(), docsDb().from("docs_review_items").select("id", { count: "exact", head: true }).eq("status", "open"), user.role === "admin" ? listSavedCopies().catch(() => []) : Promise.resolve([])]);
   return (
     <div className="space-y-4">
       {(open.count ?? 0) > 0 && (
@@ -29,6 +30,18 @@ async function Content() {
         </div>
       )}
       <DocsGrid initial={rows} role={user.role} />
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <Button size="sm" variant="outline" nativeButton={false} render={<a href="/api/docs-bible/export" download />}>Download as CSV (sheet layout)</Button>
+        <span className="text-muted-foreground">Opens in Google Sheets or Excel with the same columns as the old sheet.</span>
+      </div>
+      {user.role === "admin" && (
+        <details className="rounded-lg border p-3 text-sm">
+          <summary className="cursor-pointer font-medium">Saved copies ({copies.length})</summary>
+          <p className="mt-2 text-muted-foreground">One copy is saved every day and kept for 30 days.</p>
+          <ul className="mt-2 grid gap-1 sm:grid-cols-2">{copies.map((c) => <li key={c.name}><a className="underline underline-offset-2" href={`/api/docs-bible/export?copy=${encodeURIComponent(c.name)}`}>{c.name}</a>{c.size ? <span className="text-muted-foreground"> · {Math.round(c.size / 1024)} KB</span> : null}</li>)}</ul>
+          {copies.length === 0 && <p className="mt-2 text-muted-foreground">The first copy is saved by the next scheduled run.</p>}
+        </details>
+      )}
     </div>
   );
 }

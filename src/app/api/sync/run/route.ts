@@ -1,6 +1,7 @@
 import { hasCronSecret } from "@/lib/cron";
 import { readSomePending } from "@/lib/docs/service";
 import { dispatch } from "@/lib/grokbot/client";
+import { saveDailyCopy } from "@/lib/docsbible/export-server";
 import { defaultGrokbotDeps } from "@/lib/grokbot/store";
 import { processDueJobs } from "@/lib/sync/process";
 
@@ -14,7 +15,9 @@ export async function POST(request: Request) {
     const docs = await readSomePending().catch((e) => { console.error(`[docs] background read failed: ${e instanceof Error ? e.message : "unknown"}`); return null; });
     // the grokbot queue: send what has room, give up what the bot never answered (a job added while the server restarted is picked up here)
     const bots = await dispatch(defaultGrokbotDeps()).catch(() => null);
-    return Response.json({ ...summary, docs, bots });
+    // the Docs Bible is the only copy now: one saved CSV a day (this is a quick check when today's is already there)
+    const backup = await saveDailyCopy().catch((e) => { console.error(`[docs-bible] daily copy failed: ${e instanceof Error ? e.message : "unknown"}`); return null; });
+    return Response.json({ ...summary, docs, bots, backup });
   } catch (err) {
     console.error(`[sync] run failed: ${err instanceof Error ? err.message : "unknown error"}`);
     return Response.json({ error: "Sync run failed" }, { status: 500 });
