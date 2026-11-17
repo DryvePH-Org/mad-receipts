@@ -11,7 +11,6 @@ import { readerMode, scheduleScan } from "@/lib/docs/bot-scan";
 import { allowed } from "@/lib/docs/stage";
 import { stageFor } from "@/lib/docs/stage-server";
 import { recordHandoff, syncRegister } from "@/lib/docsbible/sync";
-import { sheetsFrozen } from "@/lib/google/freeze";
 import { afterReading, approveUnit, handoffUnit, returnUnit, saveDetails, setHandoffChecked, type StepResult } from "@/lib/docs/workflow";
 import { normalizePlate } from "@/lib/rules/plate";
 import { createAdminClient } from "@/lib/supabase/admin";

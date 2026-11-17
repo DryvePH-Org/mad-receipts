@@ -62,7 +62,6 @@ export type ViewKey = keyof typeof VIEWS;
 export const SALE_STATUSES = ["Sold", "Onhand", "Reserved", "Not For Sale"] as const;
 export const VEHICLE_STATUSES = ["SOLD", "AVAILABLE", "SHIPPED TO CEB", "NOT FOR SALE"] as const;
 export const GRID_CLASSIFICATIONS = ["Clean", "Repo (bank)", "Encumbered (Indiv)"] as const;
-export const COMPLETE_LABELS = { COMPLETE: "COMPLETE", "NOT YET": "NOT YET" } as const;
 
 export type Role = "sales" | "admin" | "approver" | "documentation";
 /** The owner's rule: Documentation edits the paper columns, Admin everything, Sales and Approver only read. */

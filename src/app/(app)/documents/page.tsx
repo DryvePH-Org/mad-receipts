@@ -9,18 +9,18 @@ import { docsDb } from "@/lib/docsbible/review-server";
 import { listSavedCopies } from "@/lib/docsbible/export-server";
 import { DocumentsBoard } from "./documents-board";
 
-export default async function DocumentsPage() {
-  const user = await requireModule("register");
-  const canAct = user.modules.includes("documents");
+export default function DocumentsPage() {
   return (
     <div className="space-y-6">
-      <PageHeader title="Car documents" description="Every car's papers in one place: the list with quick information, or the table that looks like the old sheet. Click a car for its photos and details." actions={canAct ? <div className="flex flex-wrap gap-2"><Button nativeButton={false} render={<Link href="/documents/add" />}>Add documents</Button><Button variant="outline" nativeButton={false} render={<Link href="/documents/handoff" />}>Documents on handoff</Button></div> : undefined} />
-      <Suspense fallback={<PageSkeleton />}><Content role={user.role} canAct={canAct} /></Suspense>
+      <PageHeader title="Car documents" description="Every car's papers in one place: the list with quick information, or the table that looks like the old sheet. Click a car for its photos and details." />
+      <Suspense fallback={<PageSkeleton />}><Content /></Suspense>
     </div>
   );
 }
 
-async function Content({ role, canAct }: { role: "sales" | "admin" | "approver" | "documentation"; canAct: boolean }) {
+async function Content() {
+  const user = await requireModule("register"); // inside Suspense: reading the signed-in person is request data
+  const role = user.role, canAct = user.modules.includes("documents");
   const [{ rows, grid }, open, copies] = await Promise.all([
     loadUnified(),
     docsDb().from("docs_review_items").select("id", { count: "exact", head: true }).eq("status", "open"),
@@ -28,6 +28,7 @@ async function Content({ role, canAct }: { role: "sales" | "admin" | "approver" 
   ]);
   return (
     <div className="space-y-4">
+      {canAct && <div className="flex flex-wrap gap-2"><Button nativeButton={false} render={<Link href="/documents/add" />}>Add documents</Button><Button variant="outline" nativeButton={false} render={<Link href="/documents/handoff" />}>Documents on handoff</Button></div>}
       <DocumentsBoard rows={rows} grid={grid} role={role} canAct={canAct} openDecisions={open.count ?? 0} />
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <Button size="sm" variant="outline" nativeButton={false} render={<a href="/api/docs-bible/export" download />}>Download as CSV (sheet layout)</Button>
