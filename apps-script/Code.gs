@@ -22,7 +22,7 @@ var MAX_BASE64_CHARS = 14 * 1024 * 1024; // ~10 MB file
 
 function doGet() {
   // Lets you open the web app URL in a browser to check it is deployed. Reveals nothing.
-  return json_({ ok: true, data: 'MAD Receipts bridge is running' });
+  return json_({ ok: true, data: 'MAD Receipts bridge is running. Version 2026-11-17, with the car-documents actions (docs.createFolder, docs.upload, docs.move).' });
 }
 
 function doPost(e) {
