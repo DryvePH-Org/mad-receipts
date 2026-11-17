@@ -26,8 +26,17 @@ export async function POST(request: Request) {
   // The staff are told once when the whole batch has been read (finishAddAction), not after every photo.
   const deps = { ...defaultDocsDeps(), after: undefined };
   try {
-    const folder = await ensureCarFolder(plate, deps, unitForFolder);
-    const result = await uploadPhoto({ plate: folder.plate, actor: user.id, bytes: new Uint8Array(await file.arrayBuffer()), mime: file.type, label: String(form.get("label") ?? "").replace(/[^\w-]/g, "").slice(0, 40) || "doc", deferRead: readerMode() === "grokbot" }, deps); // with the grokbot the batch is scanned together when it ends
+    let folder = await ensureCarFolder(plate, deps, unitForFolder);
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const send = (f: typeof folder) => uploadPhoto({ plate: f.plate, actor: user.id, bytes, mime: file.type, label: String(form.get("label") ?? "").replace(/[^\w-]/g, "").slice(0, 40) || "doc", deferRead: readerMode() === "grokbot" }, deps);
+    let result;
+    try { result = await send(folder); } catch (err) {
+      // the car's saved folder is gone (left over from an earlier Drive): drop the link, find or make the folder again, and try once more
+      if (!/not inside|not found|not allowed|permission|access/i.test(err instanceof Error ? err.message : String(err))) throw err;
+      await deps.admin.from("unit_folders").update({ match_status: "none", folder_id: null, folder_name: null, folder_url: null, candidates: [] }).eq("plate_no", folder.plate);
+      folder = await ensureCarFolder(plate, deps, unitForFolder);
+      result = await send(folder);
+    }
     console.info(`[docs] add status=${result.readStatus}`);
     return Response.json({ result, folder: { name: folder.folderName, created: folder.created, location: folder.location } });
   } catch (err) {
