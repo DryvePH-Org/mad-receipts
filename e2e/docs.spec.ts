@@ -18,7 +18,7 @@ async function as(browser: Browser, who: keyof typeof credentials) {
 }
 
 const BUYER = "ZZT E2E Docs Buyer";
-let n = 100;
+let n = Date.now() % 1_000_000; // a number no earlier (aborted) run has used
 /** An AR made the way the app makes it, without going through the form. */
 async function makeAr(plate: string) {
   const sales = await userId(credentials.sales.email);
@@ -132,7 +132,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await sales.keyboard.press("Escape");
   await expect(sales.getByRole("button", { name: "Approve: documents are OK" })).toHaveCount(0);
   await expect(sales.getByRole("button", { name: /^Scan / })).toHaveCount(0);
-  await expect(sales.getByRole("link", { name: "Add documents" })).toHaveCount(0);
+  await expect(sales.getByRole("button", { name: "Upload documents" })).toHaveCount(0);
   await expect(sales.getByRole("button", { name: "Change what this is" })).toHaveCount(0);
   await expect(sales.getByRole("combobox", { name: "Case" })).toBeDisabled();
   // the only thing Sales can do here: add the sold papers (the AR's buyer is shown)
@@ -211,12 +211,13 @@ test("Documentation adds photos by typing only the plate: the folder is made, th
   // the car is added to the Docs Bible first: the details are needed, and the photos wait for them
   await expect(docs.getByText("This plate is not in the Docs Bible yet")).toBeVisible();
   await expect(docs.getByText("Save the car first, then add its documents.")).toBeVisible();
-  await docs.getByRole("button", { name: "Save the car" }).click();
-  await expect(docs.getByText("Type the make.")).toBeVisible();
+  await expect(async () => { await docs.getByRole("button", { name: "Save the car" }).click(); await expect(docs.getByText("Type the make.")).toBeVisible({ timeout: 3000 }); }).toPass({ timeout: 30_000 }); // the page may still be waking up
   await docs.getByLabel("Make *").fill("toyota"); await docs.getByLabel("Model *").fill("vios 1.3 e");
   await docs.getByLabel("Year *").fill("2019"); await docs.getByLabel("Color *").fill("white");
-  await docs.getByRole("button", { name: "Save the car" }).click();
-  await expect(docs.getByText(/is in the Docs Bible\. Now add its documents/)).toBeVisible();
+  await expect(async () => { await docs.locator("#staged-photos").setInputFiles({ name: "y.jpg", mimeType: "image/jpeg", buffer: JPEG }); await expect(docs.getByText("1 photo chosen")).toBeVisible({ timeout: 3000 }); }).toPass({ timeout: 30_000 }); // chosen in the form: it goes to Drive right after the car is saved
+  await docs.getByRole("button", { name: "Save the car and upload 1 document" }).click();
+  await expect(docs.getByText(/is in the Docs Bible/)).toBeVisible();
+  await expect(docs.getByText(/The team has been told/)).toBeVisible({ timeout: 30_000 });
   const row = await adminClient().from("docs_units_current" as never).select("make, year_model, color, source, vehicle_status" as never).eq("plate_no", "ZZT7010").single() as unknown as { data: Record<string, string> };
   expect(row.data).toMatchObject({ make: "TOYOTA", year_model: "19", color: "WHITE", source: "app", vehicle_status: "AVAILABLE" });
   await docs.locator("#add-photos").setInputFiles({ name: "x.jpg", mimeType: "image/jpeg", buffer: JPEG });

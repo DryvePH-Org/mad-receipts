@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import imageCompression from "browser-image-compression";
 import { Camera, CircleAlert, FolderPlus, FolderOpen, Loader2, CarFront, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,9 +12,10 @@ import type { FolderPreview } from "@/lib/docs/service";
 import { BODY_TYPES, BUYING_SOURCES, FUELS, REQUIRED_DETAILS, SPARE_KEYS, TRANSMISSIONS, type UnitDetailsInput } from "@/lib/docsbible/add-unit";
 import type { UnitStatus } from "@/lib/docsbible/add-unit-server";
 import { NativeSelect } from "@/components/ui/native-select";
-import { addUnitAction, finishAddAction, previewAddAction, unitStatusAction } from "../actions";
+import { addUnitAction, previewAddAction, unitStatusAction } from "../actions";
+import { newPhotoStates, uploadPhotos, type PhotoState } from "../upload-photos";
 
-interface Photo { id: number; name: string; state: "sending" | "done" | "error"; types: string[]; flags: string[]; message?: string }
+type Photo = PhotoState;
 
 /** The new car: its plate and details in one form, then the documents. Each photo is filed and read; when the batch ends the team is told once. */
 export function AddFlow({ suggestions, initialPlate = "", botScans = false }: { suggestions: { makes: string[]; colors: string[]; models: string[] }; initialPlate?: string; botScans?: boolean }) {
@@ -32,6 +32,8 @@ export function AddFlow({ suggestions, initialPlate = "", botScans = false }: { 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [staged, setStaged] = useState<File[]>([]); // documents chosen in the form: they go to Drive right after the car is saved
+  const stagedInput = useRef<HTMLInputElement>(null);
   const next = useRef(0);
   const input = useRef<HTMLInputElement>(null);
 
@@ -43,31 +45,14 @@ export function AddFlow({ suggestions, initialPlate = "", botScans = false }: { 
     setLooking(false);
   }
 
-  async function send(list: FileList | null) {
-    if (!list?.length || preview?.state === "invalid" || preview?.state === "several" || !preview) return;
-    const files = Array.from(list);
-    const batch = files.map((f) => ({ id: ++next.current, file: f }));
+  /** Sends the photos into the car's Drive folder (made if needed) and starts the scan when the last one is in. */
+  async function send(files: File[], forPlate: string = plate) {
+    if (!files.length || preview?.state === "invalid" || preview?.state === "several" || !preview) return;
+    const batch = newPhotoStates(files);
     setSending(true); setFinished(null);
-    setPhotos((p) => [...batch.map((b) => ({ id: b.id, name: b.file.name, state: "sending" as const, types: [], flags: [] })), ...p]);
-    const update = (id: number, patch: Partial<Photo>) => setPhotos((p) => p.map((x) => (x.id === id ? { ...x, ...patch } : x)));
-    for (const { id, file: original } of batch) {
-      try {
-        if (!original.type.startsWith("image/")) throw new Error("Send a photo (JPEG or PNG).");
-        const file = await imageCompression(original, { maxWidthOrHeight: 2400, initialQuality: 0.85, maxSizeMB: 3, fileType: "image/jpeg", useWebWorker: true });
-        const body = new FormData();
-        body.set("plate", plate);
-        body.set("file", file, "photo.jpg");
-        body.set("label", `doc${id}`);
-        const res = await fetch("/api/docs/add", { method: "POST", body });
-        const json = (await res.json().catch(() => ({}))) as { result?: { types: string[]; flags: string[]; readStatus: string }; error?: string };
-        if (!res.ok || !json.result) throw new Error(json.error ?? "The upload failed. Try again.");
-        update(id, { state: "done", types: json.result.types, flags: json.result.flags, message: json.result.readStatus === "failed" ? "Saved in the folder. It could not be read yet; it will be read again." : undefined });
-      } catch (e) {
-        update(id, { state: "error", message: e instanceof Error ? e.message : "The upload failed." });
-      }
-    }
+    setPhotos((p) => [...batch.map((b) => b.state), ...p]);
+    await uploadPhotos(forPlate, batch, (id, patch) => setPhotos((p) => p.map((x) => (x.id === id ? { ...x, ...patch } : x))));
     if (input.current) input.current.value = "";
-    await finishAddAction(plate).catch(() => undefined);
     setSending(false);
     setFinished(preview.plate);
   }
@@ -86,7 +71,7 @@ export function AddFlow({ suggestions, initialPlate = "", botScans = false }: { 
     setSaving(true); setFormError(null);
     const r = await addUnitAction(plate, details, again);
     setSaving(false);
-    if (r.ok) { setSaved(r.plate); return; }
+    if (r.ok) { setSaved(r.plate); if (staged.length) { const files = staged; setStaged([]); void send(files, plate); } return; }
     setErrors(r.errors ?? {}); setFormError(r.message);
   }
   const field = (k: keyof UnitDetailsInput, label: string, opts: { list?: readonly string[]; listId?: string; placeholder?: string; select?: readonly string[] } = {}) => {
@@ -121,7 +106,7 @@ export function AddFlow({ suggestions, initialPlate = "", botScans = false }: { 
             <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"><FolderPlus className="size-4" aria-hidden /> There is no folder for this plate yet: {preview.folderName} is made in Available units when you add the first photo.{!preview.inInventory && <span className="text-amber-800 dark:text-amber-300"> The plate is not in the inventory sheet, so the folder is named with the plate only.</span>}</p>
           )}
           {saved ? (
-            <p className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200"><Check className="size-4" aria-hidden /> {details.year_model.slice(-2)} {details.make} {details.model_variant} ({saved}) is in the Docs Bible. Now add its documents.</p>
+            <p className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200"><Check className="size-4" aria-hidden /> {details.year_model.slice(-2)} {details.make} {details.model_variant} ({saved}) is in the Docs Bible.{staged.length === 0 && photos.length === 0 ? " Now add its documents." : ""}</p>
           ) : unit?.exists && !again ? (
             <div className="space-y-2 text-sm">
               <p className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200"><Check className="size-4" aria-hidden /> This car is already in the Docs Bible: {unit.name}.</p>
@@ -129,25 +114,37 @@ export function AddFlow({ suggestions, initialPlate = "", botScans = false }: { 
             </div>
           ) : (
             <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void saveUnit(); }}>
-              <p className="text-sm text-muted-foreground">{again ? "A second arrival of this plate: the earlier one is kept." : unit ? "This plate is not in the Docs Bible yet." : "Type the plate, then the car's details."} Type what you know about the car; * is needed. You can add the rest later.</p>
+              <p className="text-sm text-muted-foreground">{again ? "A second arrival of this plate: the earlier one is kept." : unit ? "This plate is not in the Docs Bible yet." : "Type the plate, then the car's details."} Only the plate, make, model, year and color are needed (*). The rest can be filled in later.</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 {field("make", "Make", { listId: "dl-make", list: suggestions.makes, placeholder: "e.g. TOYOTA" })}
                 {field("model_variant", "Model", { listId: "dl-model", list: suggestions.models, placeholder: "e.g. VIOS 1.3 E" })}
                 {field("year_model", "Year", { placeholder: "2019 or 19" })}
                 {field("color", "Color", { listId: "dl-color", list: suggestions.colors, placeholder: "e.g. WHITE" })}
-                {field("body_type", "Body type", { select: BODY_TYPES })}
-                {field("trans", "Transmission", { select: TRANSMISSIONS })}
-                {field("fuel", "Fuel", { select: FUELS })}
-                {field("mileage", "Mileage", { placeholder: "e.g. 45T KMS" })}
-                {field("reg_owner_name", "Registered owner (on the CR)")}
-                {field("buying_source", "Bought from", { select: BUYING_SOURCES })}
-                {field("spare_key", "Spare key", { select: SPARE_KEYS })}
-                {field("arrival_date", "Date it arrived", { placeholder: "today if empty" })}
               </div>
-              <details className="rounded-lg border p-3 text-sm"><summary className="cursor-pointer font-medium">More details (optional)</summary>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">{field("cs_no", "CS no")}{field("mo_file", "MO file")}{field("awarded_to", "Awarded to")}{field("encumbrance", "Encumbrance (bank)")}{field("category", "Category")}</div></details>
+              <div className="space-y-2 rounded-lg border p-3 text-sm">
+                <p className="font-medium">Documents (photos of the papers)</p>
+                <p className="text-xs text-muted-foreground">Choose them now and they go into the car&apos;s Google Drive folder, and are scanned, as soon as you save the car. Or add them after saving.</p>
+                <input ref={stagedInput} type="file" accept="image/*" multiple className="sr-only" id="staged-photos" onChange={(e) => { const chosen = Array.from(e.target.files ?? []); setStaged((s) => [...s, ...chosen]); e.target.value = ""; }} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => stagedInput.current?.click()}><Camera /> Choose photos</Button>
+                  {staged.length > 0 && <span className="text-muted-foreground">{staged.length} {staged.length === 1 ? "photo" : "photos"} chosen</span>}
+                  {staged.length > 0 && <button type="button" className="text-xs underline underline-offset-2" onClick={() => setStaged([])}>Clear</button>}
+                </div>
+              </div>
+              <details className="rounded-lg border p-3 text-sm"><summary className="cursor-pointer font-medium">More about the car (optional, can be filled in later)</summary>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {field("body_type", "Body type", { select: BODY_TYPES })}
+                  {field("trans", "Transmission", { select: TRANSMISSIONS })}
+                  {field("fuel", "Fuel", { select: FUELS })}
+                  {field("mileage", "Mileage", { placeholder: "e.g. 45T KMS" })}
+                  {field("reg_owner_name", "Registered owner (on the CR)")}
+                  {field("buying_source", "Bought from", { select: BUYING_SOURCES })}
+                  {field("spare_key", "Spare key", { select: SPARE_KEYS })}
+                  {field("arrival_date", "Date it arrived", { placeholder: "today if empty" })}
+                  {field("cs_no", "CS no")}{field("mo_file", "MO file")}{field("awarded_to", "Awarded to")}{field("encumbrance", "Encumbrance (bank)")}{field("category", "Category")}
+                </div></details>
               {formError && <p className="flex gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200" role="alert"><CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />{formError}</p>}
-              <Button type="submit" disabled={saving || plate.replace(/[^A-Za-z0-9]/g, "").length < 5}>{saving ? <Loader2 className="animate-spin" /> : <CarFront />} Save the car</Button>
+              <Button type="submit" disabled={saving || plate.replace(/[^A-Za-z0-9]/g, "").length < 5}>{saving ? <Loader2 className="animate-spin" /> : <CarFront />} {staged.length ? `Save the car and upload ${staged.length} ${staged.length === 1 ? "document" : "documents"}` : "Save the car"}</Button>
             </form>
           )}
         </CardContent>
@@ -158,7 +155,7 @@ export function AddFlow({ suggestions, initialPlate = "", botScans = false }: { 
         <Card>
           <CardHeader><CardTitle>2. The documents</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <input ref={input} type="file" accept="image/*" multiple className="sr-only" id="add-photos" onChange={(e) => void send(e.target.files)} />
+            <input ref={input} type="file" accept="image/*" multiple className="sr-only" id="add-photos" onChange={(e) => void send(Array.from(e.target.files ?? []))} />
             <Button type="button" size="lg" disabled={sending} onClick={() => input.current?.click()}>{sending ? <Loader2 className="animate-spin" /> : <Camera />} Take or choose photos of the documents</Button>
             <div className="space-y-1 rounded-lg bg-muted p-3 text-xs text-muted-foreground">
               <p className="font-medium text-foreground">Add every paper you have, so the car is ready to scan:</p>

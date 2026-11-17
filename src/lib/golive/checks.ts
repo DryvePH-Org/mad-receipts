@@ -1,6 +1,6 @@
 import "server-only";
 import { parseCsv } from "@/lib/dashboard/parse";
-import { fetchText, listTabInfo } from "@/lib/dashboard/sheets";
+import { fetchText } from "@/lib/dashboard/sheets";
 import { docsBridge } from "@/lib/docs/bridge";
 import { appsScriptConfigured } from "@/lib/google/apps-script";
 import { grokbotMissing } from "@/lib/grokbot/client";
@@ -89,14 +89,33 @@ async function docsBibleDatabase(): Promise<Check[]> {
   return out;
 }
 
+/** Reads a Google page without any caching, and says plainly when Google asks for a sign-in (the sheet is no longer shared by link). */
+async function plainGet(url: string): Promise<{ ok: true; text: string } | { ok: false; locked: boolean; why: string }> {
+  const res = await fetch(url, { redirect: "follow", cache: "no-store", signal: AbortSignal.timeout(25_000) }).catch(() => null);
+  if (!res) return { ok: false, locked: false, why: "Google could not be reached." };
+  if (res.status === 401 || res.status === 403 || res.status === 404) return { ok: false, locked: true, why: `Google answered ${res.status}.` };
+  const text = await res.text();
+  if (!res.ok) return { ok: false, locked: false, why: `Google answered ${res.status}.` };
+  if (/^\s*<(!doctype|html)/i.test(text) && /accounts\.google\.com|ServiceLogin|Sign in/i.test(text.slice(0, 4000))) return { ok: false, locked: true, why: "Google asks for a sign-in." };
+  return { ok: true, text };
+}
+
 /** Has anyone typed in the old Google Sheet since the move? (Read only.) */
 async function oldSheetChanges(): Promise<Check[]> {
   const A = "Cut-over", id = process.env.DOCS_BIBLE_SHEET_ID?.trim();
   if (!id) return [info(A, "Old sheet", "not checked: DOCS_BIBLE_SHEET_ID is not set")];
-  const tab = docsTab();
-  const gid = (await listTabInfo(id)).find((t) => t.name.trim().toUpperCase() === tab.toUpperCase())?.gid;
-  if (!gid) return [fail(A, "Old sheet", `the tab "${tab}" was not found`, "Check DOCS_BIBLE_DOCS_TAB.")];
-  const rows = await csvOf(id, `export?format=csv&gid=${encodeURIComponent(gid)}`);
+  const base = `https://docs.google.com/spreadsheets/d/${id}`;
+  let gid = process.env.DOCS_BIBLE_DOCS_GID?.trim();
+  if (!gid) {
+    const page = await plainGet(`${base}/htmlview`);
+    if (!page.ok) return [page.locked ? info(A, "Old sheet is not readable by link any more", "It was locked (shared with named people only), so nobody can read it without signing in. That is what the cut-over wants. The last check before locking is the one that counts.") : warn(A, "Old sheet could not be read", page.why, "Try again in a minute.")];
+    const tabName = docsTab().toUpperCase();
+    gid = [...page.text.matchAll(/items\.push\(\{name:\s*"((?:[^"\\]|\\.)*)"[^}]*?gid:\s*"(\d+)"/g)].map((m) => ({ name: m[1], gid: m[2] })).find((t) => t.name.trim().toUpperCase() === tabName)?.gid;
+    if (!gid) return [warn(A, "Old sheet", `the tab "${docsTab()}" was not found in the sheet`, "Check DOCS_BIBLE_DOCS_TAB, or set DOCS_BIBLE_DOCS_GID (the tab's number in its address).")];
+  }
+  const csv = await plainGet(`${base}/export?format=csv&gid=${encodeURIComponent(gid)}`);
+  if (!csv.ok) return [csv.locked ? info(A, "Old sheet is not readable by link any more", "It was locked, which is what the cut-over wants.") : warn(A, "Old sheet could not be read", csv.why, "Try again in a minute.")];
+  const rows = parseCsv(csv.text);
   const db = createAdminClient() as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
   const { data } = await db.from("docs_units").select("plate_no, source_row, raw").eq("source", "import").not("source_row", "is", null).limit(5000);
   const moved: MovedRow[] = (data ?? []).map((u: { plate_no: string; source_row: number; raw: Record<string, string> | null }) => ({ plate: u.plate_no, sourceRow: u.source_row, raw: u.raw ?? {} }));

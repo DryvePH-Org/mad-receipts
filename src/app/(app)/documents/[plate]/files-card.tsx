@@ -2,8 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, ChevronRight, CircleAlert, FolderPlus, Loader2, Minus, RefreshCw, ScanText, X } from "lucide-react";
-import Link from "next/link";
+import { Check, ChevronDown, ChevronRight, CircleAlert, Loader2, Minus, RefreshCw, ScanText, X } from "lucide-react";
 import { toast } from "sonner";
 import { ResponsiveDialog } from "@/components/shared/responsive-dialog";
 import { Pill } from "@/components/shared/status-badge";
@@ -14,6 +13,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import type { Rules } from "@/lib/docs/stage";
 import { CASE_LABELS, CASES, CHOOSABLE, DOC_LABELS, type Detection, type DocType } from "@/lib/docs/types";
 import { saveCellAction } from "../../docs-bible/actions";
+import { UploadButton } from "./upload-button";
 import { rescanFileAction, editReadingAction, readNextAction, reviewFlagAction, rescanAction, setCaseAction, setFileTypesAction, updateRegisterAction } from "../actions";
 import type { CarViewData, FileView } from "./types";
 
@@ -100,7 +100,7 @@ export function PapersCard({ data, rules, readOnly = false, register, canEditReg
         <CardTitle className="flex flex-wrap items-center gap-3">Papers
           <span className="text-sm font-normal text-muted-foreground">{!data.scanned ? "Looking at the folder…" : unchecked ? "Not final until every photo is scanned" : `${inFolder} of ${needed} in the folder`}</span>
           {!readOnly && <span className="ml-auto flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" nativeButton={false} render={<Link href={`/documents/add?plate=${data.plate}`} />}><FolderPlus /> Add documents</Button>
+            <UploadButton plate={data.plate} botScans={data.botMode} />
             <Button size="sm" variant="outline" disabled={busy || !!reading || data.scanning} onClick={() => run(() => rescanAction(data.plate))}><RefreshCw /> Look for new files</Button>
             <Button size="sm" disabled={busy || !!reading || !rules.scan.allowed} onClick={() => scan(data.pending === 0)}>{reading || data.scanning ? <Loader2 className="animate-spin" /> : <ScanText />}{label}</Button>
           </span>}
@@ -145,7 +145,7 @@ export function PapersCard({ data, rules, readOnly = false, register, canEditReg
 
       <ResponsiveDialog open={open !== null && (selectedItem !== null || selectedFiles.length > 0)} onOpenChange={(o) => !o && setOpen(null)} title={selectedItem ? selectedItem.label : selectedFiles[0]?.name ?? ""} description={selectedItem ? (selectedItem.present ? "The photos that show this paper, what the bot read, and what you can correct." : "This paper is not in the folder yet.") : "What the bot read from this photo."}>
         <div className="max-h-[75svh] space-y-4 overflow-auto pr-1">
-          {selectedItem && !selectedItem.present && !readOnly && <p className="text-sm text-muted-foreground">Take a photo of it with <Link className="underline" href={`/documents/add?plate=${data.plate}`}>Add documents</Link>, or, if it is in the folder under another type, change that photo&apos;s type from the list <b>Other photos</b>.</p>}
+          {selectedItem && !selectedItem.present && !readOnly && <p className="text-sm text-muted-foreground">Add a photo of it with <b>Upload documents</b> at the top of this card, or, if it is in the folder under another type, change that photo&apos;s type from the list <b>Other photos</b>.</p>}
           {register && col && (
             <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted p-3 text-sm">
               <span className="font-medium">Docs Bible says</span>

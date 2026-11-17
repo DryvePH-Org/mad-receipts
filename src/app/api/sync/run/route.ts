@@ -10,14 +10,16 @@ export async function POST(request: Request) {
   if (!hasCronSecret(request)) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const summary = await processDueJobs();
-    // Car-document photos that are waiting to be read, a few each run. A problem here never stops the sync above.
-    const docs = await readSomePending().catch((e) => { console.error(`[docs] background read failed: ${e instanceof Error ? e.message : "unknown"}`); return null; });
+    // each part is tried on its own: one failing never stops the others (the daily copy of the Docs Bible must not wait for receipts)
+    const part = async <T>(name: string, run: () => Promise<T>): Promise<T | null> => run().catch((e) => { console.error(`[sync] ${name} failed: ${e instanceof Error ? e.message : "unknown"}`); return null; });
+    const summary = await part("receipt jobs", () => processDueJobs());
+    // Car-document photos that are waiting to be read, a few each run.
+    const docs = await part("background read", () => readSomePending());
     // the grokbot queue: send what has room, give up what the bot never answered (a job added while the server restarted is picked up here)
-    const bots = await dispatch(defaultGrokbotDeps()).catch(() => null);
-    // the Docs Bible is the only copy now: one saved CSV a day (this is a quick check when today's is already there)
-    const backup = await saveDailyCopy().catch((e) => { console.error(`[docs-bible] daily copy failed: ${e instanceof Error ? e.message : "unknown"}`); return null; });
-    return Response.json({ ...summary, docs, bots, backup });
+    const bots = await part("bot queue", () => dispatch(defaultGrokbotDeps()));
+    // the Docs Bible is the only copy now: one saved CSV a day (a quick check when today's is already there)
+    const backup = await part("daily copy", () => saveDailyCopy());
+    return Response.json({ ...(summary ?? { error: "receipt jobs failed" }), docs, bots, backup });
   } catch (err) {
     console.error(`[sync] run failed: ${err instanceof Error ? err.message : "unknown error"}`);
     return Response.json({ error: "Sync run failed" }, { status: 500 });

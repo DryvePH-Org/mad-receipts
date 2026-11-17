@@ -11,6 +11,7 @@ import { readerMode, scheduleScan } from "@/lib/docs/bot-scan";
 import { allowed } from "@/lib/docs/stage";
 import { stageFor } from "@/lib/docs/stage-server";
 import { fileCarReceipts } from "@/lib/docs/receipts-drive";
+import { unitForFolder } from "@/lib/docsbible/unit-lookup";
 import { addUnit, unitStatus, type AddUnitResult, type UnitStatus } from "@/lib/docsbible/add-unit-server";
 import { markRegisterSold, recordHandoff, setRegisterClassification, syncRegister } from "@/lib/docsbible/sync";
 import { afterReading, approveUnit, handoffUnit, returnUnit, saveDetails, setHandoffChecked, type StepResult } from "@/lib/docs/workflow";
@@ -274,7 +275,7 @@ export async function previewAddAction(plate: string): Promise<FolderPreview> {
   await requireModule("documents");
   const p = z.string().min(1).max(20).safeParse(plate);
   if (!p.success) return { state: "invalid", message: "Type the plate number." };
-  try { return await previewCarFolder(p.data, defaultDocsDeps(), (k) => inventory.getUnit(k)); }
+  try { return await previewCarFolder(p.data, defaultDocsDeps(), unitForFolder); }
   catch (err) { return { state: "invalid", message: docsErrorText(err) }; }
 }
 

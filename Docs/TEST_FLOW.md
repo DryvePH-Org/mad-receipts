@@ -105,9 +105,9 @@ Use a car that has an **AR** (a deal) in the app.
 This is the start of the workflow for every car, and the last test: a car that is not in the system at all.
 
 1. As **Documentation**: **Car documents** → **Add a car**. The page is one form: type the **new plate** at the top (there is no Check button). As you type, a line under it says by itself whether a Drive folder already exists or will be made, and whether the car is already in the Docs Bible.
-2. Fill in the car's details (make, model, year, color are needed; the rest is optional, and suggestions appear as you type) and press **Save the car**. Press it once with the form empty to see what it asks for.
+2. Fill in the four needed details (make, model, year, color; suggestions appear as you type). The rest is under **More about the car (optional)**. Under **Documents** press **Choose photos** and pick the photos of the papers, then press **Save the car and upload N documents** (without photos the button says **Save the car**). Press it once with the form empty to see what it asks for.
    - You should see: *… is in the Docs Bible. Now add its documents.* In **Car documents → Table**, the car is there with its details, vehicle status AVAILABLE and today's arrival date, and no classification yet.
-3. **2. The documents** (it appears once the car is saved): a box lists the papers to add (OR, CR, seller's ID, deed, stencil; a bank or financed car also the chattel cancellation or promissory note; a company also the secretary's papers). Choose the photos of them.
+3. Right after saving, the chosen photos go to Drive by themselves. **2. The documents** (it appears once the car is saved) lets you add more later: a box lists the papers to add (OR, CR, seller's ID, deed, stencil; a bank or financed car also the chattel cancellation or promissory note; a company also the secretary's papers). Choose the photos of them.
    - You should see: the folder is **found or created in Drive** (named like `21 Toyota Vios (ABC1234)`), each photo is filed and read, and the team gets one Telegram message when the batch ends.
 4. Open the car (**Open this car**). Scan the photos, choose the **case**, review the warnings, fill **About the car**, then press **Approve**.
 5. After approving, the car's row has its classification, its papers and the dated scan note. 
@@ -131,11 +131,11 @@ This is the start of the workflow for every car, and the last test: a car that i
 If something fails, send me the plate, the step number and what was on the screen. The history of the car (click the plate in the table) and **Admin → Sync jobs → Grokbot queue** usually show what happened.
 
 ## Adding more documents to a car later
-Open the car → the **Photos in the folder** card → **Add documents**. It opens the same page with the plate already filled in and checked, so you only add photos. (Sales do not have this button.)
+Open the car → the **Papers** card → **Upload documents**. The photos go straight into the car's Drive folder and are scanned; no other page opens. (Sales do not have this button.)
 
 ## 7. The stencil, receipts in Drive, and the old sheet (15 minutes)
 
-**Stencil.** Open a car and look at **Papers**: a **Stencil (if the car has one)** row is on every car and says *Optional* when it is not there. It never makes the car incomplete. Add a stencil photo (Add documents) and scan: the row turns *In the folder*, and the **Docs Bible says** value for it becomes **Yes** after you press *Update the Docs Bible* or approve. If its chassis number differs from the CR's, both photos get a warning.
+**Stencil.** Open a car and look at **Papers**: a **Stencil (if the car has one)** row is on every car and says *Optional* when it is not there. It never makes the car incomplete. Add a stencil photo (Upload documents) and scan: the row turns *In the folder*, and the **Docs Bible says** value for it becomes **Yes** after you press *Update the Docs Bible* or approve. If its chassis number differs from the CR's, both photos get a warning.
 
 **Receipt to Drive** (Documentation and Admin only). On a car that has an AR whose receipt is **approved**, the car page shows **Receipts in Drive**: each receipt says *Not in the folder*. Press **Put N receipts in the car's folder**: each goes into the car's Drive folder as a printable page with its proof photos. They appear in *Other photos* and are never scanned. Pressing it again does nothing new. Sales do not see this card. Nothing is filed by itself when a receipt is approved.
 

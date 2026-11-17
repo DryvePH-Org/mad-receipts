@@ -1,7 +1,7 @@
 import { getCurrentUser } from "@/lib/auth";
 import { defaultDocsDeps, docsErrorText, ensureCarFolder, uploadPhoto } from "@/lib/docs/service";
 import { readerMode } from "@/lib/docs/bot-scan";
-import { inventory } from "@/lib/inventory";
+import { unitForFolder } from "@/lib/docsbible/unit-lookup";
 
 const MAX_BYTES = 6 * 1024 * 1024;
 const ALLOWED = /^image\/(jpeg|png|webp)$/;
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   // The staff are told once when the whole batch has been read (finishAddAction), not after every photo.
   const deps = { ...defaultDocsDeps(), after: undefined };
   try {
-    const folder = await ensureCarFolder(plate, deps, (p) => inventory.getUnit(p));
+    const folder = await ensureCarFolder(plate, deps, unitForFolder);
     const result = await uploadPhoto({ plate: folder.plate, actor: user.id, bytes: new Uint8Array(await file.arrayBuffer()), mime: file.type, label: String(form.get("label") ?? "").replace(/[^\w-]/g, "").slice(0, 40) || "doc", deferRead: readerMode() === "grokbot" }, deps); // with the grokbot the batch is scanned together when it ends
     console.info(`[docs] add status=${result.readStatus}`);
     return Response.json({ result, folder: { name: folder.folderName, created: folder.created, location: folder.location } });
