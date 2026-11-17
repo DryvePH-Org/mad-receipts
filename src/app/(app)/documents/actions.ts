@@ -10,6 +10,7 @@ import { inventory } from "@/lib/inventory";
 import { readerMode, scheduleScan } from "@/lib/docs/bot-scan";
 import { allowed } from "@/lib/docs/stage";
 import { stageFor } from "@/lib/docs/stage-server";
+import { addUnit, unitStatus, type AddUnitResult, type UnitStatus } from "@/lib/docsbible/add-unit-server";
 import { recordHandoff, syncRegister } from "@/lib/docsbible/sync";
 import { afterReading, approveUnit, handoffUnit, returnUnit, saveDetails, setHandoffChecked, type StepResult } from "@/lib/docs/workflow";
 import { normalizePlate } from "@/lib/rules/plate";
@@ -256,6 +257,30 @@ export async function previewAddAction(plate: string): Promise<FolderPreview> {
   if (!p.success) return { state: "invalid", message: "Type the plate number." };
   try { return await previewCarFolder(p.data, defaultDocsDeps(), (k) => inventory.getUnit(k)); }
   catch (err) { return { state: "invalid", message: docsErrorText(err) }; }
+}
+
+/** Is this plate already in the Docs Bible? (Asked when the plate is checked on the Add a car page.) */
+export async function unitStatusAction(plate: string): Promise<UnitStatus> {
+  await requireModule("documents");
+  const p = z.string().min(1).max(20).safeParse(plate);
+  return p.success ? unitStatus(p.data) : { exists: false };
+}
+
+const detailsSchema = z.object({
+  make: z.string().max(120), model_variant: z.string().max(160), year_model: z.string().max(10), color: z.string().max(120),
+  body_type: z.string().max(60).optional(), trans: z.string().max(10).optional(), fuel: z.string().max(40).optional(), mileage: z.string().max(40).optional(), category: z.string().max(60).optional(),
+  reg_owner_name: z.string().max(160).optional(), buying_source: z.string().max(40).optional(), spare_key: z.string().max(40).optional(), cs_no: z.string().max(40).optional(),
+  mo_file: z.string().max(120).optional(), awarded_to: z.string().max(120).optional(), encumbrance: z.string().max(120).optional(), arrival_date: z.string().max(20).optional(),
+}).strict();
+
+/** The car's details are saved: a new car of the Docs Bible. Documentation and Admin. */
+export async function addUnitAction(plate: string, details: unknown, secondArrival: boolean): Promise<AddUnitResult> {
+  const user = await requireModule("documents");
+  const p = z.string().min(1).max(20).safeParse(plate), d = detailsSchema.safeParse(details);
+  if (!p.success || !d.success) return { ok: false, message: "Some details are too long or missing." };
+  const r = await addUnit(p.data, d.data, user.id, !!secondArrival);
+  if (r.ok) revalidatePath("/documents", "layout");
+  return r;
 }
 
 /** The batch is in: the staff get one message that the scan is finished. */

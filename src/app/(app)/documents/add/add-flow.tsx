@@ -3,32 +3,43 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import imageCompression from "browser-image-compression";
-import { Camera, CircleAlert, FolderPlus, FolderOpen, Loader2, Search } from "lucide-react";
+import { Camera, CircleAlert, FolderPlus, FolderOpen, Loader2, Search, CarFront, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DOC_LABELS, type DocType } from "@/lib/docs/types";
 import type { FolderPreview } from "@/lib/docs/service";
-import { finishAddAction, previewAddAction } from "../actions";
+import { BODY_TYPES, BUYING_SOURCES, FUELS, REQUIRED_DETAILS, SPARE_KEYS, TRANSMISSIONS, type UnitDetailsInput } from "@/lib/docsbible/add-unit";
+import type { UnitStatus } from "@/lib/docsbible/add-unit-server";
+import { NativeSelect } from "@/components/ui/native-select";
+import { addUnitAction, finishAddAction, previewAddAction, unitStatusAction } from "../actions";
 
 interface Photo { id: number; name: string; state: "sending" | "done" | "error"; types: string[]; flags: string[]; message?: string }
 
 /** Plate → what will happen to the folder → photos. Each photo is filed and read; when the batch ends the team is told once. */
-export function AddFlow() {
+export function AddFlow({ suggestions }: { suggestions: { makes: string[]; colors: string[]; models: string[] } }) {
   const [plate, setPlate] = useState("");
   const [preview, setPreview] = useState<FolderPreview | null>(null);
   const [looking, setLooking] = useState(false);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [sending, setSending] = useState(false);
   const [finished, setFinished] = useState<string | null>(null);
+  const [unit, setUnit] = useState<UnitStatus | null>(null);
+  const [again, setAgain] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
+  const [details, setDetails] = useState<UnitDetailsInput>({ make: "", model_variant: "", year_model: "", color: "", category: "NORMAL" });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const next = useRef(0);
   const input = useRef<HTMLInputElement>(null);
 
   async function check() {
     if (plate.replace(/[^A-Za-z0-9]/g, "").length < 5) { setPreview({ state: "invalid", message: "Type the whole plate number, like NKF 4771." }); return; }
-    setLooking(true); setFinished(null); setPhotos([]);
-    setPreview(await previewAddAction(plate));
+    setLooking(true); setFinished(null); setPhotos([]); setSaved(null); setAgain(false); setErrors({}); setFormError(null);
+    const [folder, status] = await Promise.all([previewAddAction(plate), unitStatusAction(plate)]);
+    setPreview(folder); setUnit(status);
     setLooking(false);
   }
 
@@ -62,6 +73,28 @@ export function AddFlow() {
   }
 
   const ready = preview && (preview.state === "existing" || preview.state === "new");
+  const inBible = !!unit && (unit.exists && !again || !!saved);
+  const set = (k: keyof UnitDetailsInput, v: string) => { setDetails((d) => ({ ...d, [k]: v })); setErrors((e) => { const { [k]: _gone, ...rest } = e; void _gone; return rest; }); };
+
+  async function saveUnit() {
+    setSaving(true); setFormError(null);
+    const r = await addUnitAction(plate, details, again);
+    setSaving(false);
+    if (r.ok) { setSaved(r.plate); return; }
+    setErrors(r.errors ?? {}); setFormError(r.message);
+  }
+  const field = (k: keyof UnitDetailsInput, label: string, opts: { list?: readonly string[]; listId?: string; placeholder?: string; select?: readonly string[] } = {}) => {
+    const required = REQUIRED_DETAILS.some((r) => r.key === k);
+    return (
+      <div className="space-y-1.5">
+        <Label htmlFor={`u-${k}`}>{label}{required ? " *" : ""}</Label>
+        {opts.select ? <NativeSelect id={`u-${k}`} value={details[k] ?? ""} onChange={(e) => set(k, e.target.value)}><option value="">Choose…</option>{opts.select.map((o) => <option key={o} value={o}>{o}</option>)}</NativeSelect>
+          : <Input id={`u-${k}`} value={details[k] ?? ""} list={opts.listId} placeholder={opts.placeholder} autoComplete="off" onChange={(e) => set(k, e.target.value)} aria-invalid={!!errors[k]} />}
+        {opts.listId && opts.list && <datalist id={opts.listId}>{opts.list.map((o) => <option key={o} value={o} />)}</datalist>}
+        {errors[k] && <p className="text-xs text-destructive">{errors[k]}</p>}
+      </div>
+    );
+  };
   return (
     <div className="space-y-5">
       <Card>
@@ -69,7 +102,7 @@ export function AddFlow() {
         <CardContent className="space-y-3">
           <div className="flex flex-wrap items-end gap-2">
             <div className="w-full max-w-xs space-y-1.5"><Label htmlFor="add-plate">Plate number</Label>
-              <Input id="add-plate" value={plate} autoComplete="off" autoCapitalize="characters" placeholder="e.g. NKF 4771" onChange={(e) => { setPlate(e.target.value.toUpperCase()); setPreview(null); setFinished(null); }} onKeyDown={(e) => { if (e.key === "Enter") void check(); }} /></div>
+              <Input id="add-plate" value={plate} autoComplete="off" autoCapitalize="characters" placeholder="e.g. NKF 4771" onChange={(e) => { setPlate(e.target.value.toUpperCase()); setPreview(null); setUnit(null); setSaved(null); setFinished(null); }} onKeyDown={(e) => { if (e.key === "Enter") void check(); }} /></div>
             <Button type="button" disabled={looking || sending} onClick={check}>{looking ? <Loader2 className="animate-spin" /> : <Search />} Check</Button>
           </div>
           {preview && (preview.state === "invalid" || preview.state === "several") && <p className="flex gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200"><CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />{preview.message}</p>}
@@ -90,9 +123,48 @@ export function AddFlow() {
         </CardContent>
       </Card>
 
-      {ready && (
+      {unit && preview && preview.state !== "invalid" && preview.state !== "several" && (
         <Card>
-          <CardHeader><CardTitle>2. The photos</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="flex items-center gap-2"><CarFront className="size-5" aria-hidden /> 2. The car</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            {saved ? (
+              <p className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200"><Check className="size-4" aria-hidden /> {details.year_model.slice(-2)} {details.make} {details.model_variant} ({saved}) is in the Docs Bible. Now add its photos.</p>
+            ) : unit.exists && !again ? (
+              <div className="space-y-2 text-sm">
+                <p className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200"><Check className="size-4" aria-hidden /> This car is already in the Docs Bible: {unit.name}.</p>
+                <p className="text-muted-foreground">Add its photos below, or <button type="button" className="underline underline-offset-2" onClick={() => setAgain(true)}>this car arrived again: add it as a new arrival</button>.</p>
+              </div>
+            ) : (
+              <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void saveUnit(); }}>
+                <p className="text-sm text-muted-foreground">{again ? "A second arrival of this plate: the earlier one is kept." : "This plate is not in the Docs Bible yet. Type what you know about the car; * is needed. You can add the rest later."}</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {field("make", "Make", { listId: "dl-make", list: suggestions.makes, placeholder: "e.g. TOYOTA" })}
+                  {field("model_variant", "Model", { listId: "dl-model", list: suggestions.models, placeholder: "e.g. VIOS 1.3 E" })}
+                  {field("year_model", "Year", { placeholder: "2019 or 19" })}
+                  {field("color", "Color", { listId: "dl-color", list: suggestions.colors, placeholder: "e.g. WHITE" })}
+                  {field("body_type", "Body type", { select: BODY_TYPES })}
+                  {field("trans", "Transmission", { select: TRANSMISSIONS })}
+                  {field("fuel", "Fuel", { select: FUELS })}
+                  {field("mileage", "Mileage", { placeholder: "e.g. 45T KMS" })}
+                  {field("reg_owner_name", "Registered owner (on the CR)")}
+                  {field("buying_source", "Bought from", { select: BUYING_SOURCES })}
+                  {field("spare_key", "Spare key", { select: SPARE_KEYS })}
+                  {field("arrival_date", "Date it arrived", { placeholder: "today if empty" })}
+                </div>
+                <details className="rounded-lg border p-3 text-sm"><summary className="cursor-pointer font-medium">More details (optional)</summary>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">{field("cs_no", "CS no")}{field("mo_file", "MO file")}{field("awarded_to", "Awarded to")}{field("encumbrance", "Encumbrance (bank)")}{field("category", "Category")}</div></details>
+                {formError && <p className="flex gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200" role="alert"><CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />{formError}</p>}
+                <Button type="submit" disabled={saving}>{saving ? <Loader2 className="animate-spin" /> : <CarFront />} Save the car</Button>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {ready && !inBible && unit && <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">Save the car first, then add its photos.</p>}
+      {ready && inBible && (
+        <Card>
+          <CardHeader><CardTitle>3. The photos</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <input ref={input} type="file" accept="image/*" multiple className="sr-only" id="add-photos" onChange={(e) => void send(e.target.files)} />
             <Button type="button" size="lg" disabled={sending} onClick={() => input.current?.click()}>{sending ? <Loader2 className="animate-spin" /> : <Camera />} Take or choose photos</Button>

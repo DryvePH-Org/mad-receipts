@@ -79,21 +79,24 @@ Use a car that has an **AR** (a deal) in the app.
 
 ## 6. A brand new car, with its documents and information (20 minutes)
 
-This is the last test: a car that is not in the system at all.
+This is the start of the workflow for every car, and the last test: a car that is not in the system at all.
 
-1. As **Documentation**: **Car documents** → **Add documents**. Type the **new plate** and choose the photos of its papers (OR, CR, ID, deed; add the stencil and any bank papers).
-   - You should see: the folder is **found or created in Drive** (named like `21 Toyota Vios (ABC1234)`), the photos are filed in it, and the team gets one Telegram message when the batch ends.
-2. Open the car from **Car documents** (search the plate). It is in the list with the stage **Needs scan** (it has a folder, it is not yet in the Docs Bible).
-3. The **Docs Bible** card says *This car is not in the Docs Bible yet*. Scan the photos, choose the **case**, review the warnings, fill **About the car**, then press **Approve**.
-4. After approving, the car **has its own row in the Docs Bible**: classification and papers filled, with the dated scan note. 
-5. The car's **details** (make, model, year, color, mileage, owner name and so on) are blank at this point. As **Admin**, open the car and fill them in the **Docs Bible** card ("The car" section), or in the table. *(There is no separate "Add unit" form yet: this is the one place where typing is still manual. Tell me how awkward it feels: it is the next thing to build.)*
+1. As **Documentation**: **Car documents** → **Add a car**. Type the **new plate** and press **Check**.
+   - You should see: **1. Which car?** says whether a Drive folder exists or will be made, and **2. The car** says *This plate is not in the Docs Bible yet*. The photos step says *Save the car first*.
+2. Press **Save the car** with the form empty. It tells you what is missing (make, model, year, color). Fill them (suggestions appear as you type), plus whatever else you know (body type, transmission, fuel, mileage, registered owner, bought from, spare key, arrival date; **More details** has the rest). Press **Save the car**.
+   - You should see: *… is in the Docs Bible. Now add its photos.* In **Car documents → Table**, the car is there with its details, vehicle status AVAILABLE and today's arrival date, and no classification yet.
+3. **3. The photos**: choose the photos of its papers (OR, CR, ID, deed; add the stencil and any bank papers).
+   - You should see: the folder is **found or created in Drive** (named like `21 Toyota Vios (ABC1234)`), each photo is filed and read, and the team gets one Telegram message when the batch ends.
+4. Open the car (**Open this car**). Scan the photos, choose the **case**, review the warnings, fill **About the car**, then press **Approve**.
+5. After approving, the car's row has its classification, its papers and the dated scan note. 
 6. Check it everywhere:
-   - **Table**: the new car is there, complete.
+   - **Table**: the new car is there, complete, with its details.
    - **Download as CSV**: the new row is in the file, in the old sheet's columns.
    - **History** of the car: from "created" to every change.
-   - As **Sales**: the car shows in the list and in Car status with its documents status.
+   - As **Sales**: the car shows in the list and in Car status with its documents status. Sales cannot open **Add a car**.
+7. Try the same plate again in **Add a car**: it says the car is **already in the Docs Bible** and does not add it twice. Press *this car arrived again* only for a car that really came back: it adds a second row and keeps the first (and the review list will mention the two).
 
-**Proves:** a new car can be taken from nothing to a complete, approved, visible record.
+**Proves:** a new car can be taken from nothing to a complete, approved, visible record, with its details typed once, at the start.
 
 ---
 

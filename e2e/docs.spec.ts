@@ -173,7 +173,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
 test("Documentation adds photos by typing only the plate: the folder is made, the photos are read", async ({ browser }) => {
   const docs = await as(browser, "docs");
   await docs.goto("/documents/add");
-  await expect(docs.getByRole("heading", { name: "Add documents" })).toBeVisible();
+  await expect(docs.getByRole("heading", { name: "Add a car" })).toBeVisible();
   // a plate with no folder: it says a new one will be made
   await docs.getByLabel("Plate number").fill("zzt 7010");
   await docs.getByRole("button", { name: "Check" }).click();
@@ -186,6 +186,17 @@ test("Documentation adds photos by typing only the plate: the folder is made, th
   // one photo through the screen
   await docs.getByLabel("Plate number").fill("ZZT 7010");
   await docs.getByRole("button", { name: "Check" }).click();
+  // the car is added to the Docs Bible first: the details are needed, and the photos wait for them
+  await expect(docs.getByText("This plate is not in the Docs Bible yet")).toBeVisible();
+  await expect(docs.getByText("Save the car first, then add its photos.")).toBeVisible();
+  await docs.getByRole("button", { name: "Save the car" }).click();
+  await expect(docs.getByText("Type the make.")).toBeVisible();
+  await docs.getByLabel("Make *").fill("toyota"); await docs.getByLabel("Model *").fill("vios 1.3 e");
+  await docs.getByLabel("Year *").fill("2019"); await docs.getByLabel("Color *").fill("white");
+  await docs.getByRole("button", { name: "Save the car" }).click();
+  await expect(docs.getByText(/is in the Docs Bible\. Now add its photos/)).toBeVisible();
+  const row = await adminClient().from("docs_units_current" as never).select("make, year_model, color, source, vehicle_status" as never).eq("plate_no", "ZZT7010").single() as unknown as { data: Record<string, string> };
+  expect(row.data).toMatchObject({ make: "TOYOTA", year_model: "19", color: "WHITE", source: "app", vehicle_status: "AVAILABLE" });
   await docs.locator("#add-photos").setInputFiles({ name: "x.jpg", mimeType: "image/jpeg", buffer: JPEG });
   await expect(docs.getByText("Saved ✓")).toBeVisible({ timeout: 30_000 });
   await expect(docs.getByText(/The team has been told/)).toBeVisible({ timeout: 30_000 });

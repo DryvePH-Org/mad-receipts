@@ -82,3 +82,24 @@ test("an edit of a cell somebody else changed is refused, not overwritten", asyn
   expect((await db().from("docs_units").select("cr").eq("plate_no", PLATE).single()).data.cr).toBe("To follow");
   await docs.close();
 });
+
+test("Add a car: a plate that is already in the Docs Bible is not added twice, unless the car arrived again", async ({ browser }) => {
+  const docs = await as(browser, "docs");
+  await docs.goto("/documents/add");
+  await docs.getByLabel("Plate number").fill("ZZT 9001");
+  await docs.getByRole("button", { name: "Check" }).click();
+  await expect(docs.getByText(/This car is already in the Docs Bible/)).toBeVisible();
+  await expect(docs.getByRole("button", { name: "Save the car" })).toHaveCount(0);
+  // a second arrival keeps the first row
+  await docs.getByRole("button", { name: /arrived again/ }).click();
+  await docs.getByLabel("Make *").fill("honda"); await docs.getByLabel("Model *").fill("city"); await docs.getByLabel("Year *").fill("21"); await docs.getByLabel("Color *").fill("grey");
+  await docs.getByRole("button", { name: "Save the car" }).click();
+  await expect(docs.getByText(/is in the Docs Bible\. Now add its photos/)).toBeVisible();
+  const rows = await db().from("docs_units").select("make").eq("plate_no", PLATE);
+  expect((rows.data as { make: string }[]).map((r) => r.make).sort()).toEqual(["HONDA", "TESTMAKE"]);
+  // Sales cannot add cars
+  const sales = await as(browser, "sales");
+  await sales.goto("/documents/add");
+  await expect(sales.getByText("You don't have access to this page.")).toBeVisible();
+  await docs.close(); await sales.close();
+});
