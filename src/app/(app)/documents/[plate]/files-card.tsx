@@ -58,6 +58,7 @@ export function FilesCard({ data, rules }: { data: CarViewData; rules: Rules }) 
             <Button size="sm" disabled={busy || !!reading || !rules.scan.allowed} onClick={() => scan(data.pending === 0)}>{reading || data.scanning ? <Loader2 className="animate-spin" /> : <ScanText />}{label}</Button>
           </span>
         </CardTitle>
+        {data.lastScan && !data.scanning && <p className="text-xs text-muted-foreground" role="status">Last scan: {new Date(data.lastScan.at).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Manila" })} · {data.lastScan.photos} {data.lastScan.photos === 1 ? "photo" : "photos"} · {data.lastScan.ok ? `finished${data.lastScan.seconds !== null ? ` in ${data.lastScan.seconds >= 60 ? `${Math.floor(data.lastScan.seconds / 60)} min ${data.lastScan.seconds % 60} s` : `${data.lastScan.seconds} s`}` : ""}` : `failed${data.lastScan.error ? `: ${data.lastScan.error}` : ""}`}</p>}
         {!rules.scan.allowed && rules.scan.reason && data.files.length > 0 && <p className="text-xs text-muted-foreground">{rules.scan.reason}</p>}
       </CardHeader>
       <CardContent>

@@ -45,9 +45,10 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
   const key = car.folder.plate_no;
   const admin = createAdminClient();
 
-  const [flow, settings, botWork, scanning, input] = await Promise.all([
+  const [flow, settings, botWork, scanning, input, lastScanRow] = await Promise.all([
     loadWorkflow(key).catch(() => ({ workflow: EMPTY_WORKFLOW, details: cleanDetails({}), detailsSaved: false })),
     getSettings(), workForPlate(key).catch(() => []), isScanning(key).catch(() => false), loadStageInput(key, admin).catch(() => null),
+    admin.from("grokbot_jobs").select("status, created_at, completed_at, request, error").eq("plate_no", key).eq("action", "docs_scan").in("status", ["done", "failed"]).order("created_at", { ascending: false }).limit(1).maybeSingle().then((r) => r.data, () => null),
   ]);
   const linked = car.folder.match_status === "linked" && !!car.folder.folder_id;
   const stage = deriveStage(input ?? { linked, location: car.folder.location as "available" | "sold", filesTotal: car.files.length, pending: car.pending, failed: 0, scanning, flaggedFiles: 0, missingBefore: 0, missingSold: 0, hasDeal: !!deal, approved: !!flow.workflow.approvedAt, caseChosen: car.folder.case_source === "manual", handoffAt: flow.workflow.handoffAt, returnedAt: flow.workflow.handoffReturnedAt, receiver: settings.print.transmittalReceiver || "the receiver" });
@@ -70,6 +71,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
       };
     }),
     botMode: readerMode() === "grokbot", scanning,
+    lastScan: lastScanRow ? { at: lastScanRow.completed_at ?? lastScanRow.created_at, seconds: lastScanRow.completed_at ? Math.round((Date.parse(lastScanRow.completed_at) - Date.parse(lastScanRow.created_at)) / 1000) : null, photos: Array.isArray((lastScanRow.request as { files?: unknown[] } | null)?.files) ? ((lastScanRow.request as { files: unknown[] }).files.length) : 0, ok: lastScanRow.status === "done", error: lastScanRow.error } : null,
     botWork: botWork.map((w) => ({ label: workLabel(w.action, w.status, w.position), waiting: w.status === "queued" })),
     scanned: !!car.folder.scanned_at, pending: car.pending, failed: car.files.filter((f) => f.read_status === "failed").length, statusLabel: car.status.label, statusKey: car.status.key,
     isAdmin: user.role === "admin",
@@ -115,7 +117,7 @@ async function RegisterOnly({ plate, role, canAct }: { plate: string; role: "sal
   if (!register) notFound();
   const data: CarViewData = {
     plate: key, plateDisplay: register.values.plate_display ?? key, name: [register.values.year_model, register.values.make, register.values.model_variant].filter(Boolean).join(" ") || key, location: "available", match: "none", folderUrl: null, candidates: [],
-    caseType: "clean", suggestedCase: "clean", caseReason: "", caseSource: "auto", deal: null, items: [], files: [], botMode: false, scanning: false, botWork: [], scanned: false, pending: 0, failed: 0, statusLabel: "No folder", statusKey: "unlinked", isAdmin: role === "admin",
+    caseType: "clean", suggestedCase: "clean", caseReason: "", caseSource: "auto", deal: null, items: [], files: [], botMode: false, scanning: false, lastScan: null, botWork: [], scanned: false, pending: 0, failed: 0, statusLabel: "No folder", statusKey: "unlinked", isAdmin: role === "admin",
   };
   return (
     <div className="space-y-6">

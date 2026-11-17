@@ -20,6 +20,8 @@ export interface CarViewData {
   botMode: boolean; scanning: boolean;
   /** what the bots are doing or waiting to do for this car, with the place in line */
   botWork: { label: string; waiting: boolean }[];
+  /** the last scan the bot finished for this car: when, how long, how many photos, and how it ended */
+  lastScan: { at: string; seconds: number | null; photos: number; ok: boolean; error: string | null } | null;
   scanned: boolean; pending: number; failed: number; statusLabel: string; statusKey: string;
   isAdmin: boolean;
 }
