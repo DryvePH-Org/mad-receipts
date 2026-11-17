@@ -26,7 +26,6 @@ export function ReplayPanel() {
   const [running, run] = useTransition();
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [logRows, setLogRows] = useState(true);
-  const [drive, setDrive] = useState(true);
   const [typed, setTyped] = useState("");
 
   function openIt() {
@@ -40,11 +39,11 @@ export function ReplayPanel() {
     });
   }
   const toggle = (plate: string) => setPicked((s) => { const n = new Set(s); if (n.has(plate)) n.delete(plate); else n.add(plate); return n; });
-  const canRun = plan && typed.trim() === "REPLAY" && (picked.size > 0 || logRows || drive);
+  const canRun = plan && typed.trim() === "REPLAY" && (picked.size > 0 || logRows);
 
   function send() {
     run(async () => {
-      const r = await runReplayAction({ plates: [...picked], logRows, drive }, typed);
+      const r = await runReplayAction({ plates: [...picked], logRows }, typed);
       if (r.ok) { toast.success(r.message); setOpen(false); } else setError(r.error);
     });
   }
@@ -60,13 +59,12 @@ export function ReplayPanel() {
           <div className="space-y-4">
             <div className="rounded-lg bg-muted p-3 text-sm">
               <p className="font-medium">Connected right now (check these are the LIVE ones)</p>
-              <p className="text-muted-foreground">Inventory sheet <b className="font-mono">{plan.connected.inventory}</b> · Log sheet <b className="font-mono">{plan.connected.logSheet}</b> · Drive folder <b className="font-mono">{plan.connected.driveFolder}</b></p>
+              <p className="text-muted-foreground">Inventory sheet <b className="font-mono">{plan.connected.inventory}</b> · Log sheet <b className="font-mono">{plan.connected.logSheet}</b></p>
             </div>
 
             {plan.logSheetProblem && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100"><b className="font-medium">Log sheet: not safe to write.</b> {plan.logSheetProblem}</p>}
             <div className="space-y-2 text-sm">
               <label className="flex cursor-pointer items-start gap-2"><input type="checkbox" className="mt-1" disabled={!!plan.logSheetProblem} checked={logRows} onChange={(e) => setLogRows(e.target.checked)} /><span><b className="font-medium">Add the {plan.approvedReceipts} approved receipts to the log sheet.</b> Safe to repeat: rows are matched by receipt number.</span></label>
-              <label className="flex cursor-pointer items-start gap-2"><input type="checkbox" className="mt-1" checked={drive} onChange={(e) => setDrive(e.target.checked)} /><span><b className="font-medium">File the receipts and proofs in the Drive folder.</b> Safe to repeat: a file that is already there is skipped.</span></label>
               <p className="text-xs text-muted-foreground">Telegram is never replayed, so old receipts are not posted to the group.</p>
             </div>
 
@@ -97,7 +95,7 @@ export function ReplayPanel() {
             <div className="space-y-1.5"><Label htmlFor="replay-word">Type REPLAY to confirm</Label><Input id="replay-word" value={typed} placeholder="REPLAY" autoComplete="off" onChange={(e) => setTyped(e.target.value)} /></div>
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button variant="outline" disabled={running} onClick={() => setOpen(false)}>Cancel</Button>
-              <Button disabled={!canRun || running} onClick={send}>{running ? "Sending…" : `Send ${picked.size} inventory ${picked.size === 1 ? "note" : "notes"}${logRows || drive ? " and the rest" : ""}`}</Button>
+              <Button disabled={!canRun || running} onClick={send}>{running ? "Sending…" : `Send ${picked.size} inventory ${picked.size === 1 ? "note" : "notes"}${logRows ? " and the rest" : ""}`}</Button>
             </div>
           </div>
         )}

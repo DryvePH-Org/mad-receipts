@@ -1,5 +1,4 @@
 import "server-only";
-import type { DriveClient } from "./drive";
 import { assertSheetsWritable } from "./freeze";
 import type { CellValue, SheetsClient } from "./sheets";
 
@@ -66,19 +65,6 @@ export function createAppsScriptSheetsClient(): SheetsClient {
     async appendValues(spreadsheetId, range, values: CellValue[][]) {
       await appsScriptCall("sheets.append", { spreadsheetId, range, values });
     },
-  };
-}
-
-export function createAppsScriptDriveClient(): DriveClient {
-  return {
-    findFile: (folderId, name) => appsScriptCall<string | null>("drive.find", { folderId, name }),
-    uploadFile: (folderId, name, bytes, mimeType) =>
-      appsScriptCall<string>("drive.upload", {
-        folderId,
-        name,
-        mimeType,
-        base64: Buffer.from(bytes).toString("base64"),
-      }),
   };
 }
 

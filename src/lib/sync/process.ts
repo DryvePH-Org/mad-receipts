@@ -1,6 +1,5 @@
 import "server-only";
 import { linkFolder } from "@/lib/docs/service";
-import { createDriveClient } from "@/lib/google/drive";
 import { assertSheetsWritable, sheetsFrozen } from "@/lib/google/freeze";
 import { createSheetsClient } from "@/lib/google/sheets";
 import { inventory } from "@/lib/inventory";
@@ -32,8 +31,8 @@ function memo<T>(make: () => T): () => T {
 /** Real clients, created on first use so one missing config only fails its own target. */
 export function defaultSyncDeps(): SyncDeps {
   return {
-    sheets: memo(createSheetsClient), drive: memo(createDriveClient), telegram: memo(createTelegramClient), inventory,
-    config: { driveFolderId: process.env.GOOGLE_DRIVE_FOLDER_ID, logSheetId: process.env.GOOGLE_SHEET_ID, driveUpload: process.env.SYNC_DRIVE_UPLOAD === "1" }, // off unless SYNC_DRIVE_UPLOAD=1
+    sheets: memo(createSheetsClient), telegram: memo(createTelegramClient), inventory,
+    config: { logSheetId: process.env.GOOGLE_SHEET_ID },
     docsLink: (plate, dealId) => linkFolder(plate, dealId),
   };
 }
@@ -68,12 +67,7 @@ export async function processDueJobs(options: { receiptId?: string; limit?: numb
       // Frozen: a sheet job is left exactly as it is (no attempt counted, no error). It comes due again on its own and runs once the freeze is lifted.
       if (frozen && WRITES_TO_SHEETS.has(job.target as SyncTarget)) { summary.held = (summary.held ?? 0) + 1; continue; }
       try {
-        const result = await syncTargets[job.target as SyncTarget]({ ...ctx, event: job.event as SyncEvent }, deps);
-        if (result?.driveFileId) {
-          const { error: saveError } = await admin.from("receipts").update({ drive_file_id: result.driveFileId }).eq("id", receiptId);
-          if (saveError) throw new Error(`Filed, but could not save the Drive file id: ${saveError.message}`);
-          ctx.receipt.drive_file_id = result.driveFileId; // so the Sheets row gets the link
-        }
+        await syncTargets[job.target as SyncTarget]({ ...ctx, event: job.event as SyncEvent }, deps);
         await markDone(admin, job);
         summary.done++;
       } catch (err) {

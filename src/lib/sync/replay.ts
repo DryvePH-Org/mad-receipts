@@ -74,14 +74,12 @@ export interface ReplayRequest {
   plates: string[];
   /** add every approved receipt to the log sheet */
   logRows: boolean;
-  /** file every approved receipt and its proofs in the Drive folder */
-  drive: boolean;
 }
 
 /**
  * Sends the chosen things to the live sheets. The inventory is written only for the ticked cars, and only if the live sheet
- * still says what it said in the preview (a person may have changed it in between). Log rows and Drive files are queued as
- * ordinary sync jobs: they are matched by receipt number and file name, so running this twice adds nothing twice.
+ * still says what it said in the preview (a person may have changed it in between). Log rows are queued as ordinary sync jobs:
+ * they are matched by receipt number, so running this twice adds nothing twice.
  */
 export async function runReplay(admin: Admin, inv: InventoryAdapter, req: ReplayRequest): Promise<{ written: number; skipped: string[]; queued: number }> {
   assertSheetsWritable();
@@ -96,12 +94,10 @@ export async function runReplay(admin: Admin, inv: InventoryAdapter, req: Replay
     written++;
   }
   let queued = 0;
-  const targets = [...(req.logRows ? ["sheets"] : []), ...(req.drive ? ["drive"] : [])];
+  const targets = req.logRows ? ["sheets"] : [];
   if (targets.length) {
     const { data: receipts } = await admin.from("receipts").select("id").eq("status", "approved").order("created_at");
     const ids = (receipts ?? []).map((r) => r.id);
-    // a receipt already filed in the old (test) folder must be filed again in the live one
-    if (req.drive && ids.length) await admin.from("receipts").update({ drive_file_id: null }).in("id", ids);
     for (const id of ids) {
       const { error } = await admin.rpc("queue_sync", { p_receipt_id: id, p_event: "confirm", p_targets: targets });
       if (!error) queued += targets.length;

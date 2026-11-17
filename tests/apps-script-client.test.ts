@@ -1,11 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   appsScriptConfigured,
-  createAppsScriptDriveClient,
   createAppsScriptSheetsClient,
   pingAppsScript,
 } from "@/lib/google/apps-script";
-import { createDriveClient } from "@/lib/google/drive";
 import { createSheetsClient } from "@/lib/google/sheets";
 import { createSheetInventory } from "@/lib/inventory/sheet";
 
@@ -69,19 +67,6 @@ describe("apps script clients", () => {
     expect(JSON.parse(fetchMock.mock.calls[1][1].body).values).toEqual([["2556", 50000]]);
   });
 
-  it("sends photos as base64 and returns the Drive file id", async () => {
-    fetchMock.mockResolvedValue(reply({ ok: true, data: "file-1" }));
-    const id = await createAppsScriptDriveClient().uploadFile("folder-1", "2556_NKF4771.jpg", new Uint8Array([1, 2, 3]), "image/jpeg");
-    expect(id).toBe("file-1");
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
-      action: "drive.upload",
-      folderId: "folder-1",
-      name: "2556_NKF4771.jpg",
-      mimeType: "image/jpeg",
-      base64: "AQID",
-    });
-  });
-
   it("turns script errors into errors with a code, never leaking the URL or secret", async () => {
     fetchMock.mockResolvedValue(reply({ ok: false, code: 403, message: "That file is not allowed." }));
     await expect(createAppsScriptSheetsClient().getValues("x", "'T'")).rejects.toMatchObject({
@@ -101,7 +86,6 @@ describe("apps script clients", () => {
 
   it("is picked automatically by the Google clients", () => {
     expect(() => createSheetsClient()).not.toThrow();
-    expect(() => createDriveClient()).not.toThrow();
     delete process.env.APPS_SCRIPT_URL;
     expect(() => createSheetsClient()).toThrow(/Google is not connected/);
   });

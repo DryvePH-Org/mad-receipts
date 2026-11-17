@@ -46,7 +46,6 @@ function settings(): Check[] {
   out.push(info(A, "Who reads the photos", (e.DOCS_READER ?? "").toLowerCase() === "grokbot" ? "the grokbot scanner" : "a picture API (Groq or Grok)"));
   const w = (e.SHEETS_WRITES ?? "").trim().toLowerCase();
   out.push(w === "on" ? warn(A, "Writing to Google Sheets", "ON everywhere (the receipts log and the inventory status too)", "Be sure those sheets are the right ones.") : w === "docs" ? info(A, "Writing to Google Sheets", "only the Docs Bible and the pricelist through the sheet editor; the receipts log and the inventory status stay frozen") : info(A, "Writing to Google Sheets", "frozen: nothing is written to any sheet"));
-  out.push(e.SYNC_DRIVE_UPLOAD === "1" ? info(A, "Approved ARs in Drive", "filed automatically") : info(A, "Approved ARs in Drive", "not filed (Sales uploads the signed AR)"));
   out.push(e.TELEGRAM_BOT_TOKEN && (e.TELEGRAM_DOCS_CHAT_ID || e.TELEGRAM_CHAT_ID) ? ok(A, "Telegram", e.TELEGRAM_DOCS_CHAT_ID ? "a separate chat for the documents team" : "the main chat") : warn(A, "Telegram", "not configured: no scan, approval or handoff messages will be sent"));
   return out;
 }

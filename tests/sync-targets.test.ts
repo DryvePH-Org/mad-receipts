@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { emptyForm } from "@/app/(app)/new/form-state";
 import { DEFAULT_SETTINGS, parseSettings } from "@/lib/deal/settings";
-import type { DriveClient } from "@/lib/google/drive";
 import { createMockInventory } from "@/lib/inventory/mock";
 import { DEAL_HEADERS, RECEIPT_HEADERS, SyncConflict, cancelMessage, headerProblem, logSheetProblem, syncTargets, telegramCaption, unitStatusFor, voidMessage, type SyncContext, type SyncDeps } from "@/lib/sync/targets";
 import type { TelegramClient } from "@/lib/telegram";
@@ -29,37 +28,18 @@ function context(over: { receipt?: Partial<SyncContext["receipt"]>; deal?: Parti
 }
 
 function deps() {
-  const files = new Map<string, Uint8Array>(), uploads: string[] = [];
-  const drive: DriveClient = {
-    findFile: async (_f, name) => (files.has(name) ? `id-${name}` : null),
-    uploadFile: async (_f, name, bytes) => { files.set(name, bytes); uploads.push(name); return `id-${name}`; },
-  };
   const telegram: TelegramClient = { sendPhoto: vi.fn(async () => undefined), sendMessage: vi.fn(async () => undefined) };
   const sheets = fakeSheets({ Receipts: [], Deals: [] });
   const inventory = createMockInventory([{ plate: "NBC4821", status: "Available" }]);
-  const d: SyncDeps = { sheets: () => sheets.client, drive: () => drive, telegram: () => telegram, inventory, config: { driveFolderId: "folder", logSheetId: "sheet" } };
-  return { d, uploads, telegram, sheets, inventory };
+  const d: SyncDeps = { sheets: () => sheets.client, telegram: () => telegram, inventory, config: { logSheetId: "sheet" } };
+  return { d, telegram, sheets, inventory };
 }
 
 describe("drive", () => {
-  it("files the receipt copy and every proof once", async () => {
-    const { d, uploads } = deps();
-    const result = await syncTargets.drive(context(), d);
-    expect(result).toEqual({ driveFileId: "id-2556_NBC4821.html" });
-    expect(uploads).toEqual(["2556_NBC4821.html", "2556_NBC4821_proof-1.jpg"]);
-    await syncTargets.drive(context(), d); // run again: nothing is uploaded twice
-    expect(uploads).toHaveLength(2);
-  });
-  it("files nothing when Drive filing is switched off", async () => {
-    const { d, uploads } = deps();
-    expect(await syncTargets.drive(context(), { ...d, config: { ...d.config, driveUpload: false } })).toBeUndefined();
-    expect(uploads).toEqual([]);
-  });
-  it("does nothing when already filed, or for other events", async () => {
-    const { d, uploads } = deps();
-    await syncTargets.drive(context({ receipt: { drive_file_id: "x" } }), d);
-    await syncTargets.drive(context({ event: "void" }), d);
-    expect(uploads).toEqual([]);
+  it("files nothing: the approved receipt is not put in Drive any more, and an old queued job just ends", async () => {
+    const { d } = deps();
+    expect(await syncTargets.drive(context(), d)).toBeUndefined();
+    expect(await syncTargets.drive(context({ event: "void" }), d)).toBeUndefined();
   });
 });
 
@@ -173,17 +153,5 @@ describe("conflicts with the shared sheets: nothing is written, and the person i
     expect(await logSheetProblem(fakeSheets({ Receipts: [], Deals: [] }).client, "sheet")).toBeNull();
     expect(await logSheetProblem(fakeSheets({ Receipts: [["Foo"]], Deals: [] }).client, "sheet")).toContain("not the app's headers");
     expect(await logSheetProblem(fakeSheets({ Receipts: [] }).client, "sheet")).toContain('no "Deals" tab');
-  });
-});
-
-describe("the receipt record filed in Drive", () => {
-  it("lists the receipt and the money line by line", async () => {
-    const { d } = deps();
-    const uploaded: string[] = [];
-    const drive: DriveClient = { findFile: async () => null, uploadFile: async (_f, name, bytes) => { uploaded.push(`${name}:${new TextDecoder().decode(bytes)}`); return "id"; } };
-    await syncTargets.drive(context(), { ...d, drive: () => drive });
-    const html = uploaded.find((u) => u.startsWith("2556_NBC4821.html"))!;
-    expect(html).toContain("Manila Auto Display");
-    expect(html).toContain("Maria Santos");
   });
 });

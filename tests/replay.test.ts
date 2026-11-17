@@ -73,18 +73,18 @@ describe("the replay plan", () => {
     expect(cars.map((c) => [c.plate, c.action, c.ref.date])).toEqual([["BBB2222", "conflict", "10/25"], ["AAA1111", "change", "10/20"]]);
     expect(cars[0].fix).toContain("Ask ELLA and AARON");
   });
-  it("writes only the ticked cars, and queues log rows and Drive filing for every approved receipt", async () => {
+  it("writes only the ticked cars, and queues a log row for every approved receipt", async () => {
     const { admin, inv, log } = world();
-    const r = await runReplay(admin, inv, { plates: ["AAA1111"], logRows: true, drive: true });
-    expect(r).toMatchObject({ written: 1, queued: 4 });
+    const r = await runReplay(admin, inv, { plates: ["AAA1111"], logRows: true });
+    expect(r).toMatchObject({ written: 1, queued: 2 });
     expect(log).toContain("inventory AAA1111 Reserved 10/20");
     expect(log.some((l) => l.startsWith("inventory BBB2222"))).toBe(false); // the conflict was not ticked, so it is untouched
-    expect(log.some((l) => l.includes("drive_file_id"))).toBe(true); // refiled in the live folder
-    expect(log.filter((l) => l.startsWith("rpc queue_sync"))).toEqual(["rpc queue_sync r1 sheets+drive", "rpc queue_sync r2 sheets+drive"]);
+    expect(log.some((l) => l.includes("drive_file_id"))).toBe(false); // nothing is filed in Drive
+    expect(log.filter((l) => l.startsWith("rpc queue_sync"))).toEqual(["rpc queue_sync r1 sheets", "rpc queue_sync r2 sheets"]);
   });
   it("with nothing chosen, nothing is written", async () => {
     const { admin, inv, log } = world();
-    expect(await runReplay(admin, inv, { plates: [], logRows: false, drive: false })).toMatchObject({ written: 0, queued: 0 });
+    expect(await runReplay(admin, inv, { plates: [], logRows: false })).toMatchObject({ written: 0, queued: 0 });
     expect(log).toEqual([]);
   });
 });

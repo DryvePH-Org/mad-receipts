@@ -1,4 +1,3 @@
-import { driveFileLink, type DriveClient } from "@/lib/google/drive";
 import { tabRange, type CellValue, type SheetsClient } from "@/lib/google/sheets";
 import { decide } from "@/lib/inventory/decide";
 import { sheetDate } from "@/lib/inventory/remarks";
@@ -6,11 +5,9 @@ import type { InventoryAdapter } from "@/lib/inventory/types";
 import { formatDate } from "@/lib/dates";
 import { formatPeso, toCentavos } from "@/lib/rules/money";
 import type { AppSettings } from "@/lib/deal/settings";
-import type { FormState } from "@/lib/deal/types";
 import { centsOf, dealStatusKey, STATUS_LABELS, type DealStatusKey } from "@/lib/deal/status";
 import type { Tables } from "@/lib/supabase/database.types";
 import type { TelegramClient } from "@/lib/telegram";
-import { receiptRecordHtml } from "./receipt-record";
 
 /** The shared sheet says something that disagrees with the app. Nothing is written; a person decides (the Sync jobs page offers the choices). */
 export class SyncConflict extends Error {}
@@ -45,15 +42,14 @@ export interface SyncContext {
 
 export interface SyncDeps {
   sheets: () => SheetsClient;
-  drive: () => DriveClient;
   telegram: () => TelegramClient;
   inventory: InventoryAdapter;
-  config: { driveFolderId?: string; logSheetId?: string; /** false: the approved AR is not filed in Drive (off for now: Sales uploads the signed AR in the car's folder) */ driveUpload?: boolean };
+  config: { logSheetId?: string };
   /** Finds the car's document folder by plate and links it to the deal. */
   docsLink?: (plate: string, dealId: string) => Promise<unknown>;
 }
 
-export interface SyncResult { driveFileId?: string }
+export type SyncResult = void;
 
 export const RECEIPTS_TAB = "Receipts";
 export const DEALS_TAB = "Deals";
@@ -89,21 +85,9 @@ export const syncTargets: Record<SyncTarget, (ctx: SyncContext, deps: SyncDeps) 
     for (const unit of ctx.units) await deps.docsLink(unit.plate, ctx.deal.id);
   },
 
-  async drive(ctx, deps) {
-    if (deps.config.driveUpload === false) return; // switched off: nothing is filed in Drive
-    if (ctx.event !== "confirm" || ctx.receipt.drive_file_id) return; // filed once
-    const folderId = required(deps.config.driveFolderId, "GOOGLE_DRIVE_FOLDER_ID");
-    const drive = deps.drive();
-    const base = `${ctx.receipt.receipt_no}_${ctx.units[0]?.plate_no ?? "deal"}`;
-    const html = new TextEncoder().encode(receiptRecordHtml(ctx.receipt.snapshot as unknown as FormState, ctx.settings.company));
-    const fileId = (await drive.findFile(folderId, `${base}.html`)) ?? (await drive.uploadFile(folderId, `${base}.html`, html, "text/html"));
-    let n = 0;
-    for (const p of await ctx.proofs()) {
-      const name = `${base}_proof-${++n}.${p.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg"}`;
-      if (!(await drive.findFile(folderId, name))) await drive.uploadFile(folderId, name, p.bytes, p.mime);
-    }
-    return { driveFileId: fileId };
-  },
+  // The approved receipt is not filed in Drive any more (it used to be, automatically). Old queued jobs for this target finish at once.
+  // If it comes back, it will be a button for the Documentation role on the car's page, not something that happens by itself.
+  async drive() { return; },
 
   async sheets(ctx, deps) {
     const sheetId = required(deps.config.logSheetId, "GOOGLE_SHEET_ID");
@@ -200,7 +184,7 @@ export function receiptRow(ctx: SyncContext): CellValue[] {
     manilaTimestamp(receipt.created_at), receipt.receipt_no, receipt.receipt_date, deal.buyer_name, deal.buyer_contact ?? "", plates(ctx), makes(ctx),
     label(receipt.kind), pesos(receipt.amount), ctx.payments.map((p) => `${p.label} ${formatPeso(centsOf(p.amount))}`).join(", "),
     pesos(deal.agreed_price), pesos(deal.amount_due), pesos(receipt.balance_after), deal.sale_type === "financing" ? "Financing" : "Cash", deal.institution ?? "",
-    ctx.filledInBy, ctx.approvedBy, receipt.drive_file_id ? driveFileLink(receipt.drive_file_id) : "", label(receipt.status),
+    ctx.filledInBy, ctx.approvedBy, receipt.drive_file_id ? `https://drive.google.com/file/d/${receipt.drive_file_id}/view` : "", label(receipt.status),
   ];
 }
 
