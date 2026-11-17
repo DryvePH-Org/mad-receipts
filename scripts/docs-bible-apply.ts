@@ -37,11 +37,9 @@ async function main() {
   const runId = run!.id;
 
   // 1. every non-empty cell, exactly as the snapshot has it
-  let cellCount = 0;
   for (const [tab, t] of Object.entries(snap.tabs)) {
     for (const part of chunks(t.cells, 1000)) {
       ok(await db.from("docs_import_cells").insert(part.map((c) => ({ run_id: runId, tab, row_no: c[0], col_no: c[1], col_letter: colLetter(c[1]), value: c[2], formula: c[4] }))), `raw cells of ${tab}`);
-      cellCount += part.length;
     }
   }
 
@@ -88,7 +86,7 @@ async function main() {
   const comp = ok(await db.from("docs_complete").select("id, complete_docs"), "reading docs_complete");
   const rowById = new Map([...idByRow].map(([r, id]) => [id, r]));
   const cls = new Map(plan.units.map((u) => [u.sourceRow, u.fields.classification]));
-  let same = 0, differ: string[] = [], repoDiffer = 0; const typedOver: string[] = [];
+  let same = 0, repoDiffer = 0; const differ: string[] = []; const typedOver: string[] = [];
   for (const c of comp ?? []) {
     const r = rowById.get(c.id as string)!; const sheet = sheetAA.get(r) ?? ""; const mine = (c.complete_docs as string | null) ?? "";
     if (sheet === mine) same++;
