@@ -7,7 +7,7 @@ Only this project changes (`mad-receipts`). The server is shared: the only share
 | Where | What it does with the address | What to do |
 |---|---|---|
 | **DNS** (where `dryveph.io` is managed) | `mad` has to point to the server | Add an `A` record `mad` → `76.13.221.143`, same proxy setting as `invoice` |
-| **Caddy** (shared proxy on the server) | Serves the app and gets its HTTPS certificate | `deploy/change-domain.sh` (step 3): both addresses open the app; later the old one redirects |
+| **Caddy** (shared proxy on the server) | Serves the app and gets its HTTPS certificate | `deploy/change-domain.sh` (step 3): both addresses open the app; at the end the old one is removed |
 | **`APP_BASE_URL`** in `/opt/mad-receipts/.env` | The scanner's photo links and the address the scanner answers to | Change to `https://mad.dryveph.io` (step 5) |
 | **The scanner bot's routine** | The bot only opens photo links and answers to addresses written in its routine | Paste `Docs/GROKBOT_SCANNER_ROUTINE.md` (version 5.4) into the bot **before** step 5; it accepts both addresses |
 | **Supabase** → Authentication → URL Configuration | Site URL and redirect addresses | Site URL `https://mad.dryveph.io`; keep the old one in Redirect URLs for now |
@@ -36,11 +36,12 @@ Not affected: Google Apps Script and Drive, the database address, GitHub deploys
    Then in the app: Admin → Sync jobs → **Go-live check** (App address should show mad.dryveph.io), and scan one car: the photos are read and the answer arrives.
 6. **Supabase** URL Configuration (see the table).
 7. **Tell the staff:** the new address, log in again, re-add the home-screen icon, replace bookmarks.
-8. **After a few days**, make the old address send people to the new one:
+8. **Remove the old address** (the owner chose to remove it completely, not redirect it). After the staff know the new address:
    ```bash
-   cd /opt/mad-receipts && NEW=mad.dryveph.io OLD=invoice.dryveph.io MODE=redirect bash deploy/change-domain.sh
+   cd /opt/mad-receipts && git pull --ff-only
+   NEW=mad.dryveph.io OLD=invoice.dryveph.io MODE=only bash deploy/change-domain.sh
    ```
-   (Then the bot's routine can drop the old address too.)
+   Then in Cloudflare delete the `invoice` DNS record, in Supabase remove the old address from Redirect URLs, and paste the scanner routine version 5.5 (it knows only the new address). Anyone who still opens the old address gets an error from then on.
 9. **Telegram:** open `https://mad.dryveph.io/telegram` and press **Set up the bot**.
 
 ## Undo

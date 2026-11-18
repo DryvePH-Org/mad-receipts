@@ -344,7 +344,7 @@ Caddyfile (backed up first, checked before it is applied, undone automatically i
 
 **Before anything:** take a snapshot in hPanel → VPS → Snapshots (it keeps one copy; a new one replaces it).
 
-1. **DNS:** an `A` record `mad` → the VPS IP (`mad.dryveph.io`; the app first ran at `invoice.dryveph.io`, which is kept only as a redirect).
+1. **DNS:** an `A` record `mad` → the VPS IP (`mad.dryveph.io`).
 2. **Get the code** (SSH as root, or hPanel → VPS → Browser terminal):
    ```bash
    git clone https://github.com/DryvePH-Org/mad-receipts.git /opt/mad-receipts && cd /opt/mad-receipts

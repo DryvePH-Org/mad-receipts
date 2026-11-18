@@ -4,10 +4,11 @@
 # and an automatic undo if Caddy rejects it. Other projects' blocks, containers and data are never touched.
 #
 #   NEW=mad.dryveph.io OLD=invoice.dryveph.io MODE=both     bash deploy/change-domain.sh   # step 1: both addresses open the app
-#   NEW=mad.dryveph.io OLD=invoice.dryveph.io MODE=redirect bash deploy/change-domain.sh   # step 2: the old address sends people to the new one
+#   NEW=mad.dryveph.io OLD=invoice.dryveph.io MODE=redirect bash deploy/change-domain.sh   # optional: the old address sends people to the new one
+#   NEW=mad.dryveph.io OLD=invoice.dryveph.io MODE=only     bash deploy/change-domain.sh   # the old address is removed: only the new one is served
 set -euo pipefail
 : "${NEW:?Set NEW, e.g. NEW=mad.dryveph.io}"; : "${OLD:?Set OLD, e.g. OLD=invoice.dryveph.io}"; : "${MODE:?Set MODE=both or MODE=redirect}"
-[ "$MODE" = both ] || [ "$MODE" = redirect ] || { echo "MODE must be both or redirect"; exit 1; }
+[ "$MODE" = both ] || [ "$MODE" = redirect ] || [ "$MODE" = only ] || { echo "MODE must be both, redirect or only"; exit 1; }
 die() { printf '\nSTOPPED: %s\n' "$*" >&2; exit 1; }
 command -v docker >/dev/null || die "Docker is not installed."
 
@@ -28,6 +29,8 @@ cp -p "$SRC" "$BACKUP"; echo "Backup: $BACKUP"
 PROXY=$'\tencode zstd gzip\n\trequest_body {\n\t\tmax_size 12MB\n\t}\n\treverse_proxy mad-receipts:3000'
 if [ "$MODE" = both ]; then
   BLOCK=$(printf '%s, %s {\n%s\n}' "$NEW" "$OLD" "$PROXY")
+elif [ "$MODE" = only ]; then
+  BLOCK=$(printf '%s {\n%s\n}' "$NEW" "$PROXY")
 else
   BLOCK=$(printf '%s {\n\tredir https://%s{uri} permanent\n}\n%s {\n%s\n}' "$OLD" "$NEW" "$NEW" "$PROXY")
 fi
