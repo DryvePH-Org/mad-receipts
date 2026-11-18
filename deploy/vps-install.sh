@@ -3,9 +3,9 @@
 # It never touches the other projects' containers, volumes or data. Its only edit to anything shared is ONE
 # site block in the Caddyfile, with a backup, a validity check before applying, and an automatic undo on failure.
 #
-# Run as root from /opt/mad-receipts:   DOMAIN=invoice.dryveph.io bash deploy/vps-install.sh
+# Run as root from /opt/mad-receipts:   DOMAIN=mad.dryveph.io bash deploy/vps-install.sh
 set -euo pipefail
-: "${DOMAIN:?Set DOMAIN, e.g. DOMAIN=invoice.dryveph.io}"
+: "${DOMAIN:?Set DOMAIN, e.g. DOMAIN=mad.dryveph.io}"
 cd "$(dirname "$0")/.."
 say() { printf '\n==> %s\n' "$*"; }
 die() { printf '\nSTOPPED: %s\n' "$*" >&2; exit 1; }

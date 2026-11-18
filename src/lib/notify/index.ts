@@ -6,7 +6,7 @@ import { categoryById } from "./categories";
 import { sendAfter } from "./quiet";
 import { allLinks, noteLinkError, notifyDb } from "./store";
 
-export const appUrl = (path = ""): string => `${(process.env.APP_URL || "https://invoice.dryveph.io").replace(/\/$/, "")}${path}`;
+export const appUrl = (path = ""): string => `${(process.env.APP_URL || process.env.APP_BASE_URL || "https://mad.dryveph.io").replace(/\/$/, "")}${path}`;
 
 export interface NotifyInput {
   category: string;

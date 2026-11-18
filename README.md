@@ -344,7 +344,7 @@ Caddyfile (backed up first, checked before it is applied, undone automatically i
 
 **Before anything:** take a snapshot in hPanel → VPS → Snapshots (it keeps one copy; a new one replaces it).
 
-1. **DNS:** an `A` record `invoice` → the VPS IP (already done for `invoice.dryveph.io`).
+1. **DNS:** an `A` record `mad` → the VPS IP (`mad.dryveph.io`; the app first ran at `invoice.dryveph.io`, which is kept only as a redirect).
 2. **Get the code** (SSH as root, or hPanel → VPS → Browser terminal):
    ```bash
    git clone https://github.com/DryvePH-Org/mad-receipts.git /opt/mad-receipts && cd /opt/mad-receipts
@@ -353,9 +353,9 @@ Caddyfile (backed up first, checked before it is applied, undone automatically i
    ```
 3. **Install** (it checks everything first and stops without changes if something looks wrong):
    ```bash
-   DOMAIN=invoice.dryveph.io bash deploy/vps-install.sh
+   DOMAIN=mad.dryveph.io bash deploy/vps-install.sh
    ```
-4. **Supabase** → Authentication → URL Configuration: set **Site URL** to `https://invoice.dryveph.io`.
+4. **Supabase** → Authentication → URL Configuration: set **Site URL** to `https://mad.dryveph.io` (and add it under Redirect URLs).
 5. **Smoke test:** log in, create a receipt with a proof, approve it, check the Drive file, Sheets row, Telegram message and the
    REMARKS cell. On a phone use **Add to Home Screen** (HTTPS is required).
 6. **Updates:** `bash /opt/mad-receipts/deploy/update.sh` (pulls, rebuilds and restarts only this app).
