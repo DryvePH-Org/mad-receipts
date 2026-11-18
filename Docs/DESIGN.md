@@ -1,6 +1,6 @@
 # Design guide
 
-How this app looks, how it adapts to screens, and **where new code belongs**.
+How this app (MAD Receipts: receipts, deals and car documents) looks, how it adapts to screens, and where new code belongs.
 Read this before adding a page or component so it matches what is already here.
 
 Contents
@@ -10,50 +10,40 @@ Contents
 3. [Design tokens](#3-design-tokens)
 4. [Layout and the app shell](#4-layout-and-the-app-shell)
 5. [Responsive behaviour](#5-responsive-behaviour)
-6. [Component catalogue](#6-component-catalogue)
-7. [Page patterns](#7-page-patterns)
-8. [Where things go (architecture)](#8-where-things-go-architecture)
-9. [How to build a new feature](#9-how-to-build-a-new-feature)
-10. [Forms, validation and errors](#10-forms-validation-and-errors)
-11. [Accessibility, motion and print](#11-accessibility-motion-and-print)
-12. [PWA and branding](#12-pwa-and-branding)
-13. [Rules of thumb and known gaps](#13-rules-of-thumb-and-known-gaps)
+6. [Components](#6-components)
+7. [Where things go](#7-where-things-go)
+8. [Building a new feature](#8-building-a-new-feature)
+9. [Forms, errors and accessibility](#9-forms-errors-and-accessibility)
+10. [PWA and branding](#10-pwa-and-branding)
+11. [Rules of thumb](#11-rules-of-thumb)
 
 ---
 
 ## 1. Design principles
 
-- **Calm and neutral.** A black-and-white ledger look (neutral greys, one dark
-  primary). Colour is rare and always means something: status, warning, error.
-- **Money is the hero.** Amounts use tabular numbers, are right-aligned in tables
-  and are never truncated.
-- **Phone first for the people holding cash.** Custodians work from a phone: big
-  cards, a bottom tab bar, bottom sheets, camera-friendly uploads. Desks get a
-  sidebar and tables.
-- **One screen, one job.** A page has a title, one short description and a small
-  set of actions in the header. Everything else is cards.
-- **Safe by default.** Anything irreversible (release cash, void, approve) goes
-  through a confirm dialog that says what will happen.
-- **No surprises with data.** Pages render per request (no static caching) because
-  the content is private and changes constantly.
+- **Calm and neutral.** A black-and-white ledger look (neutral greys, one dark primary). Colour is rare and always means something: status, warning, error.
+- **Money is the hero.** Amounts use tabular numbers, are right-aligned in tables and are never truncated.
+- **Phone first for people in the field.** Sales and Documentation work from a phone: big cards, a bottom tab bar, bottom sheets, camera-friendly uploads. Desks get a sidebar and tables.
+- **One screen, one job.** A page has a title, one short description and a small set of actions in the header. Everything else is cards.
+- **Say what to do next.** A car page, a receipt or a deal always tells the person the next step in plain words, and a button that is disabled says why.
+- **The database enforces the rules.** The screen hides buttons a role may not use, but money rules and permissions are checked again on the server and in the database.
 
 ## 2. Stack and libraries
 
 | Concern | Choice |
 | --- | --- |
-| Framework | Next.js 16 App Router, React 19, TypeScript. Server components by default. |
+| Framework | Next.js 16 App Router, React 19, TypeScript. Server components by default; pages that read the signed-in user do it inside `Suspense`. |
 | Styling | Tailwind CSS v4 (tokens in `src/app/globals.css`, no `tailwind.config`). |
 | Components | shadcn/ui, style **base-nova**, built on **Base UI** (`@base-ui/react`) primitives. |
 | Icons | `lucide-react` (`size-4` inline, `size-5` in tiles/nav). |
-| Forms | `react-hook-form` + `zod` via `@hookform/resolvers`. |
-| Toasts | `sonner` (top-center). |
-| Charts | `recharts` (reports only). |
+| Forms | `react-hook-form` + `zod` via `@hookform/resolvers`, or a plain form with a server action for small ones. |
+| Toasts | `sonner`. |
+| Theme | `next-themes` (light and dark, one tap in the user menu). |
+| Database | Supabase (Postgres, Row Level Security, storage); the server uses the service-role client only after checking the user. |
 | Fonts | Geist Sans and Geist Mono through `next/font` (self-hosted). |
 | Class helper | `cn()` from `src/lib/utils.ts` (clsx + tailwind-merge). |
 
-Base UI note: a "render as a link" button is written
-`<Button nativeButton={false} render={<Link href="..." />}>`. It then exposes
-`role="button"`, which matters for tests.
+Base UI note: a "render as a link" button is written `<Button nativeButton={false} render={<Link href="..." />}>`. It then exposes `role="button"`, which matters for tests.
 
 ## 3. Design tokens
 
@@ -132,6 +122,7 @@ Tailwind's 4 px scale. The rhythm that repeats everywhere:
   and the receipt-reading **scan sweep** (`.scan-sweep` in `globals.css`), which
   stops under `prefers-reduced-motion`.
 
+
 ## 4. Layout and the app shell
 
 `src/app/(app)/layout.tsx` checks the signed-in user and wraps every page in
@@ -159,20 +150,21 @@ Tailwind's 4 px scale. The rhythm that repeats everywhere:
   items for the role; a fifth **More** opens a bottom sheet with the rest. The
   main area has `pb-28` so nothing hides behind it.
 - **Navigation per role** is data, not markup: `src/lib/navigation.ts` filters
-  items with `canAccessRoute` from `src/lib/permissions.ts`.
+  items with each person's modules (`src/lib/navigation.ts`).
 - **Content width**: `max-w-6xl` centred. Print removes the cap and padding.
 
 Every page starts with the same header:
 
 ```tsx
 <div className="space-y-6">
-  <PageHeader title="Vouchers" description="…" actions={<Button>…</Button>} />
+  <PageHeader title="Deals" description="…" actions={<Button>…</Button>} />
   {/* cards, lists, forms */}
 </div>
 ```
 
 `PageHeader` stacks on phones and puts the actions to the right from `sm`;
 actions wrap (`flex-wrap`) so three buttons never overflow a 390 px screen.
+
 
 ## 5. Responsive behaviour
 
@@ -200,18 +192,16 @@ phone and desktop, switch at `lg`.
 | --- | --- | --- |
 | `ResponsiveList` (`shared/responsive-list.tsx`) | Stack of cards from `renderCard` | A real table from `columns`, `hidden lg:block` |
 | `ResponsiveDialog` (`shared/responsive-dialog.tsx`) | Bottom sheet, full width, `rounded-t-2xl`, max 85 svh | Centred dialog, `sm:max-w-lg` |
-| Two-pane detail (`vouchers/[id]`, `replenishments/[id]`) | One column | `lg:grid-cols-[minmax(0,1fr)_22rem]`: content left, actions/timeline right |
-| Master–detail (`approvals-board.tsx`) | Cards; tapping opens a right-side `Sheet` (full width, `sm:` 32 rem) | `lg:grid-cols-[20rem_minmax(0,1fr)]` list beside the selected voucher |
+| Two-pane detail (`documents/[plate]`, `deals/[id]`) | One column | `lg:grid-cols-[minmax(0,1fr)_24rem]`: content left, actions on the right |
 | Navigation | Top bar + bottom tab bar | Fixed sidebar |
 | Login (`(auth)/login`) | Form only | `lg:grid-cols-2`: brand panel on the left, form on the right |
 | Detail lists (`<dl>`) | 1 column | `sm:grid-cols-2` |
 | Dashboard cards | 1 column | `md:grid-cols-2` |
-| Charts | `ResponsiveContainer` width 100 %, fixed height 280 | Same |
 
 ### Rules every page must follow
 
 1. **No horizontal page scroll** at 390 px or 1280 px. This is tested:
-   `e2e/layout.spec.ts` opens every page at both sizes (Playwright projects
+   `e2e/responsive.spec.ts` opens every page at both sizes (Playwright projects
    `desktop` 1280×900 and `mobile` 390×844 with touch).
 2. Use `min-w-0` on flex/grid children that hold text so long names truncate
    instead of stretching the row; use `truncate` for single-line text.
@@ -226,303 +216,94 @@ phone and desktop, switch at `lg`.
 7. Photo inputs use `capture="environment"` so phones open the camera; desktop
    also supports drag-and-drop.
 
-## 6. Component catalogue
 
-### Primitives (`src/components/ui/`) — shadcn, do not restyle ad hoc
+## 6. Components
 
-| Component | Notes |
-| --- | --- |
-| `Button` | Variants: `default` (primary), `outline`, `secondary`, `ghost`, `destructive` (soft red fill), `link`. Sizes: `xs`, `sm`, `default` (h-8), `lg` (h-9), `icon`, `icon-xs/sm/lg`. Disabled = 50 % opacity. Pass icons as children (auto-sized). |
-| `Input`, `Textarea`, `Select` | `h-8` fields, `rounded-lg`, 3 px focus ring, red ring when `aria-invalid`. |
-| `Label`, `Field` | Label above field. Error text below in `text-xs text-destructive`. |
-| `Card` (+ `CardHeader/Title/Description/Action/Content/Footer`) | The container for everything. `size="sm"` tightens padding. |
-| `Badge` | Variants `default`, `secondary`, `destructive`, `outline`, `ghost`. |
-| `Alert` | Inline message; `variant="destructive"` for errors. |
-| `Dialog`, `Sheet` | Base for the shared wrappers below. `Sheet` sides: bottom, right, left, top. |
-| `Table` | Self-scrolling; used only through `ResponsiveList` on desktop. |
-| `Tabs`, `DropdownMenu`, `Separator`, `Skeleton`, `Sonner` | As in shadcn. |
+**Primitives** (`src/components/ui/`, shadcn, do not restyle ad hoc): `Button` (variants default, outline, secondary, ghost, destructive, link), `Input`, `NativeSelect`, `Label`, `Card`, `Badge`, `Dialog`, `Table`, `Skeleton`, `Sonner`. Add new ones with the shadcn CLI so they match `components.json`.
 
-Add new primitives with the shadcn CLI so they match the config in
-`components.json` (base-nova, lucide, `@/components/ui`).
-
-### Shared building blocks (`src/components/shared/`) — use these first
+**Shared blocks** (`src/components/shared/`, use these first):
 
 | Component | Use it for |
 | --- | --- |
 | `PageHeader` (in `layout/`) | Title, description and header actions of every page |
-| `ResponsiveList` | Any list that is a table on desktop and cards on phones |
-| `ResponsiveDialog` | Any form or detail in a modal |
-| `ConfirmDialog` | "Are you sure?" for a single irreversible step |
-| `ReasonDialog` | Confirmation that needs a typed reason (flag, return, void) |
-| `EmptyState` | A dashed card with icon, title and one helpful sentence, used when a list or setup is empty |
-| `MoneyText` | **Every** peso amount: `tabular-nums` + `formatPHP` |
-| `StatusBadge` / `ReplenishmentStatusBadge` | Status pills with fixed colours (below) |
-| `CsvExportButton` | Export of what is on screen (formula-safe) |
-| `PageSkeleton` | The `loading.tsx` placeholder |
+| `ResponsiveList` | A list that is a table on desktop and cards on phones |
+| `ResponsiveDialog` | A form or detail in a modal (bottom sheet on phones) |
+| `AskDialog` | "Are you sure?" and questions that need a typed answer |
+| `EmptyState` | A dashed card with icon, title and one helpful sentence |
+| `FormField` | Label above, error under |
+| `PageSkeleton` | The `Suspense` / `loading.tsx` placeholder |
+| `Pill` and the status badges (`status-badge.tsx`) | Status pills with fixed colours: deals, receipts, sync jobs, and the car documents stages |
 
-### Status colours
+**Status colours.** Soft pill: light tint background, dark text, no border, with `dark:` variants. The meaning is the same everywhere: amber = needs attention or waiting, emerald/teal = done or complete, red = error or flagged, blue/sky = in progress or being read, zinc/grey = neutral or none. Colour is never the only signal: every status has a word.
 
-Soft pill: light tint background, dark text, no border (`border-transparent`),
-with `dark:` variants. The meaning is consistent across the app.
+**Feature components** live beside their page (for example `src/app/(app)/documents/[plate]/`) and in `src/components/receipt/` (the printable receipt and transmittal paper) and `src/components/deal/`.
 
-| Voucher status | Label | Colour |
-| --- | --- | --- |
-| draft | Draft | grey (`muted`) |
-| submitted | Awaiting approval | amber |
-| released | Released | violet |
-| approved | Approved | teal |
-| closed | Closed | emerald |
-| rejected | Flagged | red |
-| void | Void | zinc |
-
-Replenishment statuses reuse the palette (submitted = **sky**, to tell it apart
-from a voucher awaiting approval). Amber is also the "needs attention" colour for
-the AI-reading note and the approval-required hint; red is only for errors and
-flags; the destructive button is a soft red fill, not solid.
-
-### Feature components (`src/components/<feature>/`)
-
-| Folder | Contents |
-| --- | --- |
-| `vouchers/` | `voucher-form` (create/edit), `voucher-actions` (state-driven action card), `receipt-uploader`, `receipt-viewer`, `paper-voucher-scanner`, `scan-progress`, `voucher-print`, `types.ts` |
-| `approvals/` | `approvals-board` (master–detail + sheet), `types.ts` |
-| `replenishments/` | list, detail and action components, `types.ts` |
-| `dashboard/` | `balance-card` (imprest equation, progress bar, low-balance badge) |
-| `admin/` | managers and form dialogs for users, funds, categories, fund assignment |
-| `cash-count/`, `audit/`, `reports/` | their pages' interactive parts, charts |
-| `layout/` | shell, sidebar, bottom tab bar, user menu, page header, print button |
-| `pwa/` | service-worker registration, install prompt |
-
-## 7. Page patterns
-
-- **Login**: split screen on desktop (dark brand panel with soft blurred circle,
-  hero line "Every peso accounted for.", three highlights) and a plain centred
-  form on phones. Two steps: email, then the 6-digit code.
-- **Dashboard**: welcome header with role badge → `BalanceCard` per fund (the
-  equation *cash on hand + released vouchers = fund amount*, progress bar,
-  Healthy/Low badge) → two-column cards of "what is waiting for you" and the
-  month's spend. Role decides which cards show.
-- **Lists** (vouchers, replenishments, audit, reports): `PageHeader` with
-  actions (CSV export, New voucher, Scan paper voucher) → filter form
-  (`<form method="get">` with search, status, dates) → `ResponsiveList`.
-  Filters live in the URL, so they survive refresh and can be shared.
-- **Voucher form**: sections are Fund and date → payee → **lines** (each line a
-  bordered block: particulars, amount, category, remove) → running total and
-  limits hint → proof of spending. At the top, an optional dashed
-  **Scan paper voucher** card (primary tint). Buttons are bottom-right:
-  *Save draft* (outline) and the primary action, which changes meaning with the
-  amount ("Save and release cash" or "Submit for approval").
-- **Voucher detail**: two columns on desktop. Left: summary card (status badge,
-  details grid, lines list), receipt card, optional paper-voucher card. Right:
-  an **Actions** card (only the buttons the viewer may use now, with a one-line
-  explanation of the current state) and a Timeline/History tabs card.
-- **Approvals**: queue sorted so vouchers that block cash come first.
-  Desktop master–detail; phone cards that open a sheet.
-- **Print** (`voucher-print`): follows the paper Petty Cash Voucher: title, date,
-  "To:", particulars/amount table with blank rows, amount in words, two
-  signature lines.
-- **Scan/AI affordances**: reading shows the photo with a sweeping line and a
-  spinner (`ScanProgress`); results show an amber "check this" note; a cooldown
-  counter ("Scan again in 12s") replaces the button label while the service
-  rests.
-
-## 8. Where things go (architecture)
-
-### Directory map
+## 7. Where things go
 
 ```
 src/
   app/
-    (auth)/login/            sign-in (no app shell)
-    (app)/                   everything behind sign-in, wrapped by AppShell
-      layout.tsx  loading.tsx  error.tsx
-      <route>/page.tsx       server component: auth → data → render
-      vouchers/[id]/edit/    nested routes live beside their parent
-    api/                     only machine endpoints (cron digest, health)
-    layout.tsx  globals.css  manifest.ts
-  actions/                   server actions ("use server"), one file per domain
-  components/
-    ui/                      shadcn primitives (generated, rarely edited)
-    shared/                  reusable, feature-agnostic building blocks
-    layout/                  app shell pieces
-    <feature>/               components that belong to one feature
-  lib/                       framework-light logic, no JSX
-    validators/              zod schemas (shared by browser and server)
-    supabase/                client, server, admin and proxy helpers
-    notifications/           email events, layout, digest, delivery
-  proxy.ts                   per-request security headers and session refresh
-supabase/migrations/         every database change, in order
-tests/                       Vitest (unit and database integration)
-e2e/                         Playwright (browser)
-docs/                        guides (this file, USER_GUIDE, SECURITY, GOOGLE_DRIVE)
-scripts/  apps-script/       one-off setup helpers
+    (auth)/login/          sign-in (no app shell)
+    (app)/<route>/         every page behind sign-in, wrapped by AppShell
+      page.tsx             server component: user, data, render
+      actions.ts           server actions for that page ("use server")
+    api/                   machine endpoints only (cron, scanner callback, uploads, health)
+    print/                 print views
+  components/              ui, shared, layout, receipt, deal, pwa, theme
+  lib/                     logic with no JSX: deals, docs, docsbible, grokbot, google, sync, voice, golive ...
+  proxy.ts                 per-request security headers and session refresh
+supabase/migrations/       every database change, in order
+tests/                     Vitest (unit; hosted-database tests with ALLOW_HOSTED_TESTS)
+e2e/                       Playwright (browser)
+Docs/                      guides (this file, TEST_FLOW, WORKFLOWS, GO_LIVE ...)
+scripts/  apps-script/     one-off helpers and the Google Apps Script bridge
 ```
 
-### Decision table: "where does this go?"
+| What | Where |
+| --- | --- |
+| A write to the database | A server action in the page's `actions.ts`, or a function in `src/lib/<area>/`: check the user and module first, validate input, revalidate |
+| Who may see or do what | Modules per role in `src/lib/navigation.ts`, checked with `requireModule`; the database enforces the money rules |
+| A table, column, policy or function | A **new** file in `supabase/migrations/`; never edit an applied one |
+| A message to people | Telegram, through `src/lib/telegram.ts` |
+| A nav item | `src/lib/navigation.ts` |
 
-| You are adding… | Put it in | Why |
-| --- | --- | --- |
-| A new screen | `src/app/(app)/<route>/page.tsx` | Routes are folders; auth and shell come from the layout |
-| A page's data loading and mapping | The `page.tsx` (server component) | Keeps secrets and queries on the server; pass plain props down |
-| Something interactive on that page (state, dialogs, forms) | `src/components/<feature>/<name>.tsx` with `"use client"` | Interactivity needs a client component; keep the page itself server-side |
-| A button/dialog/list used by two or more features | `src/components/shared/` | One implementation, one look |
-| A raw design primitive | `src/components/ui/` via shadcn CLI | Matches `components.json` |
-| A write to the database | A function in `src/actions/<domain>.ts` | Validates, checks the user, calls an RPC, revalidates |
-| A rule about *who may do what* | `src/lib/permissions.ts` **and** the database function | The screen hides buttons, the database enforces |
-| Validation of input | `src/lib/validators/<domain>.ts` (built from `text.ts`) | Same schema runs in the browser and on the server |
-| A pure helper (money, dates, status labels) | `src/lib/<name>.ts` | No React, easy to unit-test |
-| A status or label set | `src/lib/<thing>-status.ts` + a badge in `shared/` | Labels and colours stay in one place |
-| An email or alert | `src/lib/notifications/events.ts` (+ `deliver.ts` event type) | Queued after the response, never blocks the action |
-| A table, column, policy or function | A **new** file in `supabase/migrations/` | Never edit an applied migration; then regenerate `database.types.ts` |
-| A nav item | `src/lib/navigation.ts` (+ route rule in `permissions.ts`) | Menus are built from data per role |
-| A setting or secret | `.env.example` (documented) + `wrangler secret put` | Never in code or the repo |
-| Types shared by a page and its components | `src/components/<feature>/types.ts` | Keeps page → component props explicit |
-| A test | `tests/` for logic and database rules, `e2e/` for browser flows | See section 9 |
+## 8. Building a new feature
 
-### Boundaries to respect
+1. **Model it.** New table or column: write a migration (timestamp-prefixed, RLS on, grants explicit, length checks on text) and apply it to the hosted project.
+2. **Write the action.** Get the user with `requireModule`, parse the input with zod, do the work, return `{ ok, message }`, and `revalidatePath`.
+3. **Build the page.** Server component: user, data, plain props, `PageHeader`, components. Add the nav item in `navigation.ts` if it is a menu item.
+4. **Build the client part.** Reuse `shared/` blocks; `ResponsiveList` for lists and `ResponsiveDialog` for modals.
+5. **Check responsiveness** at 390 px and 1280 px (`e2e/responsive.spec.ts` opens the pages at both).
+6. **Test it.** Logic in `tests/*.test.ts`; a user flow in a Playwright spec on the hosted test project.
+7. **Document it.** Update `Docs/TEST_FLOW.md` and `Docs/WORKFLOWS.md` when a workflow changes.
+8. **Run** lint, `tsc`, unit tests and the browser tests before pushing.
 
-- **Server vs client.** Pages are server components. Add `"use client"` only to
-  files that need state, effects, or browser APIs. Never import server-only
-  modules (`lib/supabase/server`, `lib/supabase/admin`, actions' internals) into
-  client components; call **actions** instead.
-- **Secrets stay server-side.** Only `NEXT_PUBLIC_*` values reach the browser.
-  The service-role key is used only in `lib/supabase/admin.ts`.
-- **The database is the authority.** UI checks (`canPerform`) are for hiding
-  buttons. Real enforcement is Row Level Security and the RPC functions.
-- **Money as numbers in centavos** inside logic (`parseMoney`), `string` in
-  forms, `MoneyText` on screen.
-- **Dates** use the app time zone helpers in `lib/dates.ts`, not `new Date()`
-  formatting inline.
-- **Import alias:** `@/` points to `src/`. Use it instead of long relative paths.
+## 9. Forms, errors and accessibility
 
-## 9. How to build a new feature
+- Label above each field, error text under it, `aria-invalid` on the field, and a `maxLength` that matches the schema.
+- Submit buttons disable while working and change their label ("Saving…").
+- Success is a toast; errors are shown in words next to what failed. Never show raw database messages.
+- Irreversible actions use a confirmation that states the consequence.
+- Every interactive element shows a focus ring; icon-only buttons have `aria-label`; live status uses `role="status"`.
+- Colour is never the only signal. Touch targets on phones are card-sized or `size="lg"`.
+- Printing: `@media print` sets A4, `print:hidden` on chrome, `hidden print:block` for the printable paper.
 
-1. **Model it.** New table or column? Write a migration in `supabase/migrations/`
-   (timestamp-prefixed, RLS on, grants explicit, length checks on text), apply it
-   to the dev project, regenerate `src/lib/database.types.ts`.
-2. **Validate it.** Add a zod schema in `src/lib/validators/`, using `text()`,
-   `labelText()`, `personName()` from `text.ts` for strings.
-3. **Write the action.** In `src/actions/<domain>.ts`: get the user, parse input,
-   rate-limit if it can be spammed, call the RPC through the user's Supabase
-   client, map errors with `safeDbMessage`, `revalidatePath`, queue any email with
-   `queueNotification`. Return `ActionResult` (`{ ok: true } | { ok: false, error }`).
-4. **Build the page.** Server component: `requireUser(path)` → fetch → map rows
-   to plain props → render `PageHeader` + components. Add the route to
-   `permissions.ts` and (if it is a menu item) `navigation.ts`.
-5. **Build the client part.** Reuse `shared/` blocks. Use `ResponsiveList` for
-   lists and `ResponsiveDialog` for modals so phone and desktop both work.
-6. **Check responsiveness** at 390 px and 1280 px. Add the path to `PAGES` in
-   `e2e/layout.spec.ts` if it is a new top-level page.
-7. **Test it.** Pure logic → `tests/*.test.ts`. A database rule → a Vitest
-   integration test (runs with `RUN_DB_TESTS=true`, one file at a time). A user
-   flow → a Playwright spec (`E2E_AUTHENTICATED=true`).
-8. **Document it.** Update `docs/USER_GUIDE.md` for people-facing changes and
-   `docs/SECURITY.md` if you touched auth, limits or headers.
-9. **Run** `pnpm lint`, `pnpm typecheck`, `pnpm test`. Nothing ships if these fail.
+## 10. PWA and branding
 
-### Using the shared components (short recipes)
+- **Name:** "MAD Receipts" (short "Receipts"), start URL `/`, theme colour `#171717`, `display: standalone` (`src/app/manifest.ts`).
+- The service worker caches only the shell and static assets and never caches private data. The install button is in the user menu.
 
-```tsx
-// A list that is a table on desktop and cards on phones
-<ResponsiveList
-  rows={rows}
-  getRowKey={(r) => r.id}
-  columns={[
-    { key: "date", header: "Date", cell: (r) => formatDate(r.date) },
-    { key: "amount", header: "Amount", headerClassName: "text-right",
-      className: "text-right", cell: (r) => <MoneyText value={r.amount} /> },
-  ]}
-  renderCard={(r) => <Card>…</Card>}
-  empty={<EmptyState icon={ReceiptText} title="Nothing here" description="…" />}
-/>
-
-// A modal that is a bottom sheet on phones
-<ResponsiveDialog open={open} onOpenChange={setOpen} title="Edit fund" description="…">
-  …form…
-  <DialogFooter>…</DialogFooter>
-</ResponsiveDialog>
-
-// A link that looks like a button
-<Button nativeButton={false} render={<Link href="/vouchers/new" />}>
-  <ReceiptText /> New voucher
-</Button>
-
-// A status
-<StatusBadge status={voucher.status} />
-```
-
-## 10. Forms, validation and errors
-
-- **Form shape.** `react-hook-form` with `zodResolver(schema)`. Label above each
-  field, error text under it, `aria-invalid` on the field. Use `Controller` for
-  `Select` and other non-native inputs.
-- **Field limits.** Every input has `maxLength` matching the schema; the server
-  and the database enforce the same limits.
-- **Text is cleaned.** The `text()` helper strips control and invisible characters
-  and `<` `>`; names and labels allow only sensible characters.
-- **Submit buttons** disable while working and change their label
-  ("Saving...", "Releasing...").
-- **Feedback.** Success → `toast.success` and navigate or refresh. Errors from
-  the server → an `Alert variant="destructive"` in the form (`serverError`), field
-  errors inline. Never show raw database messages (`safeDbMessage`).
-- **Irreversible actions** → `ConfirmDialog` or `ReasonDialog` with a sentence
-  that states the consequence.
-- **Cooldowns and limits** are visible to the user (countdown on buttons) rather
-  than failing silently.
-
-## 11. Accessibility, motion and print
-
-- **Focus.** Every interactive element shows a 3 px ring (`focus-visible`); do not
-  remove outlines.
-- **Semantics.** Navigation landmarks have labels (`aria-label="Primary"`); the
-  current item uses `aria-current="page"`; icon-only buttons have `aria-label`;
-  live status (scan reading) uses `role="status"`.
-- **Colour is never the only signal.** Statuses have text labels; errors have
-  text; the low-balance state has a badge word.
-- **Touch targets.** Bottom-bar items and cards are large. Default buttons are
-  32 px high (see known gaps).
-- **Reduced motion.** The scan sweep stops under `prefers-reduced-motion`.
-- **Print.** `@media print` sets A4 with 12 mm margins and a white background and
-  keeps colours. Use `print:hidden` on chrome (sidebar, bars, toasts, buttons) and
-  `hidden print:block` for the printable voucher. The shell removes max width and
-  padding when printing.
-
-## 12. PWA and branding
-
-- **Name:** "Petty Cash Fund" (short "Petty Cash"). Logo is a `Wallet` icon in a
-  rounded dark tile; tagline "Fund ledger".
-- **Theme colour** `#171717`, background `#ffffff`, `display: standalone`, start
-  URL `/dashboard`. Icons 192/512 plus a maskable 512 in `public/icons/`.
-- **Offline.** The service worker (`public/sw.js`) caches only the shell and
-  static assets and shows `offline.html` when offline; it never caches private
-  data. Bump `CACHE_VERSION` when precached files change.
-- **Install prompt** is captured in `components/pwa/` and surfaced from the user
-  menu.
-
-## 13. Rules of thumb and known gaps
+## 11. Rules of thumb
 
 **Do**
-
-- Reuse a `shared/` component before writing a new one; add to `shared/` when a
-  second feature needs the same thing.
+- Reuse a `shared/` component before writing a new one.
 - Keep pages server-rendered and push interactivity into small client components.
-- Use tokens (`bg-muted`, `text-muted-foreground`), `MoneyText` for every amount
-  and `StatusBadge` for every status.
+- Use tokens (`bg-muted`, `text-muted-foreground`) and the status pills for every status.
 - Test at 390 px and 1280 px before calling a screen done.
 
 **Don't**
-
-- Don't hard-code hex colours (status badges are the only exception).
-- Don't switch layouts at `md` for phone-versus-desktop decisions; use `lg`.
-- Don't put business rules only in the UI; add them to the database function.
-- Don't edit an applied migration or the generated `database.types.ts` by hand.
+- Don't hard-code hex colours (status pills are the only exception).
+- Don't switch layouts at `md` for phone versus desktop; use `lg`.
+- Don't put business rules only in the UI.
+- Don't edit an applied migration.
 - Don't put secrets, tokens or backups in the repository.
-
-**Known gaps (honest list)**
-
-- Dark mode tokens exist but no toggle or provider is wired.
-- Default buttons and inputs are 32 px tall, below the 44 px touch guideline; large
-  actions on phones rely on `size="lg"` or card-sized tap areas. Consider a
-  taller `h-10` default on `max-sm`.
-- Charts use a single colour (`primary`); the `chart-*` tokens are unused.
-- The `ui/` folder follows shadcn defaults and has a few unused variants.
