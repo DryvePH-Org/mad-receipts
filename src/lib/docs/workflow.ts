@@ -4,6 +4,7 @@ import { normalizePlate } from "@/lib/rules/plate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
 import { createTelegramClient } from "@/lib/telegram";
+import { tell, appUrl } from "@/lib/notify";
 import { loadCar } from "./service";
 import { cleanDetails, EMPTY_DETAILS, missingDetails, type UnitDetails } from "./details";
 
@@ -94,10 +95,13 @@ export async function afterReading(plate: string, deps: WorkflowDeps = defaultWo
     const flagged = car.analysis.files.filter((r) => r.flags.length).length, missing = car.checklist.items.filter((i) => i.stage === "available" && !i.present && !i.optional).length;
     await upsertWorkflow(deps.admin, key, { scan_notified_at: new Date().toISOString() });
     await deps.notify(`🔎 Scanned: ${carName(car)}\n${flagged ? `${flagged} file${flagged === 1 ? "" : "s"} to check` : "No red flags"}${missing ? `, ${missing} paper${missing === 1 ? "" : "s"} missing` : ""}.\nOpen it in the app, check, add the details and approve.`).catch(() => undefined);
+    const failedFiles = car.files.filter((f) => f.read_status === "failed").length;
+    await tell({ category: "scan_result", dedupe: `scan:${key}:${new Date().toISOString().slice(0, 13)}`, text: `${failedFiles ? "⚠️ Scan finished, some photos could not be read" : flagged || missing ? "🔎 Scan finished with warnings" : "🔎 Scan finished, no warnings"}\n${carName(car)}${flagged ? `\n${flagged} file${flagged === 1 ? "" : "s"} to check` : ""}${missing ? `\n${missing} paper${missing === 1 ? "" : "s"} missing` : ""}${failedFiles ? `\n${failedFiles} photo${failedFiles === 1 ? "" : "s"} not readable` : ""}\n${appUrl(`/documents/${key}`)}` });
   }
   if (!workflow.soldReadyNotifiedAt && car.checklist.items.find((i) => i.key === "ack")?.present && car.folder.location === "available" && car.checklist.complete) {
     await upsertWorkflow(deps.admin, key, { sold_ready_notified_at: new Date().toISOString() });
     await deps.notify(`📦 Sold, documents complete\n${carName(car)}\nMove the folder to Sold, then review it for handoff.`).catch(() => undefined);
+    await tell({ category: "ready_to_sold", dedupe: `ready:${key}`, text: `📦 Documents complete: move to Sold\n${carName(car)}\n${appUrl(`/documents/${key}`)}` });
   }
 }
 
@@ -154,6 +158,7 @@ export async function runHandoffReminders(to: string, deps: WorkflowDeps = defau
   const message = buildHandoffReminder(due.map((d) => ({ plate: d.plate_no, name: nameOf.get(d.plate_no) ?? d.plate_no, since: d.handoff_at! })).sort((a, b) => a.since.localeCompare(b.since)), manilaToday(), to);
   if (!message) return { sent: false, cars: 0 };
   await deps.notify(message);
+  await tell({ category: "handoff_reminder", dedupe: `handoff:${manilaToday()}`, text: message });
   const stamp = now.toISOString();
   await deps.admin.from("unit_workflow").update({ handoff_last_reminded_at: stamp }).in("plate_no", due.map((d) => d.plate_no));
   return { sent: true, cars: due.length };

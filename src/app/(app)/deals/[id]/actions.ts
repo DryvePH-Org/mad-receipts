@@ -6,6 +6,7 @@ import { requireAdmin, requireModule } from "@/lib/auth";
 import { friendlyError } from "@/lib/deal/errors";
 import { toCentavos, fromCentavos } from "@/lib/rules/money";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { loanReleased, voidedOrCancelled } from "@/lib/notify/events";
 import { processDueJobs } from "@/lib/sync/process";
 
 export type AdminResult = { ok: true } | { ok: false; error: string };
@@ -23,6 +24,7 @@ export async function voidReceipt(receiptId: string, reason: string): Promise<Ad
   if (error) return { ok: false, error: friendlyError(error.message) };
   revalidatePath("/", "layout"); // every screen that shows deals, receipts or balances
   syncSoon();
+  after(() => voidedOrCancelled("void", user.id, { receiptId, reason }));
   return { ok: true };
 }
 
@@ -35,6 +37,7 @@ export async function cancelDeal(dealId: string, reason: string, refundText: str
   const { error } = await createAdminClient().rpc("cancel_deal", { p_actor: user.id, p_deal_id: dealId, p_reason: reason, p_refund: Number(fromCentavos(refund)) });
   if (error) return { ok: false, error: friendlyError(error.message) };
   syncSoon();
+  after(() => voidedOrCancelled("cancel", user.id, { dealId, reason }));
   return { ok: true };
 }
 
@@ -45,5 +48,6 @@ export async function setLoanStatus(dealId: string, status: "waiting" | "release
   const { error } = await createAdminClient().rpc("set_loan_status", { p_actor: user.id, p_deal_id: dealId, p_status: status, p_on: status === "released" && /^\d{4}-\d{2}-\d{2}$/.test(on) ? on : undefined });
   if (error) return { ok: false, error: friendlyError(error.message) };
   syncSoon();
+  if (status === "released") after(() => loanReleased(dealId));
   return { ok: true };
 }

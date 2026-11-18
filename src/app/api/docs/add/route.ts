@@ -1,4 +1,6 @@
+import { after } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { driveProblem } from "@/lib/notify/events";
 import { defaultDocsDeps, docsErrorText, ensureCarFolder, uploadPhoto } from "@/lib/docs/service";
 import { readerMode } from "@/lib/docs/bot-scan";
 import { unitForFolder } from "@/lib/docsbible/unit-lookup";
@@ -42,6 +44,7 @@ export async function POST(request: Request) {
   } catch (err) {
     const text = docsErrorText(err);
     console.info(`[docs] add status=failed reason=${text}`);
+    after(() => driveProblem(text));
     return fail(text, 422); // not a 5xx: Cloudflare would swap the body for its own error page and the reason would be lost
   }
 }

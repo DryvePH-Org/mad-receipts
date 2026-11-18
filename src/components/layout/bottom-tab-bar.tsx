@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Ellipsis, LogOut } from "lucide-react";
+import { Ellipsis, LogOut, Send } from "lucide-react";
 import { InstallButton } from "@/components/pwa/install-button";
 import { ResponsiveDialog } from "@/components/shared/responsive-dialog";
 import { Button } from "@/components/ui/button";
@@ -96,6 +96,7 @@ function View({ role, modules, name, pathname }: Props & { pathname: string | nu
               ))}
             </ul>
           )}
+          <Button variant="outline" className="w-full" nativeButton={false} onClick={() => setMoreOpen(false)} render={<Link href="/telegram" />}><Send /> My Telegram</Button>
           <InstallButton className="w-full" />
           <form action={logout}>
             <Button type="submit" variant="outline" className="w-full">

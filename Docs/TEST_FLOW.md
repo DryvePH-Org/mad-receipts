@@ -144,3 +144,23 @@ Open the car → the **Papers** card → **Upload documents**. The photos go str
 **Two screens, one folder.** Delete a photo directly in Drive, and upload another: after about a minute the page shows only the photos that are in Drive (not both), and the new one is scanned.
 
 **The old sheet (cut-over).** Admin → Sync jobs → **Go-live check** → Run. Under **Cut-over** it says whether anything was typed in the old Google Sheet after the move (needs `DOCS_BIBLE_SHEET_ID`), and under **Scanner bot connection** that the scanner is set up. When it is clean, lock the old sheet in Google (see `Docs/GO_LIVE.md`).
+
+## 8. Telegram messages per person (20 minutes, needs migration 34)
+
+Set up once: the Admin opens **My Telegram → Set up the bot**. Then each tester presses **Connect Telegram**, **Start** in Telegram, and **Send me a test**.
+
+| Do | You should get |
+|---|---|
+| Sales writes a receipt and sends it | **Approver**: "Receipt waiting for approval" with the writer, amount, car |
+| Approver approves it | **Sales** (the writer): "Receipt approved". If it settles the deal: "Deal settled" |
+| Approver rejects one with a reason | **Sales**: "Receipt rejected" with the reason |
+| Admin voids a receipt, or cancels a deal | **Admin** (the others): who did it and why |
+| Admin marks a loan released | **Sales** (deal owner): "Loan released" |
+| Admin changes a role, or adds a user | **Admin**: the change and who made it |
+| Documentation adds a car | the **other** Documentation people: "New car added by …" |
+| Sales uploads sold papers on a car | **Documentation**: "Sold papers added" (once an hour per car, not per photo) |
+| A scan finishes | **Documentation**: scan finished, with warnings or without |
+| A sold car's papers are complete | **Documentation**: "Documents complete: move to Sold" |
+| Next morning, 8:00 | **Sales**: "Your deals" (their own only). Mondays: **Admin** weekly summary. At 9:00: **Approver** (receipts waiting too long), **Documentation** (review list) |
+| Switch one message off in My Telegram, repeat the step | nothing arrives for that message |
+| Do a step after 9 PM Manila | the message arrives at 7:00 the next morning |

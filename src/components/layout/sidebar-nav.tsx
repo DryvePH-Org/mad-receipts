@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { LogOut, Send } from "lucide-react";
 import { Brand } from "@/components/layout/brand";
 import { InstallButton } from "@/components/pwa/install-button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -84,6 +84,7 @@ function View({ role, modules, name, pathname }: Props & { pathname: string | nu
           </div>
           <div className="flex items-center">
             <ThemeToggle />
+            <Button variant="ghost" size="icon" aria-label="My Telegram notifications" nativeButton={false} render={<Link href="/telegram" />}><Send /></Button>
             <form action={logout}>
               <Button type="submit" variant="ghost" size="icon" aria-label="Log out">
                 <LogOut />

@@ -1,10 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 import { requireAdmin, requireModule } from "@/lib/auth";
 import { canAssignRole, canManageUser } from "@/lib/user-rules";
 import { ADMIN_FLOOR, GRANTABLE, isModuleId, SENSITIVE, type ModuleId } from "@/lib/navigation";
+import { userChanged } from "@/lib/notify/events";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type ActionResult = { ok: boolean; message: string } | null;
@@ -54,6 +56,7 @@ export async function createUser(_prev: ActionResult, form: FormData): Promise<A
   });
 
   revalidatePath("/admin/users");
+  after(() => userChanged(actor.id, `New user: ${fullName} (${role})`));
   return { ok: true, message: `Created ${fullName}. They can log in now.` };
 }
 
@@ -104,6 +107,7 @@ export async function changeRole(userId: string, role: string): Promise<{ ok: bo
   if (error) return { ok: false, message: "Could not change the role." };
   await admin.from("audit_logs").insert({ actor_id: actor.id, action: "user.role", entity: "user", entity_id: parsed.data.userId, before: { role: before?.role }, after: { full_name: before?.full_name, role: parsed.data.role } });
   revalidatePath("/admin/users");
+  after(() => userChanged(actor.id, `${before?.full_name ?? "A user"} is now ${parsed.data.role}${before?.role ? ` (was ${before.role})` : ""}`));
   return { ok: true, message: "Role changed." };
 }
 

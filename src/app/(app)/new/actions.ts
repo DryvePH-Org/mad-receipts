@@ -11,6 +11,7 @@ import { missingFields, totalsOf } from "@/lib/deal/validate";
 import type { FormState } from "@/lib/deal/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
+import { receiptSubmitted } from "@/lib/notify/events";
 import { processDueJobs } from "@/lib/sync/process";
 
 export type SubmitResult =
@@ -43,5 +44,6 @@ export async function submitReceipt(input: unknown, dealId: string | null): Prom
   revalidatePath("/", "layout"); // every screen that shows deals, receipts or balances
   // The first receipt of a deal queues "find the car's document folder by plate"; run it now instead of waiting for the next cron.
   after(() => processDueJobs({ receiptId: r.receipt_id }).catch((e) => console.error(`[sync] after submit failed: ${e instanceof Error ? e.message : "unknown"}`)));
+  after(() => receiptSubmitted(r.receipt_id)); // the Approvers hear about it on Telegram
   return { ok: true, dealId: r.deal_id, receiptId: r.receipt_id, dealNo: r.deal_no, receiptNo: r.receipt_no, balanceAfter: String(r.balance_after) };
 }

@@ -208,14 +208,9 @@ export async function listActivity(action?: string): Promise<ActivityEntry[]> {
   return (data ?? []).map((l) => ({ id: l.id, action: l.action, at: l.created_at, actor: l.actor_id ? (names.get(l.actor_id) ?? "Someone") : "System", after: l.after, entity: l.entity, entityId: l.entity_id }));
 }
 
-/** Everything that needs a nudge, for one person. */
-export async function remindersFor(user: CurrentUser): Promise<Notification[]> {
-  const [deals, settings] = await Promise.all([listDeals(), getSettings()]);
-  const supabase = await createClient();
-  const { data } = await supabase.from("receipt_list").select("*").in("status", ["pending", "rejected"]).order("submitted_at", { ascending: false }).limit(300);
-  const receipts = (data ?? []).map(toReceiptView);
+function remindersOf(deals: DealView[], receipts: ReceiptView[], settings: AppSettings): Notification[] {
   const dealOf = new Map(deals.map((d) => [d.id, d]));
-  const list = buildNotifications(
+  return buildNotifications(
     deals.map((d) => ({
       id: d.id, status: d.status, balance: d.balance, due_date: d.dueDate, sale_type: d.saleType, loan_status: d.loanStatus, buyer_name: d.buyerName,
       institution: d.institution, loan_amount: d.loan / 100, lieu_amount: d.lieu / 100, lieu_until: d.lieuUntil, loan_since: d.loanSince, created_by: d.createdBy, unit_name: d.unitName,
@@ -223,5 +218,25 @@ export async function remindersFor(user: CurrentUser): Promise<Notification[]> {
     receipts.map((r) => ({ id: r.id, receipt_no: r.receiptNo, deal_id: r.dealId, buyer_name: r.buyerName, unit_name: dealOf.get(r.dealId)?.unitName ?? "", amount: r.amount / 100, status: r.status, submitted_by: r.submittedBy, submitted_at: r.submittedAt, reject_reason: r.rejectReason })),
     settings.reminders, manilaToday(),
   );
-  return notificationsFor(list, user);
+}
+
+/** Everything that needs a nudge, for one person. */
+export async function remindersFor(user: CurrentUser): Promise<Notification[]> {
+  const [deals, settings] = await Promise.all([listDeals(), getSettings()]);
+  const supabase = await createClient();
+  const { data } = await supabase.from("receipt_list").select("*").in("status", ["pending", "rejected"]).order("submitted_at", { ascending: false }).limit(300);
+  return notificationsFor(remindersOf(deals, (data ?? []).map(toReceiptView), settings), user);
+}
+
+/** The same list for every person at once, read as the server (no signed-in user): what the morning Telegram messages are made from. */
+export async function allReminders(): Promise<{ list: Notification[]; deals: DealView[]; settings: AppSettings }> {
+  const admin = createAdminClient();
+  const [{ data: dealRows }, { data: receiptRows }, { data: cfg }] = await Promise.all([
+    admin.from("deal_summaries").select("*").order("created_at", { ascending: false }).limit(2000),
+    admin.from("receipt_list").select("*").in("status", ["pending", "rejected"]).order("submitted_at", { ascending: false }).limit(300),
+    admin.from("app_settings").select("config").eq("id", 1).maybeSingle(),
+  ]);
+  const settings = parseSettings(cfg?.config);
+  const deals = (dealRows ?? []).map(toDealView);
+  return { list: remindersOf(deals, (receiptRows ?? []).map(toReceiptView), settings), deals, settings };
 }

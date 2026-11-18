@@ -11,6 +11,7 @@ import { readerMode, scheduleScan } from "@/lib/docs/bot-scan";
 import { allowed } from "@/lib/docs/stage";
 import { stageFor } from "@/lib/docs/stage-server";
 import { fileCarReceipts } from "@/lib/docs/receipts-drive";
+import { carAdded } from "@/lib/notify/events";
 import { unitForFolder } from "@/lib/docsbible/unit-lookup";
 import { addUnit, unitStatus, type AddUnitResult, type UnitStatus } from "@/lib/docsbible/add-unit-server";
 import { markRegisterSold, recordHandoff, setRegisterClassification, syncRegister } from "@/lib/docsbible/sync";
@@ -299,7 +300,7 @@ export async function addUnitAction(plate: string, details: unknown, secondArriv
   const p = z.string().min(1).max(20).safeParse(plate), d = detailsSchema.safeParse(details);
   if (!p.success || !d.success) return { ok: false, message: "Some details are too long or missing." };
   const r = await addUnit(p.data, d.data, user.id, !!secondArrival);
-  if (r.ok) revalidatePath("/documents", "layout");
+  if (r.ok) { revalidatePath("/documents", "layout"); after(() => carAdded(r.plate, [d.data.year_model, d.data.make, d.data.model_variant].filter(Boolean).join(" "), user.id)); }
   return r;
 }
 

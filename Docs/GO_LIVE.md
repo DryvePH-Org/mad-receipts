@@ -33,3 +33,10 @@ The Docs Bible in the database is the one place to work. The old Google Sheet is
 2. **Lock the old sheet** in Google, as the owner (the app cannot and never writes to it): open the sheet → **Data → Protect sheets and ranges** → for each tab (DOCS 2026, CHANGELOG, AUG, SEPT, OCT, NOV, 2026 NEW UNITS) choose **Sheet**, **Set permissions**, **Restrict who can edit this range: Only you**. Optionally put a note in cell A1 of DOCS 2026 first: "MOVED TO THE MAD APP: do not type here".
 3. **Tell the staff** the date, and that Car documents (List and Table) replaces the sheet. The table has the sheet's columns and order; Download as CSV gives the sheet layout any time.
 4. **Run the check again** a few days later: it should still say nothing changed.
+
+## Personal Telegram messages
+1. Run migration `20261118000034_telegram_notifications.sql` (Supabase → SQL Editor).
+2. Push. Nothing else changes on the server: the bot token is the one already used for the team chats.
+3. As Admin: **My Telegram → Set up the bot** (once). If it says the bot already sends its messages to another address, make a second bot in BotFather and put its token in `TELEGRAM_USER_BOT_TOKEN` in `/opt/mad-receipts/.env`, restart the app, then press Set up the bot again.
+4. Each person: **My Telegram → Connect Telegram → Start** in Telegram, then **Send me a test**.
+5. Admin sees who is connected on the same page.

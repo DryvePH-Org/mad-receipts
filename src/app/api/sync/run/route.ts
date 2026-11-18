@@ -3,6 +3,7 @@ import { readSomePending } from "@/lib/docs/service";
 import { dispatch } from "@/lib/grokbot/client";
 import { saveDailyCopy } from "@/lib/docsbible/export-server";
 import { defaultGrokbotDeps } from "@/lib/grokbot/store";
+import { runScheduled } from "@/lib/notify/schedule";
 import { processDueJobs } from "@/lib/sync/process";
 
 // Called by the scheduler every 5 minutes with CRON_SECRET.
@@ -19,7 +20,9 @@ export async function POST(request: Request) {
     const bots = await part("bot queue", () => dispatch(defaultGrokbotDeps()));
     // the Docs Bible is the only copy now: one saved CSV a day (a quick check when today's is already there)
     const backup = await part("daily copy", () => saveDailyCopy());
-    return Response.json({ ...(summary ?? { error: "receipt jobs failed" }), docs, bots, backup });
+    // personal Telegram messages: the held ones, the morning digests, the problem alerts
+    const notices = await part("notifications", () => runScheduled());
+    return Response.json({ ...(summary ?? { error: "receipt jobs failed" }), docs, bots, backup, notices });
   } catch (err) {
     console.error(`[sync] run failed: ${err instanceof Error ? err.message : "unknown error"}`);
     return Response.json({ error: "Sync run failed" }, { status: 500 });

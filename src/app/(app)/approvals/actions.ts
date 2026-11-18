@@ -5,6 +5,7 @@ import { after } from "next/server";
 import { requireApprover } from "@/lib/auth";
 import { friendlyError } from "@/lib/deal/errors";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { receiptDecided } from "@/lib/notify/events";
 import { processDueJobs } from "@/lib/sync/process";
 
 export type ReviewResult = { ok: true } | { ok: false; error: string };
@@ -15,6 +16,7 @@ async function review(receiptId: string, approve: boolean, reason?: string): Pro
   const { error } = await createAdminClient().rpc("review_receipt", { p_actor: user.id, p_receipt_id: receiptId, p_approve: approve, p_reason: reason });
   if (error) return { ok: false, error: friendlyError(error.message) };
   revalidatePath("/", "layout"); // every screen that shows deals, receipts or balances
+  after(() => receiptDecided(receiptId, approve, reason)); // the writer hears the result on Telegram
   if (approve) {
     // Drive, Sheets, Telegram and the inventory sheet update after approval; a failure stays queued and retries.
     after(() => processDueJobs({ receiptId }).catch((e) => console.error(`[sync] after approval failed: ${e instanceof Error ? e.message : "unknown"}`)));

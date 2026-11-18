@@ -1,9 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// These endpoints authenticate inside the route, not with a session: the scheduled jobs with CRON_SECRET, and the grokbot's answers
-// with the token of the job they answer.
-const CRON_PATHS = ["/api/sync/run", "/api/reminders/run", "/api/docs/handoff-reminders", "/api/grokbot/callback"];
+// These endpoints authenticate inside the route, not with a session: the scheduled jobs with CRON_SECRET, the grokbot's answers with the token of the job they answer,
+// and Telegram's webhook with its secret header.
+const CRON_PATHS = ["/api/sync/run", "/api/reminders/run", "/api/docs/handoff-reminders", "/api/grokbot/callback", "/api/telegram/webhook"];
 // The grokbot opens a photo with a signed, short-lived link instead of a login.
 const PUBLIC_PREFIXES = ["/api/docs/scan-file/"];
 

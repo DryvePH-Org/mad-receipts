@@ -1,7 +1,9 @@
 import { readerMode, scheduleScan } from "@/lib/docs/bot-scan";
 import { loadCar, docsErrorText, uploadPhoto } from "@/lib/docs/service";
 import { lookupForSales, salesViewOf } from "@/lib/docs/sales";
+import { after } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { driveProblem, soldPapersAdded } from "@/lib/notify/events";
 
 const MAX_BYTES = 6 * 1024 * 1024;
 const ALLOWED = /^image\/(jpeg|png|webp)$/;
@@ -28,9 +30,12 @@ export async function POST(request: Request) {
     if (readerMode() === "grokbot") scheduleScan(found.view.plate, 25_000); // photos added one by one are scanned together, shortly after the last one
     const car = await loadCar(found.view.plate);
     console.info(`[docs] upload status=${result.readStatus}`);
+    after(() => soldPapersAdded(found.view.plate, car?.folder.folder_name ?? found.view.plate, user.id));
     return Response.json({ result, view: car ? salesViewOf(car, found.view.buyer, found.view.dealNo) : found.view });
   } catch (err) {
     console.info("[docs] upload status=failed");
-    return fail(docsErrorText(err), 502);
+    const text = docsErrorText(err);
+    after(() => driveProblem(text));
+    return fail(text, 422); // not a 5xx: Cloudflare would swap the body for its own error page and the reason would be lost
   }
 }
