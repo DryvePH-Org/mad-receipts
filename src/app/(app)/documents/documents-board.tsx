@@ -10,7 +10,7 @@ import { Pill } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { GridRow, Role } from "@/lib/docsbible/grid";
-import { CHIPS, filterUnified, STAGES, type ChipKey, type UnifiedRow } from "@/lib/docsbible/unified";
+import { CHIPS, filterUnified, FOLDER_FILTERS, STAGES, type ChipKey, type FolderFilter, type UnifiedRow } from "@/lib/docsbible/unified";
 import { cn } from "@/lib/utils";
 import { DocsGrid } from "../docs-bible/docs-grid";
 import { refreshFoldersAction } from "./actions";
@@ -22,9 +22,11 @@ export function DocumentsBoard({ rows, grid, role, canAct, openDecisions }: { ro
   const [chip, setChip] = useState<ChipKey>("all");
   const [q, setQ] = useState("");
   const [attention, setAttention] = useState(false);
+  const [folder, setFolder] = useState<FolderFilter>("all");
   const [pending, start] = useTransition();
-  const count = (k: ChipKey) => filterUnified(rows, k, "", false).length;
-  const shown = useMemo(() => filterUnified(rows, chip, q, attention), [rows, chip, q, attention]);
+  const count = (k: ChipKey) => filterUnified(rows, k, "", false, folder).length;
+  const inFolder = (k: FolderFilter) => filterUnified(rows, "all", "", false, k).length;
+  const shown = useMemo(() => filterUnified(rows, chip, q, attention, folder), [rows, chip, q, attention, folder]);
 
   return (
     <div className="space-y-4">
@@ -44,6 +46,12 @@ export function DocumentsBoard({ rows, grid, role, canAct, openDecisions }: { ro
 
       {view === "table" ? <DocsGrid initial={grid} role={role} /> : (
         <>
+          <div role="tablist" aria-label="Drive folder" className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 text-sm text-muted-foreground">Folder</span>
+            {FOLDER_FILTERS.map((f) => (
+              <button key={f.key} type="button" role="tab" aria-selected={folder === f.key} onClick={() => setFolder(f.key)} className={cn("rounded-full border px-3 py-1 text-sm", folder === f.key ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted")}>{f.label} <span className="opacity-70">{inFolder(f.key)}</span></button>
+            ))}
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <div role="tablist" aria-label="Stage" className="inline-flex flex-wrap gap-1.5">
               {CHIPS.map((c) => (

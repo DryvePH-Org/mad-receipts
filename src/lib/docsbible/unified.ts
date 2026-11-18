@@ -46,8 +46,16 @@ export interface UnifiedRow {
   plate: string; plateDisplay: string; car: string;
   caseLabel: string; stage: StageKey; papers: { have: number; need: number } | null;
   flagged: boolean; decisions: number; files: number; location: "available" | "sold" | null;
+  /** which Drive folder the car is in right now: Available units, Sold units, or none (no folder linked) */
+  folder: FolderKey;
   buyer: string | null; complete: string | null; searchText: string;
 }
+
+export type FolderKey = "available" | "sold" | "none";
+export type FolderFilter = "all" | FolderKey;
+export const FOLDER_FILTERS: { key: FolderFilter; label: string }[] = [
+  { key: "all", label: "Any folder" }, { key: "available", label: "In Available units" }, { key: "sold", label: "In Sold units" }, { key: "none", label: "No folder" },
+];
 
 export type ChipKey = "all" | "scan" | "review" | "approved" | "sold" | "handoff" | "none";
 export const CHIPS: { key: ChipKey; label: string; stages: StageKey[] }[] = [
@@ -55,8 +63,8 @@ export const CHIPS: { key: ChipKey; label: string; stages: StageKey[] }[] = [
   { key: "approved", label: "Approved", stages: ["approved"] }, { key: "sold", label: "In Sold", stages: ["sold"] }, { key: "handoff", label: "With processor", stages: ["handoff"] },
   { key: "none", label: "Not started", stages: ["none"] },
 ];
-export function filterUnified(rows: UnifiedRow[], chip: ChipKey, q: string, onlyAttention: boolean): UnifiedRow[] {
+export function filterUnified(rows: UnifiedRow[], chip: ChipKey, q: string, onlyAttention: boolean, folder: FolderFilter = "all"): UnifiedRow[] {
   const stages = CHIPS.find((c) => c.key === chip)?.stages ?? [];
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
-  return rows.filter((r) => (chip === "all" || stages.includes(r.stage)) && (!onlyAttention || r.flagged || r.decisions > 0) && words.every((w) => r.searchText.includes(w)));
+  return rows.filter((r) => (chip === "all" || stages.includes(r.stage)) && (folder === "all" || r.folder === folder) && (!onlyAttention || r.flagged || r.decisions > 0) && words.every((w) => r.searchText.includes(w)));
 }

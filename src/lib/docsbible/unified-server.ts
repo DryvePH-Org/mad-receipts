@@ -27,7 +27,7 @@ export async function loadUnified(): Promise<{ rows: UnifiedRow[]; grid: GridRow
     const caseLabel = v.classification && v.classification !== "Not classified (legacy)" ? v.classification : f?.caseLabel ?? "Not classified";
     return {
       unitId: g?.id ?? null, plate, plateDisplay: (v.plate_display as string | null) ?? f?.plateDisplay ?? plate, car, caseLabel, stage, papers: g ? paperProgress(v) : null,
-      flagged: f?.status.key === "review", decisions: g?.decisions ?? 0, files: f?.files ?? 0, location: f?.location ?? null, buyer: f?.deal?.buyerName ?? null, complete: g?.complete ?? null,
+      flagged: f?.status.key === "review", decisions: g?.decisions ?? 0, files: f?.files ?? 0, location: f?.location ?? null, folder: f && f.match === "linked" ? f.location : "none", buyer: f?.deal?.buyerName ?? null, complete: g?.complete ?? null,
       searchText: `${(v.plate_display as string | null) ?? plate} ${car} ${v.reg_owner_name ?? ""} ${f?.deal?.buyerName ?? ""} ${f?.deal?.dealNo ?? ""}`.toLowerCase(),
     };
   };

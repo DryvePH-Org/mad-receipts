@@ -60,6 +60,13 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await docs.getByLabel("Search cars").fill("ZZT");
   await expect(docs.getByRole("link", { name: /ZZT.?7002/ }).first()).toContainText("Folder not linked");
   await expect(docs.getByRole("link", { name: /ZZT.?7004/ }).first()).toContainText("Folder not linked");
+  // the folder filter: ZZT 7001 sits in Available units, ZZT 7004 has no folder
+  await docs.getByRole("tab", { name: /^In Available units/ }).click();
+  await expect(docs.getByRole("link", { name: /ZZT.?7001/ }).first()).toBeVisible();
+  await expect(docs.getByRole("link", { name: /ZZT.?7004/ })).toHaveCount(0);
+  await docs.getByRole("tab", { name: /^No folder/ }).click();
+  await expect(docs.getByRole("link", { name: /ZZT.?7004/ }).first()).toBeVisible();
+  await docs.getByRole("tab", { name: /^Any folder/ }).click();
   await docs.getByLabel("Search cars").fill("");
 
   // several folders: choose one
