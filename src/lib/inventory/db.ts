@@ -14,15 +14,15 @@ interface Joined { plate: string; remarks: string; makeType: string; year: strin
  * part: any other note in it is kept. A car that has a Docs Bible row but no stock row yet gets one when its first status is written.
  */
 export function createDbInventory(): InventoryAdapter {
-  const db = docsDb();
+  const db = () => docsDb(); // made when it is used: the build loads this file without the server's keys
 
   async function joined(plates?: string[]): Promise<Joined[]> {
-    let q = db.from("car_stock").select("unit_id, plate_no, remarks, list_model, list_color").eq("in_stock", true).limit(3000);
+    let q = db().from("car_stock").select("unit_id, plate_no, remarks, list_model, list_color").eq("in_stock", true).limit(3000);
     if (plates) q = q.in("plate_no", plates);
     const { data: stock, error } = await q;
     if (error) throw new InventoryError(`Car status could not be read: ${error.message}`);
     const ids = (stock ?? []).map((s) => s.unit_id as string);
-    const { data: units } = ids.length ? await db.from("docs_units").select("id, make, model_variant, year_model, color").in("id", ids).limit(3000) : { data: [] };
+    const { data: units } = ids.length ? await db().from("docs_units").select("id, make, model_variant, year_model, color").in("id", ids).limit(3000) : { data: [] };
     const u = new Map((units ?? []).map((x) => [x.id as string, x]));
     return (stock ?? []).map((s) => {
       const c = u.get(s.unit_id as string);
@@ -40,7 +40,7 @@ export function createDbInventory(): InventoryAdapter {
       const [one] = await joined([key]);
       if (one) return unitOf(one);
       // a car of the Docs Bible that is not in the stock: enough to name it (a folder, a receipt)
-      const { data: c } = await db.from("docs_units").select("make, model_variant, year_model, color").eq("plate_no", key).is("archived_at", null).order("arrival_date", { ascending: false }).limit(1);
+      const { data: c } = await db().from("docs_units").select("make, model_variant, year_model, color").eq("plate_no", key).is("archived_at", null).order("arrival_date", { ascending: false }).limit(1);
       const u = c?.[0];
       if (!u) return null;
       const makeType = [u.make, u.model_variant].filter(Boolean).join(" ");
@@ -49,19 +49,19 @@ export function createDbInventory(): InventoryAdapter {
 
     async setStatus(plate, status, ref) {
       const key = normalizePlate(plate);
-      const { data: row } = await db.from("car_stock").select("unit_id, remarks").eq("plate_no", key).eq("in_stock", true).maybeSingle();
+      const { data: row } = await db().from("car_stock").select("unit_id, remarks").eq("plate_no", key).eq("in_stock", true).maybeSingle();
       let unitId = row?.unit_id as string | undefined, current = String(row?.remarks ?? "");
       if (!unitId) {
-        const { data: c } = await db.from("docs_units").select("id").eq("plate_no", key).is("archived_at", null).order("arrival_date", { ascending: false }).limit(1);
+        const { data: c } = await db().from("docs_units").select("id").eq("plate_no", key).is("archived_at", null).order("arrival_date", { ascending: false }).limit(1);
         if (!c?.[0]) throw new InventoryError(`Plate ${key} is not in the app's car list.`);
-        const { data: last } = await db.from("car_stock").select("sort_order").order("sort_order", { ascending: false }).limit(1);
-        const ins = await db.from("car_stock").upsert({ unit_id: c[0].id, plate_no: key, in_stock: true, source: "app", sort_order: Number(last?.[0]?.sort_order ?? 0) + 1 }, { onConflict: "unit_id" });
+        const { data: last } = await db().from("car_stock").select("sort_order").order("sort_order", { ascending: false }).limit(1);
+        const ins = await db().from("car_stock").upsert({ unit_id: c[0].id, plate_no: key, in_stock: true, source: "app", sort_order: Number(last?.[0]?.sort_order ?? 0) + 1 }, { onConflict: "unit_id" });
         if (ins.error) throw new InventoryError(`Could not put ${key} on the stock list: ${ins.error.message}`);
         unitId = c[0].id as string; current = "";
       }
       const next = applyStatus(current, status, ref);
       if (next === current) return; // already says the right thing
-      const { error } = await db.from("car_stock").update({ remarks: next }).eq("unit_id", unitId);
+      const { error } = await db().from("car_stock").update({ remarks: next }).eq("unit_id", unitId);
       if (error) throw new InventoryError(`Could not save the status of ${key}: ${error.message}`);
     },
   };
