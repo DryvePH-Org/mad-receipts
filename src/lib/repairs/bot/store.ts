@@ -52,6 +52,7 @@ export function dbStore(): Store {
       if (!error) { if (Math.random() < 0.02) await db().from("repair_bot_updates").delete().lt("received_at", new Date(Date.now() - 7 * 86_400_000).toISOString()); return true; }
       return error.code !== "23505";                 // already seen: skip. Any other trouble: handle it anyway rather than lose a report
     },
+    async mute(jobId, day) { await db().from("repair_bot_kv").upsert({ key: `mute:${jobId}`, value: day }); },
     async takeCap(kind, cap) {
       const day = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);   // Manila day
       const { data } = await db().from("repair_bot_usage").select("n").eq("day", day).eq("kind", kind).maybeSingle();

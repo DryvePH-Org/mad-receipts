@@ -2,12 +2,14 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { manilaToday } from "@/lib/dates";
 import { docsDb } from "@/lib/docsbible/review-server";
-import { decideRepairs, reportRepairs } from "@/lib/repairs/server";
+import { isOpen, isOverdue } from "@/lib/repairs/model";
+import { decideRepairs, loadRepairs, reportRepairs, updateRepair } from "@/lib/repairs/server";
 import { createFlow } from "./flow";
 import { readWithModel } from "./llm";
 import type { Ports } from "./ports";
 import { dbStore } from "./store";
-import { repairsGroupId, telegram } from "./telegram";
+import { sttReady, transcribeAudio } from "./elevenlabs";
+import { downloadVoice, repairsGroupId, telegram } from "./telegram";
 import type { CarLite } from "./understand";
 import { isLang } from "./texts";
 
@@ -37,6 +39,7 @@ export function realPorts(): Ports {
     newId: () => randomBytes(4).toString("hex"),
     caps: { jobs: Number(process.env.REPAIRS_DAILY_JOB_CAP) || 400, voice: Number(process.env.REPAIRS_DAILY_VOICE_CAP) || 200 },
     read: readWithModel,
+    ...(sttReady() ? { transcribe: async (fileId: string) => transcribeAudio(await downloadVoice(fileId)) } : {}),
     cars,
     async vocabulary() {
       const { data } = await docsDb().from("car_repairs").select("supplier, company").not("supplier", "is", null).limit(500);
@@ -51,6 +54,19 @@ export function realPorts(): Ports {
       }, { name: d.ownerName });
       return r.ok ? { ok: true } : r;
     },
+    async openJobs(plate) {
+      const today = manilaToday();
+      return (await loadRepairs(plate)).filter(isOpen).slice(0, 200).map((r) => ({ jobId: r.id, key: r.key, plate: r.plate, car: [r.ym, r.vehicle ?? r.brand].filter(Boolean).join(" "), problem: r.problem ?? "", supplier: r.supplier ?? "", due: r.dueOn ?? "", overdue: isOverdue(r, today) }));
+    },
+    async applyUpdates(d, by) {
+      const failed = new Map<string, string | null>();
+      for (const u of d.update?.updates ?? []) {
+        const r = await updateRepair(u.jobId, { status: u.status_change === "done" ? "DONE" : undefined, estTimeline: u.est_timeline || undefined, supplier: u.supplier || undefined, company: u.company || undefined, note: u.note || undefined }, by);
+        if (!r.ok) failed.set(u.jobId, r.error);
+      }
+      return failed;
+    },
+    async markDone(jobId, by) { return updateRepair(jobId, { status: "DONE" }, by); },
     async decide(d, approve, by, reason) {
       const { data: jobs } = await docsDb().from("car_repairs").select("id").eq("report_id", `R${d.id}-${d.round}`);
       const ids = (jobs ?? []).map((j) => j.id as string);

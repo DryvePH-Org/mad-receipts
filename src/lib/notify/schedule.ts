@@ -26,6 +26,7 @@ export async function runScheduled(now = new Date()): Promise<Record<string, unk
 
   await part("outbox", () => flushOutbox(now));
   await part("alerts", () => problemAlerts(now, today, hour));
+  await part("repairsBot", async () => (await import("@/lib/repairs/bot/tick")).repairsBotTick(now));
   if (isQuiet(now)) return out; // the morning messages wait for 7:00; they go at their own hour
 
   if (hour >= 8) {

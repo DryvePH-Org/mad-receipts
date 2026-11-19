@@ -2,6 +2,7 @@ import type { Draft, DraftData, DraftState } from "./draft";
 import type { Keyboard } from "./cards";
 import type { Lang } from "./texts";
 import type { CarLite, Vocabulary } from "./understand";
+import type { OpenLine } from "./cards";
 
 // What the bot's flow needs from the outside world, so the flow can be tested with fakes and run for real with Telegram and the database.
 
@@ -33,6 +34,8 @@ export interface Store {
   firstTime(updateId: number): Promise<boolean>;
   /** Counts one use of today; false (and not counted) once the daily cap is reached. */
   takeCap(kind: "jobs" | "voice", cap: number): Promise<boolean>;
+  /** "Mute this job's reminders today". */
+  mute(jobId: string, day: string): Promise<void>;
 }
 
 export interface Ports {
@@ -51,6 +54,12 @@ export interface Ports {
   saveReport(d: Draft): Promise<{ ok: true } | { ok: false; error: string }>;
   /** An Approver's decision on the report's jobs. */
   decide(d: Draft, approve: boolean, by: { name: string; tgId: number }, reason: string): Promise<{ ok: true } | { ok: false; error: string }>;
+  /** The jobs that are open now (optionally one car's). */
+  openJobs(plate?: string): Promise<(OpenLine & { key: string | null })[]>;
+  /** Spoken news about open jobs, saved by the person who said it. Returns the jobs that could not be changed with the reason. */
+  applyUpdates(d: Draft, by: { name: string }): Promise<Map<string, string | null>>;
+  /** One job marked done (the /open button). */
+  markDone(jobId: string, by: { name: string }): Promise<{ ok: true } | { ok: false; error: string }>;
   /** Words from a voice note (stage 2). Missing means voice is not set up. */
   transcribe?: (fileId: string, durationSeconds: number | undefined) => Promise<string>;
 }

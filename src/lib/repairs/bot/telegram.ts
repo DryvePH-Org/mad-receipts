@@ -33,3 +33,12 @@ export const telegram: Tg = {
 
 export const setRepairsWebhook = (url: string) => api("setWebhook", { url, secret_token: repairsWebhookSecret(repairsToken()!), allowed_updates: ["message", "callback_query"] });
 export const repairsWebhookInfo = () => api<{ url: string; pending_update_count?: number; last_error_message?: string }>("getWebhookInfo", {});
+
+/** A voice note's bytes (Telegram keeps the file for an hour; the token stays out of any error). */
+export async function downloadVoice(fileId: string): Promise<Uint8Array> {
+  const file = await api<{ file_path?: string }>("getFile", { file_id: fileId });
+  if (!file.file_path) throw new Error("Telegram did not give the voice file.");
+  const res = await fetch(`https://api.telegram.org/file/bot${repairsToken()}/${file.file_path}`, { signal: AbortSignal.timeout(30_000) });
+  if (!res.ok) throw new Error(`The voice file could not be downloaded (HTTP ${res.status}).`);
+  return new Uint8Array(await res.arrayBuffer());
+}

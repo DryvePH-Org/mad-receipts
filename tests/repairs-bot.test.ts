@@ -13,7 +13,7 @@ const people: Person[] = [
 ];
 const reading = (over: Record<string, unknown> = {}) => JSON.stringify({ not_a_report: false, plate: "NAS 3571", year_model: "2017", vehicle: "Mazda CX-5", items: [{ problem: "Flat tire", reported_on: "2026-11-19", solution: "Vulcanize", solution_is_ai: false, supplier: "Mang Jun", company: "", est_timeline: "2026-11-21", timeline_text: "Friday" }], warnings: [], ...over });
 
-function setup(opts: { read?: () => Promise<string> } = {}) {
+function setup(opts: { read?: (system: string, user: string) => Promise<string>; open?: { jobId: string; plate: string; car: string; problem: string; supplier: string; due: string; overdue: boolean; key: string | null }[]; transcribe?: (id: string) => Promise<string> } = {}) {
   const sent: { chat: number; text: string; keyboard: unknown; id: number }[] = [];
   const edits: { id: number; text: string; keyboard: unknown }[] = [];
   const answers: string[] = [];
@@ -37,7 +37,9 @@ function setup(opts: { read?: () => Promise<string> } = {}) {
     async hasAwaiting(k: AwaitKind, c, u) { return awaiting.has(`${k}:${c}:${u}`); },
     async firstTime(id) { if (seen.has(id)) return false; seen.add(id); return true; },
     async takeCap() { return true; },
+    async mute() {},
   };
+  const applied: Draft[] = []; const done: string[] = [];
   const saved: Draft[] = []; const decisions: { approve: boolean; by: string; reason: string }[] = [];
   let n = 0;
   const ports: Ports = {
@@ -46,13 +48,18 @@ function setup(opts: { read?: () => Promise<string> } = {}) {
     async cars() { return [{ plate: "NAS3571", display: "NAS 3571", label: "Mazda CX-5" }, { plate: "CAS1019", display: "CAS 1019", label: "Toyota Vios" }]; },
     async vocabulary() { return { suppliers: ["Mang Jun"], companies: [] }; },
     async saveReport(d) { saved.push(d); return { ok: true }; },
+    async openJobs(plate) { return (opts.open ?? []).filter((j) => !plate || j.plate === plate); },
+    async applyUpdates(d) { applied.push(d); return new Map(); },
+    async markDone(jobId) { done.push(jobId); return { ok: true }; },
+    ...(opts.transcribe ? { transcribe: opts.transcribe } : {}),
     async decide(_d, approve, by, reason) { decisions.push({ approve, by: by.name, reason }); return { ok: true }; },
   };
   const flow = createFlow(ports);
   let uid = 0;
   const say = (from: number, text: string, chat = GROUP) => flow.handle({ update_id: ++uid, message: { message_id: ++mid, chat: { id: chat, type: chat === GROUP ? "supergroup" : "private" }, from: { id: from, first_name: "X" }, text } } as TgUpdate);
   const press = (from: number, data: string, onMessage = 100) => flow.handle({ update_id: ++uid, callback_query: { id: `cb${uid}`, from: { id: from, first_name: "X" }, data, message: { message_id: onMessage, chat: { id: GROUP, type: "supergroup" } } } } as TgUpdate);
-  return { flow, sent, edits, answers, drafts, saved, decisions, say, press, store };
+  const voice = (from: number, duration = 10) => flow.handle({ update_id: ++uid, message: { message_id: ++mid, chat: { id: GROUP, type: "supergroup" }, from: { id: from, first_name: "X" }, voice: { file_id: "f1", duration } } } as TgUpdate);
+  return { flow, sent, edits, answers, drafts, saved, decisions, say, press, store, voice, applied, done };
 }
 
 const draftOf = (t: ReturnType<typeof setup>) => [...t.drafts.values()][0];
@@ -176,6 +183,79 @@ describe("repairs bot flow", () => {
     await t.press(1, `d:${id}:edit`);
     await t.say(1, "plate is CAS 1019");
     expect(draftOf(t).state).toBe("ready");
+  });
+});
+
+describe("repairs bot voice", () => {
+  it("a voice note in the group becomes a draft with no command needed", async () => {
+    const t = setup({ transcribe: async () => "NAS 3571 flat tire, Mang Jun, bukas" });
+    await t.voice(1);
+    expect(draftOf(t).transcript).toContain("flat tire");
+    expect(t.edits.at(-1)!.text).toContain("DRAFT REPORT");
+  });
+  it("says so when voice is not set up", async () => {
+    const t = setup();
+    await t.voice(1);
+    expect(t.sent.at(-1)!.text).toContain("isn't set up");
+    expect(t.drafts.size).toBe(0);
+  });
+  it("asks for a shorter note, and says when it could not hear", async () => {
+    const long = setup({ transcribe: async () => "x" });
+    await long.voice(1, 400);
+    expect(long.sent.at(-1)!.text).toContain("longer than 3 minutes");
+    const bad = setup({ transcribe: async () => { throw new Error("x"); } });
+    await bad.voice(1);
+    expect(bad.edits.at(-1)!.text).toContain("couldn't hear");
+  });
+  it("a stranger's voice note is not read", async () => {
+    const t = setup({ transcribe: async () => "hello there friend" });
+    await t.voice(999);
+    expect(t.drafts.size).toBe(0);
+  });
+});
+
+describe("repairs bot open jobs and spoken updates", () => {
+  const open = [{ jobId: "00000000-0000-4000-8000-000000000001", plate: "CAS1019", car: "2019 Toyota Vios", problem: "Full interior detail", supplier: "LMR", due: "2026-11-10", overdue: true, key: "k1" }];
+  const update = JSON.stringify({ report_type: "update", plate: "CAS 1019", year_model: "", vehicle: "", updates: [{ ref: "J1", status_change: "done", est_timeline: "", timeline_text: "", supplier: "", company: "", note: "" }, { ref: "J9", status_change: "done" }], unmatched: [], warnings: [] });
+
+  it("/open lists the open jobs with a button to mark each done", async () => {
+    const t = setup({ open });
+    await t.say(1, "/open");
+    expect(t.sent[0].text).toContain("1 open job");
+    expect(t.sent[0].text).toContain("1 overdue");
+    expect(JSON.stringify(t.sent[1].keyboard)).toContain(`j:${open[0].jobId}:ask`);
+  });
+  it("says so when nothing is open for a plate", async () => {
+    const t = setup({ open });
+    await t.say(1, "/open NAS3571");
+    expect(t.sent[0].text).toContain("No open jobs for NAS3571");
+  });
+  it("the done button asks first, then marks the job done", async () => {
+    const t = setup({ open });
+    await t.press(1, `j:${open[0].jobId}:ask`);
+    expect(t.sent.at(-1)!.text).toContain("Mark");
+    await t.press(1, `j:${open[0].jobId}:yes`);
+    expect(t.done).toEqual([open[0].jobId]);
+    expect(t.sent.at(-1)!.text).toContain("MARKED AS DONE");
+  });
+  it("a spoken update becomes an update card that matches only the open jobs it was shown", async () => {
+    const t = setup({ open, read: async () => update });
+    await t.say(1, "/report"); await t.say(1, "update CAS 1019 tapos na ang interior detail");
+    const d = draftOf(t);
+    expect(d.kind).toBe("update");
+    expect(d.update!.updates).toHaveLength(1);        // J9 was not a job it was shown: dropped
+    expect(t.edits.at(-1)!.text).toContain("UPDATE TO EXISTING JOBS");
+    await t.press(1, `d:${d.id}:apply`);
+    expect(t.applied).toHaveLength(1);
+    expect(draftOf(t).state).toBe("applied");
+    await t.press(1, `d:${d.id}:apply`);              // a second tap changes nothing
+    expect(t.applied).toHaveLength(1);
+  });
+  it("only asks the reading to look at updates when something is open", async () => {
+    let seen = "";
+    const t = setup({ open: [], read: async (sys) => { seen = sys; return reading(); } });
+    await t.say(1, "/report"); await t.say(1, "flat tire");
+    expect(seen).not.toContain("UPDATES");
   });
 });
 

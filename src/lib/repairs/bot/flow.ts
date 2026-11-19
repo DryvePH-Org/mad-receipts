@@ -1,4 +1,4 @@
-import { type Keyboard, approvalKeyboard, draftKeyboard, esc, failedKeyboard, fixKeyboard, missText, renderDraft, renderStatus, selfApproveKeyboard, carName } from "./cards";
+import { RULE, type Keyboard, approvalKeyboard, confirmDoneKeyboard, draftKeyboard, renderOpen, renderUpdate, updateKeyboard, esc, failedKeyboard, fixKeyboard, missText, renderDraft, renderStatus, selfApproveKeyboard, carName } from "./cards";
 import { missingRequired, type Draft } from "./draft";
 import type { Ports, Person } from "./ports";
 import { isLang, LANG_NAMES, LANGS, tr, type Lang } from "./texts";
@@ -35,8 +35,17 @@ export function createFlow(ports: Ports) {
     await store.saveDraft(draft);
     await safeEdit(draft.chatId, draft.cardId, tr(L, "msg.reading"));
     try {
-      const [cars, vocab] = await Promise.all([ports.cars(), ports.vocabulary()]);
-      const raw = await understand(ports.read, { transcript: draft.transcript, today: ports.today(), currentDraft: instruction ? draft.data : null, instruction }, vocab);
+      const [cars, vocab, open] = await Promise.all([ports.cars(), ports.vocabulary(), instruction ? Promise.resolve([]) : ports.openJobs()]);
+      const openJobs = open.map((j, i) => ({ ref: `J${i + 1}`, jobId: j.jobId, plate: j.plate, problem: j.problem }));
+      const got = await understand(ports.read, { transcript: draft.transcript, today: ports.today(), currentDraft: instruction ? draft.data : null, instruction, openJobs }, vocab);
+      if (got.kind === "update") {
+        draft.kind = "update"; draft.update = got.update; draft.data = null; draft.state = "ready";
+        await store.saveDraft(draft);
+        await safeEdit(draft.chatId, draft.cardId, renderUpdate(draft, L), updateKeyboard(draft, L));
+        return;
+      }
+      const raw = got.report;
+      draft.kind = "report";
       if (raw.not_a_report) { draft.state = "cancelled"; await store.saveDraft(draft); await safeEdit(draft.chatId, draft.cardId, tr(L, "msg.not_report")); return; }
       draft.data = ground(raw, cars);
       draft.state = "ready";
@@ -120,6 +129,17 @@ export function createFlow(ports: Ports) {
     await tell(ports.groupChatId, text, d.cardId);
   }
 
+  // ---------------------------------------------------------------- open jobs
+  async function showOpen(chatId: number, p: Person, plateText: string, replyTo?: number | null): Promise<void> {
+    const L = p.lang ?? ports.defaultLang;
+    const plate = plateText.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    let jobs;
+    try { jobs = await ports.openJobs(plate || undefined); } catch (e) { await tg.send(chatId, `❌ ${tr(L, "open.failed", { why: esc(e instanceof Error ? e.message.slice(0, 80) : "error") })}`, { replyTo }); return; }
+    const out = renderOpen(jobs, L, plateText.trim().toUpperCase());
+    await tg.send(chatId, out.text, { replyTo });
+    for (const card of out.keyboards) await tg.send(chatId, card.text, { keyboard: card.keyboard });
+  }
+
   // ---------------------------------------------------------------- messages
   async function menu(m: TgMessage, p: Person): Promise<void> {
     const L = p.lang ?? ports.defaultLang;
@@ -141,6 +161,7 @@ export function createFlow(ports: Ports) {
       else if (cmd === "/help") await tg.send(m.chat.id, helpText(L, person), { replyTo: m.message_id });
       else if (cmd === "/menu") await menu(m, person);
       else if (cmd === "/language") await tg.send(m.chat.id, tr(L, "lang.choose", { cur: LANG_NAMES[L] }), { replyTo: m.message_id, keyboard: languageKeyboard(L, person.role === "admin" && m.chat.type !== "private") });
+      else if (cmd === "/open") await showOpen(m.chat.id, person, text.split(/\s+/).slice(1).join(" "), m.message_id);
       else if (cmd === "/report") { await store.setAwaiting("text", m.chat.id, person.tgId, null); await tg.send(m.chat.id, tr(L, "report_prompt"), { replyTo: m.message_id }); }
       return;
     }
@@ -185,9 +206,24 @@ export function createFlow(ports: Ports) {
       await ack();
       if (a === "report") { await store.setAwaiting("text", m.chat.id, person.tgId, null); await tg.send(m.chat.id, tr(L, "report_prompt")); }
       else if (a === "help") await tg.send(m.chat.id, helpText(L, person));
+      else if (a === "open") await showOpen(m.chat.id, person, "");
       else if (a === "whoami") await tg.send(m.chat.id, `Telegram ID: <code>${person.tgId}</code>\n${tr(L, `role.${person.role}`)}`);
       else if (a === "language") await tg.send(m.chat.id, tr(L, "lang.choose", { cur: LANG_NAMES[L] }), { keyboard: languageKeyboard(L, person.role === "admin" && m.chat.type !== "private") });
       return;
+    }
+    if (kind === "j") {
+      const job = (await ports.openJobs()).find((j) => j.jobId === a);
+      if (b === "mute") { await store.mute(a, ports.today()); await ack(); await tg.send(m.chat.id, tr(L, "job.muted")); return; }
+      if (b === "no") { await ack(); await tg.send(m.chat.id, tr(L, "job.left_open")); return; }
+      if (!job) return ack(tr(L, "open.none"), true);
+      if (b === "ask") { await ack(); await tg.send(m.chat.id, tr(L, "job.ask", { what: `${esc(job.problem)} (<code>${esc(job.plate)}</code>)` }), { keyboard: confirmDoneKeyboard(job.jobId, L) }); return; }
+      if (b === "yes") {
+        await ack();
+        const r = await ports.markDone(job.jobId, { name: person.name });
+        await tg.send(m.chat.id, r.ok ? `✅ <b>${tr(L, "job.marked_done")}</b>\n${RULE}\n<b>${tr(L, "job.job")}:</b>  ${esc(job.problem)}\n<b>${tr(L, "card.plate")}:</b>  <code>${esc(job.plate)}</code>` : `❌ ${tr(L, "job.failed", { why: esc(r.error.slice(0, 100)) })}`);
+        return;
+      }
+      return ack();
     }
     const draft = a ? await store.getDraft(a) : null;
     if (!draft) return ack(tr(L, kind === "a" ? "approval.gone" : "msg.draft_expired"), true);
@@ -206,6 +242,16 @@ export function createFlow(ports: Ports) {
     if (draft.state === "parsing" && b !== "cancel") return ack(tr(L, "msg.busy"));
     if (b === "cancel") { if (!(await store.claim(draft.id, ["ready", "failed", "parsing"], "cancelled"))) return ack(tr(L, "msg.not_possible")); await store.takeAwaiting("edit", draft.chatId, draft.ownerId); await safeEdit(draft.chatId, draft.cardId, tr(OL, "msg.cancelled")); return ack(); }
     if (b === "redo") { await ack(); if (draft.state !== "ready" && draft.state !== "failed") return; await runParse(draft); return; }
+    if (b === "apply") {
+      if (draft.kind !== "update" || !draft.update?.updates.length) return ack(tr(L, "msg.nothing_apply"));
+      const won = await store.claim(draft.id, ["ready"], "applied");
+      if (!won) return ack(tr(L, "msg.not_possible"));
+      await ack();
+      const failed = await ports.applyUpdates(won, { name: draft.ownerName });
+      await safeEdit(won.chatId, won.cardId, renderUpdate(won, OL, false, failed));
+      return;
+    }
+    if (b === "edit" && draft.kind === "update") return ack(tr(L, "msg.edit_update_hint"), true);
     if (b === "edit") { if (draft.state !== "ready") return ack(tr(L, "msg.nothing_edit")); await store.setAwaiting("edit", draft.chatId, draft.ownerId, draft.id); await ack(); await tg.send(draft.chatId, tr(OL, "edit_prompt"), { replyTo: draft.cardId }); return; }
     if (b === "back") { if (draft.state === "ready" && draft.data) await safeEdit(draft.chatId, draft.cardId, renderDraft(draft, OL), draftKeyboard(draft, OL)); return ack(); }
     if (b === "submit") {
