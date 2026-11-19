@@ -12,7 +12,7 @@ export interface StockFacts {
 }
 export interface CarFacts {
   plate_display: string | null; arrival_date: string | null; year_model: string | null; make: string | null; model_variant: string | null; color: string | null; mileage: string | null;
-  trans: string | null; fuel: string | null; encumbrance: string | null; spare_key: string | null; body_type: string | null; or_expiry: string | null;
+  trans: string | null; fuel: string | null; encumbrance: string | null; spare_key: string | null; body_type: string | null; or_expiry: string | null; papers_with?: string | null;
 }
 
 const num = (v: number | string | null | undefined) => (v === null || v === undefined || v === "" ? null : Math.round(Number(v)));
@@ -39,9 +39,9 @@ export function carRowOf(s: StockFacts, u: CarFacts, today: string, aboutSpareKe
     price: reprice ?? original, originalPrice: original, repriced: reprice !== null && original !== null && reprice < original, target: num(s.retarget) ?? num(s.target_price),
     arrived, daysInStock: arrived ? Math.max(0, daysBetween(arrived, today)) : null,
     remarks, reservedFor: st?.names ?? [], reservedOn: st?.date ?? null,
-    encumbrance, location, repairStatus, spareKey, orExp: u.or_expiry ?? s.or_expiry, docsCode: text(s.papers_with),
+    encumbrance, location, repairStatus, spareKey, orExp: u.or_expiry ?? s.or_expiry, docsCode: text(u.papers_with ?? s.papers_with),
     availability, sellable: availability === "available" || availability === "asis",
     toCebu: /CEBU/i.test(bodyType) || /CEBU/i.test(location),
-    raw: { listPrice: num(s.list_price), targetPrice: num(s.target_price), reprice, retarget: num(s.retarget), tools: text(s.tools), papersWith: text(s.papers_with), note: noteOf(remarks) },
+    raw: { listPrice: num(s.list_price), targetPrice: num(s.target_price), reprice, retarget: num(s.retarget), tools: text(s.tools), papersWith: text(u.papers_with ?? s.papers_with), note: noteOf(remarks) },
   };
 }

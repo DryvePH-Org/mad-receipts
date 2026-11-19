@@ -101,7 +101,7 @@ export function DocsGrid({ initial, role }: { initial: GridRow[]; role: Role }) 
       <div className="max-h-[70svh] overflow-auto rounded-xl ring-1 ring-foreground/10">
         <table className="border-separate border-spacing-0 text-sm" style={{ minWidth: cols.reduce((n, c) => n + c.width, 0) }}>
           <thead>
-            <tr>{cols.map((c, i) => <th key={c.key} title={`Column ${c.letter} in the old sheet`} style={{ minWidth: c.width, maxWidth: c.width }} className={`sticky top-0 border-b bg-muted px-2 py-2 text-left text-[11px] font-semibold tracking-wide whitespace-nowrap uppercase ${i === 0 ? "left-0 z-30 border-r" : "z-20"}`}>{c.label}</th>)}</tr>
+            <tr>{cols.map((c, i) => <th key={c.key} title={c.letter === "AQ" || c.letter === "AR" ? "New in MAD" : `Column ${c.letter} in the old sheet`} style={{ minWidth: c.width, maxWidth: c.width }} className={`sticky top-0 border-b bg-muted px-2 py-2 text-left text-[11px] font-semibold tracking-wide whitespace-nowrap uppercase ${i === 0 ? "left-0 z-30 border-r" : "z-20"}`}>{c.label}</th>)}</tr>
           </thead>
           <tbody>
             {shown.length === 0 && <tr><td colSpan={cols.length} className="px-3 py-8 text-center text-muted-foreground">No car matches.</td></tr>}

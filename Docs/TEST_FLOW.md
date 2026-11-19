@@ -171,3 +171,6 @@ Set up once: the Admin opens **My Telegram → Set up the bot**. Then each teste
 3. Edit the RENEWAL date of a car in the Table (Admin): the pill follows (the database turns the typed date into the real one).
 4. Documentation gets one Telegram message at 9:00 listing the cars that are exactly 30, 14, 7 or 0 days from expiring, or late by 7, 14, 21... days. Sold cars are never listed.
 5. In **Data check**, rows named "OR expiry" show two different dates for one car: choose which is right.
+
+## 10. Papers with and the registry of deeds
+Open a car in Car documents: the car record has a group **Where the papers are** with **Papers with** and **Registry of deeds**. Documentation can type in both. The same two columns are at the end of the Table (Everything view). Car status shows Papers with in a car's details (Admin, Approver and Documentation).

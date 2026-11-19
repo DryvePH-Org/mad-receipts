@@ -29,7 +29,7 @@ export function EditStock({ car, locations, onClose }: { car: CarRow; locations:
   const [state, setState] = useState<State>(car.availability === "sold" ? "sold" : car.availability === "reserved" ? "reserved" : car.availability === "repair" ? "repair" : car.availability === "asis" ? "asis" : "available");
   const [f, setF] = useState({
     listPrice: asText(raw.listPrice), reprice: asText(raw.reprice), targetPrice: asText(raw.targetPrice), retarget: asText(raw.retarget),
-    person: car.reservedFor.join(" "), note: raw.note, location: car.location, tools: raw.tools, papersWith: raw.papersWith,
+    person: car.reservedFor.join(" "), note: raw.note, location: car.location, tools: raw.tools,
   });
   const set = (k: keyof typeof f, v: string) => setF((x) => ({ ...x, [k]: v }));
   const [sure, setSure] = useState(false);
@@ -37,7 +37,7 @@ export function EditStock({ car, locations, onClose }: { car: CarRow; locations:
   const needsPerson = (state === "reserved" || state === "sold") && !f.person.trim();
 
   const save = () => start(async () => {
-    const r = await updateStockAction({ plate: car.plate, listPrice: toNum(f.listPrice), reprice: toNum(f.reprice), targetPrice: toNum(f.targetPrice), retarget: toNum(f.retarget), state, person: f.person, note: f.note, location: f.location, tools: f.tools, papersWith: f.papersWith });
+    const r = await updateStockAction({ plate: car.plate, listPrice: toNum(f.listPrice), reprice: toNum(f.reprice), targetPrice: toNum(f.targetPrice), retarget: toNum(f.retarget), state, person: f.person, note: f.note, location: f.location, tools: f.tools });
     if (r.ok) { toast.success(r.message); router.refresh(); onClose(); } else toast.error(r.error);
   });
   const takeOff = () => start(async () => { const r = await takeOffStockAction(car.plate); if (r.ok) { toast.success(r.message); router.refresh(); onClose(); } else toast.error(r.error); });
@@ -76,9 +76,8 @@ export function EditStock({ car, locations, onClose }: { car: CarRow; locations:
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1"><Label htmlFor="e-location">Location</Label><Input id="e-location" list="e-locations" value={f.location} onChange={(e) => set("location", e.target.value.toUpperCase())} /><datalist id="e-locations">{locations.map((l) => <option key={l} value={l} />)}</datalist></div>
           <div className="space-y-1"><Label htmlFor="e-tools">Tools</Label><Input id="e-tools" value={f.tools} onChange={(e) => set("tools", e.target.value)} /></div>
-          <div className="space-y-1 sm:col-span-2"><Label htmlFor="e-papers">Papers with (the old DOCS column)</Label><Input id="e-papers" value={f.papersWith} onChange={(e) => set("papersWith", e.target.value)} placeholder="e.g. C, or L:ORIG ORCR-KAREN" /></div>
         </div>
-        <p className="text-xs text-muted-foreground">The car&apos;s make, model, color, spare key and OR date are changed in Car documents, so they stay the same everywhere.</p>
+        <p className="text-xs text-muted-foreground">The car&apos;s make, model, color, spare key, OR date and where its papers are (papers with) are changed in Car documents, so they stay the same everywhere.</p>
       </fieldset>
 
       <div className="flex flex-wrap items-center gap-2">

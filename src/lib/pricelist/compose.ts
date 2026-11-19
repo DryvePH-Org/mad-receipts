@@ -13,6 +13,7 @@ export interface StockRecord {
 export interface UnitRecord {
   id: string; plate_display: string | null; arrival_date: string | null; year_model: string | null; make: string | null; model_variant: string | null; color: string | null; mileage: string | null;
   trans: string | null; fuel: string | null; encumbrance: string | null; spare_key: string | null; classification: string | null;
+  papers_with?: string | null; registry_of_deeds?: string | null;
 }
 
 const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
@@ -24,7 +25,7 @@ export function composeRow(s: StockRecord, u: UnitRecord, aboutRaw: unknown, com
   const plate = u.plate_display || s.plate_no;
   return {
     price: {
-      group: s.body_group, order: Number(s.sort_order), papersWith: s.papers_with, orExpiry: s.or_expiry, orExpiryRaw: s.or_expiry_raw, spareKey,
+      group: s.body_group, order: Number(s.sort_order), papersWith: u.papers_with ?? s.papers_with, orExpiry: s.or_expiry, orExpiryRaw: s.or_expiry_raw, spareKey,
       // what the price list showed wins where it said something different (kept on the stock row); otherwise the Docs Bible row
       arrived: s.list_arrived_on ?? u.arrival_date, ym: u.year_model, brand: u.make, make: s.list_model ?? u.model_variant, color: s.list_color ?? u.color,
       mileage: s.list_mileage ?? u.mileage, trans: u.trans, fuel: s.list_fuel ?? u.fuel, plate,

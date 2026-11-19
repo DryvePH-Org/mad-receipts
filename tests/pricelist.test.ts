@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPriceListRows, daysInStock, rowKind, sellableFlag, type PriceRow } from "@/lib/pricelist/export";
-import { blankFills, compareWithDocs, identityOverrides, isTestRow, newUnitFromList, normalizeCar, normalizeRenewal, normalizeRepair, spareKeyState, type SnapshotRow } from "@/lib/pricelist/import";
+import { blankFills, compareWithDocs, identityOverrides, isTestRow, newUnitFromList, stockRow, normalizeCar, normalizeRenewal, normalizeRepair, spareKeyState, type SnapshotRow } from "@/lib/pricelist/import";
 
 const car = (o: Record<string, unknown> = {}): SnapshotRow => ({ _row: 4, _group: "HATCHBACK", _order: 1, "PLATE NUMBER": "NBU4875", BRAND: "TOYOTA", MAKE: "WIGO E", COLOR: "RED", YM: 17, PRICE: 238000, TARGET: 225000, REPRICE: 228000, "RE-TARGET": 215000, "DATE ARRIVED": "2026-09-12", "OR EXP": "2027-05-15", ...o }) as SnapshotRow;
 
@@ -135,7 +135,7 @@ describe("settling an item of the price list check", () => {
     expect(planSettle("status", "list", { listValue: "", docsValue: "Sold / SOLD" })).toHaveProperty("error");
   });
   it("only lets a person note the items that are not a difference", () => {
-    expect(choicesFor("docs_code")).toEqual(["noted"]);
+    expect(choicesFor("docs_code", false)).toEqual(["noted"]);
     expect(planSettle("unmatched", "list", { listValue: "X", docsValue: null })).toHaveProperty("error");
     expect(planSettle("docs_code", "noted", { listValue: "C", docsValue: null })).toMatchObject({ decision: "Noted, left as it is" });
   });
@@ -196,5 +196,28 @@ describe("the OR expiry", () => {
   it("lets an older list speak only when its date is later (the Docs Bible is behind)", () => {
     expect(compareOrDates("A", "2027-09-08", [{ name: "the renewal list", date: "2026-09-08", kind: "older" }])).toEqual([]);
     expect(compareOrDates("A", "2026-09-07", [{ name: "the renewal list", date: "2027-09-01", kind: "older" }])[0]).toMatchObject({ kind: "differs" });
+  });
+});
+
+describe("papers with (the old DOCS column) is one fact of the car record", () => {
+  const unit = { year_model: "17", make: "TOYOTA", model_variant: "WIGO E", color: "RED", trans: "MT", fuel: "GAS", spare_key: null, mileage: "108T KMS", encumbrance: null, arrival_date: "2026-09-12", sale_status: "Onhand", vehicle_status: "AVAILABLE", papers_with: null as string | null };
+  it("fills a blank record from the price list's code", () => {
+    const s = normalizeCar(car({ DOCS: "C", TRANS: "MT", FUEL: "GAS", MILEAGE: "108T KMS" })).stock!;
+    expect(blankFills(s, unit)).toEqual({ papers_with: "C" });
+  });
+  it("never replaces a code in the record, and puts a different one on the Data check with both values", () => {
+    const s = normalizeCar(car({ DOCS: "C", TRANS: "MT", FUEL: "GAS", MILEAGE: "108T KMS" })).stock!;
+    expect(blankFills(s, { ...unit, papers_with: "L:ORIG ORCR-KAREN" })).toEqual({});
+    const d = compareWithDocs(s, { ...unit, papers_with: "L:ORIG ORCR-KAREN" }).find((i) => i.field === "docs_code");
+    expect(d).toMatchObject({ listValue: "C", docsValue: "L:ORIG ORCR-KAREN" });
+    expect(compareWithDocs(s, { ...unit, papers_with: "c" }).some((i) => i.field === "docs_code")).toBe(false);
+  });
+  it("lets a person choose between two different codes, and copies the chosen one into papers_with", () => {
+    expect(choicesFor("docs_code", true)).toEqual(["list", "docs", "noted"]);
+    expect(planSettle("docs_code", "list", { listValue: "C", docsValue: "L:X" })).toMatchObject({ docsPatch: { papers_with: "C" } });
+  });
+  it("no longer writes papers_with on the stock row", () => {
+    const s = normalizeCar(car({ DOCS: "C" })).stock!;
+    expect(Object.keys(stockRow(s, "u1", { model: null, color: null, mileage: null, fuel: null, arrivedOn: null, encumbrance: null }, {}))).not.toContain("papers_with");
   });
 });

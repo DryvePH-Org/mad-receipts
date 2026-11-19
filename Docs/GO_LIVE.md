@@ -49,3 +49,8 @@ The Docs Bible in the database is the one place to work. The old Google Sheet is
 
 ## Car status reads the database (no Google sheet)
 Nothing about the price list is read from or written to Google any more: `CARS_SHEET_ID`, `CARS_SHEET_GID`, `INVENTORY_SHEET_ID` and the related settings are not used (they can be removed from `/opt/mad-receipts/.env`). Before the old workbook is locked: take a fresh export, run `scripts/pricelist-apply.ts` (it also takes cars that left the list off the stock), and check the Excel against the sheet. After that, changes are made in Car status, not in the sheet.
+
+## Papers with and the registry of deeds (migration 38)
+1. Run `supabase/migrations/20261119000038_papers_registry.sql` in the Supabase SQL Editor **before** pushing the code that uses it.
+2. Push.
+3. Run `scripts/remarks-sync.ts` (dry run, then `--apply`) with a fresh export of the workbook for the REMARKS values; the codes of the price list's DOCS column are already copied to the cars by the migration.

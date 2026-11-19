@@ -1,8 +1,8 @@
-// The Docs Bible as a CSV in the layout of the old Google Sheet: the same columns in the same places (A to AP), the same header words.
+// The Docs Bible as a CSV in the layout of the old Google Sheet: the same columns in the same places (A to AP), then two new ones (AQ, AR), the same header words.
 // It can be opened or imported in Google Sheets or Excel as it is. Pure.
 import { COLUMNS } from "./grid";
 
-const LAST = 42; // A..AP
+const LAST = 44; // A..AR (AQ and AR are new in MAD: papers with, registry of deeds)
 const letterToIndex = (l: string): number => [...l].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1;
 
 /** Row 1 of the sheet: the header words at their letters, blank where the sheet had no header (A, B, V). */

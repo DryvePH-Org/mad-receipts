@@ -14,7 +14,7 @@ const input = z.object({
   plate: z.string().min(5).max(20),
   listPrice: price, targetPrice: price, reprice: price, retarget: price,
   state: z.enum(["available", "reserved", "sold", "repair", "asis"]),
-  person: z.string().max(60), note: z.string().max(280), location: z.string().max(60), tools: z.string().max(120), papersWith: z.string().max(80),
+  person: z.string().max(60), note: z.string().max(280), location: z.string().max(60), tools: z.string().max(120),
 });
 export type StockInput = z.infer<typeof input>;
 
@@ -40,7 +40,7 @@ export async function updateStockAction(raw: StockInput): Promise<StockResult> {
   } else { remarks = note; repair = v.state === "repair" ? "FOR REPAIR" : v.state === "asis" ? "SELL AS IS" : null; }
   const { error } = await db.from("car_stock").update({
     list_price: v.listPrice, target_price: v.targetPrice, reprice: v.reprice, retarget: v.retarget, location: clean(v.location) || null, tools: clean(v.tools) || null,
-    papers_with: clean(v.papersWith) || null, remarks, repair_status: repair, updated_by: user.id,
+    remarks, repair_status: repair, updated_by: user.id,
   }).eq("unit_id", row.unit_id as string);
   if (error) return { ok: false, error: `Could not save: ${error.message}` };
   revalidatePath("/cars");

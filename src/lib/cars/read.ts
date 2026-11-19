@@ -18,8 +18,11 @@ export async function loadCars(): Promise<CarsData> {
   if (error) throw new Error(`Car status could not be read: ${error.message}`);
   const list = (stock ?? []) as (StockFacts & { unit_id: string })[];
   const ids = list.map((s) => s.unit_id);
+  const COLS = "id, plate_display, arrival_date, year_model, make, model_variant, color, mileage, trans, fuel, encumbrance, spare_key, body_type, or_expiry";
+  // papers_with arrived with migration 38: until it is applied the list still works without it
+  const readUnits = async () => { const r = await db.from("docs_units").select(`${COLS}, papers_with`).in("id", ids).limit(3000); return r.error ? db.from("docs_units").select(COLS).in("id", ids).limit(3000) : r; };
   const [units, details] = await Promise.all([
-    ids.length ? db.from("docs_units").select("id, plate_display, arrival_date, year_model, make, model_variant, color, mileage, trans, fuel, encumbrance, spare_key, body_type, or_expiry").in("id", ids).limit(3000) : { data: [] },
+    ids.length ? readUnits() : { data: [] },
     list.length ? db.from("unit_details").select("plate_no, data").in("plate_no", list.map((s) => s.plate_no)).limit(3000) : { data: [] },
   ]);
   const unit = new Map((units.data ?? []).map((u) => [u.id as string, u as CarFacts]));

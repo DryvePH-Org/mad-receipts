@@ -24,24 +24,26 @@ const HELP: Partial<Record<SyncField, string>> = {
 function ItemRow({ item }: { item: SyncRow }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const choices = choicesFor(item.field);
+  const choices = choicesFor(item.field, !!item.docsValue);
   const [plate, setPlate] = useState("");
   const run = (c: "list" | "docs" | "noted" | "add" | "plate") => start(async () => { const r = await settleAction(item.id, c, c === "plate" ? plate : undefined); if (r.ok) toast.success(r.decision); else toast.error(r.error); router.refresh(); });
-  const showValues = item.field !== "unmatched" && item.field !== "odd_value" && item.field !== "docs_code";
+  const showValues = item.field !== "unmatched" && item.field !== "odd_value" && !(item.field === "docs_code" && !item.docsValue);
+  const multiSource = item.field === "or_expiry" || item.field === "docs_code"; // these can come from several sheets: the message names them
   return (
     <div className="space-y-2 py-3 first:pt-0 last:pb-0">
       <div className="flex flex-wrap items-center gap-2"><Pill tone={item.status === "open" ? "amber" : "emerald"}>{item.status === "open" ? FIELD_LABELS[item.field] : "Settled"}</Pill>{item.status === "settled" && <span className="text-sm text-muted-foreground">{FIELD_LABELS[item.field]}: {item.decision}</span>}</div>
       {showValues ? (
         <div className="grid gap-2 text-sm sm:grid-cols-2">
-          <div className="rounded-lg bg-muted p-2.5"><p className="text-xs text-muted-foreground">Car status says</p><p className="font-medium break-words">{item.listValue || "—"}</p></div>
-          <div className="rounded-lg bg-muted p-2.5"><p className="text-xs text-muted-foreground">Car documents says</p><p className="font-medium break-words">{item.docsValue || "—"}</p></div>
+          <div className="rounded-lg bg-muted p-2.5"><p className="text-xs text-muted-foreground">{multiSource ? "The other sheet says" : "Car status says"}</p><p className="font-medium break-words">{item.listValue || "—"}</p></div>
+          <div className="rounded-lg bg-muted p-2.5"><p className="text-xs text-muted-foreground">{multiSource ? "The car record says" : "Car documents says"}</p><p className="font-medium break-words">{item.docsValue || "—"}</p></div>
         </div>
       ) : <p className="text-sm">{item.message}</p>}
+      {showValues && multiSource && <p className="text-xs text-muted-foreground">{item.message}</p>}
       {HELP[item.field] && item.status === "open" && <p className="text-xs text-muted-foreground">{HELP[item.field]}</p>}
       {item.status === "open" && (
         <div className="flex flex-wrap gap-2">
-          {choices.includes("list") && <Button size="sm" disabled={pending} onClick={() => run("list")}>{pending && <Loader2 className="animate-spin" />} Use Car status&apos;s</Button>}
-          {choices.includes("docs") && <Button size="sm" variant="outline" disabled={pending} onClick={() => run("docs")}>Use Car documents&apos;</Button>}
+          {choices.includes("list") && <Button size="sm" disabled={pending} onClick={() => run("list")}>{pending && <Loader2 className="animate-spin" />} {multiSource ? "Use the other sheet&apos;s" : "Use Car status&apos;s"}</Button>}
+          {choices.includes("docs") && <Button size="sm" variant="outline" disabled={pending} onClick={() => run("docs")}>{multiSource ? "Use the car record&apos;s" : "Use Car documents&apos;"}</Button>}
           {item.field === "unmatched" && <Button size="sm" disabled={pending} onClick={() => run("add")}>{pending && <Loader2 className="animate-spin" />} Add this car to MAD</Button>}
           {item.field === "unmatched" && (
             <span className="flex items-center gap-1.5">

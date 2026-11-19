@@ -62,7 +62,7 @@ export function normalizeCar(r: SnapshotRow): { stock: StockInput | null; skippe
   return { stock, issues };
 }
 
-export interface UnitIdentity { year_model: string | null; make: string | null; model_variant: string | null; color: string | null; trans: string | null; fuel: string | null; spare_key: string | null; mileage?: string | null; encumbrance?: string | null; arrival_date?: string | null; sale_status?: string | null; vehicle_status?: string | null }
+export interface UnitIdentity { year_model: string | null; make: string | null; model_variant: string | null; color: string | null; trans: string | null; fuel: string | null; spare_key: string | null; mileage?: string | null; encumbrance?: string | null; arrival_date?: string | null; sale_status?: string | null; vehicle_status?: string | null; papers_with?: string | null }
 
 const yy = (v: unknown) => { const d = String(v ?? "").replace(/\D/g, ""); return d.length >= 2 ? d.slice(-2) : d; };
 
@@ -100,6 +100,10 @@ export function compareWithDocs(s: StockInput, u: UnitIdentity): SyncItem[] {
   if (both(i.arrived, u.arrival_date) && i.arrived !== u.arrival_date) add("arrival_date", i.arrived, u.arrival_date, `${said("Arrival date", i.arrived, String(u.arrival_date))} Days in stock follow Car status's date until this is settled.`);
   const a = spareKeyState(i.spareKey), b = spareKeyState(u.spare_key);
   if (a !== "unknown" && b !== "unknown" && a !== b) add("spare_key", i.spareKey, u.spare_key);
+  // the papers-with code: both filled in and different (the record holds the one fact; a person chooses)
+  if (both(s.papersWith, u.papers_with) && norm(s.papersWith) !== norm(u.papers_with)) add("docs_code", s.papersWith, u.papers_with, said("Papers with", String(s.papersWith), String(u.papers_with)));
+  // the papers-with code: both filled in and different (the record holds the one fact; a person chooses)
+  if (both(s.papersWith, u.papers_with) && norm(s.papersWith) !== norm(u.papers_with)) add("docs_code", s.papersWith, u.papers_with, said("Papers with", String(s.papersWith), String(u.papers_with)));
   // status: the price list's REMARKS note against the Docs Bible's sale and vehicle status
   const remarks = String(s.remarks ?? "");
   const listStatus = /^\s*SOLD\b/i.test(remarks) ? "Sold" : /^\s*RESERVED\b/i.test(remarks) ? "Reserved" : null;
@@ -119,7 +123,7 @@ export function blankFills(s: StockInput, u: UnitIdentity): Record<string, strin
   const pairs: [string, string | null, unknown][] = [
     ["trans", s.identity.trans, u.trans], ["fuel", s.identity.fuel, u.fuel], ["mileage", s.identity.mileage, u.mileage], ["color", s.identity.color, u.color],
     ["model_variant", s.identity.make, u.model_variant], ["make", s.identity.brand, u.make], ["year_model", year, u.year_model], ["spare_key", s.identity.spareKey, u.spare_key],
-    ["encumbrance", s.identity.encumbrance, u.encumbrance], ["arrival_date", s.identity.arrived, u.arrival_date],
+    ["encumbrance", s.identity.encumbrance, u.encumbrance], ["arrival_date", s.identity.arrived, u.arrival_date], ["papers_with", s.papersWith, u.papers_with],
   ];
   for (const [column, listValue, docsValue] of pairs) if (!blank(listValue) && blank(docsValue)) out[column] = String(listValue);
   return out;
@@ -130,7 +134,7 @@ export function stockRow(s: StockInput, unitId: string, o: Overrides, raw: unkno
   return {
     unit_id: unitId, plate_no: s.plate, body_group: s.group, sort_order: s.order, list_price: s.listPrice, target_price: s.targetPrice, reprice: s.reprice, retarget: s.retarget,
     list_model: o.model, list_color: o.color, list_mileage: o.mileage, list_fuel: o.fuel, list_arrived_on: o.arrivedOn, list_encumbrance: o.encumbrance,
-    or_expiry: s.orExpiry, or_expiry_raw: s.orExpiryRaw, papers_with: s.papersWith, tools: s.tools, location: s.location, repair_status: s.repairStatus, remarks: s.remarks,
+    or_expiry: s.orExpiry, or_expiry_raw: s.orExpiryRaw, tools: s.tools, location: s.location, repair_status: s.repairStatus, remarks: s.remarks,
     in_stock: true, source: "import", raw,
   };
 }

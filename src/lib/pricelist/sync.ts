@@ -5,7 +5,7 @@ import type { SyncField } from "./import";
 
 export const DOCS_COLUMN: Partial<Record<SyncField, string>> = {
   arrival_date: "arrival_date", model: "model_variant", color: "color", mileage: "mileage", fuel: "fuel", encumbrance: "encumbrance",
-  year: "year_model", brand: "make", trans: "trans", spare_key: "spare_key",
+  year: "year_model", brand: "make", trans: "trans", spare_key: "spare_key", docs_code: "papers_with",
   or_expiry: "renewal", // the typed date: the database turns it into the real date (or_expiry) by itself
 };
 /** The stock column that holds what the price list showed, for the fields that have one. */
@@ -14,14 +14,15 @@ export const OVERRIDE_COLUMN: Partial<Record<SyncField, string>> = {
 };
 
 export type Choice = "list" | "docs" | "noted" | "add" | "plate";
-export const choicesFor = (field: SyncField): Choice[] => (field === "unmatched" ? ["add", "plate", "noted"] : field === "docs_code" || field === "odd_value" ? ["noted"] : ["list", "docs", "noted"]);
+/** A code with nothing to compare it with (or an odd value) can only be noted; two different codes can be chosen between. */
+export const choicesFor = (field: SyncField, hasRecordValue = true): Choice[] => (field === "unmatched" ? ["add", "plate", "noted"] : field === "odd_value" || (field === "docs_code" && !hasRecordValue) ? ["noted"] : ["list", "docs", "noted"]);
 
 export interface SettlePlan { decision: string; docsPatch?: Record<string, string | null>; clearOverride?: string; /** a car that is only on the price list: make its Docs Bible row from Car status row */ addUnit?: boolean; /** ...or link its price list row to this plate, which is already in MAD */ linkPlate?: string }
 
 const yy = (v: string) => { const d = v.replace(/\D/g, ""); return d.length >= 2 ? d.slice(-2) : d; };
 
 export function planSettle(field: SyncField, choice: Choice, item: { listValue: string | null; docsValue: string | null }, input: { plate?: string } = {}): SettlePlan | { error: string } {
-  if (!choicesFor(field).includes(choice)) return { error: "That choice is not available for this item." };
+  if (!choicesFor(field, !!item.docsValue).includes(choice)) return { error: "That choice is not available for this item." };
   if (choice === "noted") return { decision: field === "unmatched" ? "Left out: not a car of MAD" : "Noted, left as it is" };
   if (choice === "add") return { decision: "The car was added to MAD from Car status", addUnit: true };
   if (choice === "plate") {

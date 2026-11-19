@@ -16,6 +16,7 @@ import { updateRegisterAction } from "../actions";
 
 const choicesOf = (c: Col): readonly string[] | null => c.kind === "paper" ? PAPER_VALUES : c.kind === "classification" ? GRID_CLASSIFICATIONS : c.kind === "sale_status" ? SALE_STATUSES : c.kind === "vehicle_status" ? VEHICLE_STATUSES : null;
 const GROUPS: { title: string; keys: string[] }[] = [
+  { title: "Where the papers are", keys: ["papers_with", "registry_of_deeds"] },
   { title: "Notes", keys: ["other_docs", "paper_status", "remarks_1", "remarks_2"] },
   { title: "The car", keys: ["category", "body_type", "year_model", "make", "model_variant", "color", "mileage", "trans", "fuel", "cs_no", "sale_status", "vehicle_status", "arrival_date", "encumbrance", "mo_file", "reg_owner_name", "buying_source", "awarded_to", "spare_key", "bank_source", "renewal"] },
 ];

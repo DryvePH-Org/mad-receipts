@@ -49,6 +49,9 @@ export const COLUMNS: Col[] = [
   { key: "paper_status", label: "PAPER STATUS", letter: "AN", kind: "text", width: 130, edit: "papers" },
   { key: "remarks_1", label: "REMARKS I", letter: "AO", kind: "remarks", width: 260, edit: "papers" },
   { key: "remarks_2", label: "REMARKS II", letter: "AP", kind: "remarks", width: 220, edit: "papers" },
+  // new in MAD (they were in the old REMARKS register): where the original papers are, and the registry of deeds
+  { key: "papers_with", label: "PAPERS WITH", letter: "AQ", kind: "text", width: 150, edit: "papers" },
+  { key: "registry_of_deeds", label: "REGISTRY OF DEEDS", letter: "AR", kind: "text", width: 150, edit: "papers" },
 ];
 export const COLUMN_BY_KEY = new Map(COLUMNS.map((c) => [c.key, c]));
 

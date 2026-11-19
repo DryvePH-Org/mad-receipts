@@ -3,6 +3,13 @@ import { docsDb } from "@/lib/docsbible/review-server";
 import { composeRow, type StockRecord, type UnitRecord } from "./compose";
 import type { DetailRow, PriceRow } from "./export";
 
+const UNIT_COLS = "id, plate_display, arrival_date, year_model, make, model_variant, color, mileage, trans, fuel, encumbrance, spare_key, classification";
+// papers_with and registry_of_deeds arrived with migration 38: until it is applied the list still works without them
+async function readUnits(db: ReturnType<typeof docsDb>, ids: string[]) {
+  const r = await db.from("docs_units").select(`${UNIT_COLS}, papers_with, registry_of_deeds`).in("id", ids).limit(3000);
+  return r.error ? db.from("docs_units").select(UNIT_COLS).in("id", ids).limit(3000) : r;
+}
+
 /** The price list as the database holds it: the stock row (prices, location, notes) joined with the car's Docs Bible row and its About-the-car answers. */
 export async function loadPriceList(): Promise<{ rows: PriceRow[]; details: DetailRow[] }> {
   const db = docsDb();
@@ -12,7 +19,7 @@ export async function loadPriceList(): Promise<{ rows: PriceRow[]; details: Deta
   const ids = list.map((s) => s.unit_id);
   const plates = list.map((s) => s.plate_no);
   const [units, complete, details] = await Promise.all([
-    ids.length ? db.from("docs_units").select("id, plate_display, arrival_date, year_model, make, model_variant, color, mileage, trans, fuel, encumbrance, spare_key, classification").in("id", ids).limit(3000) : { data: [] },
+    ids.length ? readUnits(db, ids) : { data: [] },
     ids.length ? db.from("docs_complete").select("id, complete_docs").in("id", ids).limit(3000) : { data: [] },
     plates.length ? db.from("unit_details").select("plate_no, data").in("plate_no", plates).limit(3000) : { data: [] },
   ]);
