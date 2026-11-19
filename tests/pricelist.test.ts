@@ -170,3 +170,31 @@ describe("a car that is only on the price list", () => {
     expect(planSettle("unmatched", "noted", { listValue: "NU355A", docsValue: null })).toMatchObject({ decision: "Left out: not a car of the Docs Bible" });
   });
 });
+
+import { announceToday, compareOrDates, orLabel, orStatus } from "@/lib/docsbible/or-expiry";
+describe("the OR expiry", () => {
+  it("is overdue, soon (30 days) or fine", () => {
+    expect(orStatus("2026-11-01", "2026-11-19")).toEqual({ state: "overdue", days: -18 });
+    expect(orStatus("2026-12-19", "2026-11-19")).toEqual({ state: "soon", days: 30 });
+    expect(orStatus("2026-12-20", "2026-11-19")).toEqual({ state: "ok", days: 31 });
+    expect(orStatus(null, "2026-11-19")).toEqual({ state: "unknown", days: null });
+  });
+  it("says it in words", () => {
+    expect(orLabel(orStatus("2026-11-24", "2026-11-19"))).toBe("OR expires in 5 days");
+    expect(orLabel(orStatus("2026-11-19", "2026-11-19"))).toBe("OR expires today");
+    expect(orLabel(orStatus("2026-11-18", "2026-11-19"))).toBe("OR expired 1 day ago");
+  });
+  it("tells Documentation at 30, 14, 7, 0 days and every 7 days while late", () => {
+    expect([30, 14, 7, 0, -7, -14].every(announceToday)).toBe(true);
+    expect([29, 15, 1, -1, -6, 31].some(announceToday)).toBe(false);
+  });
+  it("fills a blank date when the sheets agree, and asks about a different one", () => {
+    expect(compareOrDates("A", null, [{ name: "the price list", date: "2027-01-01", kind: "live" }, { name: "the REMARKS register", date: "2027-01-01", kind: "older" }])[0]).toMatchObject({ kind: "fill", value: "2027-01-01" });
+    expect(compareOrDates("A", null, [{ name: "x", date: "2027-01-01" }, { name: "y", date: "2027-02-01" }])[0]).toMatchObject({ kind: "disagree" });
+    expect(compareOrDates("A", "2027-01-01", [{ name: "the price list", date: "2026-10-31", kind: "live" }])[0]).toMatchObject({ kind: "differs", docsValue: "2027-01-01" });
+  });
+  it("lets an older list speak only when its date is later (the Docs Bible is behind)", () => {
+    expect(compareOrDates("A", "2027-09-08", [{ name: "the renewal list", date: "2026-09-08", kind: "older" }])).toEqual([]);
+    expect(compareOrDates("A", "2026-09-07", [{ name: "the renewal list", date: "2027-09-01", kind: "older" }])[0]).toMatchObject({ kind: "differs" });
+  });
+});

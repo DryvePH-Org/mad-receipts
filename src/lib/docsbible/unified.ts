@@ -1,3 +1,5 @@
+import type { OrState } from "./or-expiry";
+
 // One list for the Car documents module: every car of the register, with what the folder and the scan know about it. Pure helpers here;
 // the server function that reads the tables is in unified-server.ts.
 
@@ -48,6 +50,8 @@ export interface UnifiedRow {
   flagged: boolean; decisions: number; files: number; location: "available" | "sold" | null;
   /** which Drive folder the car is in right now: Available units, Sold units, or none (no folder linked) */
   folder: FolderKey;
+  /** the OR renewal flag: overdue, due within 30 days, fine, or no date; days left (negative = late). A sold car is never flagged. */
+  or: { state: OrState; days: number | null };
   buyer: string | null; complete: string | null; searchText: string;
 }
 
@@ -63,8 +67,8 @@ export const CHIPS: { key: ChipKey; label: string; stages: StageKey[] }[] = [
   { key: "approved", label: "Approved", stages: ["approved"] }, { key: "sold", label: "In Sold", stages: ["sold"] }, { key: "handoff", label: "With processor", stages: ["handoff"] },
   { key: "none", label: "Not started", stages: ["none"] },
 ];
-export function filterUnified(rows: UnifiedRow[], chip: ChipKey, q: string, onlyAttention: boolean, folder: FolderFilter = "all"): UnifiedRow[] {
+export function filterUnified(rows: UnifiedRow[], chip: ChipKey, q: string, onlyAttention: boolean, folder: FolderFilter = "all", orDue = false): UnifiedRow[] {
   const stages = CHIPS.find((c) => c.key === chip)?.stages ?? [];
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
-  return rows.filter((r) => (chip === "all" || stages.includes(r.stage)) && (folder === "all" || r.folder === folder) && (!onlyAttention || r.flagged || r.decisions > 0) && words.every((w) => r.searchText.includes(w)));
+  return rows.filter((r) => (chip === "all" || stages.includes(r.stage)) && (folder === "all" || r.folder === folder) && (!orDue || r.or.state === "overdue" || r.or.state === "soon") && (!onlyAttention || r.flagged || r.decisions > 0) && words.every((w) => r.searchText.includes(w)));
 }

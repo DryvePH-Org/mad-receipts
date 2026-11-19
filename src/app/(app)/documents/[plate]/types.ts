@@ -18,6 +18,8 @@ export interface CarViewData {
   files: FileView[];
   /** the grokbot reads the photos (together, in the background) instead of a picture API */
   botMode: boolean; scanning: boolean;
+  /** the car's OR expiry date (YYYY-MM-DD), or null */
+  orExpiry: string | null; orState: { state: "overdue" | "soon" | "ok" | "unknown"; days: number | null };
   /** what the bots are doing or waiting to do for this car, with the place in line */
   botWork: { label: string; waiting: boolean }[];
   /** the last scan the bot finished for this car: when, how long, how many photos, and how it ended */

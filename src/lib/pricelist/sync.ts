@@ -6,6 +6,7 @@ import type { SyncField } from "./import";
 export const DOCS_COLUMN: Partial<Record<SyncField, string>> = {
   arrival_date: "arrival_date", model: "model_variant", color: "color", mileage: "mileage", fuel: "fuel", encumbrance: "encumbrance",
   year: "year_model", brand: "make", trans: "trans", spare_key: "spare_key",
+  or_expiry: "renewal", // the typed date: the database turns it into the real date (or_expiry) by itself
 };
 /** The stock column that holds what the price list showed, for the fields that have one. */
 export const OVERRIDE_COLUMN: Partial<Record<SyncField, string>> = {

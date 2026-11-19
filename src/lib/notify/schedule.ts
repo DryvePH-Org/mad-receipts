@@ -6,6 +6,8 @@ import { pesos } from "@/lib/deals";
 import { loadCar } from "@/lib/docs/service";
 import { listSavedCopies } from "@/lib/docsbible/export-server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { announceToday, orLabel, orStatus } from "@/lib/docsbible/or-expiry";
+import { daysBetween } from "@/lib/dates";
 import { digestText, weeklyText, type DigestItem } from "./digests";
 import { appUrl, flushOutbox, notify } from "./index";
 import { notifyDb } from "./store";
@@ -34,6 +36,7 @@ export async function runScheduled(now = new Date()): Promise<Record<string, unk
   if (hour >= 9) {
     await part("approvals", () => approvalDigest(today));
     await part("review", () => reviewDigest(today));
+    await part("orRenewal", () => orDigest(today));
   }
   return out;
 }
@@ -92,6 +95,20 @@ async function reviewDigest(today: string) {
   const { count } = await notifyDb().from("docs_review_items").select("id", { count: "exact", head: true }).eq("status", "open");
   if (!count) return { open: 0 };
   return notify({ category: "review_digest", dedupe: `review:${today}`, text: `⚠️ Docs Bible review list · ${formatDate(today)}\n${count} open ${count === 1 ? "item" : "items"} to look at (same plate twice, statuses that differ, rows to check).\n${appUrl("/docs-bible/review")}` });
+}
+
+/** Documentation: cars whose OR is 30, 14, 7 or 0 days from expiring, or late by a whole number of weeks. Works from the real date column (migration 37). */
+async function orDigest(today: string) {
+  const { data, error } = await notifyDb().from("docs_units_current").select("plate_no, plate_display, year_model, make, model_variant, or_expiry, sale_status, vehicle_status").not("or_expiry", "is", null).limit(5000);
+  if (error) return { skipped: "the OR date column is not there yet" };
+  const items = (data ?? [])
+    .filter((u) => !/^sold$/i.test(String(u.sale_status ?? "")) && u.vehicle_status !== "SOLD")
+    .map((u) => ({ u, days: daysBetween(today, String(u.or_expiry).slice(0, 10)) }))
+    .filter((x) => announceToday(x.days))
+    .sort((a, b) => a.days - b.days)
+    .map(({ u }): DigestItem => ({ title: `${u.plate_display ?? u.plate_no} · ${[u.year_model, u.make, u.model_variant].filter(Boolean).join(" ")}`, detail: `${orLabel(orStatus(String(u.or_expiry).slice(0, 10), today))} (${String(u.or_expiry).slice(0, 10)})` }));
+  const text = digestText("🪪 OR renewals", today, items, appUrl("/documents"));
+  return text ? notify({ category: "or_renewal", dedupe: `or:${today}`, text }) : { sent: 0 };
 }
 
 /** Admin: Monday morning. */

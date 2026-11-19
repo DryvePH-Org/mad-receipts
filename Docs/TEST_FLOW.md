@@ -164,3 +164,10 @@ Set up once: the Admin opens **My Telegram → Set up the bot**. Then each teste
 | Next morning, 8:00 | **Sales**: "Your deals" (their own only). Mondays: **Admin** weekly summary. At 9:00: **Approver** (receipts waiting too long), **Documentation** (review list) |
 | Switch one message off in My Telegram, repeat the step | nothing arrives for that message |
 | Do a step after 9 PM Manila | the message arrives at 7:00 the next morning |
+
+## 9. The OR expiry flag (needs migration 37 and the OR sync)
+1. Open a car whose OR expires within 30 days (or has expired): the top of the car page shows an amber or red pill ("OR expires in N days" / "OR expired N days ago") with the date.
+2. In **Car documents**, tick **OR due or late**: only those cars are listed, each with the same words in red or amber.
+3. Edit the RENEWAL date of a car in the Table (Admin): the pill follows (the database turns the typed date into the real one).
+4. Documentation gets one Telegram message at 9:00 listing the cars that are exactly 30, 14, 7 or 0 days from expiring, or late by 7, 14, 21... days. Sold cars are never listed.
+5. In **Price list check**, rows named "OR expiry" show two different dates for one car: choose which is right.

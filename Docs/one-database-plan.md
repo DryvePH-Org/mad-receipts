@@ -58,3 +58,16 @@ Text dates become dates; money is a number; the year is two digits (as the staff
 4. ORCR WITH MAD into the app as transfer records: yes or no?
 5. OR renewal flag: how many days before the expiry should it flag (30, 60)? Who is told (Documentation)?
 6. The 14 repairs imported earlier: leave or remove?
+
+## 7. Answers and progress (19 Nov 2026, second half)
+
+Owner's answers: the REMARKS tab is not needed as a tab, only the data written in it; the colours need no attention (kept as written); ORCR WITH MAD is the papers handed to Sir Jep, related to the transmittal report (so it is the handoff, not a separate list); the OR flag is at **30 days** and **Documentation gets the Telegram message**; the 14 repairs imported earlier are **left for now**; the order of work in section 5 is agreed.
+
+The fresh export (62 cars, 3 tabs gone: Available units, INCOMING CARS, Sheet16) shows the live sheet is edited every day (in one day: one car left, two Reserved notes typed by hand, a repair note removed, DDZ9807 priced). So the import has to be run again at the cut-over, and **a reservation typed by hand must still be possible** when there is no receipt behind it: the "one status" step keeps a manual Reserved (name and date) next to the one worked out from the deals.
+
+Step 1 (fresh study) is done. **Step 2, the OR expiry, is built:**
+- Migration 37 adds `or_expiry` (a real date) and `or_expiry_raw` to the car record and fills them from the typed `renewal` (176 cars; the typed text is kept as it was). A trigger keeps them in step whenever `renewal` is typed.
+- `scripts/or-expiry-sync.ts` (dry run first) brings together the Docs Bible, the price list, the FOR RENEWAL tab and the REMARKS register: 48 blank dates are filled where the sheets agree; 11 different dates go to the Price list check (the renewal list and REMARKS only count when their date is later than the Docs Bible's, because they show the date before a renewal). The price list is treated as live: any difference counts.
+- The flag: a pill on the car page ("OR expires in 12 days" / "OR expired 5 days ago"), "OR due or late" filter and a note on each row of Car documents, and a Telegram message to Documentation every morning at 9:00 on 30, 14, 7 and 0 days before the expiry and then every 7 days while it is late (sold cars left out).
+
+Step 3 next: REMARKS: only the registry of deeds and the documents code are not yet anywhere; they become fields of the car record, then the tab is retired.

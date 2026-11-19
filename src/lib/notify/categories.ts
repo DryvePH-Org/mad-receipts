@@ -21,6 +21,7 @@ export const NOTIFY_CATEGORIES: readonly NotifyCategory[] = [
   { id: "ready_to_sold", label: "A car's documents are complete: move it to Sold", detail: "", when: "right away", roles: ["documentation"] },
   { id: "handoff_reminder", label: "Papers still with the receiver", detail: "The cars handed off and not yet back, with the days out.", when: "every 3 days", roles: ["documentation"] },
   { id: "review_digest", label: "Docs Bible review list has open items", detail: "Same plate twice, statuses that differ, rows to check.", when: "every morning at 9:00, when there are open items", roles: ["documentation"] },
+  { id: "or_renewal", label: "A car's OR is due or late", detail: "Cars whose OR expires within 30 days or has expired. Sold cars are left out.", when: "every morning at 9:00, on 30, 14, 7 and 0 days before the expiry and then every 7 days while it is late", roles: ["documentation"] },
   { id: "car_added", label: "Someone else added a new car", detail: "", when: "right away", roles: ["documentation"] },
   // Admin
   { id: "system_alert", label: "Something is broken", detail: "The scanner is stuck, a Drive upload failed, sync jobs keep failing, or the daily backup is missing.", when: "right away, at most once an hour per problem", roles: ["admin"], urgent: true },

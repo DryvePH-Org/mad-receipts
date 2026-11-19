@@ -46,7 +46,9 @@ snapshot = {
     "inventory": cars,
     "repairs": keyed("REPAIRS REPORT ", 1, "PLATE NUMBER"),
     "renewals": keyed("FOR RENEWAL (2026)", 1, "PLATE NUMBER"),
+    # the older on-hand register named REMARKS: kept for its OR expiration, registry of deeds and documents code
+    "remarks_tab": keyed("REMARKS", 1, "PLATE NO./INVENTORY"),
 }
 out = "Docs/sheets-private/pricelist.snapshot.json"
 json.dump(snapshot, open(out, "w"), ensure_ascii=False, indent=1)
-print(f"{out}: {len(cars)} cars, {len(snapshot['repairs'])} repairs, {len(snapshot['renewals'])} renewals")
+print(f"{out}: {len(cars)} cars, {len(snapshot['repairs'])} repairs, {len(snapshot['renewals'])} renewals, {len(snapshot['remarks_tab'])} REMARKS rows")

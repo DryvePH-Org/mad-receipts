@@ -5,7 +5,7 @@ import { parseMoney, parseSheetDate } from "@/lib/cars/model";
 
 export type SnapshotRow = Record<string, string | number | null | undefined> & { _row: number; _group?: string | null; _order?: number };
 
-export type SyncField = "arrival_date" | "model" | "color" | "mileage" | "fuel" | "encumbrance" | "year" | "brand" | "trans" | "spare_key" | "status" | "docs_code" | "unmatched" | "odd_value";
+export type SyncField = "arrival_date" | "model" | "color" | "mileage" | "fuel" | "encumbrance" | "year" | "brand" | "trans" | "spare_key" | "status" | "docs_code" | "unmatched" | "odd_value" | "or_expiry";
 /** One place where the price list and the Docs Bible do not say the same thing (or something a person must know): a row of the price list check. */
 export interface SyncItem { plate: string | null; field: SyncField; listValue: string | null; docsValue: string | null; sourceRow: number; message: string; /** for a car not in the Docs Bible: its price list row, so a person can add it or link it to the right plate later */ payload?: unknown }
 export type PriceIssue = SyncItem;
@@ -78,7 +78,7 @@ const sameFuel = (a: string, b: string) => { const f = (x: string) => (/^(DSL|DI
 
 export const FIELD_LABELS: Record<SyncField, string> = {
   arrival_date: "Arrival date", model: "Model", color: "Color", mileage: "Mileage", fuel: "Fuel", encumbrance: "Encumbrance", year: "Year", brand: "Brand", trans: "Transmission",
-  spare_key: "Spare key", status: "Status", docs_code: "Papers-with code (DOCS)", unmatched: "Not in the Docs Bible", odd_value: "Odd value",
+  spare_key: "Spare key", status: "Status", docs_code: "Papers-with code (DOCS)", unmatched: "Not in the Docs Bible", odd_value: "Odd value", or_expiry: "OR expiry",
 };
 
 const said = (label: string, listV: string, docsV: string) => `${label}: the price list says "${listV}", the Docs Bible says "${docsV}".`;

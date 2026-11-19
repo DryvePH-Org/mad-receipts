@@ -21,6 +21,10 @@ import { ApprovalCard } from "./approval-card";
 import { CarLive } from "./car-live";
 import { CarTop } from "./car-top";
 import { ChecksHelp } from "./checks-help";
+import { parseSheetDate } from "@/lib/cars/model";
+import { manilaToday } from "@/lib/dates";
+import { orStatus } from "@/lib/docsbible/or-expiry";
+import { docsDb } from "@/lib/docsbible/review-server";
 import { PapersCard } from "./files-card";
 import { HandoffCard } from "./handoff-card";
 import { listCarReceipts } from "@/lib/docs/receipts-drive";
@@ -55,6 +59,8 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
   ]);
   const linked = car.folder.match_status === "linked" && !!car.folder.folder_id;
   const stage = deriveStage(input ?? { linked, location: car.folder.location as "available" | "sold", filesTotal: car.files.length, pending: car.pending, failed: 0, scanning, flaggedFiles: 0, missingBefore: 0, missingSold: 0, hasDeal: !!deal, approved: !!flow.workflow.approvedAt, caseChosen: car.folder.case_source === "manual", handoffAt: flow.workflow.handoffAt, returnedAt: flow.workflow.handoffReturnedAt, receiver: settings.print.transmittalReceiver || "the receiver" });
+  const orRow = await docsDb().from("docs_units_current").select("renewal").eq("plate_no", key).maybeSingle();
+  const orDate = orRow.data?.renewal ? parseSheetDate(String(orRow.data.renewal)) : null; // the typed date, read the same way the database reads it
   const [register, receipts] = await Promise.all([loadRegisterRow(key).catch(() => null), canAct ? listCarReceipts(key).catch(() => []) : Promise.resolve([])]);
 
   const recipient = settings.print.transmittalReceiver || "the receiver";
@@ -73,7 +79,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
         seen: { detections: detectionsOf(f.details) ?? [], notes: readingNotes(f.details).notes },
       };
     }),
-    botMode: readerMode() === "grokbot", scanning,
+    botMode: readerMode() === "grokbot", scanning, orExpiry: orDate, orState: orStatus(orDate, manilaToday()),
     lastScan: lastScanRow ? { at: lastScanRow.completed_at ?? lastScanRow.created_at, seconds: lastScanRow.completed_at ? Math.round((Date.parse(lastScanRow.completed_at) - Date.parse(lastScanRow.created_at)) / 1000) : null, photos: Array.isArray((lastScanRow.request as { files?: unknown[] } | null)?.files) ? ((lastScanRow.request as { files: unknown[] }).files.length) : 0, ok: lastScanRow.status === "done", error: lastScanRow.error } : null,
     botWork: botWork.map((w) => ({ label: workLabel(w.action, w.status, w.position), waiting: w.status === "queued" })),
     scanned: !!car.folder.scanned_at, pending: car.pending, failed: car.files.filter((f) => f.read_status === "failed").length, statusLabel: car.status.label, statusKey: car.status.key,
@@ -120,7 +126,7 @@ async function RegisterOnly({ plate, role, canAct }: { plate: string; role: "sal
   if (!register) notFound();
   const data: CarViewData = {
     plate: key, plateDisplay: register.values.plate_display ?? key, name: [register.values.year_model, register.values.make, register.values.model_variant].filter(Boolean).join(" ") || key, location: "available", match: "none", folderUrl: null, candidates: [],
-    caseType: "clean", suggestedCase: "clean", caseReason: "", caseSource: "auto", deal: null, items: [], files: [], botMode: false, scanning: false, lastScan: null, botWork: [], scanned: false, pending: 0, failed: 0, statusLabel: "No folder", statusKey: "unlinked", isAdmin: role === "admin",
+    caseType: "clean", suggestedCase: "clean", caseReason: "", caseSource: "auto", deal: null, items: [], files: [], botMode: false, scanning: false, lastScan: null, botWork: [], orExpiry: null, orState: { state: "unknown", days: null }, scanned: false, pending: 0, failed: 0, statusLabel: "No folder", statusKey: "unlinked", isAdmin: role === "admin",
   };
   return (
     <div className="space-y-6">

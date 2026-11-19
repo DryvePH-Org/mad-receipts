@@ -1,5 +1,6 @@
 "use client";
 
+import { orLabel } from "@/lib/docsbible/or-expiry";
 import { UploadButton } from "./upload-button";
 import { useTransition } from "react";
 import Link from "next/link";
@@ -17,6 +18,7 @@ const STATUS_TONE: Record<string, Tone> = { complete: "emerald", missing: "amber
 /** The line under the car's name (where it is, its AR, links), what the bots are doing for it, and the folder chooser when it has no single folder. */
 export function CarTop({ data, readOnly = false }: { data: CarViewData; readOnly?: boolean }) {
   const router = useRouter();
+  const orState = data.orState;
   const [busy, start] = useTransition();
   const run = (fn: () => Promise<{ ok: boolean; message: string }>) => start(async () => { const r = await fn(); if (r.ok) toast.success(r.message); else toast.error(r.message); router.refresh(); });
   return (
@@ -24,6 +26,7 @@ export function CarTop({ data, readOnly = false }: { data: CarViewData; readOnly
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <Pill tone={data.location === "sold" ? "teal" : "grey"}>{data.location === "sold" ? "In Sold units" : "In Available units"}</Pill>
         {data.match === "linked" && <Pill tone={STATUS_TONE[data.statusKey] ?? "grey"}>{data.statusLabel}</Pill>}
+        {orState.state !== "unknown" && <Pill tone={orState.state === "overdue" ? "red" : orState.state === "soon" ? "amber" : "grey"}>{orLabel(orState)}{data.orExpiry ? ` (${data.orExpiry})` : ""}</Pill>}
         {data.deal ? <Link href={`/deals/${data.deal.id}`} className="text-sm underline underline-offset-2">AR {data.deal.dealNo} · {data.deal.buyerName}{data.deal.hasReceipt ? "" : " (no AR yet)"}</Link> : <span className="text-sm text-muted-foreground">No AR for this car yet</span>}
         {!readOnly && <div className="ml-auto flex flex-wrap gap-2">
           <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/documents/${data.plate}/transmittal`} />}><FileText /> Transmittal receipt</Button>
