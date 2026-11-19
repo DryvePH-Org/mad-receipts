@@ -102,3 +102,7 @@ Step 3 of the order: the two facts only the REMARKS register held are fields of 
 
 The sale list's fields (prices, location, tools, note, section, order, the six "what the sheet showed" overrides, in_stock) are now columns of the car record (`docs_units`). `car_stock` is kept untouched as the safety copy; the code no longer reads or writes it. `scripts/pricelist-apply.ts` was removed (a re-run would overwrite live data). After the cut-over is checked, a later migration drops `car_stock` and the `list_*` overrides once settled.
 Order of work: apply migration 40, then push (old code keeps working on `car_stock` in between), then run `scripts/pricelist-verify.ts`.
+
+## 13. Step 7: ORCR WITH MAD as transfer records (migration 41)
+
+`car_transfers`: one row per transfer of the OR/CR to a buyer (buyer, address, contact as typed, what is done, financing, CR date, transaction date, liaison, sales, balance, note, finished on). Linked to the car record by plate; a car not in the record yet is kept by its plate and linked by a trigger when it is added. AGEING is never stored. Seen and edited by Admin, Approver and Documentation only (buyer data), in Car documents → Transfers and on the car page. Import: `scripts/transfers-import.ts` from the tab's snapshot (62 transfers: 28 linked, 34 waiting for their car). The tab stays in the old workbook, not locked; the staff keep the data up to date in the app.

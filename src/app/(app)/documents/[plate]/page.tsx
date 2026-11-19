@@ -27,6 +27,9 @@ import { orStatus } from "@/lib/docsbible/or-expiry";
 import { docsDb } from "@/lib/docsbible/review-server";
 import { PapersCard } from "./files-card";
 import { HandoffCard } from "./handoff-card";
+import { loadTransfers } from "@/lib/transfers/server";
+import { TransferList } from "../transfers/transfer-list";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listCarReceipts } from "@/lib/docs/receipts-drive";
 import { ReceiptsCard } from "./receipts-card";
 import { SoldUploadCard } from "./sold-upload-card";
@@ -61,6 +64,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
   const stage = deriveStage(input ?? { linked, location: car.folder.location as "available" | "sold", filesTotal: car.files.length, pending: car.pending, failed: 0, scanning, flaggedFiles: 0, missingBefore: 0, missingSold: 0, hasDeal: !!deal, approved: !!flow.workflow.approvedAt, caseChosen: car.folder.case_source === "manual", handoffAt: flow.workflow.handoffAt, returnedAt: flow.workflow.handoffReturnedAt, receiver: settings.print.transmittalReceiver || "the receiver" });
   const orRow = await docsDb().from("docs_units_current").select("renewal").eq("plate_no", key).maybeSingle();
   const orDate = orRow.data?.renewal ? parseSheetDate(String(orRow.data.renewal)) : null; // the typed date, read the same way the database reads it
+  const transfers = user.role === "admin" || user.role === "approver" || user.role === "documentation" ? await loadTransfers(key) : null;
   const [register, receipts] = await Promise.all([loadRegisterRow(key).catch(() => null), canAct ? listCarReceipts(key).catch(() => []) : Promise.resolve([])]);
 
   const recipient = settings.print.transmittalReceiver || "the receiver";
@@ -112,6 +116,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
             {canAct && receipts.length > 0 && <ReceiptsCard plate={key} receipts={receipts} />}
             {canAct && <SoldCard plate={key} location={data.location} items={soldItems} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />}
             {canAct && <HandoffCard rules={stage.rules} data={{ plate: key, location: data.location, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, items: items.map((i) => ({ key: i.key, label: i.label, present: i.present, optional: i.optional })) }} />}
+            {transfers && <Card id="transfer"><CardHeader><CardTitle>Transfer to the buyer</CardTitle></CardHeader><CardContent><TransferList transfers={transfers.transfers} cars={Object.fromEntries(transfers.cars)} today={manilaToday()} plate={key} showCar={false} /></CardContent></Card>}
           </aside>
         </div>
       )}

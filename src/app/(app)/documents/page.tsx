@@ -29,6 +29,7 @@ async function Content() {
   return (
     <div className="space-y-4">
       {canAct && <div className="flex flex-wrap gap-2"><Button nativeButton={false} render={<Link href="/documents/add" />}>Add a car</Button><Button variant="outline" nativeButton={false} render={<Link href="/documents/handoff" />}>Documents on handoff</Button></div>}
+      {(canAct || user.role === "approver") && <div className="flex flex-wrap gap-2"><Button variant="outline" nativeButton={false} render={<Link href="/documents/transfers" />}>Transfers</Button></div>}
       <DocumentsBoard rows={rows} grid={grid} role={role} canAct={canAct} openDecisions={open.count ?? 0} />
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <Button size="sm" variant="outline" nativeButton={false} render={<a href="/api/docs-bible/export" download />}>Download as CSV (sheet layout)</Button>
