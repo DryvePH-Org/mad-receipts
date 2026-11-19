@@ -13,7 +13,7 @@
  *    told to write, appends rows, and creates files in the allowed folder.
  *  - The car-documents actions (docs.*) only work inside the two folders named by the
  *    DOC_AVAILABLE_ID and DOC_SOLD_ID script properties (or DOC_ROOT_ID, the folder that holds both). They can list, read previews, add files, make
- *    a car folder in Available and move a car folder from Available to Sold. They never delete or rename anything.
+ *    a car folder in Available and move a car folder from Available to Sold. They never rename anything. The only removal is docs.trashHeic: it puts a HEIC photo that sits in Available units into the Drive trash (recoverable for 30 days), nothing else.
  *
  * Setup: see "Google Apps Script bridge" in README.md.
  */
@@ -88,6 +88,12 @@ function handle_(req) {
     case 'docs.createFolder':
       return withLock_(function () {
         return docsCreateFolder_(req);
+      });
+    case 'docs.download':
+      return docsDownload_(req);
+    case 'docs.trashHeic':
+      return withLock_(function () {
+        return docsTrashHeic_(req);
       });
     case 'docs.move':
       return withLock_(function () {
@@ -379,6 +385,31 @@ function docsPreview_(req) {
   });
   if (image.getResponseCode() !== 200) throw httpError_(422, 'Could not get a preview of this file');
   return { mimeType: 'image/jpeg', base64: Utilities.base64Encode(image.getContent()), via: 'preview' };
+}
+
+/** The file itself (not a preview), for a file inside Available or Sold: used to convert HEIC photos to JPEG. Up to about 10 MB. */
+function docsDownload_(req) {
+  var file = DriveApp.getFileById(String(req.fileId));
+  var parents = file.getParents();
+  if (!parents.hasNext() || !rootOf_(parents.next())) {
+    throw httpError_(403, 'That file is not inside the Available or Sold folder');
+  }
+  if (file.getSize() > 10 * 1024 * 1024) throw httpError_(413, 'The file is too large');
+  return { name: file.getName(), mimeType: file.getMimeType(), base64: Utilities.base64Encode(file.getBlob().getBytes()) };
+}
+
+/** Puts ONE HEIC photo of Available units into the Drive trash (it can be restored from there for 30 days). Refuses anything else. */
+function docsTrashHeic_(req) {
+  var file = DriveApp.getFileById(String(req.fileId));
+  var parents = file.getParents();
+  if (!parents.hasNext() || rootOf_(parents.next()) !== 'available') {
+    throw httpError_(403, 'Only a file inside Available units can be removed');
+  }
+  if (!/^image\/hei[cf]$/i.test(file.getMimeType()) && !/\.hei[cf]$/i.test(file.getName())) {
+    throw httpError_(403, 'Only HEIC photos can be removed');
+  }
+  file.setTrashed(true);
+  return { id: file.getId(), trashed: true };
 }
 
 /**
