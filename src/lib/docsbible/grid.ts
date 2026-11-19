@@ -11,28 +11,28 @@ export interface Col {
 /** Same order and names as the sheet (letters are where they were in the Google Sheet, to help the move). */
 export const COLUMNS: Col[] = [
   { key: "plate_display", label: "PLATE NO.", letter: "L", kind: "plate", width: 110, edit: null },
-  { key: "category", label: "CATEGORY", letter: "C", kind: "text", width: 110, edit: "admin" },
-  { key: "body_type", label: "BODY TYPE", letter: "D", kind: "text", width: 100, edit: "admin" },
-  { key: "year_model", label: "YM", letter: "E", kind: "text", width: 56, edit: "admin" },
-  { key: "make", label: "MAKE", letter: "F", kind: "text", width: 110, edit: "admin" },
-  { key: "model_variant", label: "MODEL VARIANT", letter: "G", kind: "text", width: 190, edit: "admin" },
-  { key: "color", label: "COLOR", letter: "H", kind: "text", width: 110, edit: "admin" },
-  { key: "mileage", label: "MILEAGE", letter: "I", kind: "text", width: 90, edit: "admin" },
-  { key: "trans", label: "TRANS", letter: "J", kind: "text", width: 60, edit: "admin" },
-  { key: "fuel", label: "FUEL", letter: "K", kind: "text", width: 90, edit: "admin" },
-  { key: "cs_no", label: "CS NO", letter: "M", kind: "text", width: 90, edit: "admin" },
+  { key: "category", label: "CATEGORY", letter: "C", kind: "text", width: 110, edit: "papers" },
+  { key: "body_type", label: "BODY TYPE", letter: "D", kind: "text", width: 100, edit: "papers" },
+  { key: "year_model", label: "YM", letter: "E", kind: "text", width: 56, edit: "papers" },
+  { key: "make", label: "MAKE", letter: "F", kind: "text", width: 110, edit: "papers" },
+  { key: "model_variant", label: "MODEL VARIANT", letter: "G", kind: "text", width: 190, edit: "papers" },
+  { key: "color", label: "COLOR", letter: "H", kind: "text", width: 110, edit: "papers" },
+  { key: "mileage", label: "MILEAGE", letter: "I", kind: "text", width: 90, edit: "papers" },
+  { key: "trans", label: "TRANS", letter: "J", kind: "text", width: 60, edit: "papers" },
+  { key: "fuel", label: "FUEL", letter: "K", kind: "text", width: 90, edit: "papers" },
+  { key: "cs_no", label: "CS NO", letter: "M", kind: "text", width: 90, edit: "papers" },
   { key: "sale_status", label: "STATUS", letter: "N", kind: "sale_status", width: 110, edit: "admin" },
   { key: "arrival_date", label: "DATE ARRIVAL", letter: "O", kind: "date", width: 110, edit: "papers" },
-  { key: "encumbrance", label: "ENCUMBRANCE", letter: "P", kind: "text", width: 130, edit: "admin" },
-  { key: "mo_file", label: "MO FILE", letter: "Q", kind: "text", width: 120, edit: "admin" },
-  { key: "reg_owner_name", label: "REG OWNER NAME", letter: "R", kind: "text", width: 200, edit: "admin" },
-  { key: "buying_source", label: "BUYING SOURCE", letter: "S", kind: "text", width: 110, edit: "admin" },
-  { key: "awarded_to", label: "AWARDED TO", letter: "T", kind: "text", width: 130, edit: "admin" },
-  { key: "spare_key", label: "SPARE KEY", letter: "U", kind: "text", width: 120, edit: "admin" },
+  { key: "encumbrance", label: "ENCUMBRANCE", letter: "P", kind: "text", width: 130, edit: "papers" },
+  { key: "mo_file", label: "MO FILE", letter: "Q", kind: "text", width: 120, edit: "papers" },
+  { key: "reg_owner_name", label: "REG OWNER NAME", letter: "R", kind: "text", width: 200, edit: "papers" },
+  { key: "buying_source", label: "BUYING SOURCE", letter: "S", kind: "text", width: 110, edit: "papers" },
+  { key: "awarded_to", label: "AWARDED TO", letter: "T", kind: "text", width: 130, edit: "papers" },
+  { key: "spare_key", label: "SPARE KEY", letter: "U", kind: "text", width: 120, edit: "papers" },
   { key: "vehicle_status", label: "VEHICLE STATUS", letter: "W", kind: "vehicle_status", width: 140, edit: "admin" },
   { key: "classification", label: "CLASSIFICATION", letter: "X", kind: "classification", width: 160, edit: "papers" },
-  { key: "bank_source", label: "BANK/ SOURCE", letter: "Y", kind: "text", width: 120, edit: "admin" },
-  { key: "renewal", label: "RENEWAL", letter: "Z", kind: "text", width: 110, edit: "admin" },
+  { key: "bank_source", label: "BANK/ SOURCE", letter: "Y", kind: "text", width: 120, edit: "papers" },
+  { key: "renewal", label: "RENEWAL", letter: "Z", kind: "text", width: 110, edit: "papers" },
   { key: "complete_docs", label: "COMPLETE DOCS?", letter: "AA", kind: "complete", width: 130, edit: null },
   { key: "cr", label: "CR", letter: "AB", kind: "paper", width: 84, edit: "papers" },
   { key: "or_receipt", label: "OR", letter: "AC", kind: "paper", width: 84, edit: "papers" },
@@ -64,7 +64,7 @@ export const VEHICLE_STATUSES = ["SOLD", "AVAILABLE", "SHIPPED TO CEB", "NOT FOR
 export const GRID_CLASSIFICATIONS = ["Clean", "Repo (bank)", "Encumbered (Indiv)"] as const;
 
 export type Role = "sales" | "admin" | "approver" | "documentation";
-/** The owner's rule: Documentation edits the paper columns, Admin everything, Sales and Approver only read. */
+/** The owner's rule: Documentation has full control of the car's documents record (who the car is, its papers, OR date, spare key, arrival); only the two status columns stay Admin's until one status replaces them. Sales and Approver only read (the Approver changes prices in Car status). */
 export const canEditColumn = (role: Role, col: Col): boolean => col.edit === "admin" ? role === "admin" : col.edit === "papers" ? role === "admin" || role === "documentation" : false;
 
 /** What the cell becomes, or why the typing is refused. An empty cell is allowed (null) except where the database needs a value. */

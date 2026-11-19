@@ -40,8 +40,8 @@ As **Documentation**, in the table view, search one plate.
 
 1. Click a paper cell (for example CR). A drop-down opens: choose **Yes**. The cell changes at once and a message appears with **Undo**. Press **Undo**: it goes back.
 2. Click the plate: the car's **history** opens with who, when, from what to what.
-3. Switch to **Everything**. Try to click MAKE: it is **not editable** (Documentation edits the papers; Admin edits everything).
-4. Open the same car as **Admin** and change MAKE: it works.
+3. Switch to **Everything**. MAKE, SPARE KEY, the OR date (RENEWAL) and DATE ARRIVAL are editable by Documentation too (the whole car record is theirs); the two status columns are **not editable** (Admin only, until one status replaces them).
+4. Open the same car as **Admin** and change a status column: it works.
 5. With the car open in two browsers, change the same cell in both, one after the other: the second one is **refused** with "Someone changed this cell a moment ago".
 
 **Proves:** edits are instant, undoable, recorded, and nobody overwrites anybody silently.
