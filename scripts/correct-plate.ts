@@ -38,10 +38,16 @@ async function main() {
 
   const display = to.replace(/^([A-Z]+)(\d+)$/, "$1 $2").replace(/ /g, "");
   const moved: string[] = [];
-  const undo = async () => { for (const t of moved.reverse()) await db.from(t).update({ plate_no: from }).eq("plate_no", to); if (folder) await db.from("unit_folders").delete().eq("plate_no", to); };
+  const undo = async () => {
+    await db.from("docs_units").update({ plate_no: from, plate_display: from }).eq("plate_no", to);
+    if (folder) { const back = await db.from("unit_folders").select("plate_no").eq("plate_no", from).maybeSingle(); if (!back.data) await db.from("unit_folders").insert({ ...folder, folder_id: null, folder_name: null, folder_url: null, match_status: "none", candidates: [] }); }
+    for (const t of moved.reverse()) await db.from(t).update({ plate_no: from }).eq("plate_no", to);
+    if (folder) { await db.from("unit_folders").delete().eq("plate_no", to); await db.from("unit_folders").update({ folder_id: folder.folder_id, folder_name: folder.folder_name, folder_url: folder.folder_url, match_status: folder.match_status, candidates: folder.candidates }).eq("plate_no", from); }
+  };
   try {
     if (folder) {
-      const { error } = await db.from("unit_folders").insert({ ...folder, plate_no: to, plate_display: display });
+      // the folder id is unique, so the new row first waits without it; it takes the folder over when the old row is gone
+      const { error } = await db.from("unit_folders").insert({ ...folder, plate_no: to, plate_display: display, folder_id: null, folder_name: null, folder_url: null, match_status: "none", candidates: [] });
       if (error) throw new Error(`folder link: ${error.message}`);
     }
     for (const t of CHILDREN) {
@@ -52,7 +58,12 @@ async function main() {
     }
     const { error } = await db.from("docs_units").update({ plate_no: to, plate_display: display, last_change_source: "correction" }).eq("plate_no", from);
     if (error) throw new Error(`docs_units: ${error.message}`);
-    if (folder) await db.from("unit_folders").delete().eq("plate_no", from);
+    if (folder) {
+      const gone = await db.from("unit_folders").delete().eq("plate_no", from);
+      if (gone.error) throw new Error(`old folder link: ${gone.error.message}`);
+      const { error: e2 } = await db.from("unit_folders").update({ folder_id: folder.folder_id, folder_name: folder.folder_name, folder_url: folder.folder_url, match_status: folder.match_status, candidates: folder.candidates }).eq("plate_no", to);
+      if (e2) throw new Error(`folder link: ${e2.message}`);
+    }
   } catch (e) { await undo(); throw new Error(`${e instanceof Error ? e.message : e}. Everything was put back.`); }
   console.log(`\nDone. ${from} is now ${to} everywhere in the app.${folder ? `\nNow rename the folder in Google Drive to end with (${display}), for example: "${String(folder.folder_name).replace(new RegExp(from, "gi"), display)}". Do it before pressing Refresh from Drive.` : ""}`);
 }
