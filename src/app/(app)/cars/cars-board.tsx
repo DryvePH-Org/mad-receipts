@@ -11,7 +11,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { AVAILABILITY_LABEL, EMPTY_FILTER, filterCars, sortCars, spareKeyState, summarize, type Availability, type CarFilter, type CarRow, type SortKey } from "@/lib/cars/model";
 import { EditStock } from "./edit-stock";
 
-const TONE: Record<Availability, Tone> = { available: "emerald", asis: "amber", reserved: "blue", sold: "zinc", repair: "red" };
+const TONE: Record<Availability, Tone> = { available: "emerald", asis: "amber", reserved: "blue", sold: "zinc", repair: "red", notforsale: "zinc" };
 const peso = (n: number | null) => (n === null ? "No price" : `₱${n.toLocaleString("en-PH")}`);
 const unique = (cars: CarRow[], pick: (c: CarRow) => string) => [...new Set(cars.map(pick).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 const nice = (iso: string | null) => (iso ? new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }) : "—");

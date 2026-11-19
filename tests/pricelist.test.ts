@@ -50,11 +50,10 @@ describe("differences with the Docs Bible (the price list check)", () => {
     expect(d.map((i) => i.field).sort()).toEqual(["arrival_date", "color", "model", "spare_key"]);
     expect(d.find((i) => i.field === "color")).toMatchObject({ listValue: "WHITE", docsValue: "RED", plate: "NBU4875" });
   });
-  it("compares the status note with the Docs Bible status", () => {
+  it("no longer compares the status: it is one fact on the car record", () => {
     const reserved = normalizeCar(car({ REMARKS: "RESERVED - SWEET 10/14" })).stock!;
-    expect(compareWithDocs(reserved, unit).map((i) => i.field)).toEqual(["status"]);
-    expect(compareWithDocs(reserved, { ...unit, sale_status: "Reserved" })).toEqual([]);
-    expect(compareWithDocs(s, { ...unit, sale_status: "Sold", vehicle_status: "SOLD" }).map((i) => i.field)).toEqual(["status"]); // sold in the Docs Bible but still on the price list
+    expect(compareWithDocs(reserved, unit).map((i) => i.field)).not.toContain("status");
+    expect(compareWithDocs(s, { ...unit, sale_status: "Sold", vehicle_status: "SOLD" }).map((i) => i.field)).not.toContain("status");
   });
   it("reads spare key texts", () => {
     expect(spareKeyState("W/SPAREKEY TBF")).toBe("yes");
@@ -130,8 +129,9 @@ describe("settling an item of the price list check", () => {
     expect(p).toMatchObject({ clearOverride: "list_arrived_on" });
     expect("docsPatch" in p).toBe(false);
   });
-  it("copies a Reserved or Sold note into the Docs Bible status", () => {
-    expect(planSettle("status", "list", { listValue: "RESERVED - SWEET 10/14", docsValue: "Onhand / AVAILABLE" })).toMatchObject({ docsPatch: { sale_status: "Reserved", vehicle_status: "AVAILABLE" } });
+  it("settles an old status item by setting the car's one state to the side that was chosen", () => {
+    expect(planSettle("status", "list", { listValue: "RESERVED - SWEET 10/14", docsValue: "Onhand / AVAILABLE" })).toMatchObject({ docsPatch: { stock_state: "Reserved" } });
+    expect(planSettle("status", "docs", { listValue: "RESERVED - SWEET 10/14", docsValue: "Onhand / AVAILABLE" })).toMatchObject({ docsPatch: { stock_state: "Onhand" } });
     expect(planSettle("status", "list", { listValue: "", docsValue: "Sold / SOLD" })).toHaveProperty("error");
   });
   it("only lets a person note the items that are not a difference", () => {

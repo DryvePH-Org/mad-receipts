@@ -38,10 +38,9 @@ export async function addUnit(plateTyped: string, details: UnitDetailsInput, act
   if (!checked.ok) return { ok: false, message: "Some details are missing or wrong.", errors: checked.errors };
   const status = await unitStatus(key);
   if (status.exists && !secondArrival) return { ok: false, message: `${key} is already in MAD (${status.name}).`, exists: { id: status.id, name: status.name } };
-  const r = await docsDb().from("docs_units").insert({
-    plate_no: key, plate_display: plateTyped.trim().toUpperCase().replace(/\s+/g, " "), ...checked.fields, arrival_raw: checked.fields.arrival_date,
-    source: "app", last_change_source: "add", created_by: actor, updated_by: actor,
-  }).select("id").single();
+  const row = { plate_no: key, plate_display: plateTyped.trim().toUpperCase().replace(/\s+/g, " "), ...checked.fields, arrival_raw: checked.fields.arrival_date, source: "app", last_change_source: "add", created_by: actor, updated_by: actor };
+  let r = await docsDb().from("docs_units").insert({ ...row, stock_state: "Onhand" }).select("id").single(); // the one status; until migration 39 is applied the old columns carry it
+  if (r.error && /stock_state/.test(r.error.message)) r = await docsDb().from("docs_units").insert(row).select("id").single();
   if (r.error) return { ok: false, message: `Could not add the car: ${r.error.message}` };
   // a second arrival is put on the data check, so the staff can decide later whether it is a real second arrival or a double entry
   if (status.exists) await docsDb().from("docs_review_items").insert({ unit_id: r.data.id, plate_no: key, kind: "duplicate_plate", message: `${key} was added again with Add a car (the earlier arrival: ${status.arrival ?? "no date"}). Both rows are kept: decide whether it is a second arrival or a double entry.` });

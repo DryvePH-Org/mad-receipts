@@ -10,13 +10,15 @@ import { Label } from "@/components/ui/label";
 import type { CarRow } from "@/lib/cars/model";
 import { takeOffStockAction, updateStockAction } from "./actions";
 
-type State = "available" | "reserved" | "sold" | "repair" | "asis";
+type State = "Onhand" | "Reserved" | "Sold" | "Not for sale" | "For repair" | "Sell as is" | "Shipped to Cebu";
 const STATES: { key: State; label: string; hint: string }[] = [
-  { key: "available", label: "Available", hint: "Ready to sell" },
-  { key: "reserved", label: "Reserved", hint: "Someone has it" },
-  { key: "sold", label: "Sold", hint: "Sold, the car stays listed as sold" },
-  { key: "repair", label: "For repair", hint: "Not ready" },
-  { key: "asis", label: "Sell as is", hint: "Can be sold without repair" },
+  { key: "Onhand", label: "Available", hint: "Ready to sell" },
+  { key: "Reserved", label: "Reserved", hint: "Someone has it" },
+  { key: "Sold", label: "Sold", hint: "Sold, the car stays listed as sold" },
+  { key: "For repair", label: "For repair", hint: "Not ready" },
+  { key: "Sell as is", label: "Sell as is", hint: "Can be sold without repair" },
+  { key: "Not for sale", label: "Not for sale", hint: "Kept, not offered" },
+  { key: "Shipped to Cebu", label: "Shipped to Cebu", hint: "On its way or in Cebu" },
 ];
 const asText = (n: number | null | undefined) => (n === null || n === undefined ? "" : String(n));
 const toNum = (v: string): number | null => { const t = v.replace(/[₱,\s]/g, ""); return /^\d+$/.test(t) ? Number(t) : null; };
@@ -26,7 +28,7 @@ export function EditStock({ car, locations, onClose }: { car: CarRow; locations:
   const router = useRouter();
   const [pending, start] = useTransition();
   const raw = car.raw!;
-  const [state, setState] = useState<State>(car.availability === "sold" ? "sold" : car.availability === "reserved" ? "reserved" : car.availability === "repair" ? "repair" : car.availability === "asis" ? "asis" : "available");
+  const [state, setState] = useState<State>((raw.state as State | null) ?? (car.availability === "sold" ? "Sold" : car.availability === "reserved" ? "Reserved" : car.availability === "repair" ? "For repair" : car.availability === "asis" ? "Sell as is" : car.availability === "notforsale" ? "Not for sale" : car.toCebu ? "Shipped to Cebu" : "Onhand"));
   const [f, setF] = useState({
     listPrice: asText(raw.listPrice), reprice: asText(raw.reprice), targetPrice: asText(raw.targetPrice), retarget: asText(raw.retarget),
     person: car.reservedFor.join(" "), note: raw.note, location: car.location, tools: raw.tools,
@@ -34,7 +36,7 @@ export function EditStock({ car, locations, onClose }: { car: CarRow; locations:
   const set = (k: keyof typeof f, v: string) => setF((x) => ({ ...x, [k]: v }));
   const [sure, setSure] = useState(false);
   const bad = (["listPrice", "reprice", "targetPrice", "retarget"] as const).filter((k) => f[k].trim() !== "" && toNum(f[k]) === null);
-  const needsPerson = (state === "reserved" || state === "sold") && !f.person.trim();
+  const needsPerson = (state === "Reserved" || state === "Sold") && !f.person.trim();
 
   const save = () => start(async () => {
     const r = await updateStockAction({ plate: car.plate, listPrice: toNum(f.listPrice), reprice: toNum(f.reprice), targetPrice: toNum(f.targetPrice), retarget: toNum(f.retarget), state, person: f.person, note: f.note, location: f.location, tools: f.tools });
@@ -56,7 +58,7 @@ export function EditStock({ car, locations, onClose }: { car: CarRow; locations:
             </button>
           ))}
         </div>
-        {(state === "reserved" || state === "sold") && (
+        {(state === "Reserved" || state === "Sold") && (
           <div className="space-y-1"><Label htmlFor="e-person">For whom? (the salesperson, as in the sheet: DAVID)</Label><Input id="e-person" value={f.person} onChange={(e) => set("person", e.target.value.toUpperCase())} aria-invalid={needsPerson} /></div>
         )}
         <div className="space-y-1"><Label htmlFor="e-note">Note (optional)</Label><Input id="e-note" value={f.note} onChange={(e) => set("note", e.target.value)} placeholder="e.g. 48V battery arrived, installation in progress" /></div>

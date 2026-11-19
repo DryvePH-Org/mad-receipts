@@ -32,9 +32,14 @@ export async function setRegisterClassification(plate: string, caseType: CaseTyp
 /** The folder moved to Sold: the car's row says SOLD too, so the register and the folders never tell two different stories. */
 export async function markRegisterSold(plate: string, actor: string): Promise<void> {
   const db = docsDb();
-  const { data: unit } = await db.from("docs_units_current").select("id, sale_status, vehicle_status").eq("plate_no", normalizePlate(plate)).maybeSingle();
-  if (!unit || (unit.sale_status === "Sold" && unit.vehicle_status === "SOLD")) return;
-  await db.from("docs_units").update({ sale_status: "Sold", vehicle_status: "SOLD", updated_by: actor, last_change_source: "app" }).eq("id", unit.id);
+  const key = normalizePlate(plate);
+  let found = await db.from("docs_units_current").select("id, sale_status, vehicle_status, stock_state").eq("plate_no", key).maybeSingle();
+  if (found.error) found = await db.from("docs_units_current").select("id, sale_status, vehicle_status").eq("plate_no", key).maybeSingle(); // before migration 39
+  const unit = found.data as { id: string; sale_status: string | null; vehicle_status: string | null; stock_state?: string | null } | null;
+  if (!unit || (unit.stock_state === "Sold" || (unit.stock_state === undefined && unit.sale_status === "Sold" && unit.vehicle_status === "SOLD"))) return;
+  // the one status: Sold (the database writes the two old columns from it); before migration 39 the two columns are written as they were
+  const r = await db.from("docs_units").update({ stock_state: "Sold", updated_by: actor, last_change_source: "app" }).eq("id", unit.id);
+  if (r.error) await db.from("docs_units").update({ sale_status: "Sold", vehicle_status: "SOLD", updated_by: actor, last_change_source: "app" }).eq("id", unit.id);
 }
 
 /** How many papers of the register row differ from what the car's folder says (only meaningful once a person has chosen the case). */

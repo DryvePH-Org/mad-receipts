@@ -1,3 +1,5 @@
+import { noteOf } from "@/lib/cars/from-db";
+import { remarksText, type StockState } from "@/lib/cars/state";
 import { cleanDetails } from "@/lib/docs/details";
 import type { DetailRow, PriceRow } from "./export";
 
@@ -14,6 +16,7 @@ export interface UnitRecord {
   id: string; plate_display: string | null; arrival_date: string | null; year_model: string | null; make: string | null; model_variant: string | null; color: string | null; mileage: string | null;
   trans: string | null; fuel: string | null; encumbrance: string | null; spare_key: string | null; classification: string | null;
   papers_with?: string | null; registry_of_deeds?: string | null;
+  stock_state?: StockState | null; state_for?: string | null; state_on?: string | null;
 }
 
 const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
@@ -29,8 +32,10 @@ export function composeRow(s: StockRecord, u: UnitRecord, aboutRaw: unknown, com
       // what the price list showed wins where it said something different (kept on the stock row); otherwise the Docs Bible row
       arrived: s.list_arrived_on ?? u.arrival_date, ym: u.year_model, brand: u.make, make: s.list_model ?? u.model_variant, color: s.list_color ?? u.color,
       mileage: s.list_mileage ?? u.mileage, trans: u.trans, fuel: s.list_fuel ?? u.fuel, plate,
-      price: num(s.list_price), target: num(s.target_price), reprice: num(s.reprice), retarget: num(s.retarget), remarks: s.remarks,
-      encumbrance: s.list_encumbrance ?? (/^N\/?A$/i.test(String(u.encumbrance ?? "").trim()) ? null : u.encumbrance), tools: s.tools, location: s.location, repairStatus: s.repair_status,
+      price: num(s.list_price), target: num(s.target_price), reprice: num(s.reprice), retarget: num(s.retarget),
+      // with the one state, the REMARKS cell is made from it (the old text is only the note)
+      remarks: u.stock_state ? (remarksText(u.stock_state, u.state_for, u.state_on, noteOf(s.remarks ?? "")) || null) : s.remarks,
+      encumbrance: s.list_encumbrance ?? (/^N\/?A$/i.test(String(u.encumbrance ?? "").trim()) ? null : u.encumbrance), tools: s.tools, location: s.location, repairStatus: u.stock_state ? (u.stock_state === "For repair" ? "FOR REPAIR" : u.stock_state === "Sell as is" ? "SELL AS IS" : null) : s.repair_status,
     },
     detail: {
       plate, car: [u.year_model, u.make, u.model_variant, u.color].filter(Boolean).join(" "), classification: u.classification, papersComplete: complete, spareKey,

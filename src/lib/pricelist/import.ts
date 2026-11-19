@@ -104,13 +104,7 @@ export function compareWithDocs(s: StockInput, u: UnitIdentity): SyncItem[] {
   if (both(s.papersWith, u.papers_with) && norm(s.papersWith) !== norm(u.papers_with)) add("docs_code", s.papersWith, u.papers_with, said("Papers with", String(s.papersWith), String(u.papers_with)));
   // the papers-with code: both filled in and different (the record holds the one fact; a person chooses)
   if (both(s.papersWith, u.papers_with) && norm(s.papersWith) !== norm(u.papers_with)) add("docs_code", s.papersWith, u.papers_with, said("Papers with", String(s.papersWith), String(u.papers_with)));
-  // status: the price list's REMARKS note against the Docs Bible's sale and vehicle status
-  const remarks = String(s.remarks ?? "");
-  const listStatus = /^\s*SOLD\b/i.test(remarks) ? "Sold" : /^\s*RESERVED\b/i.test(remarks) ? "Reserved" : null;
-  const docsSale = String(u.sale_status ?? "");
-  const docsText = `${u.sale_status ?? "-"} / ${u.vehicle_status ?? "-"}`;
-  if (listStatus && docsSale.toLowerCase() !== listStatus.toLowerCase()) add("status", remarks, docsText, `Status: Car status says "${remarks}", Car documents says ${docsText}.`);
-  else if (!listStatus && /^(sold|reserved)$/i.test(docsSale)) add("status", remarks || "(no status note)", docsText, `Status: Car documents says ${docsText} but the car is still on the price list${remarks ? ` ("${remarks}")` : ""}.`);
+  // (the status is one fact now: nothing to compare)
   return out;
 }
 

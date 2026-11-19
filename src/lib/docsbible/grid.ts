@@ -1,7 +1,7 @@
 // The Docs Bible table: its columns (same names and order as the sheet), who may edit which, and the checking of an edit. Pure.
 import { dateOf, PAPER_VALUES, plateKey, text } from "./normalize";
 
-export type ColKind = "plate" | "text" | "paper" | "classification" | "date" | "sale_status" | "vehicle_status" | "complete" | "remarks";
+export type ColKind = "plate" | "text" | "paper" | "classification" | "date" | "sale_status" | "vehicle_status" | "stock_state" | "complete" | "remarks";
 export interface Col {
   key: string; label: string; letter: string; kind: ColKind; width: number;
   /** "papers": Documentation and Admin; "admin": Admin only; null: computed, nobody types it */
@@ -21,7 +21,7 @@ export const COLUMNS: Col[] = [
   { key: "trans", label: "TRANS", letter: "J", kind: "text", width: 60, edit: "papers" },
   { key: "fuel", label: "FUEL", letter: "K", kind: "text", width: 90, edit: "papers" },
   { key: "cs_no", label: "CS NO", letter: "M", kind: "text", width: 90, edit: "papers" },
-  { key: "sale_status", label: "STATUS", letter: "N", kind: "sale_status", width: 110, edit: "admin" },
+  { key: "sale_status", label: "STATUS", letter: "N", kind: "sale_status", width: 110, edit: null },
   { key: "arrival_date", label: "DATE ARRIVAL", letter: "O", kind: "date", width: 110, edit: "papers" },
   { key: "encumbrance", label: "ENCUMBRANCE", letter: "P", kind: "text", width: 130, edit: "papers" },
   { key: "mo_file", label: "MO FILE", letter: "Q", kind: "text", width: 120, edit: "papers" },
@@ -29,7 +29,7 @@ export const COLUMNS: Col[] = [
   { key: "buying_source", label: "BUYING SOURCE", letter: "S", kind: "text", width: 110, edit: "papers" },
   { key: "awarded_to", label: "AWARDED TO", letter: "T", kind: "text", width: 130, edit: "papers" },
   { key: "spare_key", label: "SPARE KEY", letter: "U", kind: "text", width: 120, edit: "papers" },
-  { key: "vehicle_status", label: "VEHICLE STATUS", letter: "W", kind: "vehicle_status", width: 140, edit: "admin" },
+  { key: "vehicle_status", label: "VEHICLE STATUS", letter: "W", kind: "vehicle_status", width: 140, edit: null },
   { key: "classification", label: "CLASSIFICATION", letter: "X", kind: "classification", width: 160, edit: "papers" },
   { key: "bank_source", label: "BANK/ SOURCE", letter: "Y", kind: "text", width: 120, edit: "papers" },
   { key: "renewal", label: "RENEWAL", letter: "Z", kind: "text", width: 110, edit: "papers" },
@@ -52,6 +52,8 @@ export const COLUMNS: Col[] = [
   // new in MAD (they were in the old REMARKS register): where the original papers are, and the registry of deeds
   { key: "papers_with", label: "PAPERS WITH", letter: "AQ", kind: "text", width: 150, edit: "papers" },
   { key: "registry_of_deeds", label: "REGISTRY OF DEEDS", letter: "AR", kind: "text", width: 150, edit: "papers" },
+  // the one status: the two old status columns above are worked out from it
+  { key: "stock_state", label: "STATE", letter: "AS", kind: "stock_state", width: 130, edit: "admin" },
 ];
 export const COLUMN_BY_KEY = new Map(COLUMNS.map((c) => [c.key, c]));
 
@@ -63,11 +65,12 @@ export const VIEWS = {
 export type ViewKey = keyof typeof VIEWS;
 
 export const SALE_STATUSES = ["Sold", "Onhand", "Reserved", "Not For Sale"] as const;
+export const STOCK_STATE_VALUES = ["Onhand", "Reserved", "Sold", "Not for sale", "For repair", "Sell as is", "Shipped to Cebu"] as const;
 export const VEHICLE_STATUSES = ["SOLD", "AVAILABLE", "SHIPPED TO CEB", "NOT FOR SALE"] as const;
 export const GRID_CLASSIFICATIONS = ["Clean", "Repo (bank)", "Encumbered (Indiv)"] as const;
 
 export type Role = "sales" | "admin" | "approver" | "documentation";
-/** The owner's rule: Documentation has full control of the car's documents record (who the car is, its papers, OR date, spare key, arrival); only the two status columns stay Admin's until one status replaces them. Sales and Approver only read (the Approver changes prices in Car status). */
+/** The owner's rule: Documentation has full control of the car's documents record (who the car is, its papers, OR date, spare key, arrival); the one STATE is Admin's here (Admin and Approver also change it in Car status); the two old status columns are worked out from it and nobody types them. Sales and Approver only read (the Approver changes prices in Car status). */
 export const canEditColumn = (role: Role, col: Col): boolean => col.edit === "admin" ? role === "admin" : col.edit === "papers" ? role === "admin" || role === "documentation" : false;
 
 /** What the cell becomes, or why the typing is refused. An empty cell is allowed (null) except where the database needs a value. */
@@ -77,6 +80,7 @@ export function checkEdit(col: Col, raw: string): { ok: true; value: string | nu
     case "paper": return v === "" ? { ok: true, value: null } : (PAPER_VALUES as readonly string[]).includes(v) ? { ok: true, value: v } : { ok: false, error: "Choose Yes, No, To follow or N/A." };
     case "classification": return (GRID_CLASSIFICATIONS as readonly string[]).includes(v) ? { ok: true, value: v } : { ok: false, error: "Choose Clean, Repo (bank) or Encumbered (Indiv)." };
     case "sale_status": return v === "" ? { ok: true, value: null } : (SALE_STATUSES as readonly string[]).includes(v) ? { ok: true, value: v } : { ok: false, error: "Choose Sold, Onhand, Reserved or Not For Sale." };
+    case "stock_state": return v === "" ? { ok: false, error: "A car always has a state." } : (STOCK_STATE_VALUES as readonly string[]).includes(v) ? { ok: true, value: v } : { ok: false, error: "Choose one of the states in the list." };
     case "vehicle_status": return v === "" ? { ok: true, value: null } : (VEHICLE_STATUSES as readonly string[]).includes(v) ? { ok: true, value: v } : { ok: false, error: "Choose one of the vehicle statuses." };
     case "date": { if (v === "") return { ok: true, value: null }; const d = dateOf(v); return d.value ? { ok: true, value: d.value } : { ok: false, error: "Type a real date, like 2026-07-10." }; }
     case "remarks": return v.length > 4000 ? { ok: false, error: "That is too long (4000 letters at most)." } : { ok: true, value: raw.trim() === "" ? null : raw.replace(/\r\n/g, "\n").trim() };

@@ -4,7 +4,7 @@ import { backupName, exportHeader, exportRow, toCsv } from "../src/lib/docsbible
 describe("the sheet-layout export", () => {
   it("puts every header word where the sheet had it", () => {
     const h = exportHeader();
-    expect(h).toHaveLength(44);
+    expect(h).toHaveLength(45);
     expect(h[11]).toBe("PLATE NO."); // L
     expect(h[2]).toBe("CATEGORY"); // C
     expect(h[26]).toBe("COMPLETE DOCS?");

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { PAPER_VALUES } from "@/lib/docsbible/normalize";
-import { canEditColumn, COLUMNS, EMPTY_GRID_FILTER, filterRows, GRID_CLASSIFICATIONS, SALE_STATUSES, VEHICLE_STATUSES, VIEWS, type Col, type GridFilter, type GridRow, type Role, type ViewKey } from "@/lib/docsbible/grid";
+import { canEditColumn, COLUMNS, EMPTY_GRID_FILTER, filterRows, GRID_CLASSIFICATIONS, SALE_STATUSES, STOCK_STATE_VALUES, VEHICLE_STATUSES, VIEWS, type Col, type GridFilter, type GridRow, type Role, type ViewKey } from "@/lib/docsbible/grid";
 import type { HistoryRow } from "@/lib/docsbible/grid-server";
 import { historyAction, saveCellAction } from "./actions";
 
@@ -18,7 +18,7 @@ const CHIP: Record<string, string> = {
   "To follow": "bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200", "N/A": "bg-zinc-100 text-zinc-600 dark:bg-zinc-500/20 dark:text-zinc-300",
   "COMPLETE": "bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-200", "NOT YET": "bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200",
 };
-const choicesOf = (c: Col): readonly string[] | null => c.kind === "paper" ? PAPER_VALUES : c.kind === "classification" ? GRID_CLASSIFICATIONS : c.kind === "sale_status" ? SALE_STATUSES : c.kind === "vehicle_status" ? VEHICLE_STATUSES : null;
+const choicesOf = (c: Col): readonly string[] | null => c.kind === "paper" ? PAPER_VALUES : c.kind === "classification" ? GRID_CLASSIFICATIONS : c.kind === "sale_status" ? SALE_STATUSES : c.kind === "vehicle_status" ? VEHICLE_STATUSES : c.kind === "stock_state" ? STOCK_STATE_VALUES : null;
 
 export function DocsGrid({ initial, role }: { initial: GridRow[]; role: Role }) {
   const [rows, setRows] = useState(initial);
@@ -101,7 +101,7 @@ export function DocsGrid({ initial, role }: { initial: GridRow[]; role: Role }) 
       <div className="max-h-[70svh] overflow-auto rounded-xl ring-1 ring-foreground/10">
         <table className="border-separate border-spacing-0 text-sm" style={{ minWidth: cols.reduce((n, c) => n + c.width, 0) }}>
           <thead>
-            <tr>{cols.map((c, i) => <th key={c.key} title={c.letter === "AQ" || c.letter === "AR" ? "New in MAD" : `Column ${c.letter} in the old sheet`} style={{ minWidth: c.width, maxWidth: c.width }} className={`sticky top-0 border-b bg-muted px-2 py-2 text-left text-[11px] font-semibold tracking-wide whitespace-nowrap uppercase ${i === 0 ? "left-0 z-30 border-r" : "z-20"}`}>{c.label}</th>)}</tr>
+            <tr>{cols.map((c, i) => <th key={c.key} title={c.letter === "AQ" || c.letter === "AR" || c.letter === "AS" ? "New in MAD" : `Column ${c.letter} in the old sheet`} style={{ minWidth: c.width, maxWidth: c.width }} className={`sticky top-0 border-b bg-muted px-2 py-2 text-left text-[11px] font-semibold tracking-wide whitespace-nowrap uppercase ${i === 0 ? "left-0 z-30 border-r" : "z-20"}`}>{c.label}</th>)}</tr>
           </thead>
           <tbody>
             {shown.length === 0 && <tr><td colSpan={cols.length} className="px-3 py-8 text-center text-muted-foreground">No car matches.</td></tr>}

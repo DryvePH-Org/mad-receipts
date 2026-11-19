@@ -5,7 +5,7 @@ const col = (k: string) => COLUMN_BY_KEY.get(k)!;
 const row = (id: string, values: Record<string, string | null>, complete: string | null = null, decisions = 0): GridRow => ({ id, values, complete, decisions });
 
 describe("who edits which column", () => {
-  it("Documentation edits the whole car record (papers, identity, OR date, spare key, arrival), Admin also the two status columns, Sales and Approver nothing", () => {
+  it("Documentation edits the whole car record (papers, identity, OR date, spare key, arrival), Admin also the one state, nobody the two old status columns (worked out from the state), Sales and Approver nothing", () => {
     expect(canEditColumn("documentation", col("cr"))).toBe(true);
     expect(canEditColumn("documentation", col("classification"))).toBe(true);
     expect(canEditColumn("documentation", col("remarks_1"))).toBe(true);
@@ -13,8 +13,10 @@ describe("who edits which column", () => {
     expect(canEditColumn("documentation", col("spare_key"))).toBe(true);
     expect(canEditColumn("documentation", col("renewal"))).toBe(true);
     expect(canEditColumn("documentation", col("arrival_date"))).toBe(true);
-    expect(canEditColumn("documentation", col("vehicle_status"))).toBe(false);
-    expect(canEditColumn("admin", col("vehicle_status"))).toBe(true);
+    expect(canEditColumn("documentation", col("stock_state"))).toBe(false);
+    expect(canEditColumn("admin", col("stock_state"))).toBe(true);
+    expect(canEditColumn("admin", col("vehicle_status"))).toBe(false); // derived from the state
+    expect(canEditColumn("admin", col("sale_status"))).toBe(false);
     expect(canEditColumn("admin", col("make"))).toBe(true);
     expect(canEditColumn("sales", col("cr"))).toBe(false);
     expect(canEditColumn("approver", col("cr"))).toBe(false);

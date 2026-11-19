@@ -156,6 +156,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await sales.goto("/documents/ZZT7001");
 
   // a photo through the screen (the stand-in reader cannot tell what it is) ...
+  await sales.waitForTimeout(2500); // the page must be ready (hydrated) before a file is given to it; the car page keeps polling, so "network idle" never comes
   await sales.locator("#doc-photos").setInputFiles({ name: "x.jpg", mimeType: "image/jpeg", buffer: JPEG });
   await expect(sales.getByText("Saved ✓")).toBeVisible({ timeout: 30_000 });
   await expect(sales.getByText(/Not recognised\. It is in the folder/)).toBeVisible();

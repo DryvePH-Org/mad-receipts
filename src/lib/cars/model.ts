@@ -5,8 +5,8 @@ import { normalizePlate } from "@/lib/rules/plate";
 // The Car status dashboard's data: one row per unit of the INVENTORY 2026 tab, tidied up, with what staff want to see at a glance
 // (can it be sold? is it being repaired? how long has it been here?). Pure code: no sheet access here.
 
-export type Availability = "available" | "asis" | "reserved" | "sold" | "repair";
-export const AVAILABILITY_LABEL: Record<Availability, string> = { available: "Available", asis: "Sell as is", reserved: "Reserved", sold: "Sold", repair: "For repair" };
+export type Availability = "available" | "asis" | "reserved" | "sold" | "repair" | "notforsale";
+export const AVAILABILITY_LABEL: Record<Availability, string> = { available: "Available", asis: "Sell as is", reserved: "Reserved", sold: "Sold", repair: "For repair", notforsale: "Not for sale" };
 
 export interface CarRow {
   plate: string; plateDisplay: string;
@@ -18,7 +18,7 @@ export interface CarRow {
   encumbrance: string; location: string; repairStatus: string; spareKey: string; orExp: string | null; docsCode: string;
   availability: Availability; sellable: boolean; toCebu: boolean;
   /** the stock row's own values, for the edit screen (Admin and Approver only; removed for everyone else) */
-  raw?: { listPrice: number | null; targetPrice: number | null; reprice: number | null; retarget: number | null; tools: string; papersWith: string; note: string };
+  raw?: { listPrice: number | null; targetPrice: number | null; reprice: number | null; retarget: number | null; tools: string; papersWith: string; note: string; state: string | null };
 }
 
 // ---------------- tidying the sheet's text ----------------

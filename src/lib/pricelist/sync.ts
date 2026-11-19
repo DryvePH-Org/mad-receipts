@@ -1,3 +1,4 @@
+import { stateFromLegacy, stateFromStockNote } from "@/lib/cars/state";
 import type { SyncField } from "./import";
 
 // Settling one row of the data check: which Docs Bible column a field is, which stock column keeps the Car status's own wording,
@@ -31,10 +32,10 @@ export function planSettle(field: SyncField, choice: Choice, item: { listValue: 
   }
   const override = OVERRIDE_COLUMN[field];
   if (field === "status") {
-    if (choice === "docs") return { decision: "The car record's status was kept" };
-    const listed = /^\s*SOLD\b/i.test(item.listValue ?? "") ? "Sold" : /^\s*RESERVED\b/i.test(item.listValue ?? "") ? "Reserved" : null;
-    if (!listed) return { error: "Car status has no Reserved or Sold note to copy." };
-    return { decision: `The car record now says ${listed}, like Car status`, docsPatch: { sale_status: listed, vehicle_status: listed === "Sold" ? "SOLD" : "AVAILABLE" } };
+    // an old item (before the one status): choosing a side sets the car's state to what that side said
+    const side = choice === "list" ? stateFromStockNote(item.listValue, null, "2026-01-01").state : stateFromLegacy(...(String(item.docsValue ?? "").split(" / ") as [string, string]));
+    if (!side) return { error: "That side has no state to copy." };
+    return { decision: `The car's state is now ${side}`, docsPatch: { stock_state: side } };
   }
   const column = DOCS_COLUMN[field];
   if (!column) return { error: "That field cannot be settled here." };

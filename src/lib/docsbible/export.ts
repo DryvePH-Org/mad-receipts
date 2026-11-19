@@ -2,7 +2,7 @@
 // It can be opened or imported in Google Sheets or Excel as it is. Pure.
 import { COLUMNS } from "./grid";
 
-const LAST = 44; // A..AR (AQ and AR are new in MAD: papers with, registry of deeds)
+const LAST = 45; // A..AS (AQ, AR and AS are new in MAD: papers with, registry of deeds, state)
 const letterToIndex = (l: string): number => [...l].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1;
 
 /** Row 1 of the sheet: the header words at their letters, blank where the sheet had no header (A, B, V). */

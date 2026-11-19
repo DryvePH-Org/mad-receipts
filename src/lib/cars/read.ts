@@ -20,12 +20,16 @@ export async function loadCars(): Promise<CarsData> {
   const ids = list.map((s) => s.unit_id);
   const COLS = "id, plate_display, arrival_date, year_model, make, model_variant, color, mileage, trans, fuel, encumbrance, spare_key, body_type, or_expiry";
   // papers_with arrived with migration 38: until it is applied the list still works without it
-  const readUnits = async () => { const r = await db.from("docs_units").select(`${COLS}, papers_with`).in("id", ids).limit(3000); return r.error ? db.from("docs_units").select(COLS).in("id", ids).limit(3000) : r; };
+  // papers_with arrived with migration 38 and the state with 39
+  const readUnits = async () => {
+    for (const extra of [", papers_with, stock_state, state_for, state_on", ", papers_with", ""]) { const cols: string = COLS + extra; const r = await db.from("docs_units").select(cols).in("id", ids).limit(3000); if (!r.error) return r; }
+    return { data: [] as never[] };
+  };
   const [units, details] = await Promise.all([
     ids.length ? readUnits() : { data: [] },
     list.length ? db.from("unit_details").select("plate_no, data").in("plate_no", list.map((s) => s.plate_no)).limit(3000) : { data: [] },
   ]);
-  const unit = new Map((units.data ?? []).map((u) => [u.id as string, u as CarFacts]));
+  const unit = new Map(((units.data ?? []) as unknown as (CarFacts & { id: string })[]).map((u) => [u.id, u as CarFacts]));
   const about = new Map((details.data ?? []).map((d) => [d.plate_no as string, cleanDetails(d.data).spareKey]));
   const today = manilaToday();
   const cars: CarRow[] = [];

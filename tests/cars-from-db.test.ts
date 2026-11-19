@@ -39,3 +39,23 @@ describe("a Car status row from the database", () => {
     expect(forRole(c, "sales").target).toBeNull();
   });
 });
+
+describe("Car status with the one status", () => {
+  const withState = (state: NonNullable<CarFacts["stock_state"]>, who: string | null = null, on: string | null = null) => car({ stock_state: state, state_for: who, state_on: on });
+  it("reads the state, not the old note", () => {
+    const c = carRowOf(stock({ remarks: "RESERVED - OLD 1/1 | keep this note" }), withState("Reserved", "DAVID", "2026-11-02"), "2026-11-19");
+    expect(c).toMatchObject({ availability: "reserved", sellable: false, reservedFor: ["DAVID"], reservedOn: "11/2" });
+    expect(c.remarks).toBe("RESERVED - DAVID 11/2 | keep this note"); // the old status part is ignored, the note stays
+  });
+  it("maps each state", () => {
+    expect(carRowOf(stock(), withState("Onhand"), "2026-11-19")).toMatchObject({ availability: "available", sellable: true });
+    expect(carRowOf(stock(), withState("Sold", "DAVID 3%", "2026-11-02"), "2026-11-19").availability).toBe("sold");
+    expect(carRowOf(stock(), withState("For repair"), "2026-11-19")).toMatchObject({ availability: "repair", repairStatus: "FOR REPAIR" });
+    expect(carRowOf(stock(), withState("Sell as is"), "2026-11-19")).toMatchObject({ availability: "asis", sellable: true });
+    expect(carRowOf(stock(), withState("Not for sale"), "2026-11-19")).toMatchObject({ availability: "notforsale", sellable: false });
+    expect(carRowOf(stock(), withState("Shipped to Cebu"), "2026-11-19")).toMatchObject({ availability: "available", toCebu: true });
+  });
+  it("falls back to the old note and repair state for a car with no state yet", () => {
+    expect(carRowOf(stock({ remarks: "SOLD - DAVID 11/2" }), car(), "2026-11-19").availability).toBe("sold");
+  });
+});

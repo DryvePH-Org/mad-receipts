@@ -9,16 +9,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
-import { canEditColumn, COLUMNS, GRID_CLASSIFICATIONS, SALE_STATUSES, VEHICLE_STATUSES, type Col, type GridRow, type Role } from "@/lib/docsbible/grid";
+import { canEditColumn, COLUMNS, GRID_CLASSIFICATIONS, SALE_STATUSES, STOCK_STATE_VALUES, VEHICLE_STATUSES, type Col, type GridRow, type Role } from "@/lib/docsbible/grid";
 import { PAPER_VALUES } from "@/lib/docsbible/normalize";
 import { saveCellAction } from "../../docs-bible/actions";
 import { updateRegisterAction } from "../actions";
 
-const choicesOf = (c: Col): readonly string[] | null => c.kind === "paper" ? PAPER_VALUES : c.kind === "classification" ? GRID_CLASSIFICATIONS : c.kind === "sale_status" ? SALE_STATUSES : c.kind === "vehicle_status" ? VEHICLE_STATUSES : null;
+const choicesOf = (c: Col): readonly string[] | null => c.kind === "paper" ? PAPER_VALUES : c.kind === "classification" ? GRID_CLASSIFICATIONS : c.kind === "sale_status" ? SALE_STATUSES : c.kind === "vehicle_status" ? VEHICLE_STATUSES : c.kind === "stock_state" ? STOCK_STATE_VALUES : null;
 const GROUPS: { title: string; keys: string[] }[] = [
   { title: "Where the papers are", keys: ["papers_with", "registry_of_deeds"] },
   { title: "Notes", keys: ["other_docs", "paper_status", "remarks_1", "remarks_2"] },
-  { title: "The car", keys: ["category", "body_type", "year_model", "make", "model_variant", "color", "mileage", "trans", "fuel", "cs_no", "sale_status", "vehicle_status", "arrival_date", "encumbrance", "mo_file", "reg_owner_name", "buying_source", "awarded_to", "spare_key", "bank_source", "renewal"] },
+  { title: "The car", keys: ["category", "body_type", "year_model", "make", "model_variant", "color", "mileage", "trans", "fuel", "cs_no", "stock_state", "sale_status", "vehicle_status", "arrival_date", "encumbrance", "mo_file", "reg_owner_name", "buying_source", "awarded_to", "spare_key", "bank_source", "renewal"] },
 ];
 
 /** The car's row of the Docs Bible, right on the car's page: the same columns the sheet had, changed in place by Documentation and Admin. */
