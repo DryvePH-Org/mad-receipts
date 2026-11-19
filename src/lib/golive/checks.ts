@@ -41,7 +41,7 @@ function settings(): Check[] {
 async function database(): Promise<Check[]> {
   const admin = createAdminClient(), A = "Database";
   const probes: [string, string, string, string][] = [
-    ["unit_workflow", "id", "24", "details, approval and handoff"], ["docs_units", "plate_no", "30", "the Docs Bible"], ["docs_review_items", "kind", "30 and 31", "the review list"],
+    ["unit_workflow", "id", "24", "details, approval and handoff"], ["docs_units", "plate_no", "30", "the car records"], ["docs_review_items", "kind", "30 and 31", "the data check"],
     ["grokbot_jobs", "bot, priority, plate_no", "25 and 27", "the grokbot queue"], ["transmittals", "plate_no", "22", "transmittal receipts"],
   ];
   const out: Check[] = [];
@@ -52,26 +52,26 @@ async function database(): Promise<Check[]> {
   return out;
 }
 
-/** Car status reads the app's own price list: the stock rows, their cars, and anything waiting for a decision on the price list check. */
+/** Car status reads the app's own stock list: the stock rows, their cars, and anything waiting for a decision on the data check. */
 async function priceListDatabase(): Promise<Check[]> {
-  const A = "Price list (database)", db = createAdminClient() as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const A = "Car status (database)", db = createAdminClient() as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
   const stock = await db.from("car_stock").select("unit_id", { count: "exact", head: true }).eq("in_stock", true);
-  if (stock.error) return [fail(A, "Price list tables", "not there yet", "Apply migrations 35, 36 and 37.")];
-  const out: Check[] = [stock.count ? ok(A, "Cars on the price list", `${stock.count}`) : fail(A, "Cars on the price list", "none: the price list was not moved yet", "Run scripts/pricelist-apply.ts.")];
+  if (stock.error) return [fail(A, "Car status tables", "not there yet", "Apply migrations 35, 36 and 37.")];
+  const out: Check[] = [stock.count ? ok(A, "Cars in Car status", `${stock.count}`) : fail(A, "Cars in Car status", "none: the stock list was not moved yet", "Run scripts/pricelist-apply.ts.")];
   const open = await db.from("car_sync_items").select("id", { count: "exact", head: true }).eq("status", "open");
-  out.push((open.count ?? 0) === 0 ? ok(A, "Price list check", "the price list and the Docs Bible agree") : warn(A, "Price list check", `${open.count} item${open.count === 1 ? "" : "s"} still to settle`, "Car status → Price list check."));
+  out.push((open.count ?? 0) === 0 ? ok(A, "Data check", "Car status and Car documents agree") : warn(A, "Data check", `${open.count} item${open.count === 1 ? "" : "s"} still to settle`, "Car status → Data check."));
   const noPrice = await db.from("car_stock").select("unit_id", { count: "exact", head: true }).eq("in_stock", true).is("list_price", null);
   if (noPrice.count) out.push(warn(A, "Cars without a price", `${noPrice.count}`, "Open the car in Car status and type its price."));
   return out;
 }
 
-/** The Docs Bible in the database: the cars, the review list, and today's saved copy. */
+/** The Docs Bible in the database: the cars, the data check, and today's saved copy. */
 async function docsBibleDatabase(): Promise<Check[]> {
-  const A = "Docs Bible (database)", db = createAdminClient() as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const A = "Car documents (database)", db = createAdminClient() as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
   const cars = await db.from("docs_units_current").select("id", { count: "exact", head: true });
   const open = await db.from("docs_review_items").select("id", { count: "exact", head: true }).eq("status", "open");
-  const out: Check[] = [cars.count ? ok(A, "Cars in the Docs Bible", `${cars.count}`) : fail(A, "Cars in the Docs Bible", "none: the data was not moved yet", "Run scripts/docs-bible-apply.ts.")];
-  out.push((open.count ?? 0) === 0 ? ok(A, "Review list", "nothing is waiting for a decision") : warn(A, "Review list", `${open.count} item${open.count === 1 ? "" : "s"} still need a decision`, "Car documents → Review list."));
+  const out: Check[] = [cars.count ? ok(A, "Cars in MAD", `${cars.count}`) : fail(A, "Cars in MAD", "none: the data was not moved yet", "Run scripts/docs-bible-apply.ts.")];
+  out.push((open.count ?? 0) === 0 ? ok(A, "Data check", "nothing is waiting for a decision") : warn(A, "Data check", `${open.count} item${open.count === 1 ? "" : "s"} still need a decision`, "Car documents → Data check."));
   const { data: files } = await createAdminClient().storage.from("docs-backups").list("", { limit: 5, sortBy: { column: "name", order: "desc" } });
   out.push(files?.length ? ok(A, "Daily saved copy", `the latest is ${files[0].name}`) : warn(A, "Daily saved copy", "no saved copy yet", "Apply migration 32; the scheduled run saves one a day."));
   return out;
@@ -132,8 +132,8 @@ async function drive(): Promise<Check[]> {
 
 export async function runGoLiveChecks(): Promise<Check[]> {
   const parts = await Promise.all([
-    Promise.resolve(settings()), safe("Database", "Database", database), safe("Price list (database)", "Price list", priceListDatabase),
-    safe("Docs Bible (database)", "Docs Bible", docsBibleDatabase), safe("Cut-over", "Old sheet", oldSheetChanges), safe("Drive folders", "Drive", drive),
+    Promise.resolve(settings()), safe("Database", "Database", database), safe("Car status (database)", "Car status", priceListDatabase),
+    safe("Car documents (database)", "Car documents", docsBibleDatabase), safe("Cut-over", "Old sheet", oldSheetChanges), safe("Drive folders", "Drive", drive),
   ]);
   return parts.flat();
 }

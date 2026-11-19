@@ -15,7 +15,7 @@ import { CarsBoard } from "./cars-board";
 export default function CarsPage() {
   return (
     <div className="space-y-6">
-      <PageHeader title="Car status" description="Every car in the price list: can it be sold, is it being repaired, how long has it been here. This is the app\u0027s own list: Admin and Approver change prices and status here." />
+      <PageHeader title="Car status" description="Every car in stock: can it be sold, is it being repaired, how long has it been here. This is the app\u0027s own list: Admin and Approver change prices and status here." />
       <Suspense fallback={<PageSkeleton />}><Content /></Suspense>
     </div>
   );
@@ -30,7 +30,7 @@ async function Content() {
     return (
       <div role="alert" className="flex gap-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100">
         <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-        <p>{e instanceof Error ? e.message : "The price list could not be read."} Try again in a moment.</p>
+        <p>{e instanceof Error ? e.message : "Car status could not be read."} Try again in a moment.</p>
       </div>
     );
   }
@@ -49,13 +49,13 @@ async function Content() {
       </div>
       {(openChecks > 0 || (canCheck && inApp > 0)) && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100">
-          <p className="min-w-0 flex-1">{openChecks > 0 ? `${openChecks} places where the price list and the Docs Bible do not say the same thing.` : "The price list and the Docs Bible agree."}</p>
-          <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/cars/sync" />}>Open the price list check</Button>
+          <p className="min-w-0 flex-1">{openChecks > 0 ? `${openChecks} places where Car status and Car documents do not say the same thing.` : "Car status and Car documents agree."}</p>
+          <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/data-check?tab=differences" />}>Open the data check</Button>
         </div>
       )}
       {inApp > 0 && (
         <div className="flex justify-end">
-          <Button variant="outline" size="sm" nativeButton={false} render={<a href="/api/cars/export" download />}><Download /> Download Excel (price list layout)</Button>
+          <Button variant="outline" size="sm" nativeButton={false} render={<a href="/api/cars/export" download />}><Download /> Download Excel</Button>
         </div>
       )}
       <CarsBoard cars={data.cars.map((c) => forRole(c, user.role))} role={user.role} docs={docs} canEdit={canOpenSheet} canOpenDocs={user.role === "admin" || user.role === "documentation"} />

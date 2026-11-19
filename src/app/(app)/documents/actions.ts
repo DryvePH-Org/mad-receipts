@@ -225,7 +225,7 @@ export async function approveUnitAction(plate: string, confirmIncomplete: boolea
     if (!r.ok) return outcome(r, "");
     const reg = await syncRegister(p.data, user.id).catch((e) => ({ ok: false as const, message: e instanceof Error ? e.message : "unknown" }));
     revalidatePath("/documents", "layout");
-    return outcome(r, reg.ok ? "Approved. The Docs Bible is updated and marketing was told on Telegram." : `Approved and marketing was told, but the Docs Bible was not updated: ${reg.message} Press “Update the Docs Bible” on the car.`);
+    return outcome(r, reg.ok ? "Approved. The car record is updated and marketing was told on Telegram." : `Approved and marketing was told, but the car record was not updated: ${reg.message} Press “Update the car record” on the car.`);
   }, (message) => ({ ok: false as const, message }));
 }
 
@@ -279,7 +279,7 @@ export async function previewAddAction(plate: string): Promise<FolderPreview> {
   catch (err) { return { state: "invalid", message: docsErrorText(err) }; }
 }
 
-/** Is this plate already in the Docs Bible? (Asked when the plate is checked on the Add a car page.) */
+/** Is this plate already in MAD? (Asked when the plate is checked on the Add a car page.) */
 export async function unitStatusAction(plate: string): Promise<UnitStatus> {
   await requireModule("documents");
   const p = z.string().min(1).max(20).safeParse(plate);
@@ -336,7 +336,7 @@ export async function fileReceiptsAction(plate: string): Promise<Done> {
 
 // ---------------- the Docs Bible register ----------------
 
-/** Fills the car's row in the Docs Bible from its scan and checklist, now. Documentation and Admin. Needs the case chosen by a person. */
+/** Fills the car's row in MAD from its scan and checklist, now. Documentation and Admin. Needs the case chosen by a person. */
 export async function updateRegisterAction(plate: string): Promise<Done> {
   const user = await requireModule("documents");
   const p = plateSchema.safeParse(plate);
@@ -344,6 +344,6 @@ export async function updateRegisterAction(plate: string): Promise<Done> {
   return guard<Done>(async () => {
     const r = await syncRegister(p.data, user.id);
     revalidatePath("/documents", "layout");
-    return r.ok ? { ok: true as const, message: r.changed.length ? `The Docs Bible row was updated (${r.changed.length} ${r.changed.length === 1 ? "column" : "columns"}).` : "The Docs Bible row already matches this car's papers." } : { ok: false as const, message: r.message };
+    return r.ok ? { ok: true as const, message: r.changed.length ? `The car record was updated (${r.changed.length} ${r.changed.length === 1 ? "column" : "columns"}).` : "The car record already matches this car's papers." } : { ok: false as const, message: r.message };
   }, (message) => ({ ok: false as const, message }));
 }

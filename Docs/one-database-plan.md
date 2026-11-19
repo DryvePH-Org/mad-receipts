@@ -38,7 +38,7 @@ Text dates become dates; money is a number; the year is two digits (as the staff
 ## 4. How nothing is lost
 - Every imported row keeps its **original cells** (`raw`), as the Docs Bible and price list imports already do.
 - Each step is a **dry run first**, with a report, and each tab has a **verify script** that compares the app with the workbook cell by cell (the price list one found 1,295 of 1,320 identical; the rest were blanks the app fills).
-- Anything two sources disagree on goes to a review list (the Price list check) and is never silently chosen.
+- Anything two sources disagree on goes to a review list (the Data check) and is never silently chosen.
 - The old workbook stays untouched as the archive; nothing is deleted from the database by these steps.
 
 ## 5. Order of work
@@ -67,7 +67,7 @@ The fresh export (62 cars, 3 tabs gone: Available units, INCOMING CARS, Sheet16)
 
 Step 1 (fresh study) is done. **Step 2, the OR expiry, is built:**
 - Migration 37 adds `or_expiry` (a real date) and `or_expiry_raw` to the car record and fills them from the typed `renewal` (176 cars; the typed text is kept as it was). A trigger keeps them in step whenever `renewal` is typed.
-- `scripts/or-expiry-sync.ts` (dry run first) brings together the Docs Bible, the price list, the FOR RENEWAL tab and the REMARKS register: 48 blank dates are filled where the sheets agree; 11 different dates go to the Price list check (the renewal list and REMARKS only count when their date is later than the Docs Bible's, because they show the date before a renewal). The price list is treated as live: any difference counts.
+- `scripts/or-expiry-sync.ts` (dry run first) brings together the Docs Bible, the price list, the FOR RENEWAL tab and the REMARKS register: 48 blank dates are filled where the sheets agree; 11 different dates go to the Data check (the renewal list and REMARKS only count when their date is later than the Docs Bible's, because they show the date before a renewal). The price list is treated as live: any difference counts.
 - The flag: a pill on the car page ("OR expires in 12 days" / "OR expired 5 days ago"), "OR due or late" filter and a note on each row of Car documents, and a Telegram message to Documentation every morning at 9:00 on 30, 14, 7 and 0 days before the expiry and then every 7 days while it is late (sold cars left out).
 
 Step 3 next: REMARKS: only the registry of deeds and the documents code are not yet anywhere; they become fields of the car record, then the tab is retired.
@@ -89,3 +89,6 @@ The goal in the owner's words: no "MAD Price List" and no "Docs Bible": **one MA
 **How it stays safe, at every step:** a dry run first; the verify script compares the app with the workbook cell by cell before and after; each change is recorded in the car's history with who and when (so it can be undone); nothing is deleted, only moved; the old workbooks stay untouched as the archive.
 
 **What is left to settle (77 + 11 rows):** model 28, arrival date 17, color 5, mileage 5, fuel 3, encumbrance 1, status 4, OR expiry 11. Proposed rules (the owner decides): arrival date: ?; model: keep the registered variant and keep the price list's wording as the sales label; color: keep the fuller name, the shorter is kept in the history; mileage: the newer one; fuel: one code (DIESEL); encumbrance: the fuller text; status: the Reserved note stays (a person typed it), the record's status follows; OR expiry: a person chooses per car.
+
+## 10. Step 1 done: one name, one Data check (19 Nov 2026, late)
+The screens no longer say "Docs Bible" or "price list": the car's details are the **car record**, the two views are **Car documents** and **Car status**, and a car that exists is simply **in MAD**. The two review lists are one **Data check** (`/data-check`, opened from Car documents and Car status): one tab for the cars where Car status and Car documents differ, one for what the move off the old sheets could not decide. The old addresses redirect. Telegram, the go-live check and the messages use the same words. The "Table" keeps the sheet's columns but is just called Table.

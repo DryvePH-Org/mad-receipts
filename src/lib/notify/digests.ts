@@ -21,7 +21,7 @@ export function weeklyText(today: string, s: WeeklyStats, link: string): string 
     `Receipts this week: ${s.receiptsApproved} approved, ${s.receiptsRejected} rejected`,
     `Waiting for approval: ${s.receiptsPending}${s.oldestPendingDays ? ` (the oldest ${s.oldestPendingDays} ${s.oldestPendingDays === 1 ? "day" : "days"})` : ""}`,
     `Overdue deals: ${s.overdueDeals}${s.overdueDeals ? ` (${s.overdueBalance} to collect)` : ""}`,
-    `Car documents: ${s.carsNeedScan} to scan or check, ${s.carsHandedOff} papers still with the receiver, ${s.reviewOpen} on the review list`,
+    `Car documents: ${s.carsNeedScan} to scan or check, ${s.carsHandedOff} papers still with the receiver, ${s.reviewOpen} in the data check`,
     "",
     link,
   ].join("\n");

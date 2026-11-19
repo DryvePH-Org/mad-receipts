@@ -15,7 +15,7 @@ export interface CarsData { cars: CarRow[]; at: number }
 export async function loadCars(): Promise<CarsData> {
   const db = docsDb();
   const { data: stock, error } = await db.from("car_stock").select("*").eq("in_stock", true).order("sort_order").limit(3000);
-  if (error) throw new Error(`The price list could not be read: ${error.message}`);
+  if (error) throw new Error(`Car status could not be read: ${error.message}`);
   const list = (stock ?? []) as (StockFacts & { unit_id: string })[];
   const ids = list.map((s) => s.unit_id);
   const [units, details] = await Promise.all([

@@ -85,8 +85,8 @@ export function EditStock({ car, locations, onClose }: { car: CarRow; locations:
         <Button disabled={pending || bad.length > 0 || needsPerson} onClick={save}>{pending && <Loader2 className="animate-spin" />} Save</Button>
         <Button variant="ghost" disabled={pending} onClick={onClose}>Cancel</Button>
         <span className="ml-auto">
-          {sure ? <span className="flex items-center gap-2"><span className="text-xs">Take it off the price list?</span><Button size="sm" variant="destructive" disabled={pending} onClick={takeOff}>Yes, take it off</Button><Button size="sm" variant="ghost" onClick={() => setSure(false)}>No</Button></span>
-            : <Button size="sm" variant="outline" onClick={() => setSure(true)}>Take off the price list</Button>}
+          {sure ? <span className="flex items-center gap-2"><span className="text-xs">Take it off the stock list?</span><Button size="sm" variant="destructive" disabled={pending} onClick={takeOff}>Yes, take it off</Button><Button size="sm" variant="ghost" onClick={() => setSure(false)}>No</Button></span>
+            : <Button size="sm" variant="outline" onClick={() => setSure(true)}>Take off the stock list</Button>}
         </span>
       </div>
     </div>

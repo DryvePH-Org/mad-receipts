@@ -17,8 +17,8 @@ import { settleAction } from "./actions";
 
 const HELP: Partial<Record<SyncField, string>> = {
   docs_code: "This code was kept as typed. Say what it means to the team, then press Noted.",
-  unmatched: "This car is on the price list but not in the Docs Bible. Add it from the price list, or, if the plate was mistyped, link it to the right plate.",
-  odd_value: "The price list has an odd value here. It was kept as typed. Fix it where the car is edited, then press Noted.",
+  unmatched: "This car is in Car status but not in Car documents. Add it here, or, if the plate was mistyped, link it to the right plate.",
+  odd_value: "Car status has an odd value here. It was kept as typed. Fix it where the car is edited, then press Noted.",
 };
 
 function ItemRow({ item }: { item: SyncRow }) {
@@ -33,16 +33,16 @@ function ItemRow({ item }: { item: SyncRow }) {
       <div className="flex flex-wrap items-center gap-2"><Pill tone={item.status === "open" ? "amber" : "emerald"}>{item.status === "open" ? FIELD_LABELS[item.field] : "Settled"}</Pill>{item.status === "settled" && <span className="text-sm text-muted-foreground">{FIELD_LABELS[item.field]}: {item.decision}</span>}</div>
       {showValues ? (
         <div className="grid gap-2 text-sm sm:grid-cols-2">
-          <div className="rounded-lg bg-muted p-2.5"><p className="text-xs text-muted-foreground">Price list says</p><p className="font-medium break-words">{item.listValue || "—"}</p></div>
-          <div className="rounded-lg bg-muted p-2.5"><p className="text-xs text-muted-foreground">Docs Bible says</p><p className="font-medium break-words">{item.docsValue || "—"}</p></div>
+          <div className="rounded-lg bg-muted p-2.5"><p className="text-xs text-muted-foreground">Car status says</p><p className="font-medium break-words">{item.listValue || "—"}</p></div>
+          <div className="rounded-lg bg-muted p-2.5"><p className="text-xs text-muted-foreground">Car documents says</p><p className="font-medium break-words">{item.docsValue || "—"}</p></div>
         </div>
       ) : <p className="text-sm">{item.message}</p>}
       {HELP[item.field] && item.status === "open" && <p className="text-xs text-muted-foreground">{HELP[item.field]}</p>}
       {item.status === "open" && (
         <div className="flex flex-wrap gap-2">
-          {choices.includes("list") && <Button size="sm" disabled={pending} onClick={() => run("list")}>{pending && <Loader2 className="animate-spin" />} Use the price list&apos;s</Button>}
-          {choices.includes("docs") && <Button size="sm" variant="outline" disabled={pending} onClick={() => run("docs")}>Use the Docs Bible&apos;s</Button>}
-          {item.field === "unmatched" && <Button size="sm" disabled={pending} onClick={() => run("add")}>{pending && <Loader2 className="animate-spin" />} Add this car to the Docs Bible</Button>}
+          {choices.includes("list") && <Button size="sm" disabled={pending} onClick={() => run("list")}>{pending && <Loader2 className="animate-spin" />} Use Car status&apos;s</Button>}
+          {choices.includes("docs") && <Button size="sm" variant="outline" disabled={pending} onClick={() => run("docs")}>Use Car documents&apos;</Button>}
+          {item.field === "unmatched" && <Button size="sm" disabled={pending} onClick={() => run("add")}>{pending && <Loader2 className="animate-spin" />} Add this car to MAD</Button>}
           {item.field === "unmatched" && (
             <span className="flex items-center gap-1.5">
               <Input value={plate} onChange={(e) => setPlate(e.target.value.toUpperCase())} placeholder="Right plate, e.g. NKF 4771" aria-label="The right plate" className="h-8 w-48" />
@@ -72,7 +72,7 @@ export function SyncBoard({ items }: { items: SyncRow[] }) {
         <Button size="sm" variant={showDone ? "default" : "outline"} className="ml-auto" onClick={() => setShowDone(true)}>Settled ({done.length})</Button>
       </div>
       {cars.length === 0 ? (
-        <EmptyState icon={CircleCheck} title={showDone ? "Nothing settled yet" : "The two are in step"} description={showDone ? "Settled items show here." : "The price list and the Docs Bible say the same about every car."} />
+        <EmptyState icon={CircleCheck} title={showDone ? "Nothing settled yet" : "Car status and Car documents agree"} description={showDone ? "Settled items show here." : "Car status and Car documents say the same about every car."} />
       ) : (
         <div className="space-y-3">
           {cars.map(([plate, list]) => (

@@ -7,7 +7,7 @@ import { settleSyncItem } from "@/lib/pricelist/sync-server";
 
 export type Settled = { ok: true; decision: string } | { ok: false; error: string };
 
-/** One item of the price list check: use the price list's value, use the Docs Bible's, or note it. Admin, Approver and Documentation. */
+/** One item of the data check: use the price list's value, use the Docs Bible's, or note it. Admin, Approver and Documentation. */
 export async function settleAction(id: string, choice: Choice, plate?: string): Promise<Settled> {
   const user = await requireRole("admin", "approver", "documentation");
   if (!/^[0-9a-f-]{36}$/i.test(id) || !["list", "docs", "noted", "add", "plate"].includes(choice)) return { ok: false, error: "That item was not found." };

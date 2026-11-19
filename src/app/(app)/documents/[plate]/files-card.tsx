@@ -26,7 +26,7 @@ const REG_CHIP: Record<string, string> = { "Yes": "bg-emerald-100 text-emerald-9
 /**
  * The one part that answers "what papers does this car have?": each paper the case needs, whether it is in the folder, a small picture, and a
  * warning if something needs a look. Click a paper to see its photos large, what the bot read, and to correct it. What a person corrects shows
- * here at once, and the Docs Bible says the same thing (or says it differs and offers to update it).
+ * here at once, and Car documents says the same thing (or says it differs and offers to update it).
  */
 export function PapersCard({ data, rules, readOnly = false, register, canEditRegister, differs }: { data: CarViewData; rules: Rules; readOnly?: boolean; register: { id: string; values: Record<string, string | null> } | null; canEditRegister: boolean; differs: number | null }) {
   const router = useRouter();
@@ -136,8 +136,8 @@ export function PapersCard({ data, rules, readOnly = false, register, canEditReg
         )}
         {register && !readOnly && differs !== null && (
           <p className="flex flex-wrap items-center gap-2 border-t pt-3 text-xs text-muted-foreground">
-            {differs === 0 ? "The Docs Bible row says the same as this checklist." : `The Docs Bible row differs from this checklist for ${differs} ${differs === 1 ? "paper" : "papers"}.`}
-            {differs > 0 && <Button size="xs" variant="outline" disabled={busy || !chosen} onClick={() => run(() => updateRegisterAction(data.plate))}>Update the Docs Bible</Button>}
+            {differs === 0 ? "The car record says the same as this checklist." : `The car record differs from this checklist for ${differs} ${differs === 1 ? "paper" : "papers"}.`}
+            {differs > 0 && <Button size="xs" variant="outline" disabled={busy || !chosen} onClick={() => run(() => updateRegisterAction(data.plate))}>Update the car record</Button>}
             {differs > 0 && !chosen && <span>(choose the case first)</span>}
           </p>
         )}
@@ -148,9 +148,9 @@ export function PapersCard({ data, rules, readOnly = false, register, canEditReg
           {selectedItem && !selectedItem.present && !readOnly && <p className="text-sm text-muted-foreground">Add a photo of it with <b>Upload documents</b> at the top of this card, or, if it is in the folder under another type, change that photo&apos;s type from the list <b>Other photos</b>.</p>}
           {register && col && (
             <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted p-3 text-sm">
-              <span className="font-medium">Docs Bible says</span>
+              <span className="font-medium">Car documents says</span>
               {canEditRegister
-                ? <NativeSelect aria-label={`Docs Bible: ${selectedItem?.label}`} className="w-36" value={regValue ?? ""} disabled={busy} onChange={(e) => run(async () => { const r = await saveCellAction(register.id, col, e.target.value, regValue); return { ok: r.ok, message: r.ok ? "Saved in the Docs Bible." : r.message ?? "Could not save." }; })}><option value="">(empty)</option>{REG_CHOICES.map((c) => <option key={c} value={c}>{c}</option>)}</NativeSelect>
+                ? <NativeSelect aria-label={`Car record: ${selectedItem?.label}`} className="w-36" value={regValue ?? ""} disabled={busy} onChange={(e) => run(async () => { const r = await saveCellAction(register.id, col, e.target.value, regValue); return { ok: r.ok, message: r.ok ? "Saved in MAD." : r.message ?? "Could not save." }; })}><option value="">(empty)</option>{REG_CHOICES.map((c) => <option key={c} value={c}>{c}</option>)}</NativeSelect>
                 : <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${regValue ? REG_CHIP[regValue] : ""}`}>{regValue ?? "(empty)"}</span>}
               <span className="text-xs text-muted-foreground">{canEditRegister ? "Use To follow or N/A when the paper is not coming or not needed." : ""}</span>
             </div>

@@ -36,14 +36,14 @@ export function DocumentsBoard({ rows, grid, role, canAct, openDecisions }: { ro
       <div className="flex flex-wrap items-center gap-2">
         <div role="tablist" aria-label="View" className="inline-flex rounded-lg border p-0.5">
           <button type="button" role="tab" aria-selected={view === "list"} onClick={() => setView("list")} className={cn("flex items-center gap-1.5 rounded-md px-3 py-1 text-sm", view === "list" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}><Rows3 className="size-4" aria-hidden />List</button>
-          <button type="button" role="tab" aria-selected={view === "table"} onClick={() => setView("table")} className={cn("flex items-center gap-1.5 rounded-md px-3 py-1 text-sm", view === "table" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}><Table2 className="size-4" aria-hidden />Table (like the sheet)</button>
+          <button type="button" role="tab" aria-selected={view === "table"} onClick={() => setView("table")} className={cn("flex items-center gap-1.5 rounded-md px-3 py-1 text-sm", view === "table" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}><Table2 className="size-4" aria-hidden />Table</button>
         </div>
         {canAct && <Button type="button" size="sm" variant="outline" className="ml-auto" disabled={pending} onClick={() => start(async () => { const r = await refreshFoldersAction(); if (r.ok) toast.success(r.message); else toast.error(r.message); router.refresh(); })}>{pending ? <Loader2 className="animate-spin" /> : <FolderSync />} Refresh from Drive</Button>}
       </div>
       {openDecisions > 0 && (
         <div className="flex flex-wrap items-center gap-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100">
           <p className="min-w-0 flex-1">{openDecisions} things from the move off the Google Sheet still need a decision.</p>
-          <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/docs-bible/review" />}>Open the review list</Button>
+          <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/data-check?tab=move" />}>Open the data check</Button>
         </div>
       )}
 

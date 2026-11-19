@@ -1,6 +1,6 @@
 import type { SyncField } from "./import";
 
-// Settling one row of the price list check: which Docs Bible column a field is, which stock column keeps the price list's own wording,
+// Settling one row of the data check: which Docs Bible column a field is, which stock column keeps the Car status's own wording,
 // and what each choice does. Pure; sync-server.ts does the saving.
 
 export const DOCS_COLUMN: Partial<Record<SyncField, string>> = {
@@ -16,28 +16,28 @@ export const OVERRIDE_COLUMN: Partial<Record<SyncField, string>> = {
 export type Choice = "list" | "docs" | "noted" | "add" | "plate";
 export const choicesFor = (field: SyncField): Choice[] => (field === "unmatched" ? ["add", "plate", "noted"] : field === "docs_code" || field === "odd_value" ? ["noted"] : ["list", "docs", "noted"]);
 
-export interface SettlePlan { decision: string; docsPatch?: Record<string, string | null>; clearOverride?: string; /** a car that is only on the price list: make its Docs Bible row from the price list row */ addUnit?: boolean; /** ...or link its price list row to this plate, which is already in the Docs Bible */ linkPlate?: string }
+export interface SettlePlan { decision: string; docsPatch?: Record<string, string | null>; clearOverride?: string; /** a car that is only on the price list: make its Docs Bible row from Car status row */ addUnit?: boolean; /** ...or link its price list row to this plate, which is already in MAD */ linkPlate?: string }
 
 const yy = (v: string) => { const d = v.replace(/\D/g, ""); return d.length >= 2 ? d.slice(-2) : d; };
 
 export function planSettle(field: SyncField, choice: Choice, item: { listValue: string | null; docsValue: string | null }, input: { plate?: string } = {}): SettlePlan | { error: string } {
   if (!choicesFor(field).includes(choice)) return { error: "That choice is not available for this item." };
-  if (choice === "noted") return { decision: field === "unmatched" ? "Left out: not a car of the Docs Bible" : "Noted, left as it is" };
-  if (choice === "add") return { decision: "The car was added to the Docs Bible from the price list", addUnit: true };
+  if (choice === "noted") return { decision: field === "unmatched" ? "Left out: not a car of MAD" : "Noted, left as it is" };
+  if (choice === "add") return { decision: "The car was added to MAD from Car status", addUnit: true };
   if (choice === "plate") {
     const plate = (input.plate ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
     return plate.length >= 5 ? { decision: `Linked to the car with plate ${plate}`, linkPlate: plate } : { error: "Type the whole plate number." };
   }
   const override = OVERRIDE_COLUMN[field];
   if (field === "status") {
-    if (choice === "docs") return { decision: "The Docs Bible's status was kept" };
+    if (choice === "docs") return { decision: "The car record's status was kept" };
     const listed = /^\s*SOLD\b/i.test(item.listValue ?? "") ? "Sold" : /^\s*RESERVED\b/i.test(item.listValue ?? "") ? "Reserved" : null;
-    if (!listed) return { error: "The price list has no Reserved or Sold note to copy." };
-    return { decision: `The Docs Bible now says ${listed}, like the price list`, docsPatch: { sale_status: listed, vehicle_status: listed === "Sold" ? "SOLD" : "AVAILABLE" } };
+    if (!listed) return { error: "Car status has no Reserved or Sold note to copy." };
+    return { decision: `The car record now says ${listed}, like Car status`, docsPatch: { sale_status: listed, vehicle_status: listed === "Sold" ? "SOLD" : "AVAILABLE" } };
   }
   const column = DOCS_COLUMN[field];
   if (!column) return { error: "That field cannot be settled here." };
-  if (choice === "docs") return { decision: "The Docs Bible's value was kept; the price list shows it too", ...(override ? { clearOverride: override } : {}) };
-  if (!item.listValue) return { error: "The price list has no value to copy." };
-  return { decision: "The price list's value was copied into the Docs Bible", docsPatch: { [column]: field === "year" ? yy(item.listValue) : item.listValue }, ...(override ? { clearOverride: override } : {}) };
+  if (choice === "docs") return { decision: "The car record's value was kept; Car status shows it too", ...(override ? { clearOverride: override } : {}) };
+  if (!item.listValue) return { error: "Car status has no value to copy." };
+  return { decision: "Car status's value was copied into the car record", docsPatch: { [column]: field === "year" ? yy(item.listValue) : item.listValue }, ...(override ? { clearOverride: override } : {}) };
 }

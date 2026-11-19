@@ -167,7 +167,7 @@ describe("a car that is only on the price list", () => {
     expect(planSettle("unmatched", "add", { listValue: "NU355A", docsValue: null })).toMatchObject({ addUnit: true });
     expect(planSettle("unmatched", "plate", { listValue: "NU355A", docsValue: null }, { plate: "nu 35" })).toHaveProperty("error");
     expect(planSettle("unmatched", "plate", { listValue: "NU355A", docsValue: null }, { plate: "nbu 4875" })).toMatchObject({ linkPlate: "NBU4875" });
-    expect(planSettle("unmatched", "noted", { listValue: "NU355A", docsValue: null })).toMatchObject({ decision: "Left out: not a car of the Docs Bible" });
+    expect(planSettle("unmatched", "noted", { listValue: "NU355A", docsValue: null })).toMatchObject({ decision: "Left out: not a car of MAD" });
   });
 });
 

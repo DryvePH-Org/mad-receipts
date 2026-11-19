@@ -55,7 +55,7 @@ export const COLUMN_BY_KEY = new Map(COLUMNS.map((c) => [c.key, c]));
 export const VIEWS = {
   checklist: { label: "Checklist", keys: ["plate_display", "make", "model_variant", "vehicle_status", "classification", "complete_docs", "cr", "or_receipt", "deed", "sellers_id", "sec_cert", "sec_ids", "boards_reso", "encumbered", "chattel", "promissory", "stencil"] },
   handoff: { label: "Handoff", keys: ["plate_display", "make", "model_variant", "sale_status", "vehicle_status", "complete_docs", "paper_status", "remarks_1", "remarks_2"] },
-  everything: { label: "Everything (like the sheet)", keys: COLUMNS.map((c) => c.key) },
+  everything: { label: "Everything", keys: COLUMNS.map((c) => c.key) },
 } as const;
 export type ViewKey = keyof typeof VIEWS;
 

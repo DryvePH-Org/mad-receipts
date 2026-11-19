@@ -7,7 +7,7 @@ import type { DetailRow, PriceRow } from "./export";
 export async function loadPriceList(): Promise<{ rows: PriceRow[]; details: DetailRow[] }> {
   const db = docsDb();
   const { data: stock, error } = await db.from("car_stock").select("*").eq("in_stock", true).order("sort_order").limit(3000);
-  if (error) throw new Error(`Could not read the price list: ${error.message}`);
+  if (error) throw new Error(`Could not read Car status: ${error.message}`);
   const list = (stock ?? []) as StockRecord[];
   const ids = list.map((s) => s.unit_id);
   const plates = list.map((s) => s.plate_no);

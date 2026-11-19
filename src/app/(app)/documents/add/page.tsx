@@ -9,7 +9,7 @@ import { AddFlow } from "./add-flow";
 export default function AddDocumentsPage({ searchParams }: PageProps<"/documents/add">) {
   return (
     <div className="space-y-6">
-      <PageHeader title="Add a car" description="Type the plate, the car's details, then the photos of its papers. The car is added to the Docs Bible, the photos go into its folder in Available units (made for you if it does not exist), and each one is read as it arrives." />
+      <PageHeader title="Add a car" description="Type the plate, the car's details, then the photos of its papers. The car is added to MAD, the photos go into its folder in Available units (made for you if it does not exist), and each one is read as it arrives." />
       <Suspense fallback={<PageSkeleton />}><Content searchParams={searchParams} /></Suspense>
     </div>
   );

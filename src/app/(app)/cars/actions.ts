@@ -29,7 +29,7 @@ export async function updateStockAction(raw: StockInput): Promise<StockResult> {
   const v = p.data, plate = v.plate.toUpperCase().replace(/[^A-Z0-9]/g, "");
   const db = docsDb();
   const { data: row } = await db.from("car_stock").select("unit_id, remarks").eq("plate_no", plate).eq("in_stock", true).maybeSingle();
-  if (!row) return { ok: false, error: "That car is not on the price list." };
+  if (!row) return { ok: false, error: "That car is not on the stock list." };
   const note = clean(v.note) || null;
   let remarks: string | null, repair: string | null;
   if (v.state === "reserved" || v.state === "sold") {
@@ -54,5 +54,5 @@ export async function takeOffStockAction(plateRaw: string): Promise<StockResult>
   const { error } = await docsDb().from("car_stock").update({ in_stock: false, updated_by: user.id }).eq("plate_no", plate).eq("in_stock", true);
   if (error) return { ok: false, error: `Could not take it off: ${error.message}` };
   revalidatePath("/cars");
-  return { ok: true, message: "Taken off the price list." };
+  return { ok: true, message: "Taken off the stock list." };
 }

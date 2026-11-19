@@ -119,7 +119,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
   );
 }
 
-/** A car that is in the Docs Bible register but has no folder in Car documents yet: its row, and the way to find its folder. */
+/** A car that is in MAD register but has no folder in Car documents yet: its row, and the way to find its folder. */
 async function RegisterOnly({ plate, role, canAct }: { plate: string; role: "sales" | "admin" | "approver" | "documentation"; canAct: boolean }) {
   const key = plate.toUpperCase().replace(/[^A-Z0-9]/g, "");
   const register = await loadRegisterRow(key).catch(() => null);

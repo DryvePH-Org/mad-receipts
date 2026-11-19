@@ -56,7 +56,7 @@ export function DocsGrid({ initial, role }: { initial: GridRow[]; role: Role }) 
     if (col.kind === "plate") return (
       <div className="flex items-center gap-1.5">
         <button type="button" className="font-mono text-xs font-medium underline-offset-2 hover:underline" onClick={() => openHistory(row)} title="History of this car">{v}</button>
-        {row.decisions > 0 && <Link href="/docs-bible/review" title="Needs a decision" className="text-amber-600"><TriangleAlert className="size-3.5" aria-label="Needs a decision" /></Link>}
+        {row.decisions > 0 && <Link href="/data-check?tab=move" title="Needs a decision" className="text-amber-600"><TriangleAlert className="size-3.5" aria-label="Needs a decision" /></Link>}
       </div>
     );
     if (col.kind === "complete") return v ? <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${CHIP[v] ?? ""}`}>{v}</span> : <span className="text-muted-foreground">—</span>;

@@ -57,7 +57,7 @@ export function AddFlow({ suggestions, initialPlate = "", botScans = false }: { 
     setFinished(preview.plate);
   }
 
-  // the plate is looked up by itself as it is typed (the folder, and whether the car is already in the Docs Bible): there is no Check button
+  // the plate is looked up by itself as it is typed (the folder, and whether the car is already in MAD): there is no Check button
   useEffect(() => {
     if (plate.replace(/[^A-Za-z0-9]/g, "").length < 5) { setPreview(null); setUnit(null); return; }
     const t = setTimeout(() => void check(plate), 500);
@@ -106,15 +106,15 @@ export function AddFlow({ suggestions, initialPlate = "", botScans = false }: { 
             <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"><FolderPlus className="size-4" aria-hidden /> There is no folder for this plate yet: {preview.folderName} is made in Available units when you add the first photo.{!preview.inInventory && <span className="text-amber-800 dark:text-amber-300"> The plate is not in the inventory sheet, so the folder is named with the plate only.</span>}</p>
           )}
           {saved ? (
-            <p className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200"><Check className="size-4" aria-hidden /> {details.year_model.slice(-2)} {details.make} {details.model_variant} ({saved}) is in the Docs Bible.{staged.length === 0 && photos.length === 0 ? " Now add its documents." : ""}</p>
+            <p className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200"><Check className="size-4" aria-hidden /> {details.year_model.slice(-2)} {details.make} {details.model_variant} ({saved}) is in MAD.{staged.length === 0 && photos.length === 0 ? " Now add its documents." : ""}</p>
           ) : unit?.exists && !again ? (
             <div className="space-y-2 text-sm">
-              <p className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200"><Check className="size-4" aria-hidden /> This car is already in the Docs Bible: {unit.name}.</p>
+              <p className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200"><Check className="size-4" aria-hidden /> This car is already in MAD: {unit.name}.</p>
               <p className="text-muted-foreground">Add its documents below, or <button type="button" className="underline underline-offset-2" onClick={() => setAgain(true)}>this car arrived again: add it as a new arrival</button>.</p>
             </div>
           ) : (
             <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void saveUnit(); }}>
-              <p className="text-sm text-muted-foreground">{again ? "A second arrival of this plate: the earlier one is kept." : unit ? "This plate is not in the Docs Bible yet." : "Type the plate, then the car's details."} Only the plate, make, model, year and color are needed (*). The rest can be filled in later.</p>
+              <p className="text-sm text-muted-foreground">{again ? "A second arrival of this plate: the earlier one is kept." : unit ? "This plate is not in MAD yet." : "Type the plate, then the car's details."} Only the plate, make, model, year and color are needed (*). The rest can be filled in later.</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 {field("make", "Make", { listId: "dl-make", list: suggestions.makes, placeholder: "e.g. TOYOTA" })}
                 {field("model_variant", "Model", { listId: "dl-model", list: suggestions.models, placeholder: "e.g. VIOS 1.3 E" })}

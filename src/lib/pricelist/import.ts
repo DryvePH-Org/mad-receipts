@@ -6,8 +6,8 @@ import { parseMoney, parseSheetDate } from "@/lib/cars/model";
 export type SnapshotRow = Record<string, string | number | null | undefined> & { _row: number; _group?: string | null; _order?: number };
 
 export type SyncField = "arrival_date" | "model" | "color" | "mileage" | "fuel" | "encumbrance" | "year" | "brand" | "trans" | "spare_key" | "status" | "docs_code" | "unmatched" | "odd_value" | "or_expiry";
-/** One place where the price list and the Docs Bible do not say the same thing (or something a person must know): a row of the price list check. */
-export interface SyncItem { plate: string | null; field: SyncField; listValue: string | null; docsValue: string | null; sourceRow: number; message: string; /** for a car not in the Docs Bible: its price list row, so a person can add it or link it to the right plate later */ payload?: unknown }
+/** One place where Car status and Car documents do not say the same thing (or something a person must know): a row of the data check. */
+export interface SyncItem { plate: string | null; field: SyncField; listValue: string | null; docsValue: string | null; sourceRow: number; message: string; /** for a car not in MAD: its price list row, so a person can add it or link it to the right plate later */ payload?: unknown }
 export type PriceIssue = SyncItem;
 
 export interface StockInput {
@@ -51,7 +51,7 @@ export function normalizeCar(r: SnapshotRow): { stock: StockInput | null; skippe
   if (orRaw && !orExpiry) issues.push({ field: "odd_value", plate, listValue: orRaw, docsValue: null, sourceRow: r._row, message: `OR EXP was typed as "${orRaw}", which is not a clear date. It is kept as typed.` });
 
   const docs = text(r["DOCS"]);
-  if (docs) issues.push({ field: "docs_code", plate, listValue: docs, docsValue: null, sourceRow: r._row, message: `The DOCS column of the price list says "${docs}". It is kept as typed (shown as "Papers with"); the staff should say what it means.` });
+  if (docs) issues.push({ field: "docs_code", plate, listValue: docs, docsValue: null, sourceRow: r._row, message: `The DOCS column of Car status says "${docs}". It is kept as typed (shown as "Papers with"); the staff should say what it means.` });
 
   const stock: StockInput = {
     plate, plateDisplay: text(r["PLATE NUMBER"]) ?? plate, group: (r._group as string | null | undefined) ?? null, order: Number(r._order ?? 0), sourceRow: r._row,
@@ -78,12 +78,12 @@ const sameFuel = (a: string, b: string) => { const f = (x: string) => (/^(DSL|DI
 
 export const FIELD_LABELS: Record<SyncField, string> = {
   arrival_date: "Arrival date", model: "Model", color: "Color", mileage: "Mileage", fuel: "Fuel", encumbrance: "Encumbrance", year: "Year", brand: "Brand", trans: "Transmission",
-  spare_key: "Spare key", status: "Status", docs_code: "Papers-with code (DOCS)", unmatched: "Not in the Docs Bible", odd_value: "Odd value", or_expiry: "OR expiry",
+  spare_key: "Spare key", status: "Status", docs_code: "Papers-with code (DOCS)", unmatched: "Not in MAD", odd_value: "Odd value", or_expiry: "OR expiry",
 };
 
-const said = (label: string, listV: string, docsV: string) => `${label}: the price list says "${listV}", the Docs Bible says "${docsV}".`;
+const said = (label: string, listV: string, docsV: string) => `${label}: Car status says "${listV}", Car documents says "${docsV}".`;
 
-/** Every place the price list and the Docs Bible say something different about the same car (both sides filled in; a blank is not a difference). */
+/** Every place Car status and Car documents say something different about the same car (both sides filled in; a blank is not a difference). */
 export function compareWithDocs(s: StockInput, u: UnitIdentity): SyncItem[] {
   const out: SyncItem[] = [];
   const add = (field: SyncField, listV: string | null | undefined, docsV: string | null | undefined, message?: string) => out.push({ plate: s.plate, field, listValue: listV ?? null, docsValue: docsV ?? null, sourceRow: s.sourceRow, message: message ?? said(FIELD_LABELS[field], String(listV), String(docsV)) });
@@ -97,7 +97,7 @@ export function compareWithDocs(s: StockInput, u: UnitIdentity): SyncItem[] {
   if (both(i.trans, u.trans) && norm(i.trans) !== norm(u.trans)) add("trans", i.trans, u.trans);
   if (both(i.fuel, u.fuel) && !sameFuel(i.fuel, String(u.fuel))) add("fuel", i.fuel, u.fuel);
   if (both(i.encumbrance, u.encumbrance) && norm(i.encumbrance) !== norm(u.encumbrance)) add("encumbrance", i.encumbrance, u.encumbrance);
-  if (both(i.arrived, u.arrival_date) && i.arrived !== u.arrival_date) add("arrival_date", i.arrived, u.arrival_date, `${said("Arrival date", i.arrived, String(u.arrival_date))} Days in stock follow the price list's date until this is settled.`);
+  if (both(i.arrived, u.arrival_date) && i.arrived !== u.arrival_date) add("arrival_date", i.arrived, u.arrival_date, `${said("Arrival date", i.arrived, String(u.arrival_date))} Days in stock follow Car status's date until this is settled.`);
   const a = spareKeyState(i.spareKey), b = spareKeyState(u.spare_key);
   if (a !== "unknown" && b !== "unknown" && a !== b) add("spare_key", i.spareKey, u.spare_key);
   // status: the price list's REMARKS note against the Docs Bible's sale and vehicle status
@@ -105,14 +105,14 @@ export function compareWithDocs(s: StockInput, u: UnitIdentity): SyncItem[] {
   const listStatus = /^\s*SOLD\b/i.test(remarks) ? "Sold" : /^\s*RESERVED\b/i.test(remarks) ? "Reserved" : null;
   const docsSale = String(u.sale_status ?? "");
   const docsText = `${u.sale_status ?? "-"} / ${u.vehicle_status ?? "-"}`;
-  if (listStatus && docsSale.toLowerCase() !== listStatus.toLowerCase()) add("status", remarks, docsText, `Status: the price list says "${remarks}", the Docs Bible says ${docsText}.`);
-  else if (!listStatus && /^(sold|reserved)$/i.test(docsSale)) add("status", remarks || "(no status note)", docsText, `Status: the Docs Bible says ${docsText} but the car is still on the price list${remarks ? ` ("${remarks}")` : ""}.`);
+  if (listStatus && docsSale.toLowerCase() !== listStatus.toLowerCase()) add("status", remarks, docsText, `Status: Car status says "${remarks}", Car documents says ${docsText}.`);
+  else if (!listStatus && /^(sold|reserved)$/i.test(docsSale)) add("status", remarks || "(no status note)", docsText, `Status: Car documents says ${docsText} but the car is still on the price list${remarks ? ` ("${remarks}")` : ""}.`);
   return out;
 }
 
 const blank = (v: unknown) => v === null || v === undefined || String(v).trim() === "";
 
-/** The Docs Bible columns that are still blank for a car the price list knows more about: filled from the price list (never replaced). */
+/** The Docs Bible columns that are still blank for a car the price list knows more about: filled from Car status (never replaced). */
 export function blankFills(s: StockInput, u: UnitIdentity): Record<string, string> {
   const out: Record<string, string> = {};
   const year = (() => { const d = String(s.identity.ym ?? "").replace(/\D/g, ""); return d.length === 2 ? d : d.length === 4 ? d.slice(2) : null; })();

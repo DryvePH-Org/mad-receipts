@@ -69,7 +69,7 @@ export async function voidedOrCancelled(kind: "void" | "cancel", actorId: string
 
 export const userChanged = (actorId: string, text: string) => nameOf(actorId).then((who) => tell({ category: "user_change", except: actorId, text: `👤 ${text}\nBy ${who}.` }));
 
-/** A new car was added in the Docs Bible: Documentation hears it, unless they added it themselves. */
+/** A new car was added in MAD: Documentation hears it, unless they added it themselves. */
 export const carAdded = async (plate: string, name: string, actorId: string) => tell({ category: "car_added", except: actorId, text: `🚗 New car added by ${await nameOf(actorId)}\n${name} (${plate})\n${appUrl(`/documents/${plate}`)}` });
 
 /** Sales put sold papers on a car: Documentation hears it once an hour per car, not once per photo. */

@@ -1,7 +1,7 @@
 import type { UnitDetails } from "./details";
 import type { CaseType } from "./types";
 
-// How the app's documents checklist is written into the Docs Bible workbook (tab "DOCS 2026" and the monthly tabs).
+// How the app's documents checklist is written into MAD workbook (tab "DOCS 2026" and the monthly tabs).
 // Pure rules, no network: the grokbot does the writing, this decides WHAT to write. See Docs/sheets-study.md.
 
 /** The typed columns the app may fill in DOCS 2026, by the header the sheet shows. Everything else (the imported B:U, column A, the COMPLETE DOCS? formula) is never written. */

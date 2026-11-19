@@ -14,7 +14,7 @@ Before you start: the push is deployed, and migrations 30, 31 and 32 are applied
 |---|---|
 | Log in as **Documentation**. Open **Car documents** in the menu. | One menu item called Car documents. The list shows about 400 cars with plate, car, case, a stage chip, papers like `5/7`, and a warning sign on some. |
 | Click the stage chips (Needs scan, In review, Approved…) and type a plate in the search box. | The list narrows; the counts on the chips make sense. |
-| Click **Table (like the sheet)**. | The table with the sheet's columns and order. Scroll right: the plate stays in place. Switch the column set (Checklist, Handoff, Everything). |
+| Click **Table**. | The table with the sheet's columns and order. Scroll right: the plate stays in place. Switch the column set (Checklist, Handoff, Everything). |
 | Log in as **Sales** in the other browser. Open **Car documents**, click a car. | The same list and the same car page, **with the photos and all the information** (what the bot saw, the papers, the Docs Bible row), but **no action buttons**. The one thing Sales can do there is add the sold papers (part 5). |
 | Log in as **Approver**. Same page. | Read only too. |
 
@@ -22,7 +22,7 @@ Before you start: the push is deployed, and migrations 30, 31 and 32 are applied
 
 ## 2. The review list (10 minutes, as Documentation)
 
-Open **Car documents** → the amber box → **Open the review list** (about 56 items).
+Open **Car documents** → the amber box → **Open the data check** (about 56 items).
 
 | Item type | Do | You should see |
 |---|---|---|
@@ -170,4 +170,4 @@ Set up once: the Admin opens **My Telegram → Set up the bot**. Then each teste
 2. In **Car documents**, tick **OR due or late**: only those cars are listed, each with the same words in red or amber.
 3. Edit the RENEWAL date of a car in the Table (Admin): the pill follows (the database turns the typed date into the real one).
 4. Documentation gets one Telegram message at 9:00 listing the cars that are exactly 30, 14, 7 or 0 days from expiring, or late by 7, 14, 21... days. Sold cars are never listed.
-5. In **Price list check**, rows named "OR expiry" show two different dates for one car: choose which is right.
+5. In **Data check**, rows named "OR expiry" show two different dates for one car: choose which is right.

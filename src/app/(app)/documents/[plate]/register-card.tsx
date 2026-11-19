@@ -26,9 +26,9 @@ export function RegisterCard({ plate, row, role, canAct }: { plate: string; row:
   const [values, setValues] = useState<Record<string, string | null>>(row?.values ?? {});
   const [busy, start] = useTransition();
   if (!row) return (
-    <Card id="register"><CardHeader><CardTitle>Docs Bible</CardTitle></CardHeader>
-      <CardContent className="space-y-3 text-sm"><p className="text-muted-foreground">This car is not in the Docs Bible yet. It is added when its documents are approved{canAct ? ", or press the button once the case is chosen" : ""}.</p>
-        {canAct && <Button variant="outline" disabled={busy} onClick={() => start(async () => { const r = await updateRegisterAction(plate); if (r.ok) toast.success(r.message); else toast.error(r.message); router.refresh(); })}>{busy ? <Loader2 className="animate-spin" /> : <RefreshCw />} Add it to the Docs Bible</Button>}</CardContent></Card>
+    <Card id="register"><CardHeader><CardTitle>Car record</CardTitle></CardHeader>
+      <CardContent className="space-y-3 text-sm"><p className="text-muted-foreground">This car is not in MAD yet. It is added when its documents are approved{canAct ? ", or press the button once the case is chosen" : ""}.</p>
+        {canAct && <Button variant="outline" disabled={busy} onClick={() => start(async () => { const r = await updateRegisterAction(plate); if (r.ok) toast.success(r.message); else toast.error(r.message); router.refresh(); })}>{busy ? <Loader2 className="animate-spin" /> : <RefreshCw />} Add it to MAD</Button>}</CardContent></Card>
   );
   const save = (col: Col, value: string) => {
     const before = values[col.key] ?? null;
@@ -55,7 +55,7 @@ export function RegisterCard({ plate, row, role, canAct }: { plate: string; row:
   return (
     <Card id="register">
       <details className="group">
-      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-3 p-4 font-heading text-base font-medium">Docs Bible row: notes and the car&apos;s details
+      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-3 p-4 font-heading text-base font-medium">Car record: notes and the car&apos;s details
         {row.complete && <Pill tone={row.complete === "COMPLETE" ? "emerald" : "amber"}>{row.complete}</Pill>}
         {busy && <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Saving" />}
         <span className="ml-auto text-xs font-normal text-muted-foreground group-open:hidden">Show</span></summary>

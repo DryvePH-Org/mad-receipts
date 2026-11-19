@@ -73,6 +73,6 @@ describe("digest words", () => {
     const text = weeklyText("2026-11-23", { receiptsApproved: 12, receiptsRejected: 2, receiptsPending: 3, oldestPendingDays: 4, overdueDeals: 5, overdueBalance: "₱120,000.00", carsNeedScan: 7, carsHandedOff: 2, reviewOpen: 56 }, "https://x");
     expect(text).toContain("12 approved, 2 rejected");
     expect(text).toContain("the oldest 4 days");
-    expect(text).toContain("56 on the review list");
+    expect(text).toContain("56 in the data check");
   });
 });

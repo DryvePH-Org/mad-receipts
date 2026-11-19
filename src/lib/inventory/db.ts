@@ -20,7 +20,7 @@ export function createDbInventory(): InventoryAdapter {
     let q = db.from("car_stock").select("unit_id, plate_no, remarks, list_model, list_color").eq("in_stock", true).limit(3000);
     if (plates) q = q.in("plate_no", plates);
     const { data: stock, error } = await q;
-    if (error) throw new InventoryError(`The price list could not be read: ${error.message}`);
+    if (error) throw new InventoryError(`Car status could not be read: ${error.message}`);
     const ids = (stock ?? []).map((s) => s.unit_id as string);
     const { data: units } = ids.length ? await db.from("docs_units").select("id, make, model_variant, year_model, color").in("id", ids).limit(3000) : { data: [] };
     const u = new Map((units ?? []).map((x) => [x.id as string, x]));
@@ -56,7 +56,7 @@ export function createDbInventory(): InventoryAdapter {
         if (!c?.[0]) throw new InventoryError(`Plate ${key} is not in the app's car list.`);
         const { data: last } = await db.from("car_stock").select("sort_order").order("sort_order", { ascending: false }).limit(1);
         const ins = await db.from("car_stock").upsert({ unit_id: c[0].id, plate_no: key, in_stock: true, source: "app", sort_order: Number(last?.[0]?.sort_order ?? 0) + 1 }, { onConflict: "unit_id" });
-        if (ins.error) throw new InventoryError(`Could not put ${key} on the price list: ${ins.error.message}`);
+        if (ins.error) throw new InventoryError(`Could not put ${key} on the stock list: ${ins.error.message}`);
         unitId = c[0].id as string; current = "";
       }
       const next = applyStatus(current, status, ref);

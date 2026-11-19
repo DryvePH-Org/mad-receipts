@@ -32,20 +32,20 @@ export interface OrFinding { kind: "fill" | "differs" | "disagree"; plate: strin
 
 /**
  * One car's OR dates from the Docs Bible and the sheets, compared. A blank Docs Bible date is filled when every sheet that has a date agrees;
- * a different date is never swapped in silently: it becomes a row of the price list check, with every sheet that says it.
+ * a different date is never swapped in silently: it becomes a row of the data check, with every sheet that says it.
  */
 export function compareOrDates(plate: string, docs: string | null, sources: OrSource[]): OrFinding[] {
   const dated = sources.filter((s): s is { name: string; date: string; kind?: "live" | "older" } => !!s.date);
   const byDate = new Map<string, string[]>();
   for (const s of dated) byDate.set(s.date, [...(byDate.get(s.date) ?? []), s.name]);
   if (!docs) {
-    if (byDate.size === 1) { const [[date, names]] = [...byDate]; return [{ kind: "fill", plate, value: date, docsValue: null, sources: names, message: `OR expiry: the Docs Bible had none; ${names.join(" and ")} say${names.length === 1 ? "s" : ""} ${date}.` }]; }
+    if (byDate.size === 1) { const [[date, names]] = [...byDate]; return [{ kind: "fill", plate, value: date, docsValue: null, sources: names, message: `OR expiry: Car documents had none; ${names.join(" and ")} say${names.length === 1 ? "s" : ""} ${date}.` }]; }
     if (byDate.size > 1) {
       const first = dated[0];
-      return [{ kind: "disagree", plate, value: first.date, docsValue: null, sources: dated.map((d) => d.name), message: `OR expiry: the Docs Bible has none and the sheets disagree: ${[...byDate].map(([d, n]) => `${d} (${n.join(", ")})`).join(" / ")}.` }];
+      return [{ kind: "disagree", plate, value: first.date, docsValue: null, sources: dated.map((d) => d.name), message: `OR expiry: Car documents has none and the sheets disagree: ${[...byDate].map(([d, n]) => `${d} (${n.join(", ")})`).join(" / ")}.` }];
     }
     return [];
   }
   const counts = (d: string, names: string[]) => d !== docs && (names.some((n) => dated.find((s) => s.name === n)?.kind !== "older") || d > docs);
-  return [...byDate].filter(([d, names]) => counts(d, names)).map(([d, names]) => ({ kind: "differs" as const, plate, value: d, docsValue: docs, sources: names, message: `OR expiry: ${names.join(" and ")} say${names.length === 1 ? "s" : ""} ${d}, the Docs Bible says ${docs}.` }));
+  return [...byDate].filter(([d, names]) => counts(d, names)).map(([d, names]) => ({ kind: "differs" as const, plate, value: d, docsValue: docs, sources: names, message: `OR expiry: ${names.join(" and ")} say${names.length === 1 ? "s" : ""} ${d}, Car documents says ${docs}.` }));
 }

@@ -8,7 +8,7 @@ import { loadWorkflow } from "@/lib/docs/workflow";
 import { normalizePlate } from "@/lib/rules/plate";
 import { docsDb } from "./review-server";
 
-// The car's scan and checklist become the car's row in the Docs Bible register (the database), at once. Nothing is written to a Google Sheet.
+// The car's scan and checklist become the car's row in MAD register (the database), at once. Nothing is written to a Google Sheet.
 
 const COLUMN: Record<DocsField, string> = { classification: "classification", cr: "cr", or: "or_receipt", deed: "deed", sellers_id: "sellers_id", sec_cert: "sec_cert", sec_ids: "sec_ids", boards_reso: "boards_reso", encumbered: "encumbered", chattel: "chattel", promissory: "promissory", stencil: "stencil", remarks_1: "remarks_1" };
 

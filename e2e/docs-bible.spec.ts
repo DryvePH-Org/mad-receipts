@@ -44,7 +44,7 @@ test("Documentation edits a paper cell with undo and history; the car's identity
   await expect.poll(async () => (await db().from("docs_units").select("cr").eq("plate_no", PLATE).single()).data?.cr).toBe("No");
 
   // Documentation has the whole car record, but not the two status columns (Admin only for now)
-  await docs.getByRole("tab", { name: "Everything (like the sheet)" }).click();
+  await docs.getByRole("tab", { name: "Everything" }).click();
   await expect(docs.getByRole("columnheader", { name: "MAKE" })).toBeVisible();
   await expect(docs.getByRole("button", { name: `MAKE of ${PLATE}` })).toBeVisible();
   await expect(docs.getByRole("button", { name: `VEHICLE STATUS of ${PLATE}` })).toHaveCount(0);
@@ -88,13 +88,13 @@ test("Add a car: a plate that is already in the Docs Bible is not added twice, u
   const docs = await as(browser, "docs");
   await docs.goto("/documents/add");
   await docs.getByLabel("Plate number").fill("ZZT 9001");
-  await expect(docs.getByText(/This car is already in the Docs Bible/)).toBeVisible();
+  await expect(docs.getByText(/This car is already in MAD/)).toBeVisible();
   await expect(docs.getByRole("button", { name: "Save the car" })).toHaveCount(0);
   // a second arrival keeps the first row
   await docs.getByRole("button", { name: /arrived again/ }).click();
   await docs.getByLabel("Make *").fill("honda"); await docs.getByLabel("Model *").fill("city"); await docs.getByLabel("Year *").fill("21"); await docs.getByLabel("Color *").fill("grey");
   await docs.getByRole("button", { name: "Save the car" }).click();
-  await expect(docs.getByText(/is in the Docs Bible\. Now add its documents/)).toBeVisible();
+  await expect(docs.getByText(/is in MAD\. Now add its documents/)).toBeVisible();
   const rows = await db().from("docs_units").select("make").eq("plate_no", PLATE);
   expect((rows.data as { make: string }[]).map((r) => r.make).sort()).toEqual(["HONDA", "TESTMAKE"]);
   const review = await db().from("docs_review_items").select("kind, status").eq("plate_no", PLATE); // the staff are told, to decide later

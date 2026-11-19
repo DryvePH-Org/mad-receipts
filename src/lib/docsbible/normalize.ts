@@ -1,4 +1,4 @@
-// Turns what people typed in the Docs Bible into clean values for the database. Pure functions, no network, no "@/" imports
+// Turns what people typed in MAD into clean values for the database. Pure functions, no network, no "@/" imports
 // (the import script runs this file directly). The original text is always kept next to the clean value by the caller:
 // a value that cannot be understood is NEVER guessed, it becomes null and an issue for the staff to look at.
 

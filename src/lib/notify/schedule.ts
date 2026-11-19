@@ -90,11 +90,11 @@ async function soldPapersMissing(now: Date, today: string) {
   return { owners: byOwner.size, sent };
 }
 
-/** Documentation: how many items are open on the Docs Bible review list. */
+/** Documentation: how many items are open on the Data check. */
 async function reviewDigest(today: string) {
   const { count } = await notifyDb().from("docs_review_items").select("id", { count: "exact", head: true }).eq("status", "open");
   if (!count) return { open: 0 };
-  return notify({ category: "review_digest", dedupe: `review:${today}`, text: `⚠️ Docs Bible review list · ${formatDate(today)}\n${count} open ${count === 1 ? "item" : "items"} to look at (same plate twice, statuses that differ, rows to check).\n${appUrl("/docs-bible/review")}` });
+  return notify({ category: "review_digest", dedupe: `review:${today}`, text: `⚠️ Data check · ${formatDate(today)}\n${count} open ${count === 1 ? "item" : "items"} to look at (same plate twice, statuses that differ, rows to check).\n${appUrl("/data-check?tab=move")}` });
 }
 
 /** Documentation: cars whose OR is 30, 14, 7 or 0 days from expiring, or late by a whole number of weeks. Works from the real date column (migration 37). */
@@ -152,7 +152,7 @@ async function problemAlerts(now: Date, today: string, hour: number) {
 
   if (hour >= 10) {
     const copies = await listSavedCopies().catch(() => null);
-    if (copies && !copies.some((c) => c.name.includes(today))) problems.push({ key: "backup", text: `🚨 The daily Docs Bible backup for ${formatDate(today)} is missing.\nOpen Admin → Go-live check, or the Table → Download.\n${appUrl("/admin/golive")}` });
+    if (copies && !copies.some((c) => c.name.includes(today))) problems.push({ key: "backup", text: `🚨 The daily cars backup for ${formatDate(today)} is missing.\nOpen Admin → Go-live check, or the Table → Download.\n${appUrl("/admin/golive")}` });
   }
 
   let sent = 0;
