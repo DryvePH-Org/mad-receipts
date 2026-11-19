@@ -22,7 +22,7 @@ export const COLUMNS: Col[] = [
   { key: "fuel", label: "FUEL", letter: "K", kind: "text", width: 90, edit: "admin" },
   { key: "cs_no", label: "CS NO", letter: "M", kind: "text", width: 90, edit: "admin" },
   { key: "sale_status", label: "STATUS", letter: "N", kind: "sale_status", width: 110, edit: "admin" },
-  { key: "arrival_date", label: "DATE ARRIVAL", letter: "O", kind: "date", width: 110, edit: "admin" },
+  { key: "arrival_date", label: "DATE ARRIVAL", letter: "O", kind: "date", width: 110, edit: "papers" },
   { key: "encumbrance", label: "ENCUMBRANCE", letter: "P", kind: "text", width: 130, edit: "admin" },
   { key: "mo_file", label: "MO FILE", letter: "Q", kind: "text", width: 120, edit: "admin" },
   { key: "reg_owner_name", label: "REG OWNER NAME", letter: "R", kind: "text", width: 200, edit: "admin" },
