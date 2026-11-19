@@ -62,7 +62,7 @@ async function main() {
   // migration 36 adds the column that keeps a not-yet-added car's price list row; without it the list still works, a car just cannot be added from it
   const hasPayload = !(await db.from("car_sync_items").select("payload").limit(1)).error;
   if (!hasPayload) console.log("  (migration 36 is not applied: cars that are only on the price list can be added later, after it is applied and this is run again)");
-  for (let i = 0; i < rows.length; i += 100) { const { error: e } = await db.from("car_sync_items").insert(rows.slice(i, i + 100).map((r) => (hasPayload ? r : { ...r, payload: undefined }))); if (e) throw new Error(`price list check: ${e.message}`); }
+  for (let i = 0; i < rows.length; i += 100) { const { error: e } = await db.from("car_sync_items").insert(rows.slice(i, i + 100).map((r) => { if (!hasPayload) delete (r as Record<string, unknown>).payload; return r; })); if (e) throw new Error(`price list check: ${e.message}`); }
   console.log(`\nDone: ${toSave.length} cars, ${repairs.length} repairs, ${renewals.length} renewals, ${rows.length} items on the price list check.`);
 }
 main().catch((e) => { console.error(e instanceof Error ? e.message : e); process.exit(1); });
