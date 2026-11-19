@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireRole } from "@/lib/auth";
+import { announceWebDecision } from "@/lib/repairs/bot/runtime";
 import { decideRepairs, updateRepair } from "@/lib/repairs/server";
 
 export type RepairResult = { ok: true; message: string } | { ok: false; error: string };
@@ -15,6 +16,7 @@ export async function approveRepairsAction(raw: string[]): Promise<RepairResult>
   if (!p.success) return { ok: false, error: "Nothing was chosen." };
   const r = await decideRepairs(p.data, true, "", { name: user.fullName ?? "Approver", userId: user.id });
   if (!r.ok) return r;
+  await announceWebDecision(p.data, true, "", user.fullName ?? "Approver");
   revalidatePath("/repairs"); revalidatePath("/cars");
   return { ok: true, message: `Approved ${r.changed} ${r.changed === 1 ? "job" : "jobs"}.` };
 }
@@ -25,6 +27,7 @@ export async function rejectRepairsAction(raw: string[], reason: string): Promis
   if (!p.success) return { ok: false, error: "Nothing was chosen." };
   const r = await decideRepairs(p.data, false, reason.slice(0, 280), { name: user.fullName ?? "Approver", userId: user.id });
   if (!r.ok) return r;
+  await announceWebDecision(p.data, false, reason, user.fullName ?? "Approver");
   revalidatePath("/repairs");
   return { ok: true, message: `Rejected ${r.changed} ${r.changed === 1 ? "job" : "jobs"}.` };
 }

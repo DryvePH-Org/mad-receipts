@@ -54,7 +54,7 @@ export async function syncCarRepairState(plate: string): Promise<string | null> 
   return next;
 }
 
-export interface ReportInput { plate: string; vehicle?: string; ym?: string; items: Partial<Record<keyof ItemInput, unknown>>[]; reportId?: string; reportedBy?: string; reportedTg?: number | null; source?: "bot" | "app" }
+export interface ReportInput { plate: string; vehicle?: string; ym?: string; items: Partial<Record<keyof ItemInput, unknown>>[]; reportId?: string; reportedBy?: string; reportedTg?: number | null; source?: "bot" | "app"; draftId?: string }
 
 /** A new report: one pending job per problem, waiting for an Approver. The same key twice is never made twice (the bot may send it again). */
 export async function reportRepairs(input: ReportInput, by: Actor): Promise<{ ok: true; ids: string[]; plate: string; found: boolean } | { ok: false; error: string }> {
@@ -75,7 +75,7 @@ export async function reportRepairs(input: ReportInput, by: Actor): Promise<{ ok
       key, report_id: reportId, plate_no: plate, unit_id: car?.id ?? null, ym: (input.ym ?? (info?.year_model as string | undefined) ?? "") || null, brand: (info?.make as string | undefined) ?? null,
       vehicle: input.vehicle || [info?.make, info?.model_variant].filter(Boolean).join(" ") || null, problem: it.problem, happened_on: it.reportedOn ?? manilaToday(), solution: it.solution || null,
       supplier: it.supplier || null, company: it.company || null, est_timeline: it.estTimeline || null, due_on: dueDate(it.estTimeline), status: PENDING_STATUS, approval: "pending",
-      reported_by: input.reportedBy ?? by.name, reported_tg: input.reportedTg ?? null, source: input.source ?? "app", created_by: by.userId ?? null,
+      reported_by: input.reportedBy ?? by.name, reported_tg: input.reportedTg ?? null, draft_id: input.draftId ?? null, source: input.source ?? "app", created_by: by.userId ?? null,
     }).select("id").single();
     if (error || !data) return { ok: false, error: `Could not save the report: ${error?.message ?? "unknown"}` };
     ids.push(data.id as string);

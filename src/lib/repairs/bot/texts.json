@@ -1,0 +1,1052 @@
+{
+ "admin_only": [
+  "Only admins can do that.",
+  "Admin lang ang puwedeng gumawa niyan.",
+  "Admin lang ang pwedeng mag-do niyan."
+ ],
+ "not_registered": [
+  "You're not registered yet. Send /whoami and give the numbers to an admin.",
+  "Hindi ka pa rehistrado. Ipadala ang /whoami at ibigay ang mga numero sa admin.",
+  "Hindi ka pa registered. I-send ang /whoami at ibigay ang numbers sa admin."
+ ],
+ "approval.review": [
+  "{who} <b>Please review this report</b>",
+  "{who} <b>Pakisuri ang ulat na ito</b>",
+  "{who} <b>Paki-review ang report na ito</b>"
+ ],
+ "approval.already": [
+  "This report was already decided by {who}.",
+  "Napagpasyahan na ang ulat na ito ni {who}.",
+  "Na-decide na ang report na ito ni {who}."
+ ],
+ "approval.already_msg": [
+  "Someone already decided this report ({who}).",
+  "May nagpasya na sa ulat na ito ({who}).",
+  "May nag-decide na sa report na ito ({who})."
+ ],
+ "approval.gone": [
+  "This report is no longer available. Ask the repairman to send it again.",
+  "Wala na ang ulat na ito. Hilingin sa mekaniko na ipadala ulit.",
+  "Wala na ang report na ito. Pakisabi sa repairman na i-send ulit."
+ ],
+ "approval.only_approvers": [
+  "Only approvers and admins can approve or reject reports.",
+  "Approver at admin lang ang puwedeng mag-aprubá o tumanggi ng ulat.",
+  "Approver at admin lang ang pwedeng mag-approve o mag-reject ng report."
+ ],
+ "approval.why_reject": [
+  "{name}, why are you rejecting this report?\nReply with your reason — type it or send a voice note.",
+  "{name}, bakit mo tinatanggihan ang ulat na ito?\nSagutin ang dahilan — i-type o magpadala ng voice note.",
+  "{name}, bakit mo ni-reject ang report na ito?\nI-reply ang reason — i-type o mag-send ng voice note."
+ ],
+ "ask.checking": [
+  "Checking the records...",
+  "Sinisilip ang mga talaan...",
+  "Chine-check ang records..."
+ ],
+ "ask.failed": [
+  "I couldn't answer this time ({why}). Please try again.",
+  "Hindi ako nakasagot ngayon ({why}). Subukan ulit.",
+  "Hindi ako nakasagot this time ({why}). Try ulit."
+ ],
+ "ask.none": [
+  "I can't find that in the repair records.",
+  "Wala akong makita niyan sa mga talaan ng repair.",
+  "Wala akong makita niyan sa repair records."
+ ],
+ "ask.usage": [
+  "Ask me about the repair records, for example:\n/grokbot what is still open for TST 001?\n/grokbot what is overdue?",
+  "Magtanong tungkol sa mga talaan ng repair, halimbawa:\n/grokbot ano ang bukas pa sa TST 001?\n/grokbot ano ang lampas na sa petsa?",
+  "Magtanong tungkol sa repair records, halimbawa:\n/grokbot ano pa ang open sa TST 001?\n/grokbot ano ang overdue?"
+ ],
+ "ask.wait": [
+  "Please wait {n} seconds before asking again.",
+  "Maghintay ng {n} segundo bago magtanong ulit.",
+  "Hintay ng {n} seconds bago magtanong ulit."
+ ],
+ "btn.apply": [
+  "Apply",
+  "Ilapat",
+  "Apply"
+ ],
+ "btn.approve": [
+  "Approve",
+  "Aprubahan",
+  "Approve"
+ ],
+ "btn.back": [
+  "Back",
+  "Bumalik",
+  "Back"
+ ],
+ "btn.cancel": [
+  "Cancel",
+  "Kanselahin",
+  "Cancel"
+ ],
+ "btn.edit": [
+  "Edit",
+  "I-edit",
+  "I-edit"
+ ],
+ "btn.fix_resubmit": [
+  "Fix and resubmit",
+  "Ayusin at isumite ulit",
+  "Ayusin at i-resubmit"
+ ],
+ "btn.read_again": [
+  "Read again",
+  "Basahin ulit",
+  "Basahin ulit"
+ ],
+ "btn.reject": [
+  "Reject",
+  "Tanggihan",
+  "Reject"
+ ],
+ "btn.retry_write": [
+  "Try writing to the sheet again",
+  "Subukang isulat ulit sa sheet",
+  "Subukang i-save ulit sa sheet"
+ ],
+ "btn.submit": [
+  "Submit",
+  "Isumite",
+  "Submit"
+ ],
+ "btn.try_again": [
+  "Try again",
+  "Subukan ulit",
+  "Try ulit"
+ ],
+ "btn.yes_approve": [
+  "Yes, approve it",
+  "Oo, aprubahan ko",
+  "Oo, i-approve ko"
+ ],
+ "card.ai": [
+  "AI suggestion",
+  "mungkahi ng AI",
+  "AI suggestion"
+ ],
+ "card.car": [
+  "Car",
+  "Sasakyan",
+  "Car"
+ ],
+ "card.check": [
+  "Please check:",
+  "Pakisuri:",
+  "Paki-check:"
+ ],
+ "card.draft_head": [
+  "DRAFT REPORT",
+  "DRAFT NG ULAT",
+  "DRAFT REPORT"
+ ],
+ "card.due": [
+  "Due",
+  "Takdang petsa",
+  "Due"
+ ],
+ "card.fix": [
+  "Fix",
+  "Ayos",
+  "Fix"
+ ],
+ "card.footer_draft": [
+  "Check the details, then tap <b>Submit</b>.\nTo change something, tap <b>Edit</b> and tell me what to change.",
+  "Suriin ang detalye, pagkatapos pindutin ang <b>Isumite</b>.\nPara may baguhin, pindutin ang <b>I-edit</b> at sabihin kung ano ang babaguhin.",
+  "I-check ang details, tapos i-tap ang <b>Submit</b>.\nPara may baguhin, i-tap ang <b>I-edit</b> at sabihin kung ano ang papalitan."
+ ],
+ "card.in_inv": [
+  "found in MAD",
+  "nasa MAD",
+  "nasa MAD"
+ ],
+ "card.issue": [
+  "Issue",
+  "Problema",
+  "Issue"
+ ],
+ "card.must_fill": [
+  "MUST FILL IN BEFORE SUBMITTING",
+  "KAILANGANG PUNAN BAGO ISUMITE",
+  "KAILANGAN PUNAN BAGO MAG-SUBMIT"
+ ],
+ "card.not_in_inv": [
+  "NOT found in MAD",
+  "WALA sa MAD",
+  "WALA sa MAD"
+ ],
+ "card.not_said": [
+  "not said",
+  "hindi nabanggit",
+  "di nabanggit"
+ ],
+ "card.optional": [
+  "Not mentioned (optional):",
+  "Hindi nabanggit (opsyonal):",
+  "Hindi nabanggit (optional):"
+ ],
+ "card.plate": [
+  "Plate",
+  "Plaka",
+  "Plate"
+ ],
+ "card.plate_not_in_inv": [
+  "This plate is not in MAD's car list.",
+  "Wala sa listahan ng sasakyan ng MAD ang plakang ito.",
+  "Wala sa car list ng MAD ang plate na ito."
+ ],
+ "card.problem": [
+  "PROBLEM",
+  "PROBLEMA",
+  "PROBLEM"
+ ],
+ "card.problem_n": [
+  "PROBLEM {n}",
+  "PROBLEMA {n}",
+  "PROBLEM {n}"
+ ],
+ "card.report_head": [
+  "REPORT",
+  "ULAT",
+  "REPORT"
+ ],
+ "card.reported_by": [
+  "Reported by",
+  "Iniulat ni",
+  "Reported by"
+ ],
+ "card.who": [
+  "Who",
+  "Sino",
+  "Sino"
+ ],
+ "cmd.grokbot": [
+  "Ask about the repair records",
+  "Magtanong tungkol sa mga talaan ng repair",
+  "Magtanong tungkol sa repair records"
+ ],
+ "cmd.help": [
+  "What I can do",
+  "Ano ang kaya kong gawin",
+  "Ano ang kaya kong gawin"
+ ],
+ "cmd.language": [
+  "Choose your language",
+  "Piliin ang wika",
+  "Piliin ang language"
+ ],
+ "cmd.menu": [
+  "Show the buttons",
+  "Ipakita ang mga button",
+  "Ipakita ang buttons"
+ ],
+ "cmd.open": [
+  "Open jobs (add a plate to see one car)",
+  "Mga bukas na trabaho (dagdagan ng plaka para sa isang sasakyan)",
+  "Open jobs (dagdagan ng plate para sa isang car)"
+ ],
+ "cmd.report": [
+  "Start a new repair report",
+  "Magsimula ng bagong ulat ng repair",
+  "Mag-start ng bagong repair report"
+ ],
+ "cmd.whoami": [
+  "Your Telegram ID and role",
+  "Ang iyong Telegram ID at tungkulin",
+  "Ang Telegram ID at role mo"
+ ],
+ "edit_prompt": [
+  "What should I change? Send a voice note or type it, for example:\n“The plate is ABC 1234”  ·  “Problem 2 will be done on Friday”  ·  “Supplier is Jun”.",
+  "Ano ang babaguhin? Magpadala ng voice note o i-type, halimbawa:\n“Ang plaka ay ABC 1234”  ·  “Matatapos ang problema 2 sa Biyernes”  ·  “Si Jun ang supplier”.",
+  "Ano ang papalitan? Mag-send ng voice note o i-type, halimbawa:\n“Ang plate ay ABC 1234”  ·  “Matatapos ang problem 2 sa Friday”  ·  “Si Jun ang supplier”."
+ ],
+ "help.admin": [
+  "Admin",
+  "Admin",
+  "Admin"
+ ],
+ "help.grokbot": [
+  "/grokbot <question> — ask about the repair records (read only)",
+  "/grokbot <tanong> — magtanong tungkol sa mga talaan ng repair (basa lang)",
+  "/grokbot <tanong> — magtanong tungkol sa repair records (read only)"
+ ],
+ "help.help": [
+  "/help — this message",
+  "/help — ang mensaheng ito",
+  "/help — ang message na ito"
+ ],
+ "help.language": [
+  "/language — choose English, Tagalog or Taglish",
+  "/language — piliin ang English, Tagalog o Taglish",
+  "/language — piliin ang English, Tagalog o Taglish"
+ ],
+ "help.menu": [
+  "/menu — show the buttons",
+  "/menu — ipakita ang mga button",
+  "/menu — ipakita ang buttons"
+ ],
+ "help.open": [
+  "/open — jobs still open (add a plate number to see one car)",
+  "/open — mga trabahong bukas pa (dagdagan ng plaka para sa isang sasakyan)",
+  "/open — jobs na open pa (dagdagan ng plate para sa isang car)"
+ ],
+ "help.reminders": [
+  "/reminders — check overdue jobs and waiting approvals now",
+  "/reminders — suriin ngayon ang mga lampas na trabaho at naghihintay na pag-apruba",
+  "/reminders — i-check ngayon ang overdue jobs at waiting na approvals"
+ ],
+ "help.report": [
+  "Send a voice note to report repairs, or type it with /report.",
+  "Magpadala ng voice note para mag-ulat ng repair, o i-type gamit ang /report.",
+  "Mag-send ng voice note para mag-report ng repair, o i-type gamit ang /report."
+ ],
+ "help.title": [
+  "What I can do",
+  "Ano ang kaya kong gawin",
+  "Ano ang kaya kong gawin"
+ ],
+ "help.update": [
+  "To update a job, send a voice note like: “Update, TST 001, the flat tire is done.”",
+  "Para i-update ang trabaho, magpadala ng voice note tulad ng: “Update, TST 001, tapos na ang flat tire.”",
+  "Para mag-update ng job, mag-send ng voice note tulad ng: “Update, TST 001, tapos na ang flat tire.”"
+ ],
+ "help.users": [
+  "/users — who is registered",
+  "/users — sino ang rehistrado",
+  "/users — sino ang registered"
+ ],
+ "help.whoami": [
+  "/whoami — your Telegram ID and role",
+  "/whoami — ang iyong Telegram ID at tungkulin",
+  "/whoami — ang Telegram ID at role mo"
+ ],
+ "job.ask": [
+  "Mark <b>{what}</b> as done?",
+  "Markahan bang tapos ang <b>{what}</b>?",
+  "I-mark na done ang <b>{what}</b>?"
+ ],
+ "job.failed": [
+  "I couldn't update the job ({why}). Nothing was changed. Try again from /open.",
+  "Hindi ko ma-update ang trabaho ({why}). Walang nabago. Subukan ulit mula sa /open.",
+  "Hindi ko ma-update ang job ({why}). Walang nabago. Try ulit from /open."
+ ],
+ "job.head": [
+  "OPEN JOBS",
+  "MGA BUKAS NA TRABAHO",
+  "OPEN JOBS"
+ ],
+ "job.job": [
+  "Job",
+  "Trabaho",
+  "Job"
+ ],
+ "job.left_open": [
+  "Okay, left it open.",
+  "Sige, iniwang bukas.",
+  "Okay, iniwang open."
+ ],
+ "job.mark_n": [
+  "Mark {n} as done",
+  "Markahang tapos ang {n}",
+  "Mark {n} as done"
+ ],
+ "job.marked_done": [
+  "MARKED AS DONE",
+  "NAMARKAHANG TAPOS NA",
+  "NA-MARK NA DONE"
+ ],
+ "job.more": [
+  "...and {n} more",
+  "...at {n} pa",
+  "...at {n} pa"
+ ],
+ "job.muted": [
+  "Okay, no more reminders about this job today.",
+  "Sige, wala nang paalala tungkol sa trabahong ito ngayong araw.",
+  "Okay, wala nang reminders tungkol sa job na ito today."
+ ],
+ "job.no": [
+  "No",
+  "Hindi",
+  "Hindi"
+ ],
+ "job.no_date": [
+  "no date",
+  "walang petsa",
+  "walang date"
+ ],
+ "job.not_allowed": [
+  "Only the person who reported this job, an approver or an admin can change it.",
+  "Ang nag-ulat ng trabahong ito, approver o admin lang ang puwedeng magbago nito.",
+  "Ang nag-report ng job na ito, approver o admin lang ang pwedeng magbago."
+ ],
+ "job.overdue": [
+  "OVERDUE",
+  "LAMPAS NA",
+  "OVERDUE"
+ ],
+ "job.the_job": [
+  "the job",
+  "ang trabaho",
+  "ang job"
+ ],
+ "job.this_job": [
+  "this job",
+  "ang trabahong ito",
+  "ang job na ito"
+ ],
+ "job.yes": [
+  "Yes, it is done",
+  "Oo, tapos na",
+  "Oo, done na"
+ ],
+ "lang.choose": [
+  "Choose your language (now: {cur}):",
+  "Piliin ang iyong wika (ngayon: {cur}):",
+  "Piliin ang language mo (ngayon: {cur}):"
+ ],
+ "lang.group_btn": [
+  "Group: {name}",
+  "Grupo: {name}",
+  "Group: {name}"
+ ],
+ "lang.group_now": [
+  "Group language now: {cur}",
+  "Wika ng grupo ngayon: {cur}",
+  "Language ng group ngayon: {cur}"
+ ],
+ "lang.group_saved": [
+  "Group language is now {name}.",
+  "Ang wika ng grupo ay {name} na.",
+  "Ang language ng group ay {name} na."
+ ],
+ "lang.saved": [
+  "Your language is now {name}.",
+  "Ang wika mo ay {name} na.",
+  "Ang language mo ay {name} na."
+ ],
+ "menu.help": [
+  "Help",
+  "Tulong",
+  "Help"
+ ],
+ "menu.language": [
+  "Language",
+  "Wika",
+  "Language"
+ ],
+ "menu.open": [
+  "Open jobs",
+  "Mga bukas na trabaho",
+  "Open jobs"
+ ],
+ "menu.report": [
+  "New report",
+  "Bagong ulat",
+  "New report"
+ ],
+ "menu.title": [
+  "What would you like to do?",
+  "Ano ang gusto mong gawin?",
+  "Ano ang gusto mong gawin?"
+ ],
+ "menu.whoami": [
+  "Who am I",
+  "Sino ako",
+  "Sino ako"
+ ],
+ "miss.car": [
+  "car (brand and model)",
+  "sasakyan (brand at modelo)",
+  "car (brand at model)"
+ ],
+ "miss.due": [
+  "when it will be done",
+  "kung kailan matatapos",
+  "kung kailan matatapos"
+ ],
+ "miss.fix": [
+  "the fix",
+  "ang ayos",
+  "ang fix"
+ ],
+ "miss.plate": [
+  "plate number",
+  "plaka",
+  "plate number"
+ ],
+ "miss.prefix": [
+  "problem {n}: ",
+  "problema {n}: ",
+  "problem {n}: "
+ ],
+ "miss.problem_any": [
+  "at least one problem",
+  "kahit isang problema",
+  "kahit isang problem"
+ ],
+ "miss.problem_text": [
+  "what the problem is",
+  "kung ano ang problema",
+  "kung ano ang problem"
+ ],
+ "miss.who": [
+  "supplier / who does it",
+  "supplier / kung sino ang gagawa",
+  "supplier / sino ang gagawa"
+ ],
+ "msg.busy": [
+  "One moment, I'm still working on it.",
+  "Sandali, ginagawa ko pa.",
+  "Sandali, ginagawa ko pa."
+ ],
+ "msg.cancelled": [
+  "Draft cancelled.",
+  "Nakansela ang draft.",
+  "Na-cancel ang draft."
+ ],
+ "msg.cannot_change": [
+  "This report can't be changed now.",
+  "Hindi na mababago ang ulat na ito.",
+  "Hindi na pwedeng baguhin ang report na ito."
+ ],
+ "msg.daily_cap": [
+  "I've reached today's limit. Please try again tomorrow or ask an admin.",
+  "Naabot ko na ang limitasyon ngayong araw. Subukan bukas o magtanong sa admin.",
+  "Naabot ko na ang limit today. Try bukas o magtanong sa admin."
+ ],
+ "msg.daily_cap_admin": [
+  "Daily limit reached for {kind} ({n} per day). Reports and questions are paused until tomorrow.",
+  "Naabot na ang limitasyon ngayong araw para sa {kind} ({n} kada araw). Naka-pause ang mga ulat at tanong hanggang bukas.",
+  "Naabot na ang daily limit para sa {kind} ({n} per day). Naka-pause ang reports at questions hanggang bukas."
+ ],
+ "msg.draft_expired": [
+  "This draft has expired. Please send the report again.",
+  "Nag-expire na ang draft na ito. Ipadala ulit ang ulat.",
+  "Expired na ang draft na ito. I-send ulit ang report."
+ ],
+ "msg.edit_update_hint": [
+  "To change an update, tap Cancel and say it again.",
+  "Para baguhin ang update, pindutin ang Kanselahin at sabihin ulit.",
+  "Para baguhin ang update, i-tap ang Cancel at sabihin ulit."
+ ],
+ "msg.fill_first": [
+  "Please fill in first: {items}",
+  "Punan muna ito: {items}",
+  "Paki-fill in muna: {items}"
+ ],
+ "msg.listening": [
+  "Listening...",
+  "Nakikinig...",
+  "Nakikinig..."
+ ],
+ "msg.no_catch": [
+  "I didn't catch anything in that voice note. Please try again closer to the phone.",
+  "Wala akong narinig sa voice note na iyon. Subukan ulit nang mas malapit sa telepono.",
+  "Wala akong narinig sa voice note na iyon. Try ulit nang mas malapit sa phone."
+ ],
+ "msg.no_hear": [
+  "I couldn't hear that clearly. Please send it again.",
+  "Hindi ko malinaw na narinig. Ipadala ulit.",
+  "Hindi ko malinaw na narinig. I-send ulit."
+ ],
+ "msg.no_sheet": [
+  "I can't reach the records yet. Please tell an admin.",
+  "Hindi ko pa maabot ang mga talaan. Sabihin sa admin.",
+  "Hindi ko pa maabot ang records. Pakisabi sa admin."
+ ],
+ "msg.not_possible": [
+  "Not possible right now.",
+  "Hindi puwede ngayon.",
+  "Hindi pwede ngayon."
+ ],
+ "msg.not_ready": [
+  "This draft isn't ready.",
+  "Hindi pa handa ang draft na ito.",
+  "Hindi pa ready ang draft na ito."
+ ],
+ "msg.not_report": [
+  "That didn't sound like a repair report, so I did nothing.\nTo report, say the plate number, the car, each problem, the fix and when it will be done.",
+  "Mukhang hindi iyon ulat ng repair, kaya wala akong ginawa.\nPara mag-ulat, sabihin ang plaka, ang sasakyan, bawat problema, ang ayos at kung kailan matatapos.",
+  "Mukhang hindi iyon repair report, kaya wala akong ginawa.\nPara mag-report, sabihin ang plate number, ang car, bawat problem, ang fix at kung kailan matatapos."
+ ],
+ "msg.not_set_up": [
+  "Reporting isn't set up on my side yet. Please tell an admin.",
+  "Hindi pa naka-set up ang pag-uulat sa panig ko. Sabihin sa admin.",
+  "Hindi pa naka-set up ang reporting sa side ko. Pakisabi sa admin."
+ ],
+ "msg.nothing_apply": [
+  "Nothing to apply.",
+  "Walang ilalapat.",
+  "Walang i-apply."
+ ],
+ "msg.nothing_edit": [
+  "Nothing to edit yet.",
+  "Wala pang mae-edit.",
+  "Wala pang i-edit."
+ ],
+ "msg.nothing_to_save": [
+  "Nothing to save.",
+  "Walang isusulat.",
+  "Walang i-save."
+ ],
+ "msg.only_owner": [
+  "Only the person who sent this report can use these buttons.",
+  "Ang nagpadala lang ng ulat na ito ang puwedeng gumamit ng mga button na ito.",
+  "Ang nag-send lang ng report na ito ang pwedeng gumamit ng buttons na ito."
+ ],
+ "msg.only_owner_or_approver": [
+  "Only the repairman, an approver or an admin can do that.",
+  "Ang mekaniko, approver o admin lang ang puwedeng gumawa niyan.",
+  "Ang repairman, approver o admin lang ang pwedeng gumawa niyan."
+ ],
+ "msg.read_failed": [
+  "I couldn't read the report this time ({why}).\n\nWhat I heard:\n<i>{heard}</i>\n\nTap <b>Try again</b>.",
+  "Hindi ko nabasa ang ulat ngayon ({why}).\n\nAng narinig ko:\n<i>{heard}</i>\n\nPindutin ang <b>Subukan ulit</b>.",
+  "Hindi ko nabasa ang report this time ({why}).\n\nAng narinig ko:\n<i>{heard}</i>\n\nI-tap ang <b>Try ulit</b>."
+ ],
+ "msg.reading": [
+  "<b>Reading your report…</b>\nThis usually takes under a minute.",
+  "<b>Binabasa ang iyong ulat…</b>\nKaraniwang wala pang isang minuto.",
+  "<b>Binabasa ang report mo…</b>\nKaraniwan wala pang isang minuto."
+ ],
+ "msg.rejected_why": [
+  "<b>Rejected:</b> {why}",
+  "<b>Tinanggihan:</b> {why}",
+  "<b>Rejected:</b> {why}"
+ ],
+ "msg.restarted": [
+  "the bot restarted",
+  "nag-restart ang bot",
+  "nag-restart ang bot"
+ ],
+ "msg.saving": [
+  "Saving...",
+  "Isinusulat...",
+  "Sini-save..."
+ ],
+ "msg.self_prompt": [
+  "<b>You can approve your own report.</b> Submit and approve it now?",
+  "<b>Puwede mong aprubahan ang sarili mong ulat.</b> Isumite at aprubahan na ngayon?",
+  "<b>Pwede mong i-approve ang sarili mong report.</b> I-submit at i-approve na ngayon?"
+ ],
+ "msg.slow_down": [
+  "Please slow down a little and try again in a minute.",
+  "Dahan-dahan lang, subukan ulit pagkalipas ng isang minuto.",
+  "Dahan-dahan lang, try ulit after a minute."
+ ],
+ "msg.too_long": [
+  "That voice note is longer than 3 minutes. Please split it into shorter ones.",
+  "Mas mahaba sa 3 minuto ang voice note na iyon. Hatiin sa mas maiikli.",
+  "Mas mahaba sa 3 minutes ang voice note na iyon. Hatiin sa mas maiikli."
+ ],
+ "msg.trying_again": [
+  "Trying again...",
+  "Sinusubukan ulit...",
+  "Trying ulit..."
+ ],
+ "msg.updating": [
+  "<b>Updating your report…</b>",
+  "<b>Ina-update ang iyong ulat…</b>",
+  "<b>Ina-update ang report mo…</b>"
+ ],
+ "notify.approved": [
+  "{owner}, your report for <b>{label}</b> was approved by {by}.\nIt is saved.",
+  "{owner}, naaprubahan ni {by} ang ulat mo para sa <b>{label}</b>.\nNaisulat na.",
+  "{owner}, na-approve ni {by} ang report mo para sa <b>{label}</b>.\nNa-save na."
+ ],
+ "notify.rejected": [
+  "{owner}, your report for <b>{label}</b> was rejected by {by}.\nReason: {why}\nTap <b>Fix and resubmit</b> on the report above.",
+  "{owner}, tinanggihan ni {by} ang ulat mo para sa <b>{label}</b>.\nDahilan: {why}\nPindutin ang <b>Ayusin at isumite ulit</b> sa ulat sa itaas.",
+  "{owner}, ni-reject ni {by} ang report mo para sa <b>{label}</b>.\nReason: {why}\nI-tap ang <b>Ayusin at i-resubmit</b> sa report sa itaas."
+ ],
+ "notify.self_approved": [
+  "<b>{by}</b> approved their own report for <b>{label}</b>.\nIt is saved.",
+  "Inaprubahan ni <b>{by}</b> ang sarili niyang ulat para sa <b>{label}</b>.\nNaisulat na.",
+  "Ni-approve ni <b>{by}</b> ang sarili niyang report para sa <b>{label}</b>.\nNa-save na."
+ ],
+ "nudge.text": [
+  "{who} A report is still waiting for approval after {hours} hours:\n<b>{label}</b> from {owner}.",
+  "{who} May ulat na naghihintay pa ng pag-apruba pagkalipas ng {hours} oras:\n<b>{label}</b> mula kay {owner}.",
+  "{who} May report na naghihintay pa ng approval after {hours} oras:\n<b>{label}</b> mula kay {owner}."
+ ],
+ "open.checking": [
+  "Checking the records...",
+  "Sinisilip ang mga talaan...",
+  "Chine-check ang records..."
+ ],
+ "open.failed": [
+  "I couldn't read the records this time ({why}). Please try again.",
+  "Hindi ko nabasa ang mga talaan ngayon ({why}). Subukan ulit.",
+  "Hindi ko nabasa ang records this time ({why}). Try ulit."
+ ],
+ "open.head": [
+  "{n} open job(s) on {c} car(s)",
+  "{n} bukas na trabaho sa {c} sasakyan",
+  "{n} open job(s) sa {c} car(s)"
+ ],
+ "open.more_cars": [
+  "...and {n} more cars. Use /open and a plate number to see one.",
+  "...at {n} pang sasakyan. Gamitin ang /open at plaka para makita ang isa.",
+  "...at {n} pang cars. Gamitin ang /open at plate number para makita ang isa."
+ ],
+ "open.none": [
+  "No open jobs.",
+  "Walang bukas na trabaho.",
+  "Walang open jobs."
+ ],
+ "open.none_plate": [
+  "No open jobs for {plate}.",
+  "Walang bukas na trabaho para sa {plate}.",
+  "Walang open jobs para sa {plate}."
+ ],
+ "open.overdue": [
+  "<b>{n} overdue</b>",
+  "<b>{n} lampas na</b>",
+  "<b>{n} overdue</b>"
+ ],
+ "ping.asking": [
+  "Asking grokbot… this can take up to a minute.",
+  "Tinatanong si grokbot… maaaring abutin ng isang minuto.",
+  "Tinatanong si grokbot… baka abutin ng isang minuto."
+ ],
+ "ping.fail": [
+  "No answer from grokbot: {why}",
+  "Walang sagot mula kay grokbot: {why}",
+  "Walang sagot mula kay grokbot: {why}"
+ ],
+ "ping.ok": [
+  "grokbot answered in {secs}s. ok={ok}",
+  "Sumagot si grokbot sa loob ng {secs}s. ok={ok}",
+  "Sumagot si grokbot in {secs}s. ok={ok}"
+ ],
+ "rem.check_failed": [
+  "I couldn't check for overdue jobs this time ({why}). I will try again at the next reminder time.",
+  "Hindi ko nasuri ang mga lampas na trabaho ngayon ({why}). Susubukan ko ulit sa susunod na oras ng paalala.",
+  "Hindi ko na-check ang overdue jobs this time ({why}). Try ko ulit sa next reminder time."
+ ],
+ "rem.checking_cmd": [
+  "Checking for overdue jobs and waiting approvals...",
+  "Sinusuri ang mga lampas na trabaho at naghihintay na pag-apruba...",
+  "Chine-check ang overdue jobs at waiting na approvals..."
+ ],
+ "rem.done_n": [
+  "Done {n}",
+  "Tapos {n}",
+  "Done {n}"
+ ],
+ "rem.footer": [
+  "Tap <b>Done</b> when it is finished, or <b>Mute</b> to stop reminders for today.\nFor a new due date, send a voice update, for example: \"Update, {plate}, moved to Friday\".",
+  "Pindutin ang <b>Tapos</b> kapag tapos na, o <b>I-mute</b> para ihinto ang paalala ngayong araw.\nPara sa bagong petsa, magpadala ng voice update, halimbawa: \"Update, {plate}, inilipat sa Biyernes\".",
+  "I-tap ang <b>Done</b> kapag tapos na, o <b>Mute</b> para ihinto ang reminders today.\nPara sa bagong date, mag-send ng voice update, halimbawa: \"Update, {plate}, inilipat sa Friday\"."
+ ],
+ "rem.head": [
+  "OVERDUE JOBS",
+  "MGA LAMPAS NA TRABAHO",
+  "OVERDUE JOBS"
+ ],
+ "rem.late_many": [
+  "{n} days late",
+  "{n} araw na huli",
+  "{n} days late"
+ ],
+ "rem.late_one": [
+  "{n} day late",
+  "{n} araw na huli",
+  "{n} day late"
+ ],
+ "rem.more_cars": [
+  "{n} more car(s) have overdue jobs. Type /open to see all of them.",
+  "{n} pang sasakyan ang may lampas na trabaho. I-type ang /open para makita lahat.",
+  "{n} pang car(s) ang may overdue jobs. I-type ang /open para makita lahat."
+ ],
+ "rem.mute_n": [
+  "Mute {n} today",
+  "I-mute {n} ngayon",
+  "Mute {n} today"
+ ],
+ "rem.not_running": [
+  "Reminders are not running.",
+  "Hindi tumatakbo ang mga paalala.",
+  "Hindi tumatakbo ang reminders."
+ ],
+ "rem.reported_by": [
+  "Reported by",
+  "Iniulat ni",
+  "Reported by"
+ ],
+ "rem.reporter": [
+  "reporter",
+  "nag-ulat",
+  "reporter"
+ ],
+ "rem.summary": [
+  "Overdue jobs reminded: {a}. Approval nudges sent: {b}.",
+  "Mga paalalang lampas na trabaho: {a}. Mga paalala sa pag-apruba: {b}.",
+  "Overdue jobs na na-remind: {a}. Approval nudges na na-send: {b}."
+ ],
+ "report_prompt": [
+  "Go ahead — send a voice note now, or type your report in one message.\n\nPlease say: plate number, the car, each problem, the fix, who does it, and when it will be done.",
+  "Sige — magpadala ng voice note ngayon, o i-type ang ulat sa isang mensahe.\n\nSabihin: plaka, ang sasakyan, bawat problema, ang ayos, sino ang gagawa, at kung kailan matatapos.",
+  "Sige — mag-send ng voice note ngayon, o i-type ang report sa isang message.\n\nSabihin: plate number, ang car, bawat problem, ang fix, sino ang gagawa, at kung kailan matatapos."
+ ],
+ "role.admin": [
+  "Admin",
+  "Admin",
+  "Admin"
+ ],
+ "role.approver": [
+  "Approver",
+  "Approver",
+  "Approver"
+ ],
+ "role.none": [
+  "not registered",
+  "hindi rehistrado",
+  "hindi registered"
+ ],
+ "role.repairman": [
+  "Repairman",
+  "Mekaniko",
+  "Repairman"
+ ],
+ "status.approved": [
+  "STATUS: APPROVED",
+  "KATAYUAN: NAAPRUBAHAN",
+  "STATUS: APPROVED"
+ ],
+ "status.by": [
+  "By",
+  "Ni",
+  "By"
+ ],
+ "status.on": [
+  "On",
+  "Noong",
+  "On"
+ ],
+ "status.own": [
+  "own report",
+  "sariling ulat",
+  "sariling report"
+ ],
+ "status.reason": [
+  "Reason",
+  "Dahilan",
+  "Reason"
+ ],
+ "status.rejected": [
+  "STATUS: REJECTED",
+  "KATAYUAN: TINANGGIHAN",
+  "STATUS: REJECTED"
+ ],
+ "status.waiting": [
+  "STATUS: WAITING FOR APPROVAL",
+  "KATAYUAN: NAGHIHINTAY NG PAG-APRUBA",
+  "STATUS: WAITING FOR APPROVAL"
+ ],
+ "sum.changed": [
+  "changed",
+  "nagbago",
+  "changed"
+ ],
+ "sum.inv_missing": [
+  "plate not found, inventory status not changed",
+  "hindi nakita ang plaka, hindi nagbago ang inventory status",
+  "hindi nakita ang plate, hindi nagbago ang inventory status"
+ ],
+ "sum.inv_status": [
+  "Inventory status",
+  "Katayuan sa inventory",
+  "Inventory status"
+ ],
+ "sum.inventory": [
+  "Inventory",
+  "Inventory",
+  "Inventory"
+ ],
+ "sum.note": [
+  "Note",
+  "Tala",
+  "Note"
+ ],
+ "sum.rejected_note": [
+  "Inventory status was not changed. The reason is saved in the Solution column.",
+  "Hindi nagbago ang inventory status. Nakasulat ang dahilan sa column ng Solution.",
+  "Hindi nagbago ang inventory status. Naka-save ang reason sa Solution column."
+ ],
+ "sum.rejected_saved": [
+  "REJECTED REPORT SAVED TO THE SHEET",
+  "TINANGGIHANG ULAT, NAISULAT SA SHEET",
+  "REJECTED REPORT, NA-SAVE SA SHEET"
+ ],
+ "sum.row": [
+  "row {n}",
+  "hilera {n}",
+  "row {n}"
+ ],
+ "sum.rows": [
+  "Rows",
+  "Mga hilera",
+  "Rows"
+ ],
+ "sum.saved": [
+  "SAVED TO THE SHEET",
+  "NAISULAT SA SHEET",
+  "NA-SAVE SA SHEET"
+ ],
+ "sum.status_written": [
+  "Status written",
+  "Katayuang naisulat",
+  "Status na na-save"
+ ],
+ "sum.tab": [
+  "Tab",
+  "Tab",
+  "Tab"
+ ],
+ "sum.unchanged": [
+  "unchanged",
+  "walang pagbabago",
+  "unchanged"
+ ],
+ "sum.updated": [
+  "updated",
+  "na-update",
+  "updated"
+ ],
+ "upd.blocked": [
+  "You can't change these jobs (reported by someone else):",
+  "Hindi mo mababago ang mga trabahong ito (iniulat ng iba):",
+  "Hindi mo pwedeng baguhin ang mga job na ito (iniulat ng iba):"
+ ],
+ "upd.company": [
+  "Company",
+  "Kumpanya",
+  "Company"
+ ],
+ "upd.footer": [
+  "Check the changes, then tap <b>Apply</b>.",
+  "Suriin ang mga pagbabago, pagkatapos pindutin ang <b>Ilapat</b>.",
+  "I-check ang changes, tapos i-tap ang <b>Apply</b>."
+ ],
+ "upd.head": [
+  "UPDATE TO EXISTING JOBS",
+  "UPDATE SA MGA UMIIRAL NA TRABAHO",
+  "UPDATE SA EXISTING JOBS"
+ ],
+ "upd.mark_done": [
+  "Mark as <b>DONE</b>",
+  "Markahang <b>TAPOS NA</b>",
+  "I-mark na <b>DONE</b>"
+ ],
+ "upd.new_due": [
+  "New due date",
+  "Bagong takdang petsa",
+  "Bagong due date"
+ ],
+ "upd.new_problem_hint": [
+  "If this is a new problem, send it as a new report.",
+  "Kung bagong problema ito, ipadala bilang bagong ulat.",
+  "Kung bagong problem ito, i-send bilang bagong report."
+ ],
+ "upd.no_match": [
+  "I couldn't match this to an open job for this plate.",
+  "Hindi ko maitugma ito sa bukas na trabaho para sa plakang ito.",
+  "Hindi ko ma-match ito sa open job para sa plate na ito."
+ ],
+ "upd.not_saved": [
+  "not saved",
+  "hindi naisulat",
+  "hindi na-save"
+ ],
+ "upd.saved": [
+  "UPDATES SAVED TO THE SHEET",
+  "NAISULAT SA SHEET ANG MGA UPDATE",
+  "NA-SAVE SA SHEET ANG MGA UPDATE"
+ ],
+ "upd.type_open": [
+  "Type /open and the plate number to see the open jobs.",
+  "I-type ang /open at ang plaka para makita ang mga bukas na trabaho.",
+  "I-type ang /open at ang plate number para makita ang open jobs."
+ ],
+ "upd.unmatched": [
+  "Not matched to any open job:",
+  "Hindi naitugma sa anumang bukas na trabaho:",
+  "Hindi na-match sa kahit anong open job:"
+ ],
+ "users.how": [
+  "To add or remove someone, an admin changes the list in MAD → Repairs people.",
+  "Para magdagdag o magtanggal ng tao, binabago ng admin ang listahan sa MAD → Repairs people.",
+  "Para mag-add o mag-remove ng tao, binabago ng admin ang list sa MAD → Repairs people."
+ ],
+ "users.none": [
+  "No one is registered yet.",
+  "Wala pang rehistrado.",
+  "Wala pang registered."
+ ],
+ "users.title": [
+  "Registered people",
+  "Mga rehistradong tao",
+  "Registered people"
+ ],
+ "welcome.approve": [
+  "Reports to approve will show up in the group with Approve / Reject buttons.",
+  "Lalabas sa grupo ang mga ulat na aaprubahan na may mga button na Aprubahan / Tanggihan.",
+  "Lalabas sa group ang mga report na i-a-approve na may Approve / Reject buttons."
+ ],
+ "welcome.hi": [
+  "Hi {name}! You are: {roles}.",
+  "Kumusta {name}! Ikaw ay: {roles}.",
+  "Hi {name}! Ikaw ay: {roles}."
+ ],
+ "welcome.report": [
+  "To report a repair, just send a voice note here and say:\nplate number, the car, each problem, the fix, who does it, and when it will be done.\nYou can also type it with /report.",
+  "Para mag-ulat ng repair, magpadala lang ng voice note dito at sabihin:\nplaka, ang sasakyan, bawat problema, ang ayos, sino ang gagawa, at kung kailan matatapos.\nPuwede ring i-type gamit ang /report.",
+  "Para mag-report ng repair, mag-send lang ng voice note dito at sabihin:\nplate number, ang car, bawat problem, ang fix, sino ang gagawa, at kung kailan matatapos.\nPwede ring i-type gamit ang /report."
+ ],
+ "welcome.stranger": [
+  "Hi {name}!\n\nI'm the Dryve repairs bot, but I don't know you yet.\nSend /whoami and give the numbers to an admin so they can add you.",
+  "Kumusta {name}!\n\nAko ang repairs bot ng Dryve, pero hindi pa kita kilala.\nIpadala ang /whoami at ibigay ang mga numero sa admin para madagdag ka.",
+  "Hi {name}!\n\nAko ang repairs bot ng Dryve, pero hindi pa kita kilala.\nI-send ang /whoami at ibigay ang numbers sa admin para ma-add ka."
+ ],
+ "welcome.tap": [
+  "Tap a button below, or send /help.",
+  "Pumindot ng button sa ibaba, o ipadala ang /help.",
+  "Mag-tap ng button sa ibaba, o i-send ang /help."
+ ],
+ "whoami": [
+  "Your Telegram ID: {uid}\nThis chat's ID: {cid}\nRole: {role}",
+  "Ang iyong Telegram ID: {uid}\nID ng chat na ito: {cid}\nTungkulin: {role}",
+  "Ang Telegram ID mo: {uid}\nID ng chat na ito: {cid}\nRole: {role}"
+ ],
+ "write.failed_report": [
+  "<b>The report for {label} could not be saved to the sheet.</b>\nReason: {why}\nThe report is still here. Tap the button to try again.",
+  "<b>Hindi naisulat sa sheet ang ulat para sa {label}.</b>\nDahilan: {why}\nNandito pa ang ulat. Pindutin ang button para subukan ulit.",
+  "<b>Hindi na-save sa sheet ang report para sa {label}.</b>\nReason: {why}\nNandito pa ang report. I-tap ang button para mag-try ulit."
+ ],
+ "write.failed_update": [
+  "<b>The update could not be fully saved.</b>\nReason: {why}\nTap the button to try again.",
+  "<b>Hindi buong naisulat ang update.</b>\nDahilan: {why}\nPindutin ang button para subukan ulit.",
+  "<b>Hindi buong na-save ang update.</b>\nReason: {why}\nI-tap ang button para mag-try ulit."
+ ],
+ "write.mismatch": [
+  "the sheet answer did not match what was sent, please check the sheet",
+  "hindi tumugma ang sagot ng sheet sa ipinadala, pakisuri ang sheet",
+  "hindi tumugma ang sagot ng sheet sa na-send, paki-check ang sheet"
+ ],
+ "write.some_rows": [
+  "some rows were not saved, please check the sheet",
+  "may ilang hilerang hindi naisulat, pakisuri ang sheet",
+  "may ilang rows na hindi na-save, paki-check ang sheet"
+ ],
+ "msg.who_heard": [
+  "I heard:\n<i>{heard}</i>",
+  "Ang narinig ko:\n<i>{heard}</i>",
+  "Ang narinig ko:\n<i>{heard}</i>"
+ ]
+}
