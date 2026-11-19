@@ -5,8 +5,10 @@ import { parseMoney, parseSheetDate } from "@/lib/cars/model";
 
 export type SnapshotRow = Record<string, string | number | null | undefined> & { _row: number; _group?: string | null; _order?: number };
 
-export type PriceIssueKind = "pricelist_docs_code" | "pricelist_unmatched" | "pricelist_odd_value" | "pricelist_differs";
-export interface PriceIssue { kind: PriceIssueKind; plate: string | null; sourceRow: number; message: string }
+export type SyncField = "arrival_date" | "model" | "color" | "mileage" | "fuel" | "encumbrance" | "year" | "brand" | "trans" | "spare_key" | "status" | "docs_code" | "unmatched" | "odd_value";
+/** One place where the price list and the Docs Bible do not say the same thing (or something a person must know): a row of the price list check. */
+export interface SyncItem { plate: string | null; field: SyncField; listValue: string | null; docsValue: string | null; sourceRow: number; message: string }
+export type PriceIssue = SyncItem;
 
 export interface StockInput {
   plate: string; plateDisplay: string; group: string | null; order: number; sourceRow: number;
@@ -33,7 +35,7 @@ function money(r: SnapshotRow, col: string, plate: string, issues: PriceIssue[])
   if (raw === null || raw === undefined || raw === "") return null;
   if (typeof raw === "number") return raw > 0 ? Math.round(raw) : null;
   const n = parseMoney(String(raw));
-  if (n === null) issues.push({ kind: "pricelist_odd_value", plate, sourceRow: r._row, message: `${col} says "${raw}", which is not an amount. It was left empty.` });
+  if (n === null) issues.push({ field: "odd_value", plate, listValue: String(raw), docsValue: null, sourceRow: r._row, message: `${col} says "${raw}", which is not an amount. It was left empty.` });
   return n;
 }
 
@@ -42,14 +44,14 @@ export function normalizeCar(r: SnapshotRow): { stock: StockInput | null; skippe
   const plate = norm(r["PLATE NUMBER"]);
   if (!plate) return { stock: null, skipped: "no plate", issues };
   if (isTestRow(r)) return { stock: null, skipped: "test row", issues };
-  if (!usualPlate(plate)) issues.push({ kind: "pricelist_odd_value", plate, sourceRow: r._row, message: `The plate "${r["PLATE NUMBER"]}" does not look like a usual plate (three letters and three or four digits).` });
+  if (!usualPlate(plate)) issues.push({ field: "odd_value", plate, listValue: String(r["PLATE NUMBER"]), docsValue: null, sourceRow: r._row, message: `The plate "${r["PLATE NUMBER"]}" does not look like a usual plate (three letters and three or four digits).` });
 
   const orRaw = text(r["OR EXP"]);
   const orExpiry = orRaw ? parseSheetDate(orRaw) : null;
-  if (orRaw && !orExpiry) issues.push({ kind: "pricelist_odd_value", plate, sourceRow: r._row, message: `OR EXP was typed as "${orRaw}", which is not a clear date. It is kept as typed.` });
+  if (orRaw && !orExpiry) issues.push({ field: "odd_value", plate, listValue: orRaw, docsValue: null, sourceRow: r._row, message: `OR EXP was typed as "${orRaw}", which is not a clear date. It is kept as typed.` });
 
   const docs = text(r["DOCS"]);
-  if (docs) issues.push({ kind: "pricelist_docs_code", plate, sourceRow: r._row, message: `The DOCS column of the price list says "${docs}". It is kept as typed (shown as "Papers with"); the staff should say what it means.` });
+  if (docs) issues.push({ field: "docs_code", plate, listValue: docs, docsValue: null, sourceRow: r._row, message: `The DOCS column of the price list says "${docs}". It is kept as typed (shown as "Papers with"); the staff should say what it means.` });
 
   const stock: StockInput = {
     plate, plateDisplay: text(r["PLATE NUMBER"]) ?? plate, group: (r._group as string | null | undefined) ?? null, order: Number(r._order ?? 0), sourceRow: r._row,
@@ -60,7 +62,7 @@ export function normalizeCar(r: SnapshotRow): { stock: StockInput | null; skippe
   return { stock, issues };
 }
 
-export interface UnitIdentity { year_model: string | null; make: string | null; model_variant: string | null; color: string | null; trans: string | null; fuel: string | null; spare_key: string | null; mileage?: string | null; encumbrance?: string | null; arrival_date?: string | null }
+export interface UnitIdentity { year_model: string | null; make: string | null; model_variant: string | null; color: string | null; trans: string | null; fuel: string | null; spare_key: string | null; mileage?: string | null; encumbrance?: string | null; arrival_date?: string | null; sale_status?: string | null; vehicle_status?: string | null }
 
 const yy = (v: unknown) => { const d = String(v ?? "").replace(/\D/g, ""); return d.length >= 2 ? d.slice(-2) : d; };
 
@@ -73,19 +75,38 @@ export function spareKeyState(v: string | null | undefined): "yes" | "no" | "unk
   return "unknown";
 }
 const sameFuel = (a: string, b: string) => { const f = (x: string) => (/^(DSL|DIESEL)/.test(norm(x)) ? "DIESEL" : /^(GAS|GASOLINE|PETROL)/.test(norm(x)) ? "GAS" : norm(x)); return f(a) === f(b); };
-/** "BLACK" and "GALAXY BLACK" are the same colour said at two levels of detail: only a real disagreement counts. */
-const sameColor = (a: string, b: string) => { const x = norm(a), y = norm(b); return x === y || x.includes(y) || y.includes(x); };
 
-/** What the price list and the Docs Bible say differently about the same car: pointed out, never changed. */
-export function identityDifferences(s: StockInput, u: UnitIdentity): string[] {
-  const out: string[] = [];
-  if (s.identity.ym && u.year_model && yy(s.identity.ym) !== yy(u.year_model)) out.push(`Year: the price list says ${s.identity.ym}, the Docs Bible says ${u.year_model}.`);
-  if (s.identity.brand && u.make && norm(s.identity.brand) !== norm(u.make)) out.push(`Brand: the price list says ${s.identity.brand}, the Docs Bible says ${u.make}.`);
-  if (s.identity.color && u.color && !sameColor(s.identity.color, u.color)) out.push(`Color: the price list says ${s.identity.color}, the Docs Bible says ${u.color}.`);
-  if (s.identity.trans && u.trans && norm(s.identity.trans) !== norm(u.trans)) out.push(`Transmission: the price list says ${s.identity.trans}, the Docs Bible says ${u.trans}.`);
-  if (s.identity.fuel && u.fuel && !sameFuel(s.identity.fuel, u.fuel)) out.push(`Fuel: the price list says ${s.identity.fuel}, the Docs Bible says ${u.fuel}.`);
-  const a = spareKeyState(s.identity.spareKey), b = spareKeyState(u.spare_key);
-  if (a !== "unknown" && b !== "unknown" && a !== b) out.push(`Spare key: the price list says "${s.identity.spareKey}", the Docs Bible says "${u.spare_key}".`);
+export const FIELD_LABELS: Record<SyncField, string> = {
+  arrival_date: "Arrival date", model: "Model", color: "Color", mileage: "Mileage", fuel: "Fuel", encumbrance: "Encumbrance", year: "Year", brand: "Brand", trans: "Transmission",
+  spare_key: "Spare key", status: "Status", docs_code: "Papers-with code (DOCS)", unmatched: "Not in the Docs Bible", odd_value: "Odd value",
+};
+
+const said = (label: string, listV: string, docsV: string) => `${label}: the price list says "${listV}", the Docs Bible says "${docsV}".`;
+
+/** Every place the price list and the Docs Bible say something different about the same car (both sides filled in; a blank is not a difference). */
+export function compareWithDocs(s: StockInput, u: UnitIdentity): SyncItem[] {
+  const out: SyncItem[] = [];
+  const add = (field: SyncField, listV: string | null | undefined, docsV: string | null | undefined, message?: string) => out.push({ plate: s.plate, field, listValue: listV ?? null, docsValue: docsV ?? null, sourceRow: s.sourceRow, message: message ?? said(FIELD_LABELS[field], String(listV), String(docsV)) });
+  const both = (a: string | null | undefined, b: string | null | undefined): a is string => !!a && !!b && !/^N\/?A$/i.test(String(b).trim());
+  const i = s.identity;
+  if (both(i.ym, u.year_model) && yy(i.ym) !== yy(u.year_model)) add("year", i.ym, u.year_model);
+  if (both(i.brand, u.make) && norm(i.brand) !== norm(u.make)) add("brand", i.brand, u.make);
+  if (both(i.make, u.model_variant) && norm(i.make) !== norm(u.model_variant)) add("model", i.make, u.model_variant);
+  if (both(i.color, u.color) && norm(i.color) !== norm(u.color)) add("color", i.color, u.color);
+  if (both(i.mileage, u.mileage) && norm(i.mileage) !== norm(u.mileage)) add("mileage", i.mileage, u.mileage);
+  if (both(i.trans, u.trans) && norm(i.trans) !== norm(u.trans)) add("trans", i.trans, u.trans);
+  if (both(i.fuel, u.fuel) && !sameFuel(i.fuel, String(u.fuel))) add("fuel", i.fuel, u.fuel);
+  if (both(i.encumbrance, u.encumbrance) && norm(i.encumbrance) !== norm(u.encumbrance)) add("encumbrance", i.encumbrance, u.encumbrance);
+  if (both(i.arrived, u.arrival_date) && i.arrived !== u.arrival_date) add("arrival_date", i.arrived, u.arrival_date, `${said("Arrival date", i.arrived, String(u.arrival_date))} Days in stock follow the price list's date until this is settled.`);
+  const a = spareKeyState(i.spareKey), b = spareKeyState(u.spare_key);
+  if (a !== "unknown" && b !== "unknown" && a !== b) add("spare_key", i.spareKey, u.spare_key);
+  // status: the price list's REMARKS note against the Docs Bible's sale and vehicle status
+  const remarks = String(s.remarks ?? "");
+  const listStatus = /^\s*SOLD\b/i.test(remarks) ? "Sold" : /^\s*RESERVED\b/i.test(remarks) ? "Reserved" : null;
+  const docsSale = String(u.sale_status ?? "");
+  const docsText = `${u.sale_status ?? "-"} / ${u.vehicle_status ?? "-"}`;
+  if (listStatus && docsSale.toLowerCase() !== listStatus.toLowerCase()) add("status", remarks, docsText, `Status: the price list says "${remarks}", the Docs Bible says ${docsText}.`);
+  else if (!listStatus && /^(sold|reserved)$/i.test(docsSale)) add("status", remarks || "(no status note)", docsText, `Status: the Docs Bible says ${docsText} but the car is still on the price list${remarks ? ` ("${remarks}")` : ""}.`);
   return out;
 }
 
@@ -105,13 +126,6 @@ export function identityOverrides(s: StockInput, u: UnitIdentity): Overrides {
     arrivedOn: s.identity.arrived && s.identity.arrived !== (u.arrival_date ?? null) ? s.identity.arrived : null,
     encumbrance: differs(s.identity.encumbrance, u.encumbrance) ? s.identity.encumbrance : null,
   };
-}
-
-/** The differences a person should look at: real disagreements, and an arrival date that is not the same (days in stock depend on it). */
-export function reviewNotes(s: StockInput, u: UnitIdentity): string[] {
-  const out = identityDifferences(s, u);
-  if (s.identity.arrived && u.arrival_date && s.identity.arrived !== u.arrival_date) out.push(`Arrival date: the price list says ${s.identity.arrived}, the Docs Bible says ${u.arrival_date}. The price list's date is used for the days in stock until this is settled.`);
-  return out;
 }
 
 // ---- the two small lists ----

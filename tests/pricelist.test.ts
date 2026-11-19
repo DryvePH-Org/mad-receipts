@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPriceListRows, daysInStock, rowKind, sellableFlag, type PriceRow } from "@/lib/pricelist/export";
-import { identityDifferences, identityOverrides, isTestRow, reviewNotes, normalizeCar, normalizeRenewal, normalizeRepair, spareKeyState, type SnapshotRow } from "@/lib/pricelist/import";
+import { compareWithDocs, identityOverrides, isTestRow, normalizeCar, normalizeRenewal, normalizeRepair, spareKeyState, type SnapshotRow } from "@/lib/pricelist/import";
 
 const car = (o: Record<string, unknown> = {}): SnapshotRow => ({ _row: 4, _group: "HATCHBACK", _order: 1, "PLATE NUMBER": "NBU4875", BRAND: "TOYOTA", MAKE: "WIGO E", COLOR: "RED", YM: 17, PRICE: 238000, TARGET: 225000, REPRICE: 228000, "RE-TARGET": 215000, "DATE ARRIVED": "2026-09-12", "OR EXP": "2027-05-15", ...o }) as SnapshotRow;
 
@@ -19,35 +19,42 @@ describe("taking a price list row over", () => {
     expect(normalizeCar(car({ PRICE: "₱1,099,000" })).stock?.listPrice).toBe(1099000);
     const odd = normalizeCar(car({ PRICE: "ASK" }));
     expect(odd.stock?.listPrice).toBeNull();
-    expect(odd.issues[0].kind).toBe("pricelist_odd_value");
+    expect(odd.issues[0].field).toBe("odd_value");
   });
   it("keeps an OR expiry that is not a date as typed and puts it on the review list", () => {
     const r = normalizeCar(car({ "OR EXP": "06/012027" }));
     expect(r.stock).toMatchObject({ orExpiry: null, orExpiryRaw: "06/012027" });
-    expect(r.issues.map((i) => i.kind)).toContain("pricelist_odd_value");
+    expect(r.issues.map((i) => i.field)).toContain("odd_value");
   });
   it("keeps the DOCS code as typed and puts it on the review list", () => {
     const r = normalizeCar(car({ DOCS: "L:SERJEL" }));
     expect(r.stock?.papersWith).toBe("L:SERJEL");
-    expect(r.issues.map((i) => i.kind)).toEqual(["pricelist_docs_code"]);
+    expect(r.issues.map((i) => i.field)).toEqual(["docs_code"]);
   });
   it("flags an unusual plate", () => {
-    expect(normalizeCar(car({ "PLATE NUMBER": "NU355A" })).issues.map((i) => i.kind)).toContain("pricelist_odd_value");
+    expect(normalizeCar(car({ "PLATE NUMBER": "NU355A" })).issues.map((i) => i.field)).toContain("odd_value");
   });
 });
 
-describe("differences with the Docs Bible", () => {
-  const unit = { year_model: "17", make: "TOYOTA", model_variant: "WIGO E", color: "RED", trans: "MT", fuel: "GAS", spare_key: null };
-  const s = normalizeCar(car({ TRANS: "MT", FUEL: "GAS" })).stock!;
-  it("sees no difference when they say the same", () => expect(identityDifferences(s, unit)).toEqual([]));
-  it("treats the same things written differently as the same", () => {
-    const a = normalizeCar(car({ COLOR: "BLACK", FUEL: "DSL", SPAREKEY: "N/A" })).stock!;
-    expect(identityDifferences(a, { ...unit, color: "GALAXY BLACK", fuel: "DIESEL", spare_key: "W/O SPAREKEY" })).toEqual([]);
+describe("differences with the Docs Bible (the price list check)", () => {
+  const unit = { year_model: "17", make: "TOYOTA", model_variant: "WIGO E", color: "RED", trans: "MT", fuel: "GAS", spare_key: null, mileage: "108T KMS", encumbrance: null, arrival_date: "2026-09-12", sale_status: "Onhand", vehicle_status: "AVAILABLE" };
+  const s = normalizeCar(car({ TRANS: "MT", FUEL: "GAS", MILEAGE: "108T KMS" })).stock!;
+  it("sees no difference when they say the same", () => expect(compareWithDocs(s, unit)).toEqual([]));
+  it("treats the same fuel written two ways as the same, and a blank as no difference", () => {
+    const a = normalizeCar(car({ FUEL: "DSL", SPAREKEY: "N/A", ENCUMBRANCE: null })).stock!;
+    expect(compareWithDocs(a, { ...unit, fuel: "DIESEL", spare_key: "W/O SPAREKEY", encumbrance: "N/A" })).toEqual([]);
   });
-  it("points out a real disagreement", () => {
-    const a = normalizeCar(car({ COLOR: "WHITE", SPAREKEY: "W/SPAREKEY" })).stock!;
-    const d = identityDifferences(a, { ...unit, color: "RED", spare_key: "NO SPARE KEY" });
-    expect(d.length).toBe(2);
+  it("lists every real difference, one item each, with both values", () => {
+    const a = normalizeCar(car({ COLOR: "WHITE", SPAREKEY: "W/SPAREKEY", MAKE: "WIGO", "DATE ARRIVED": "2026-09-20" })).stock!;
+    const d = compareWithDocs(a, { ...unit, spare_key: "NO SPARE KEY" });
+    expect(d.map((i) => i.field).sort()).toEqual(["arrival_date", "color", "model", "spare_key"]);
+    expect(d.find((i) => i.field === "color")).toMatchObject({ listValue: "WHITE", docsValue: "RED", plate: "NBU4875" });
+  });
+  it("compares the status note with the Docs Bible status", () => {
+    const reserved = normalizeCar(car({ REMARKS: "RESERVED - SWEET 10/14" })).stock!;
+    expect(compareWithDocs(reserved, unit).map((i) => i.field)).toEqual(["status"]);
+    expect(compareWithDocs(reserved, { ...unit, sale_status: "Reserved" })).toEqual([]);
+    expect(compareWithDocs(s, { ...unit, sale_status: "Sold", vehicle_status: "SOLD" }).map((i) => i.field)).toEqual(["status"]); // sold in the Docs Bible but still on the price list
   });
   it("reads spare key texts", () => {
     expect(spareKeyState("W/SPAREKEY TBF")).toBe("yes");
@@ -68,8 +75,8 @@ describe("what the price list showed differently", () => {
     const same = normalizeCar(car({ MAKE: "WIGO 1.0G E MT" })).stock!;
     expect(identityOverrides(same, { ...unit, fuel: "GAS", arrival_date: "2026-09-12" })).toEqual({ model: null, color: null, mileage: null, fuel: null, arrivedOn: null, encumbrance: null });
   });
-  it("asks a person to look at a different arrival date (it decides the days in stock)", () => {
-    expect(reviewNotes(s, unit).join(" ")).toContain("Arrival date");
+  it("puts a different arrival date on the check list (it decides the days in stock)", () => {
+    expect(compareWithDocs(s, unit).map((i) => i.field)).toContain("arrival_date");
   });
 });
 
@@ -109,5 +116,27 @@ describe("the Excel layout", () => {
     const last = data[data.length - 1];
     expect(last[3]?.value).toBe(2); // two of the three cars can be sold
     expect(data.find((r) => r[12]?.value === "CCC3333")?.[0]?.backgroundColor).toBe("#B6D7A8");
+  });
+});
+
+import { choicesFor, planSettle } from "@/lib/pricelist/sync";
+describe("settling an item of the price list check", () => {
+  it("copies the price list's value into the Docs Bible and clears the stock row's own wording", () => {
+    expect(planSettle("color", "list", { listValue: "WHITE", docsValue: "RED" })).toMatchObject({ docsPatch: { color: "WHITE" }, clearOverride: "list_color" });
+    expect(planSettle("year", "list", { listValue: "2017", docsValue: "18" })).toMatchObject({ docsPatch: { year_model: "17" } });
+  });
+  it("keeps the Docs Bible's value by only clearing the stock row's own wording", () => {
+    const p = planSettle("arrival_date", "docs", { listValue: "2026-09-20", docsValue: "2026-09-12" });
+    expect(p).toMatchObject({ clearOverride: "list_arrived_on" });
+    expect("docsPatch" in p).toBe(false);
+  });
+  it("copies a Reserved or Sold note into the Docs Bible status", () => {
+    expect(planSettle("status", "list", { listValue: "RESERVED - SWEET 10/14", docsValue: "Onhand / AVAILABLE" })).toMatchObject({ docsPatch: { sale_status: "Reserved", vehicle_status: "AVAILABLE" } });
+    expect(planSettle("status", "list", { listValue: "", docsValue: "Sold / SOLD" })).toHaveProperty("error");
+  });
+  it("only lets a person note the items that are not a difference", () => {
+    expect(choicesFor("docs_code")).toEqual(["noted"]);
+    expect(planSettle("unmatched", "list", { listValue: "X", docsValue: null })).toHaveProperty("error");
+    expect(planSettle("docs_code", "noted", { listValue: "C", docsValue: null })).toMatchObject({ decision: "Noted, left as it is" });
   });
 });

@@ -101,3 +101,12 @@ What was found and fixed while checking:
 Also left out on purpose: column Y (`=TODAY()`), the total row, and the two test rows. All other cells of the three tabs are accounted for.
 
 A decision for the owner: the old workbook cannot be locked as a whole if ORCR WITH MAD stays in it, because the staff must keep updating that tab. Lock only the tabs that moved (INVENTORY 2026, REPAIRS REPORT, FOR RENEWAL and the arrival lists) and leave ORCR WITH MAD open.
+
+## 8. The price list check (a review list of its own, 19 Nov 2026)
+
+Every place where the price list and the Docs Bible do not say the same thing is a row of **Price list check** (`/cars/sync`, opened from Car status; Admin, Approver and Documentation), kept apart from the Docs Bible review list. One row per car and field, with both values side by side:
+- **Use the price list's** copies its value into the Docs Bible (changes are in the car's history as "pricelist"); **Use the Docs Bible's** keeps the Docs Bible value and drops the price list's own wording; **Leave as it is** only notes it. Settled rows stay settled when the import is run again.
+- The first dry run finds 74 rows: 27 model texts, 17 arrival dates, 5 mileages, 4 colors, 2 statuses (a car Reserved on the price list but Onhand in the Docs Bible), 1 encumbrance, 1 spare key, 2 cars not in the Docs Bible, 3 odd values, and 12 DOCS codes to be explained.
+- Until a row is settled, the export and Car status show what the price list showed, so nothing looks different to the staff.
+
+Car status also shows, to everyone, the note "ORCR transfers to buyers are not in MAD. Keep using the 'ORCR WITH MAD' tab of the old MAD PRICE LIST." with a button to open the workbook. To open the tab itself, set `ORCR_SHEET_GID` (the number after `#gid=` in the address while that tab is open) in `/opt/mad-receipts/.env`.

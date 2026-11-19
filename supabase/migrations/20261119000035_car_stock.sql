@@ -98,15 +98,22 @@ create table public.or_renewals (
 alter table public.or_renewals enable row level security;
 create index or_renewals_plate on public.or_renewals (plate_no);
 
--- The review list also takes what the price list import could not decide.
--- (whatever the old check was called, it goes; the new one lists every kind)
-do $$
-declare c record;
-begin
-  for c in select conname from pg_constraint where conrelid = 'public.docs_review_items'::regclass and contype = 'c' and pg_get_constraintdef(oid) like '%duplicate_plate%' loop
-    execute format('alter table public.docs_review_items drop constraint %I', c.conname);
-  end loop;
-end $$;
-alter table public.docs_review_items add constraint docs_review_items_kind_check check (kind in (
-  'duplicate_plate', 'no_plate', 'status_disagree', 'legacy_classification', 'odd_date', 'odd_plate', 'unknown_value', 'other',
-  'pricelist_docs_code', 'pricelist_unmatched', 'pricelist_odd_value', 'pricelist_differs'));
+-- The price list check: every place where the price list and the Docs Bible do not say the same thing about a car, one row per car and field,
+-- with both values side by side. The staff settle each one (use the price list's value, use the Docs Bible's, or note it); nothing is silently fixed.
+create table public.car_sync_items (
+  id uuid primary key default gen_random_uuid(),
+  unit_id uuid references public.docs_units (id) on delete cascade,
+  plate_no text,
+  field text not null check (field in ('arrival_date', 'model', 'color', 'mileage', 'fuel', 'encumbrance', 'year', 'brand', 'trans', 'spare_key', 'status', 'docs_code', 'unmatched', 'odd_value')),
+  list_value text,                                -- what the price list says
+  docs_value text,                                -- what the Docs Bible says
+  message text not null,
+  source_row integer,                             -- the row of the price list workbook
+  status text not null default 'open' check (status in ('open', 'settled')),
+  decision text,                                  -- 'list' (the price list's value was used), 'docs' (the Docs Bible's), or 'noted'
+  settled_by uuid references public.profiles (id),
+  settled_at timestamptz,
+  created_at timestamptz not null default now()
+);
+alter table public.car_sync_items enable row level security;
+create index car_sync_items_open on public.car_sync_items (status, plate_no);

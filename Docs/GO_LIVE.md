@@ -44,5 +44,5 @@ The Docs Bible in the database is the one place to work. The old Google Sheet is
 ## The price list in the database (migration 35)
 1. Run `supabase/migrations/20261119000035_car_stock.sql` in the Supabase SQL Editor.
 2. Export the MAD PRICE LIST workbook (File > Download > Microsoft Excel) and save it as `Docs/sheets-private/MAD-Pricelist.xlsx`.
-3. Take the snapshot, dry-run the import and read the review items; add cars that are missing from the Docs Bible with Add a car; then import with `--apply` (see `Docs/pricelist-migration-plan.md`, section 6).
+3. Take the snapshot, dry-run the import and read what it reports (it becomes the **Price list check** in Car status); add cars that are missing from the Docs Bible with Add a car; then import with `--apply` (see `Docs/pricelist-migration-plan.md`, section 6).
 4. Car status then shows **Download Excel (price list layout)** for Admin and Approver. Compare it with the sheet before anything else is switched.

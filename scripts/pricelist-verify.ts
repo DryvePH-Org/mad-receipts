@@ -8,7 +8,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { composeRow, type StockRecord, type UnitRecord } from "../src/lib/pricelist/compose";
 import { sellableFlag } from "../src/lib/pricelist/export";
-import { identityOverrides, normalizeCar, normalizeRenewal, normalizeRepair, plateKeyOf, spareKeyState, type SnapshotRow } from "../src/lib/pricelist/import";
+import { identityOverrides, normalizeCar, normalizeRenewal, normalizeRepair, spareKeyState, type SnapshotRow } from "../src/lib/pricelist/import";
 
 const env: Record<string, string | undefined> = { ...process.env };
 if (existsSync(".env.local")) for (const l of readFileSync(".env.local", "utf8").split("\n")) { const m = /^([A-Z_0-9]+)=(.*?)(\s+#.*)?$/.exec(l); if (m && !(m[1] in env)) env[m[1]] = m[2].trim(); }

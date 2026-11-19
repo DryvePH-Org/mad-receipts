@@ -14,6 +14,9 @@ export const carsSheetId = () => process.env.CARS_SHEET_ID?.trim() || process.en
 export const carsSheetGid = () => process.env.CARS_SHEET_GID?.trim() || "84826590";
 export const carsSheetUrl = () => `https://docs.google.com/spreadsheets/d/${carsSheetId()}/edit#gid=${carsSheetGid()}`;
 
+/** The ORCR WITH MAD tab of the old MAD Price List (it stays in the Google Sheet): its own tab when ORCR_SHEET_GID is set, else the workbook. */
+export const orcrSheetUrl = () => (carsSheetId() ? `https://docs.google.com/spreadsheets/d/${carsSheetId()}/edit${process.env.ORCR_SHEET_GID?.trim() ? `#gid=${process.env.ORCR_SHEET_GID.trim()}` : ""}` : null);
+
 export interface CarsData { cars: CarRow[]; at: number; stale: boolean }
 
 export async function loadCars(): Promise<CarsData> {

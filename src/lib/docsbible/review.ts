@@ -2,11 +2,10 @@
 // disagree, an old car with no classification, a date or plate that looks wrong). planResolution is pure; resolveReview does the saving.
 import { CLASSIFICATIONS, dateOf, plateKey, plateLooksUsual } from "./normalize";
 
-export type ReviewKind = "duplicate_plate" | "no_plate" | "status_disagree" | "legacy_classification" | "odd_date" | "odd_plate" | "unknown_value" | "other" | "pricelist_docs_code" | "pricelist_unmatched" | "pricelist_odd_value" | "pricelist_differs";
+export type ReviewKind = "duplicate_plate" | "no_plate" | "status_disagree" | "legacy_classification" | "odd_date" | "odd_plate" | "unknown_value" | "other";
 export const KIND_LABELS: Record<ReviewKind, string> = {
   duplicate_plate: "Same plate twice", no_plate: "Row without a plate", status_disagree: "Status differs", legacy_classification: "Needs a classification",
   odd_date: "Date to fix", odd_plate: "Plate to check", unknown_value: "Unknown value", other: "Other",
-  pricelist_docs_code: "Price list: papers-with code", pricelist_unmatched: "Price list: car not in the Docs Bible", pricelist_odd_value: "Price list: odd value", pricelist_differs: "Price list differs from the Docs Bible",
 };
 
 export type ReviewAction =
