@@ -8,14 +8,14 @@ import { requireModule } from "@/lib/auth";
 import { docsDb } from "@/lib/docsbible/review-server";
 import { countOpenSyncItems } from "@/lib/pricelist/sync-server";
 import { forRole } from "@/lib/cars/model";
-import { carsSheetUrl, loadCars, orcrSheetUrl, type CarsData } from "@/lib/cars/read";
+import { loadCars, orcrSheetUrl, type CarsData } from "@/lib/cars/read";
 import { loadDocsSummaries } from "@/lib/docs/summary";
 import { CarsBoard } from "./cars-board";
 
 export default function CarsPage() {
   return (
     <div className="space-y-6">
-      <PageHeader title="Car status" description="Every car in the inventory: can it be sold, is it being repaired, how long has it been here. Read from the MAD Pricelist; the sheet is still where changes are made." />
+      <PageHeader title="Car status" description="Every car in the price list: can it be sold, is it being repaired, how long has it been here. This is the app\u0027s own list: Admin and Approver change prices and status here." />
       <Suspense fallback={<PageSkeleton />}><Content /></Suspense>
     </div>
   );
@@ -30,12 +30,12 @@ async function Content() {
     return (
       <div role="alert" className="flex gap-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100">
         <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-        <p>{e instanceof Error ? e.message : "The inventory could not be read."} Try again in a moment.</p>
+        <p>{e instanceof Error ? e.message : "The price list could not be read."} Try again in a moment.</p>
       </div>
     );
   }
   const docs = Object.fromEntries(await loadDocsSummaries().catch(() => new Map()));
-  const canOpenSheet = user.role === "admin" || user.role === "approver";
+  const canOpenSheet = user.role === "admin" || user.role === "approver"; // the same two roles edit the price list
   // the Excel copy in the price list's layout, once the price list is in the database (Admin and Approver)
   const inApp = canOpenSheet ? await docsDb().from("car_stock").select("unit_id", { count: "exact", head: true }).then((r) => (r.error ? 0 : r.count ?? 0), () => 0) : 0;
   const canCheck = user.role === "admin" || user.role === "approver" || user.role === "documentation";
@@ -58,7 +58,7 @@ async function Content() {
           <Button variant="outline" size="sm" nativeButton={false} render={<a href="/api/cars/export" download />}><Download /> Download Excel (price list layout)</Button>
         </div>
       )}
-      <CarsBoard cars={data.cars.map((c) => forRole(c, user.role))} at={data.at} stale={data.stale} role={user.role} docs={docs} sheetUrl={canOpenSheet ? carsSheetUrl() : null} canOpenDocs={user.role === "admin" || user.role === "documentation"} />
+      <CarsBoard cars={data.cars.map((c) => forRole(c, user.role))} role={user.role} docs={docs} canEdit={canOpenSheet} canOpenDocs={user.role === "admin" || user.role === "documentation"} />
     </>
   );
 }

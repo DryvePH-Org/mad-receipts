@@ -1,33 +1,30 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ExternalLink, Key, LayoutGrid, Loader2, MapPin, RefreshCw, Rows3, Search, SlidersHorizontal, Wrench, X } from "lucide-react";
-import { toast } from "sonner";
+import { Key, LayoutGrid, MapPin, Rows3, Search, SlidersHorizontal, Wrench, X } from "lucide-react";
 import { ResponsiveDialog } from "@/components/shared/responsive-dialog";
 import { Pill, type Tone } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { AVAILABILITY_LABEL, EMPTY_FILTER, filterCars, sortCars, spareKeyState, summarize, type Availability, type CarFilter, type CarRow, type SortKey } from "@/lib/cars/model";
-import { refreshCarsAction } from "./actions";
+import { EditStock } from "./edit-stock";
 
 const TONE: Record<Availability, Tone> = { available: "emerald", asis: "amber", reserved: "blue", sold: "zinc", repair: "red" };
 const peso = (n: number | null) => (n === null ? "No price" : `₱${n.toLocaleString("en-PH")}`);
 const unique = (cars: CarRow[], pick: (c: CarRow) => string) => [...new Set(cars.map(pick).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 const nice = (iso: string | null) => (iso ? new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }) : "—");
-const time = (ms: number) => new Date(ms).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Manila" });
 const title = (c: CarRow) => [c.year, c.brand, c.make].filter(Boolean).join(" ");
 
-export function CarsBoard({ cars, at, stale, role, sheetUrl, canOpenDocs, docs }: { cars: CarRow[]; at: number; stale: boolean; role: string; sheetUrl: string | null; canOpenDocs: boolean; docs: Record<string, { label: string; tone: Tone; case: string | null }> }) {
-  const router = useRouter();
-  const [refreshing, startRefresh] = useTransition();
+export function CarsBoard({ cars, role, canEdit, canOpenDocs, docs }: { cars: CarRow[]; role: string; canEdit: boolean; canOpenDocs: boolean; docs: Record<string, { label: string; tone: Tone; case: string | null }> }) {
   const [f, setF] = useState<CarFilter>(EMPTY_FILTER);
   const [sort, setSort] = useState<SortKey>("newest");
   const [view, setView] = useState<"cards" | "table">("cards");
   const [more, setMore] = useState(false);
   const [open, setOpen] = useState<CarRow | null>(null);
+  const [editing, setEditing] = useState(false);
+  const locations = useMemo(() => unique(cars, (c) => c.location), [cars]);
   const set = (patch: Partial<CarFilter>) => setF((x) => ({ ...x, ...patch }));
 
   const summary = useMemo(() => summarize(cars), [cars]);
@@ -40,7 +37,6 @@ export function CarsBoard({ cars, at, stale, role, sheetUrl, canOpenDocs, docs }
 
   const toggle = <K extends "availability" | "brands" | "bodyTypes" | "fuels">(k: K, v: CarFilter[K][number]) => set({ [k]: (f[k] as string[]).includes(v as string) ? (f[k] as string[]).filter((x) => x !== v) : [...(f[k] as string[]), v] } as Partial<CarFilter>);
   const num = (v: string) => (v.trim() === "" || !/^\d+$/.test(v.trim()) ? null : Number(v.trim()));
-  const refresh = () => startRefresh(async () => { try { await refreshCarsAction(); router.refresh(); toast.success("Read again from the sheet."); } catch { toast.error("Could not refresh. Try again."); } });
 
   const tile = (label: string, value: number | string, sub: string, onClick?: () => void, on?: boolean) => (
     <button type="button" onClick={onClick} disabled={!onClick} aria-pressed={on} className={`rounded-xl p-3 text-left ring-1 transition sm:p-4 ${on ? "bg-primary/5 ring-primary" : "ring-foreground/10"} ${onClick ? "hover:bg-muted/50" : ""}`}>
@@ -100,11 +96,7 @@ export function CarsBoard({ cars, at, stale, role, sheetUrl, canOpenDocs, docs }
         <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
           <span>Showing <b className="text-foreground">{shown.length}</b> of {cars.length} cars</span>
           {active ? <button type="button" className="inline-flex items-center gap-1 underline underline-offset-2" onClick={() => { setF(EMPTY_FILTER); }}><X className="size-3.5" /> Clear filters</button> : null}
-          <span className="ml-auto flex items-center gap-2">
-            <span>{stale ? "Showing an older copy: the sheet could not be reached. " : ""}Read at {time(at)}</span>
-            <Button type="button" size="sm" variant="outline" disabled={refreshing} onClick={refresh}>{refreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />} Refresh now</Button>
-            {sheetUrl && <Button size="sm" variant="ghost" nativeButton={false} render={<a href={sheetUrl} target="_blank" rel="noreferrer" />}><ExternalLink /> Sheet</Button>}
-          </span>
+          <span className="ml-auto">Live from the app&apos;s database{canEdit ? ". Open a car to change its price or state." : "."}</span>
         </div>
       </div>
 
@@ -155,8 +147,9 @@ export function CarsBoard({ cars, at, stale, role, sheetUrl, canOpenDocs, docs }
         </div>
       )}
 
-      <ResponsiveDialog open={!!open} onOpenChange={(o) => !o && setOpen(null)} title={open ? title(open) : ""} description={open ? `Plate ${open.plateDisplay}` : undefined}>
-        {open && (
+      <ResponsiveDialog open={!!open} onOpenChange={(o) => { if (!o) { setOpen(null); setEditing(false); } }} title={open ? title(open) : ""} description={open ? `Plate ${open.plateDisplay}` : undefined}>
+        {open && editing && open.raw && <EditStock car={open} locations={locations} onClose={() => { setEditing(false); setOpen(null); }} />}
+        {open && !editing && (
           <div className="space-y-4 text-sm">
             <div className="flex flex-wrap items-center gap-2"><Pill tone={TONE[open.availability]}>{AVAILABILITY_LABEL[open.availability]}</Pill>{open.repairStatus && <Pill tone="red">{open.repairStatus}</Pill>}{open.toCebu && <Pill tone="purple">Manila unit to Cebu</Pill>}</div>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
@@ -170,7 +163,8 @@ export function CarsBoard({ cars, at, stale, role, sheetUrl, canOpenDocs, docs }
                 ...(open.orExp ? [["OR expires", nice(open.orExp)] as [string, string]] : []), ...(open.docsCode ? [["Documents", open.docsCode] as [string, string]] : []),
               ] as [string, string][]).map(([k, v]) => <div key={k}><dt className="text-xs text-muted-foreground">{k}</dt><dd className="font-medium">{v}</dd></div>)}
             </dl>
-            {open.remarks && <div><p className="text-xs text-muted-foreground">Notes in the sheet</p><p className="rounded-lg bg-muted p-2">{open.remarks}</p></div>}
+            {open.remarks && <div><p className="text-xs text-muted-foreground">Notes</p><p className="rounded-lg bg-muted p-2">{open.remarks}</p></div>}
+            {canEdit && open.raw && <Button onClick={() => setEditing(true)}>Change price or state</Button>}
             {canOpenDocs && <Button variant="outline" nativeButton={false} render={<Link href={`/documents/${open.plate}`} />}>Open the car&apos;s documents</Button>}
           </div>
         )}

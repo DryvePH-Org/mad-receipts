@@ -71,3 +71,6 @@ Step 1 (fresh study) is done. **Step 2, the OR expiry, is built:**
 - The flag: a pill on the car page ("OR expires in 12 days" / "OR expired 5 days ago"), "OR due or late" filter and a note on each row of Car documents, and a Telegram message to Documentation every morning at 9:00 on 30, 14, 7 and 0 days before the expiry and then every 7 days while it is late (sold cars left out).
 
 Step 3 next: REMARKS: only the registry of deeds and the documents code are not yet anywhere; they become fields of the car record, then the tab is retired.
+
+## 8. Car status reads the database (19 Nov 2026, evening)
+The owner asked for no connection with the price list sheet or its copy. Done: Car status, the car picker of New receipt, the folder names and the receipt approval's Reserved/Sold note all use the database (`car_stock` + the car record); the Google adapter and its tests are removed; the go-live check looks at the database; Add a car puts a new arrival on the price list; Admin and Approver edit a car from Car status. The old workbook is now only an archive and the source of the daily fresh import until the cut-over.

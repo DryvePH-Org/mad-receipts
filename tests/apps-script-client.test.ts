@@ -5,7 +5,6 @@ import {
   pingAppsScript,
 } from "@/lib/google/apps-script";
 import { createSheetsClient } from "@/lib/google/sheets";
-import { createSheetInventory } from "@/lib/inventory/sheet";
 
 const URL_ = "https://script.google.com/macros/s/AKfycb-test/exec";
 
@@ -88,22 +87,5 @@ describe("apps script clients", () => {
     expect(() => createSheetsClient()).not.toThrow();
     delete process.env.APPS_SCRIPT_URL;
     expect(() => createSheetsClient()).toThrow(/Google is not connected/);
-  });
-
-  it("works under the inventory adapter, including its friendly 403", async () => {
-    const config = { spreadsheetId: "sheet-1", tab: "Inventory", plateColumn: "PLATE NUMBER", statusColumn: "REMARKS" };
-    const inventory = createSheetInventory({ client: createAppsScriptSheetsClient(), config });
-
-    fetchMock.mockResolvedValueOnce(
-      reply({ ok: true, data: [["F", "1"], ["PLATE NUMBER", "REMARKS"], ["NKF 4771", "RESERVED - DAVID"]] }),
-    );
-    expect(await inventory.getUnit("nkf-4771")).toMatchObject({
-      plate: "NKF4771",
-      status: "Reserved",
-      remarks: "RESERVED - DAVID",
-    });
-
-    fetchMock.mockResolvedValueOnce(reply({ ok: false, code: 403, message: "That file is not allowed." }));
-    await expect(inventory.getUnit("NKF4771")).rejects.toThrow(/Editor access/);
   });
 });

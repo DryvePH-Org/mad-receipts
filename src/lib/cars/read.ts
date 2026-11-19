@@ -1,36 +1,31 @@
 import "server-only";
-import { cacheLife, cacheTag } from "next/cache";
 import { manilaToday } from "@/lib/dates";
-import { fetchText, SheetError, withFallback } from "@/lib/dashboard/sheets";
-import { parseCsv } from "@/lib/dashboard/parse";
-import { parseInventoryRows, type CarRow } from "./model";
+import { cleanDetails } from "@/lib/docs/details";
+import { docsDb } from "@/lib/docsbible/review-server";
+import { carRowOf, type CarFacts, type StockFacts } from "./from-db";
+import type { CarRow } from "./model";
 
-// The inventory tab (INVENTORY 2026 of the MAD Pricelist), read as plain CSV: the sheet is shared "Anyone with the link can view", so no key
-// and no bot are needed, and the answer is exact. The result is kept for a short while; "Refresh now" clears it.
+// Car status reads the app's own database: the price list (stock rows) joined with each car's record. No Google sheet is involved.
 
-export const CARS_TAG = "cars-status";
-export const carsSheetId = () => process.env.CARS_SHEET_ID?.trim() || process.env.INVENTORY_SHEET_ID?.trim() || "";
-/** The tab's numeric id (the gid in its address). The export by tab id is exact; the export by name garbles the header rows. */
-export const carsSheetGid = () => process.env.CARS_SHEET_GID?.trim() || "84826590";
-export const carsSheetUrl = () => `https://docs.google.com/spreadsheets/d/${carsSheetId()}/edit#gid=${carsSheetGid()}`;
+/** Where the ORCR WITH MAD tab can still be opened (it stays in the old workbook for now). Optional: set ORCR_SHEET_URL to the tab's full address. */
+export const orcrSheetUrl = () => process.env.ORCR_SHEET_URL?.trim() || null;
 
-/** The ORCR WITH MAD tab of the old MAD Price List (it stays in the Google Sheet): its own tab when ORCR_SHEET_GID is set, else the workbook. */
-export const orcrSheetUrl = () => (carsSheetId() ? `https://docs.google.com/spreadsheets/d/${carsSheetId()}/edit${process.env.ORCR_SHEET_GID?.trim() ? `#gid=${process.env.ORCR_SHEET_GID.trim()}` : ""}` : null);
-
-export interface CarsData { cars: CarRow[]; at: number; stale: boolean }
+export interface CarsData { cars: CarRow[]; at: number }
 
 export async function loadCars(): Promise<CarsData> {
-  "use cache";
-  cacheLife({ stale: 30, revalidate: 120, expire: 3600 });
-  cacheTag(CARS_TAG);
-  const id = carsSheetId();
-  if (!id) throw new SheetError("The inventory sheet is not set up on this server (CARS_SHEET_ID).");
-  const r = await withFallback(`cars:${id}:${carsSheetGid()}`, async () => {
-    const text = await fetchText(`https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${encodeURIComponent(carsSheetGid())}`);
-    if (/^\s*<(!doctype|html)/i.test(text)) throw new SheetError('Could not read the inventory tab. Check that the sheet is shared as "Anyone with the link can view".');
-    const cars = parseInventoryRows(parseCsv(text), manilaToday());
-    if (cars.length === 0) throw new SheetError("No cars were found in the inventory tab. Check the tab and its header row.");
-    return cars;
-  });
-  return { cars: r.value, at: r.at, stale: r.stale };
+  const db = docsDb();
+  const { data: stock, error } = await db.from("car_stock").select("*").eq("in_stock", true).order("sort_order").limit(3000);
+  if (error) throw new Error(`The price list could not be read: ${error.message}`);
+  const list = (stock ?? []) as (StockFacts & { unit_id: string })[];
+  const ids = list.map((s) => s.unit_id);
+  const [units, details] = await Promise.all([
+    ids.length ? db.from("docs_units").select("id, plate_display, arrival_date, year_model, make, model_variant, color, mileage, trans, fuel, encumbrance, spare_key, body_type, or_expiry").in("id", ids).limit(3000) : { data: [] },
+    list.length ? db.from("unit_details").select("plate_no, data").in("plate_no", list.map((s) => s.plate_no)).limit(3000) : { data: [] },
+  ]);
+  const unit = new Map((units.data ?? []).map((u) => [u.id as string, u as CarFacts]));
+  const about = new Map((details.data ?? []).map((d) => [d.plate_no as string, cleanDetails(d.data).spareKey]));
+  const today = manilaToday();
+  const cars: CarRow[] = [];
+  for (const s of list) { const u = unit.get(s.unit_id); if (u) cars.push(carRowOf(s, u, today, about.get(s.plate_no))); }
+  return { cars, at: Date.now() };
 }

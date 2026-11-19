@@ -1,0 +1,46 @@
+import { applyStatus, parseStatus } from "@/lib/inventory/remarks";
+import { fullYear } from "@/lib/inventory/year";
+import { availabilityOf, daysBetween, type CarRow } from "./model";
+
+// A Car status row made from the database: the stock row (prices, location, notes, and what the price list itself showed) + the car's record.
+// Pure code, so it can be tested; the reading is in read.ts.
+
+export interface StockFacts {
+  plate_no: string; body_group: string | null; list_price: number | string | null; target_price: number | string | null; reprice: number | string | null; retarget: number | string | null;
+  or_expiry: string | null; papers_with: string | null; tools?: string | null; location: string | null; repair_status: string | null; remarks: string | null;
+  list_model: string | null; list_color: string | null; list_mileage: string | null; list_fuel: string | null; list_arrived_on: string | null; list_encumbrance: string | null;
+}
+export interface CarFacts {
+  plate_display: string | null; arrival_date: string | null; year_model: string | null; make: string | null; model_variant: string | null; color: string | null; mileage: string | null;
+  trans: string | null; fuel: string | null; encumbrance: string | null; spare_key: string | null; body_type: string | null; or_expiry: string | null;
+}
+
+const num = (v: number | string | null | undefined) => (v === null || v === undefined || v === "" ? null : Math.round(Number(v)));
+const text = (v: string | null | undefined) => (v ?? "").replace(/\s+/g, " ").trim();
+
+/** What is left of the status cell when its status part (RESERVED - NAME 11/2) is taken out. */
+export const noteOf = (remarks: string): string => applyStatus(remarks, "Available", { receiptNo: "", people: [], date: "" });
+
+export function carRowOf(s: StockFacts, u: CarFacts, today: string, aboutSpareKey?: "yes" | "no" | ""): CarRow {
+  const remarks = text(s.remarks), repairStatus = text(s.repair_status).toUpperCase();
+  const arrived = s.list_arrived_on ?? u.arrival_date;
+  const original = num(s.list_price), reprice = num(s.reprice);
+  const availability = availabilityOf(remarks, repairStatus);
+  const st = parseStatus(remarks);
+  const location = text(s.location), bodyType = text(s.body_group) || text(u.body_type);
+  const encumbrance = text(s.list_encumbrance ?? (/^N\/?A$/i.test(text(u.encumbrance)) ? "" : u.encumbrance));
+  const ym = text(u.year_model);
+  const spareKey = aboutSpareKey === "yes" ? "W/SPAREKEY" : aboutSpareKey === "no" ? "NO SPAREKEY" : text(u.spare_key);
+  return {
+    plate: s.plate_no, plateDisplay: text(u.plate_display).toUpperCase() || s.plate_no,
+    year: fullYear(ym) || ym, brand: text(u.make), make: text(s.list_model ?? u.model_variant), color: text(s.list_color ?? u.color), mileage: text(s.list_mileage ?? u.mileage),
+    trans: text(u.trans), fuel: text(s.list_fuel ?? u.fuel), bodyType,
+    price: reprice ?? original, originalPrice: original, repriced: reprice !== null && original !== null && reprice < original, target: num(s.retarget) ?? num(s.target_price),
+    arrived, daysInStock: arrived ? Math.max(0, daysBetween(arrived, today)) : null,
+    remarks, reservedFor: st?.names ?? [], reservedOn: st?.date ?? null,
+    encumbrance, location, repairStatus, spareKey, orExp: u.or_expiry ?? s.or_expiry, docsCode: text(s.papers_with),
+    availability, sellable: availability === "available" || availability === "asis",
+    toCebu: /CEBU/i.test(bodyType) || /CEBU/i.test(location),
+    raw: { listPrice: num(s.list_price), targetPrice: num(s.target_price), reprice, retarget: num(s.retarget), tools: text(s.tools), papersWith: text(s.papers_with), note: noteOf(remarks) },
+  };
+}

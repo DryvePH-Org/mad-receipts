@@ -17,6 +17,8 @@ export interface CarRow {
   remarks: string; reservedFor: string[]; reservedOn: string | null;
   encumbrance: string; location: string; repairStatus: string; spareKey: string; orExp: string | null; docsCode: string;
   availability: Availability; sellable: boolean; toCebu: boolean;
+  /** the stock row's own values, for the edit screen (Admin and Approver only; removed for everyone else) */
+  raw?: { listPrice: number | null; targetPrice: number | null; reprice: number | null; retarget: number | null; tools: string; papersWith: string; note: string };
 }
 
 // ---------------- tidying the sheet's text ----------------
@@ -138,7 +140,8 @@ export function hiddenFields(role: Role): ReadonlySet<SensitiveField> {
 /** The car with the fields this role must not see removed, so they never reach the browser. */
 export function forRole(car: CarRow, role: Role): CarRow {
   const hide = hiddenFields(role);
-  return { ...car, target: hide.has("target") ? null : car.target, encumbrance: hide.has("encumbrance") ? "" : car.encumbrance, orExp: hide.has("orExp") ? null : car.orExp, docsCode: hide.has("docsCode") ? "" : car.docsCode };
+  const editor = role === "admin" || role === "approver";
+  return { ...car, raw: editor ? car.raw : undefined, target: hide.has("target") ? null : car.target, encumbrance: hide.has("encumbrance") ? "" : car.encumbrance, orExp: hide.has("orExp") ? null : car.orExp, docsCode: hide.has("docsCode") ? "" : car.docsCode };
 }
 
 // ---------------- filtering and sorting (done in the browser) ----------------

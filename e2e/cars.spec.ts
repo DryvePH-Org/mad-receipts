@@ -1,7 +1,7 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { credentials } from "./support";
 
-// The Car status dashboard, reading the MAD Pricelist copy (shared "Anyone with the link can view").
+// The Car status dashboard, reading the app's own price list (the database).
 
 async function as(browser: Browser, who: keyof typeof credentials): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
@@ -66,15 +66,15 @@ test("Car status is also on the documentation staff's menu", async ({ browser })
   await docs.close();
 });
 
-test("the Admin's go-live check runs and reports on the settings, the database and the sheets", async ({ browser }) => {
+test("the Admin's go-live check runs and reports on the settings, the database and the price list", async ({ browser }) => {
   const admin = await as(browser, "admin");
   await admin.goto("/admin/golive");
   await expect(admin.getByRole("heading", { name: "Go-live check" })).toBeVisible();
   await admin.getByRole("button", { name: "Run the checks" }).click();
   await expect(admin.getByRole("heading", { name: "Settings" })).toBeVisible({ timeout: 90_000 });
   await expect(admin.getByRole("heading", { name: "Database", exact: true })).toBeVisible();
-  await expect(admin.getByRole("heading", { name: "Car status sheet" })).toBeVisible();
-  await expect(admin.getByText("Cars in the tab")).toBeVisible();
+  await expect(admin.getByRole("heading", { name: "Price list (database)" })).toBeVisible();
+  await expect(admin.getByText("Cars on the price list")).toBeVisible();
   await expect(admin.getByRole("heading", { name: "Docs Bible (database)" })).toBeVisible();
   await expect(admin.getByRole("heading", { name: "Cut-over" })).toBeVisible(); // the old sheet is checked for changes made after the move
   await admin.close();

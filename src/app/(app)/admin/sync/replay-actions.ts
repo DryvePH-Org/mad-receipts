@@ -38,7 +38,7 @@ export async function getReplayPlan(): Promise<{ ok: true; plan: ReplayPlan } | 
     // a log sheet that cannot be checked is reported, it does not stop the preview
     let logProblem: string | null;
     try { logProblem = logId ? await logSheetProblem(createSheetsClient(), logId) : "The log sheet id is not set."; } catch { logProblem = "The log sheet could not be read. Check that its id is right and that the Apps Script may open it."; }
-    return { ok: true, plan: { logSheetProblem: logProblem, connected: { inventory: tail(process.env.INVENTORY_SHEET_ID), logSheet: tail(process.env.GOOGLE_SHEET_ID)}, approvedReceipts, cars } };
+    return { ok: true, plan: { logSheetProblem: logProblem, connected: { inventory: "the app's own price list", logSheet: tail(process.env.GOOGLE_SHEET_ID)}, approvedReceipts, cars } };
   } catch (e) {
     console.error(`[replay] plan failed: ${e instanceof Error ? e.message : "unknown"}`);
     return { ok: false, error: "Could not read the inventory sheet. Check the connection, then try again." };

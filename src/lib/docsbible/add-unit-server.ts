@@ -45,5 +45,11 @@ export async function addUnit(plateTyped: string, details: UnitDetailsInput, act
   if (r.error) return { ok: false, message: `Could not add the car: ${r.error.message}` };
   // a second arrival is put on the review list, so the staff can decide later whether it is a real second arrival or a double entry
   if (status.exists) await docsDb().from("docs_review_items").insert({ unit_id: r.data.id, plate_no: key, kind: "duplicate_plate", message: `${key} was added again with Add a car (the earlier arrival: ${status.arrival ?? "no date"}). Both rows are kept: decide whether it is a second arrival or a double entry.` });
+  // a new arrival is on the price list from the start (priced later): the earlier arrival of the same plate, if any, leaves the stock
+  try {
+    const { data: last } = await docsDb().from("car_stock").select("sort_order").order("sort_order", { ascending: false }).limit(1);
+    await docsDb().from("car_stock").update({ in_stock: false }).eq("plate_no", key).eq("in_stock", true);
+    await docsDb().from("car_stock").insert({ unit_id: r.data.id, plate_no: key, in_stock: true, source: "app", sort_order: Number(last?.[0]?.sort_order ?? 0) + 1, updated_by: actor });
+  } catch { /* the car is in the Docs Bible; the price list row can be made later */ }
   return { ok: true, id: r.data.id as string, plate: key };
 }

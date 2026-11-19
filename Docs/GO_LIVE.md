@@ -46,3 +46,6 @@ The Docs Bible in the database is the one place to work. The old Google Sheet is
 2. Export the MAD PRICE LIST workbook (File > Download > Microsoft Excel) and save it as `Docs/sheets-private/MAD-Pricelist.xlsx`.
 3. Take the snapshot, dry-run the import and read what it reports (it becomes the **Price list check** in Car status); add cars that are missing from the Docs Bible with Add a car; then import with `--apply` (see `Docs/pricelist-migration-plan.md`, section 6).
 4. Car status then shows **Download Excel (price list layout)** for Admin and Approver. Compare it with the sheet before anything else is switched.
+
+## Car status reads the database (no Google sheet)
+Nothing about the price list is read from or written to Google any more: `CARS_SHEET_ID`, `CARS_SHEET_GID`, `INVENTORY_SHEET_ID` and the related settings are not used (they can be removed from `/opt/mad-receipts/.env`). Before the old workbook is locked: take a fresh export, run `scripts/pricelist-apply.ts` (it also takes cars that left the list off the stock), and check the Excel against the sheet. After that, changes are made in Car status, not in the sheet.

@@ -7,12 +7,9 @@ import { grokbotMissing } from "@/lib/grokbot/client";
 import { plateOfFolderName } from "@/lib/docs/bridge";
 import { normalizePlate } from "@/lib/rules/plate";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { carsSheetGid, carsSheetId } from "@/lib/cars/read";
 import { sheetChangesSinceMove, type MovedRow } from "./cutover";
-import { findHeaders, INVENTORY_HEADERS } from "./headers";
 
 const docsTab = () => process.env.DOCS_BIBLE_DOCS_TAB?.trim() || "DOCS 2026";
-const pricelistSheetId = () => process.env.PRICELIST_SHEET_ID?.trim() || process.env.CARS_SHEET_ID?.trim() || undefined;
 
 // "Go-live check": everything the workflow depends on, looked at in one place and compared with what it expects, so that when the copies
 // (the sheets, the Drive folders) are replaced by the real ones, whatever is different shows up before anyone relies on it. Read only.
@@ -27,12 +24,6 @@ const warn = (area: string, title: string, detail: string, hint?: string): Check
 const fail = (area: string, title: string, detail: string, hint?: string): Check => ({ area, title, status: "fail", detail, hint });
 const safe = async (area: string, title: string, run: () => Promise<Check[]>): Promise<Check[]> => { try { return await run(); } catch (e) { return [fail(area, title, e instanceof Error ? e.message.slice(0, 200) : "The check could not run.")]; } };
 
-async function csvOf(id: string, query: string): Promise<string[][]> {
-  const text = await fetchText(`https://docs.google.com/spreadsheets/d/${id}/${query}`);
-  if (/^\s*<(!doctype|html)/i.test(text)) throw new Error('The sheet could not be read. Check that it is shared as "Anyone with the link can view".');
-  return parseCsv(text);
-}
-
 function settings(): Check[] {
   const e = process.env, A = "Settings";
   const out: Check[] = [];
@@ -41,7 +32,6 @@ function settings(): Check[] {
   out.push(missing.length ? fail(A, "Scanner bot connection", `Missing: ${missing.join(", ")}`) : ok(A, "Scanner bot connection", "address, key, callback secret and app address are set"));
   out.push(e.CRON_SECRET ? ok(A, "Scheduled jobs key", "set") : fail(A, "Scheduled jobs key", "CRON_SECRET is not set"));
   out.push(e.DOCS_BIBLE_SHEET_ID ? info(A, "Old Docs Bible sheet (watched for changes)", `ends ${tail(e.DOCS_BIBLE_SHEET_ID)}`) : warn(A, "Old Docs Bible sheet", "DOCS_BIBLE_SHEET_ID is not set: the cut-over check cannot look for changes made in the old sheet", "Set it to the live sheet's id (shared \"Anyone with the link can view\")."));
-  out.push(info(A, "Car status sheet", `ends ${tail(carsSheetId())}, tab number ${carsSheetGid()}`));
   out.push(info(A, "Who reads the photos", (e.DOCS_READER ?? "").toLowerCase() === "grokbot" ? "the grokbot scanner" : "a picture API (Groq or Grok)"));
   out.push((e.SHEETS_WRITES ?? "").trim().toLowerCase() === "on" ? warn(A, "Writing to Google Sheets", "ON (the receipts log and the inventory status)", "Be sure those sheets are the right ones.") : info(A, "Writing to Google Sheets", "frozen: the receipts log and the inventory status wait (the Docs Bible is in the database and never goes to a sheet)"));
   out.push(e.TELEGRAM_BOT_TOKEN && (e.TELEGRAM_DOCS_CHAT_ID || e.TELEGRAM_CHAT_ID) ? ok(A, "Telegram", e.TELEGRAM_DOCS_CHAT_ID ? "a separate chat for the documents team" : "the main chat") : warn(A, "Telegram", "not configured: no scan, approval or handoff messages will be sent"));
@@ -62,18 +52,16 @@ async function database(): Promise<Check[]> {
   return out;
 }
 
-async function inventorySheet(): Promise<Check[]> {
-  const A = "Car status sheet", id = pricelistSheetId() ?? carsSheetId();
-  if (!id) return [fail(A, "Inventory tab", "no sheet is set")];
-  const rows = await csvOf(id, `export?format=csv&gid=${encodeURIComponent(carsSheetGid())}`);
-  const out: Check[] = [];
-  const inv = findHeaders(rows, INVENTORY_HEADERS);
-  out.push(inv.missing.length ? fail(A, "Car status columns", `Missing in the tab: ${inv.missing.join(", ")}`, `Header row found at row ${inv.rowIndex + 1}. Check the tab number (CARS_SHEET_GID) and the header names.`) : ok(A, "Car status columns", `all found (header on row ${inv.rowIndex + 1})`));
-  const plateCol = rows[inv.rowIndex >= 0 ? inv.rowIndex : 1]?.findIndex((h) => h.replace(/\s+/g, " ").trim().toUpperCase() === "PLATE NUMBER") ?? -1;
-  const plates = plateCol >= 0 ? rows.slice(inv.rowIndex + 1).map((r) => normalizePlate(r[plateCol])).filter(Boolean) : [];
-  out.push(plates.length ? ok(A, "Cars in the tab", `${plates.length} units`) : fail(A, "Cars in the tab", "no plates were found"));
-  const dup = plates.length - new Set(plates).size;
-  if (dup) out.push(warn(A, "Repeated plates", `${dup} plate${dup === 1 ? "" : "s"} appear more than once in the tab`, "Car status shows the first one."));
+/** Car status reads the app's own price list: the stock rows, their cars, and anything waiting for a decision on the price list check. */
+async function priceListDatabase(): Promise<Check[]> {
+  const A = "Price list (database)", db = createAdminClient() as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const stock = await db.from("car_stock").select("unit_id", { count: "exact", head: true }).eq("in_stock", true);
+  if (stock.error) return [fail(A, "Price list tables", "not there yet", "Apply migrations 35, 36 and 37.")];
+  const out: Check[] = [stock.count ? ok(A, "Cars on the price list", `${stock.count}`) : fail(A, "Cars on the price list", "none: the price list was not moved yet", "Run scripts/pricelist-apply.ts.")];
+  const open = await db.from("car_sync_items").select("id", { count: "exact", head: true }).eq("status", "open");
+  out.push((open.count ?? 0) === 0 ? ok(A, "Price list check", "the price list and the Docs Bible agree") : warn(A, "Price list check", `${open.count} item${open.count === 1 ? "" : "s"} still to settle`, "Car status → Price list check."));
+  const noPrice = await db.from("car_stock").select("unit_id", { count: "exact", head: true }).eq("in_stock", true).is("list_price", null);
+  if (noPrice.count) out.push(warn(A, "Cars without a price", `${noPrice.count}`, "Open the car in Car status and type its price."));
   return out;
 }
 
@@ -144,7 +132,7 @@ async function drive(): Promise<Check[]> {
 
 export async function runGoLiveChecks(): Promise<Check[]> {
   const parts = await Promise.all([
-    Promise.resolve(settings()), safe("Database", "Database", database), safe("Car status sheet", "Car status sheet", inventorySheet),
+    Promise.resolve(settings()), safe("Database", "Database", database), safe("Price list (database)", "Price list", priceListDatabase),
     safe("Docs Bible (database)", "Docs Bible", docsBibleDatabase), safe("Cut-over", "Old sheet", oldSheetChanges), safe("Drive folders", "Drive", drive),
   ]);
   return parts.flat();

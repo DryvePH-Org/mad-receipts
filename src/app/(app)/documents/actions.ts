@@ -6,7 +6,6 @@ import { z } from "zod";
 import { requireModule } from "@/lib/auth";
 import { resetFile, editReading, reviewFlag, chooseFolder, defaultDocsDeps, docsErrorText, linkFolder, previewCarFolder, type FolderPreview, moveToSold, readPending, refreshFolders, scanFolder, setCase, setFileTypes, type MoveResult, type ReadProgress } from "@/lib/docs/service";
 import { CASES, CHOOSABLE, type CaseType, type DocType } from "@/lib/docs/types";
-import { inventory } from "@/lib/inventory";
 import { readerMode, scheduleScan } from "@/lib/docs/bot-scan";
 import { allowed } from "@/lib/docs/stage";
 import { stageFor } from "@/lib/docs/stage-server";
