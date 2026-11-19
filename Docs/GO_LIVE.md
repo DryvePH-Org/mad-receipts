@@ -40,3 +40,9 @@ The Docs Bible in the database is the one place to work. The old Google Sheet is
 3. As Admin: **My Telegram → Set up the bot** (once). If it says the bot already sends its messages to another address, make a second bot in BotFather and put its token in `TELEGRAM_USER_BOT_TOKEN` in `/opt/mad-receipts/.env`, restart the app, then press Set up the bot again.
 4. Each person: **My Telegram → Connect Telegram → Start** in Telegram, then **Send me a test**.
 5. Admin sees who is connected on the same page.
+
+## The price list in the database (migration 35)
+1. Run `supabase/migrations/20261119000035_car_stock.sql` in the Supabase SQL Editor.
+2. Export the MAD PRICE LIST workbook (File > Download > Microsoft Excel) and save it as `Docs/sheets-private/MAD-Pricelist.xlsx`.
+3. Take the snapshot, dry-run the import and read the review items; add cars that are missing from the Docs Bible with Add a car; then import with `--apply` (see `Docs/pricelist-migration-plan.md`, section 6).
+4. Car status then shows **Download Excel (price list layout)** for Admin and Approver. Compare it with the sheet before anything else is switched.

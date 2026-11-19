@@ -70,3 +70,19 @@ What it does for speed: Car status and the New receipt car picker read the datab
 5. Do you want **2025 NEW UNITS** (566 arrivals, 366 not in the Docs Bible) imported as history, or archived?
 6. **INCOMING CARS** has chassis, engine, MV file no. and owner details that Add a car does not ask for. Should it?
 7. Does anything else read this workbook (other sheets by IMPORTRANGE, dashboards, marketing)? Cannot be seen from the file alone.
+
+## 6. Decisions (owner, 19 Nov 2026) and where the build stands
+
+Decisions:
+- **DOCS codes** are kept as typed (shown as "Papers with") and each one goes on the review list, so the staff see them and say what they mean.
+- **LOCATION** stays as typed; **2025 NEW UNITS** is not imported; **repairs and renewals** are imported.
+- **ORCR WITH MAD stays in the Google Sheet**, and nothing will be updated there for the price list (the old workbook is left as it is, for accuracy). The app tells the staff so in a short note on Car status when it switches over.
+- **Who edits:** Admin and Approver (price, reprice, location, repair state, notes). Documentation and Sales only look.
+- **Connected data:** the car's identity, spare key and OR/CR papers come from the Docs Bible row; the About-the-car answers (spare key, casa maintenance and where, battery, where bought, EV charger and card) come from the car page checklist. The price list does not keep its own copy of any of them. Where the two disagree on import, the review list shows it; nothing is overwritten (only a blank spare key in the Docs Bible is filled from the price list).
+- **Excel export:** the same layout as the INVENTORY 2026 tab (columns, headings, body-type heading rows, colours, ₱ and date formats, frozen header, days in stock worked out on the day), plus a second sheet "About the car" with the connected details. Button on Car status for Admin and Approver.
+
+Built so far (nothing in the live app reads it yet): migration 35 (`car_stock`, `car_price_history`, `car_repairs`, `or_renewals`, new review kinds), `scripts/pricelist-snapshot.py` (reads the exported workbook), `scripts/pricelist-apply.ts` (dry run first), the Excel export (`/api/cars/export`).
+
+Still to build, after the owner has compared the Excel export with the sheet: Car status and the car picker reading the database, the edit screen for Admin and Approver, the receipt approval writing to the database instead of the sheet's REMARKS cell, the info note about ORCR WITH MAD, the repairs and renewals screens, and the cut-over check.
+
+How to run the import: `python3 scripts/pricelist-snapshot.py "<the exported .xlsx>"`, then `JITI_ALIAS='{"@/":"<project folder>/src/"}' npx jiti scripts/pricelist-apply.ts` (dry run), then the same with `--apply`. Repeat both whenever the workbook is exported again; the import replaces what an earlier run imported.

@@ -1,8 +1,10 @@
 import { Suspense } from "react";
-import { TriangleAlert } from "lucide-react";
+import { Download, TriangleAlert } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
+import { Button } from "@/components/ui/button";
 import { requireModule } from "@/lib/auth";
+import { docsDb } from "@/lib/docsbible/review-server";
 import { forRole } from "@/lib/cars/model";
 import { carsSheetUrl, loadCars, type CarsData } from "@/lib/cars/read";
 import { loadDocsSummaries } from "@/lib/docs/summary";
@@ -32,7 +34,16 @@ async function Content() {
   }
   const docs = Object.fromEntries(await loadDocsSummaries().catch(() => new Map()));
   const canOpenSheet = user.role === "admin" || user.role === "approver";
+  // the Excel copy in the price list's layout, once the price list is in the database (Admin and Approver)
+  const inApp = canOpenSheet ? await docsDb().from("car_stock").select("unit_id", { count: "exact", head: true }).then((r) => (r.error ? 0 : r.count ?? 0), () => 0) : 0;
   return (
-    <CarsBoard cars={data.cars.map((c) => forRole(c, user.role))} at={data.at} stale={data.stale} role={user.role} docs={docs} sheetUrl={canOpenSheet ? carsSheetUrl() : null} canOpenDocs={user.role === "admin" || user.role === "documentation"} />
+    <>
+      {inApp > 0 && (
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" nativeButton={false} render={<a href="/api/cars/export" download />}><Download /> Download Excel (price list layout)</Button>
+        </div>
+      )}
+      <CarsBoard cars={data.cars.map((c) => forRole(c, user.role))} at={data.at} stale={data.stale} role={user.role} docs={docs} sheetUrl={canOpenSheet ? carsSheetUrl() : null} canOpenDocs={user.role === "admin" || user.role === "documentation"} />
+    </>
   );
 }
