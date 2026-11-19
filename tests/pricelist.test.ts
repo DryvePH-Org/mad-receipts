@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPriceListRows, daysInStock, rowKind, sellableFlag, type PriceRow } from "@/lib/pricelist/export";
-import { blankFills, compareWithDocs, identityOverrides, isTestRow, newUnitFromList, stockRow, normalizeCar, normalizeRenewal, normalizeRepair, spareKeyState, type SnapshotRow } from "@/lib/pricelist/import";
+import { blankFills, compareWithDocs, identityOverrides, isTestRow, newUnitFromList, stockPatch, normalizeCar, normalizeRenewal, normalizeRepair, spareKeyState, type SnapshotRow } from "@/lib/pricelist/import";
 
 const car = (o: Record<string, unknown> = {}): SnapshotRow => ({ _row: 4, _group: "HATCHBACK", _order: 1, "PLATE NUMBER": "NBU4875", BRAND: "TOYOTA", MAKE: "WIGO E", COLOR: "RED", YM: 17, PRICE: 238000, TARGET: 225000, REPRICE: 228000, "RE-TARGET": 215000, "DATE ARRIVED": "2026-09-12", "OR EXP": "2027-05-15", ...o }) as SnapshotRow;
 
@@ -216,8 +216,10 @@ describe("papers with (the old DOCS column) is one fact of the car record", () =
     expect(choicesFor("docs_code", true)).toEqual(["list", "docs", "noted"]);
     expect(planSettle("docs_code", "list", { listValue: "C", docsValue: "L:X" })).toMatchObject({ docsPatch: { papers_with: "C" } });
   });
-  it("no longer writes papers_with on the stock row", () => {
+  it("puts the sale list's fields on the car record (and not papers_with, which is already a field of it)", () => {
     const s = normalizeCar(car({ DOCS: "C" })).stock!;
-    expect(Object.keys(stockRow(s, "u1", { model: null, color: null, mileage: null, fuel: null, arrivedOn: null, encumbrance: null }, {}))).not.toContain("papers_with");
+    const keys = Object.keys(stockPatch(s, { model: null, color: null, mileage: null, fuel: null, arrivedOn: null, encumbrance: null }));
+    expect(keys).not.toContain("papers_with");
+    expect(keys).toEqual(expect.arrayContaining(["in_stock", "list_price", "location", "stock_note", "stock_order"]));
   });
 });

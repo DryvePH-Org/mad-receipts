@@ -97,3 +97,8 @@ The two old addresses (`/docs-bible/review`, `/cars/sync`) were removed at the o
 
 ## 11. The REMARKS fields (19 Nov 2026, night)
 Step 3 of the order: the two facts only the REMARKS register held are fields of the car record, edited by Documentation in Car documents and the Table: **PAPERS WITH** (where the original papers are: C, L:ORIG ORCR-KAREN...) and **REGISTRY OF DEEDS** (QC, MANILA...). "Papers with" used to sit on the stock row (the price list's DOCS column): it moves to the record (migration 38 copies the codes over), so it is stored once; Car status and the Excel read it from the record, and the stock edit screen no longer has it. `scripts/remarks-sync.ts` (dry run first) fills blank fields from the REMARKS register (55 codes and 38 registries in the dry run) and puts a different code on the Data check, where a person chooses between "the other sheet's" and "the car record's". The CSV in the old layout gets two columns after AP. The REMARKS tab is no longer needed. The stock row's own `papers_with` column is dropped in the cleanup after the cut-over.
+
+## 12. Step 6: one table of cars (migration 40)
+
+The sale list's fields (prices, location, tools, note, section, order, the six "what the sheet showed" overrides, in_stock) are now columns of the car record (`docs_units`). `car_stock` is kept untouched as the safety copy; the code no longer reads or writes it. `scripts/pricelist-apply.ts` was removed (a re-run would overwrite live data). After the cut-over is checked, a later migration drops `car_stock` and the `list_*` overrides once settled.
+Order of work: apply migration 40, then push (old code keeps working on `car_stock` in between), then run `scripts/pricelist-verify.ts`.

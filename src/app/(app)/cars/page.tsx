@@ -37,7 +37,7 @@ async function Content() {
   const docs = Object.fromEntries(await loadDocsSummaries().catch(() => new Map()));
   const canOpenSheet = user.role === "admin" || user.role === "approver"; // the same two roles edit the price list
   // the Excel copy in the price list's layout, once the price list is in the database (Admin and Approver)
-  const inApp = canOpenSheet ? await docsDb().from("car_stock").select("unit_id", { count: "exact", head: true }).then((r) => (r.error ? 0 : r.count ?? 0), () => 0) : 0;
+  const inApp = canOpenSheet ? await docsDb().from("docs_units").select("id", { count: "exact", head: true }).eq("in_stock", true).then((r) => (r.error ? 0 : r.count ?? 0), () => 0) : 0;
   const canCheck = user.role === "admin" || user.role === "approver" || user.role === "documentation";
   const openChecks = canCheck ? await countOpenSyncItems() : 0;
   const orcr = orcrSheetUrl();

@@ -1,7 +1,7 @@
 import { parseMoney, parseSheetDate } from "@/lib/cars/model";
 
 // Taking the INVENTORY 2026 tab of the MAD Price List over: one snapshot row in, one clean car out, plus what a person must look at.
-// Pure code; the reading of the workbook is scripts/pricelist-snapshot.py and the saving is scripts/pricelist-apply.ts.
+// Pure code; the reading of the workbook is scripts/pricelist-snapshot.py and the one-time saving (pricelist-apply.ts, now removed: the data lives in the car record) was run once.
 
 export type SnapshotRow = Record<string, string | number | null | undefined> & { _row: number; _group?: string | null; _order?: number };
 
@@ -124,12 +124,11 @@ export function blankFills(s: StockInput, u: UnitIdentity): Record<string, strin
 }
 
 /** The stock row as saved (the same for the import and for a car added from the check list). */
-export function stockRow(s: StockInput, unitId: string, o: Overrides, raw: unknown): Record<string, unknown> {
+export function stockPatch(s: StockInput, o: Overrides): Record<string, unknown> {
   return {
-    unit_id: unitId, plate_no: s.plate, body_group: s.group, sort_order: s.order, list_price: s.listPrice, target_price: s.targetPrice, reprice: s.reprice, retarget: s.retarget,
+    in_stock: true, body_group: s.group, stock_order: s.order, list_price: s.listPrice, target_price: s.targetPrice, reprice: s.reprice, retarget: s.retarget,
     list_model: o.model, list_color: o.color, list_mileage: o.mileage, list_fuel: o.fuel, list_arrived_on: o.arrivedOn, list_encumbrance: o.encumbrance,
-    or_expiry: s.orExpiry, or_expiry_raw: s.orExpiryRaw, tools: s.tools, location: s.location, repair_status: s.repairStatus, remarks: s.remarks,
-    in_stock: true, source: "import", raw,
+    tools: s.tools, location: s.location, stock_note: s.remarks,
   };
 }
 

@@ -2,7 +2,7 @@ import "server-only";
 import { docsDb } from "@/lib/docsbible/review-server";
 import type { SyncField } from "./import";
 import { manilaToday } from "@/lib/dates";
-import { identityOverrides, newUnitFromList, stockRow, type StockInput } from "./import";
+import { identityOverrides, newUnitFromList, stockPatch, type StockInput } from "./import";
 import { planSettle, type Choice } from "./sync";
 
 export interface SyncRow { id: string; plate: string; car: string; field: SyncField; listValue: string | null; docsValue: string | null; message: string; status: "open" | "settled"; decision: string | null; settledAt: string | null; sourceRow: number | null }
@@ -50,15 +50,15 @@ export async function settleSyncItem(id: string, choice: Choice, actor: string, 
       if (ins.error || !ins.data) return { ok: false, error: `Could not add the car: ${ins.error?.message ?? "unknown"}` };
       unitId = ins.data.id as string;
       const unit = { year_model: made.fields.year_model, make: made.fields.make, model_variant: made.fields.model_variant, color: made.fields.color, trans: made.fields.trans, fuel: made.fields.fuel, spare_key: made.fields.spare_key, mileage: made.fields.mileage, encumbrance: made.fields.encumbrance, arrival_date: made.fields.arrival_date };
-      const st = await db.from("car_stock").insert({ ...stockRow(stock, unitId, identityOverrides(stock, unit), payload.raw ?? null), updated_by: actor });
+      const st = await db.from("docs_units").update({ ...stockPatch(stock, identityOverrides(stock, unit)), updated_by: actor }).eq("id", unitId);
       if (st.error) { await db.from("docs_units").delete().eq("id", unitId); return { ok: false, error: `Could not save the Car status row: ${st.error.message}` }; }
     } else {
       const { data: unit } = await db.from("docs_units_current").select("id, plate_no, year_model, make, model_variant, color, trans, fuel, spare_key, mileage, encumbrance, arrival_date").eq("plate_no", plan.linkPlate!).maybeSingle();
       if (!unit) return { ok: false, error: `${plan.linkPlate} is not in MAD. Add the car first, or choose "Add this car".` };
-      const taken = await db.from("car_stock").select("unit_id").eq("unit_id", unit.id).maybeSingle();
+      const taken = await db.from("docs_units").select("id").eq("id", unit.id).eq("in_stock", true).maybeSingle();
       if (taken.data) return { ok: false, error: `${plan.linkPlate} is already in Car status.` };
       const linked: StockInput = { ...stock, plate: unit.plate_no as string };
-      const st = await db.from("car_stock").insert({ ...stockRow(linked, unit.id as string, identityOverrides(linked, unit), payload.raw ?? null), updated_by: actor });
+      const st = await db.from("docs_units").update({ ...stockPatch(linked, identityOverrides(linked, unit)), updated_by: actor }).eq("id", unit.id as string);
       if (st.error) return { ok: false, error: `Could not save the Car status row: ${st.error.message}` };
       unitId = unit.id as string;
     }
@@ -68,7 +68,7 @@ export async function settleSyncItem(id: string, choice: Choice, actor: string, 
     const { error } = await db.from("docs_units").update({ ...plan.docsPatch, last_change_source: "pricelist", updated_by: actor }).eq("id", item.unit_id);
     if (error) return { ok: false, error: `Could not change the car record: ${error.message}` };
   }
-  if (plan.clearOverride && item.unit_id) await db.from("car_stock").update({ [plan.clearOverride]: null, updated_by: actor }).eq("unit_id", item.unit_id);
+  if (plan.clearOverride && item.unit_id) await db.from("docs_units").update({ [plan.clearOverride]: null, updated_by: actor }).eq("id", item.unit_id);
   const { error } = await db.from("car_sync_items").update({ status: "settled", decision: plan.decision, settled_by: actor, settled_at: new Date().toISOString(), ...(unitId ? { unit_id: unitId } : {}) }).eq("id", id).eq("status", "open");
   if (error) return { ok: false, error: `Could not save the decision: ${error.message}` };
   return { ok: true, decision: plan.decision };

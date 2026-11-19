@@ -20,7 +20,9 @@ const same = (a: unknown, b: unknown) => norm(a) === norm(b);
 async function main() {
   const { data: units } = await db.from("docs_units_current").select("id, plate_no, plate_display, arrival_date, year_model, make, model_variant, color, mileage, trans, fuel, encumbrance, spare_key, classification").limit(5000);
   const unitOf = new Map((units ?? []).map((u) => [u.plate_no as string, u as UnitRecord & { plate_no: string }]));
-  const saved = await db.from("car_stock").select("*").limit(3000);
+  // the car record carries the sale list's fields (migration 40); they are read back as the old stock row shape
+  const saved = await db.from("docs_units").select("*").eq("in_stock", true).limit(3000);
+  if (saved.data) saved.data = saved.data.map((r) => ({ ...r, unit_id: r.id, sort_order: r.stock_order, remarks: r.stock_note, repair_status: null }));
   const real = !saved.error && (saved.data?.length ?? 0) > 0;
   const stockOf = new Map(((saved.data ?? []) as (StockRecord & { raw: unknown })[]).map((s) => [s.plate_no, s]));
   console.log(`${real ? "VERIFYING the saved price list" : "SIMULATING (nothing is saved yet)"} against the workbook of ${snap.taken}\n`);

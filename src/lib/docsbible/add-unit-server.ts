@@ -39,16 +39,15 @@ export async function addUnit(plateTyped: string, details: UnitDetailsInput, act
   const status = await unitStatus(key);
   if (status.exists && !secondArrival) return { ok: false, message: `${key} is already in MAD (${status.name}).`, exists: { id: status.id, name: status.name } };
   const row = { plate_no: key, plate_display: plateTyped.trim().toUpperCase().replace(/\s+/g, " "), ...checked.fields, arrival_raw: checked.fields.arrival_date, source: "app", last_change_source: "add", created_by: actor, updated_by: actor };
-  let r = await docsDb().from("docs_units").insert({ ...row, stock_state: "Onhand" }).select("id").single(); // the one status; until migration 39 is applied the old columns carry it
-  if (r.error && /stock_state/.test(r.error.message)) r = await docsDb().from("docs_units").insert(row).select("id").single();
+  const r = await docsDb().from("docs_units").insert({ ...row, stock_state: "Onhand" }).select("id").single(); // the one status
   if (r.error) return { ok: false, message: `Could not add the car: ${r.error.message}` };
   // a second arrival is put on the data check, so the staff can decide later whether it is a real second arrival or a double entry
   if (status.exists) await docsDb().from("docs_review_items").insert({ unit_id: r.data.id, plate_no: key, kind: "duplicate_plate", message: `${key} was added again with Add a car (the earlier arrival: ${status.arrival ?? "no date"}). Both rows are kept: decide whether it is a second arrival or a double entry.` });
-  // a new arrival is on the price list from the start (priced later): the earlier arrival of the same plate, if any, leaves the stock
+  // a new arrival is on the sale list from the start (priced later): the earlier arrival of the same plate, if any, leaves it
   try {
-    const { data: last } = await docsDb().from("car_stock").select("sort_order").order("sort_order", { ascending: false }).limit(1);
-    await docsDb().from("car_stock").update({ in_stock: false }).eq("plate_no", key).eq("in_stock", true);
-    await docsDb().from("car_stock").insert({ unit_id: r.data.id, plate_no: key, in_stock: true, source: "app", sort_order: Number(last?.[0]?.sort_order ?? 0) + 1, updated_by: actor });
-  } catch { /* the car is in MAD; the price list row can be made later */ }
+    const { data: last } = await docsDb().from("docs_units").select("stock_order").order("stock_order", { ascending: false }).limit(1);
+    await docsDb().from("docs_units").update({ in_stock: false }).eq("plate_no", key).eq("in_stock", true).neq("id", r.data.id);
+    await docsDb().from("docs_units").update({ in_stock: true, stock_order: Number(last?.[0]?.stock_order ?? 0) + 1 }).eq("id", r.data.id);
+  } catch { /* the car is in MAD; it can be put on the sale list later */ }
   return { ok: true, id: r.data.id as string, plate: key };
 }

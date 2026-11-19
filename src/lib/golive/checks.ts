@@ -55,12 +55,12 @@ async function database(): Promise<Check[]> {
 /** Car status reads the app's own stock list: the stock rows, their cars, and anything waiting for a decision on the data check. */
 async function priceListDatabase(): Promise<Check[]> {
   const A = "Car status (database)", db = createAdminClient() as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
-  const stock = await db.from("car_stock").select("unit_id", { count: "exact", head: true }).eq("in_stock", true);
-  if (stock.error) return [fail(A, "Car status tables", "not there yet", "Apply migrations 35, 36 and 37.")];
-  const out: Check[] = [stock.count ? ok(A, "Cars in Car status", `${stock.count}`) : fail(A, "Cars in Car status", "none: the stock list was not moved yet", "Run scripts/pricelist-apply.ts.")];
+  const stock = await db.from("docs_units").select("id", { count: "exact", head: true }).eq("in_stock", true);
+  if (stock.error) return [fail(A, "Car status columns", "not there yet", "Apply migrations 35 to 40.")];
+  const out: Check[] = [stock.count ? ok(A, "Cars in Car status", `${stock.count}`) : fail(A, "Cars in Car status", "none: the stock list was not moved yet", "Apply migration 40.")];
   const open = await db.from("car_sync_items").select("id", { count: "exact", head: true }).eq("status", "open");
   out.push((open.count ?? 0) === 0 ? ok(A, "Data check", "Car status and Car documents agree") : warn(A, "Data check", `${open.count} item${open.count === 1 ? "" : "s"} still to settle`, "Car status → Data check."));
-  const noPrice = await db.from("car_stock").select("unit_id", { count: "exact", head: true }).eq("in_stock", true).is("list_price", null);
+  const noPrice = await db.from("docs_units").select("id", { count: "exact", head: true }).eq("in_stock", true).is("list_price", null);
   if (noPrice.count) out.push(warn(A, "Cars without a price", `${noPrice.count}`, "Open the car in Car status and type its price."));
   return out;
 }
