@@ -20,6 +20,17 @@
 
 var MAX_BASE64_CHARS = 14 * 1024 * 1024; // ~10 MB file
 
+/**
+ * Run this once by hand in the Apps Script editor (Run > authorizeAll) after changing appsscript.json: it makes Google show the
+ * permission box for every permission the bridge uses (Drive, Sheets and outside requests). It reads nothing and changes nothing.
+ */
+function authorizeAll() {
+  DriveApp.getRootFolder().getName();
+  SpreadsheetApp.getActiveSpreadsheet;
+  UrlFetchApp.fetch('https://www.google.com/generate_204', { muteHttpExceptions: true });
+  Logger.log('All permissions are in place.');
+}
+
 function doGet() {
   // Lets you open the web app URL in a browser to check it is deployed. Reveals nothing.
   return json_({ ok: true, data: 'MAD Receipts bridge is running. Version 2026-11-17, with the car-documents actions (docs.createFolder, docs.upload, docs.move).' });
