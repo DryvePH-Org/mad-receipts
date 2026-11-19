@@ -92,3 +92,5 @@ The goal in the owner's words: no "MAD Price List" and no "Docs Bible": **one MA
 
 ## 10. Step 1 done: one name, one Data check (19 Nov 2026, late)
 The screens no longer say "Docs Bible" or "price list": the car's details are the **car record**, the two views are **Car documents** and **Car status**, and a car that exists is simply **in MAD**. The two review lists are one **Data check** (`/data-check`, opened from Car documents and Car status): one tab for the cars where Car status and Car documents differ, one for what the move off the old sheets could not decide. The old addresses redirect. Telegram, the go-live check and the messages use the same words. The "Table" keeps the sheet's columns but is just called Table.
+
+The two old addresses (`/docs-bible/review`, `/cars/sync`) were removed at the owner's request: only `/data-check` exists.
