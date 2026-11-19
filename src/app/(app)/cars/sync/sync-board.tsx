@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Pill } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { FIELD_LABELS, type SyncField } from "@/lib/pricelist/import";
 import { choicesFor } from "@/lib/pricelist/sync";
 import type { SyncRow } from "@/lib/pricelist/sync-server";
@@ -16,7 +17,7 @@ import { settleAction } from "./actions";
 
 const HELP: Partial<Record<SyncField, string>> = {
   docs_code: "This code was kept as typed. Say what it means to the team, then press Noted.",
-  unmatched: "This car is on the price list but not in the Docs Bible. Add it with Add a car; the next import picks it up.",
+  unmatched: "This car is on the price list but not in the Docs Bible. Add it from the price list, or, if the plate was mistyped, link it to the right plate.",
   odd_value: "The price list has an odd value here. It was kept as typed. Fix it where the car is edited, then press Noted.",
 };
 
@@ -24,7 +25,8 @@ function ItemRow({ item }: { item: SyncRow }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const choices = choicesFor(item.field);
-  const run = (c: "list" | "docs" | "noted") => start(async () => { const r = await settleAction(item.id, c); if (r.ok) toast.success(r.decision); else toast.error(r.error); router.refresh(); });
+  const [plate, setPlate] = useState("");
+  const run = (c: "list" | "docs" | "noted" | "add" | "plate") => start(async () => { const r = await settleAction(item.id, c, c === "plate" ? plate : undefined); if (r.ok) toast.success(r.decision); else toast.error(r.error); router.refresh(); });
   const showValues = item.field !== "unmatched" && item.field !== "odd_value" && item.field !== "docs_code";
   return (
     <div className="space-y-2 py-3 first:pt-0 last:pb-0">
@@ -40,8 +42,14 @@ function ItemRow({ item }: { item: SyncRow }) {
         <div className="flex flex-wrap gap-2">
           {choices.includes("list") && <Button size="sm" disabled={pending} onClick={() => run("list")}>{pending && <Loader2 className="animate-spin" />} Use the price list&apos;s</Button>}
           {choices.includes("docs") && <Button size="sm" variant="outline" disabled={pending} onClick={() => run("docs")}>Use the Docs Bible&apos;s</Button>}
-          {item.field === "unmatched" && <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/documents/add" />}>Add the car</Button>}
-          <Button size="sm" variant="ghost" disabled={pending} onClick={() => run("noted")}>{item.field === "status" || showValues ? "Leave as it is" : "Noted"}</Button>
+          {item.field === "unmatched" && <Button size="sm" disabled={pending} onClick={() => run("add")}>{pending && <Loader2 className="animate-spin" />} Add this car to the Docs Bible</Button>}
+          {item.field === "unmatched" && (
+            <span className="flex items-center gap-1.5">
+              <Input value={plate} onChange={(e) => setPlate(e.target.value.toUpperCase())} placeholder="Right plate, e.g. NKF 4771" aria-label="The right plate" className="h-8 w-48" />
+              <Button size="sm" variant="outline" disabled={pending || plate.replace(/[^A-Za-z0-9]/g, "").length < 5} onClick={() => run("plate")}>Link to this plate</Button>
+            </span>
+          )}
+          <Button size="sm" variant="ghost" disabled={pending} onClick={() => run("noted")}>{item.field === "unmatched" ? "Leave it out" : item.field === "status" || showValues ? "Leave as it is" : "Noted"}</Button>
         </div>
       )}
     </div>

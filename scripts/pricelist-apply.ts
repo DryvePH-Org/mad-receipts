@@ -4,7 +4,7 @@
 //   npx jiti scripts/pricelist-apply.ts --apply   writes it (needs migration 35); safe to run again: it replaces what an earlier run imported
 import { existsSync, readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
-import { compareWithDocs, identityOverrides, normalizeCar, normalizeRenewal, normalizeRepair, type PriceIssue, type SnapshotRow } from "../src/lib/pricelist/import";
+import { blankFills, compareWithDocs, identityOverrides, normalizeCar, normalizeRenewal, normalizeRepair, stockRow, type PriceIssue, type SnapshotRow } from "../src/lib/pricelist/import";
 
 const apply = process.argv.includes("--apply");
 const env: Record<string, string | undefined> = { ...process.env };
@@ -19,23 +19,17 @@ async function main() {
   const unitOf = new Map((units ?? []).map((u) => [u.plate_no as string, u]));
 
   const issues: PriceIssue[] = [];
-  const toSave: { unitId: string; row: Record<string, unknown>; spareKeyFill: string | null }[] = [];
+  const toSave: { unitId: string; row: Record<string, unknown>; fills: Record<string, string> }[] = [];
   const skipped: string[] = [];
   for (const r of snap.inventory) {
     const n = normalizeCar(r);
     issues.push(...n.issues);
     if (!n.stock) { if (n.skipped === "test row") skipped.push(`${r["PLATE NUMBER"] ?? "(no plate)"} (row ${r._row}, test row)`); continue; }
     const s = n.stock, u = unitOf.get(s.plate);
-    if (!u) { issues.push({ field: "unmatched", plate: s.plate, listValue: s.plateDisplay, docsValue: null, sourceRow: s.sourceRow, message: `${s.plateDisplay} is on the price list but not in the Docs Bible. Add the car with Add a car, then import again.` }); continue; }
+    if (!u) { issues.push({ field: "unmatched", plate: s.plate, listValue: s.plateDisplay, docsValue: null, sourceRow: s.sourceRow, payload: { stock: s, raw: r }, message: `${s.plateDisplay} is on the price list but not in the Docs Bible. Add the car with Add a car, then import again.` }); continue; }
     issues.push(...compareWithDocs(s, u));
     const o = identityOverrides(s, u);
-    toSave.push({
-      unitId: u.id as string, spareKeyFill: !u.spare_key && s.identity.spareKey ? s.identity.spareKey : null,
-      row: { unit_id: u.id, plate_no: s.plate, body_group: s.group, sort_order: s.order, list_price: s.listPrice, target_price: s.targetPrice, reprice: s.reprice, retarget: s.retarget,
-        list_model: o.model, list_color: o.color, list_mileage: o.mileage, list_fuel: o.fuel, list_arrived_on: o.arrivedOn, list_encumbrance: o.encumbrance,
-        or_expiry: s.orExpiry, or_expiry_raw: s.orExpiryRaw, papers_with: s.papersWith, tools: s.tools, location: s.location, repair_status: s.repairStatus, remarks: s.remarks,
-        in_stock: true, source: "import", raw: r },
-    });
+    toSave.push({ unitId: u.id as string, fills: blankFills(s, u), row: stockRow(s, u.id as string, o, r) });
   }
   const repairs = snap.repairs.map((r, i) => normalizeRepair(r, i + 1)).filter((x) => !!x);
   const renewals = snap.renewals.map((r, i) => normalizeRenewal(r, i + 1)).filter((x) => !!x);
@@ -43,7 +37,9 @@ async function main() {
 
   const by = (k: string) => issues.filter((i) => i.field === k).length;
   console.log(`\nCars to save: ${toSave.length} | left out: ${skipped.length ? skipped.join("; ") : "none"}`);
-  console.log(`Spare keys to fill in the Docs Bible (blank there): ${toSave.filter((t) => t.spareKeyFill).length}`);
+  const fillCount = new Map<string, number>(); for (const t of toSave) for (const k of Object.keys(t.fills)) fillCount.set(k, (fillCount.get(k) ?? 0) + 1);
+  for (const t of toSave) if (Object.keys(t.fills).length) console.log(`  fills ${t.row.plate_no}: ${JSON.stringify(t.fills)}`);
+  console.log(`Blank Docs Bible fields filled from the price list: ${[...fillCount].map(([k, n]) => `${k} ${n}`).join(", ") || "none"}`);
   console.log(`Repairs: ${repairs.length} | renewals: ${renewals.length}`);
   const fields = [...new Set(issues.map((i) => i.field))].map((f) => `${f} ${by(f)}`).join(", ");
   console.log(`Price list check: ${issues.length} items (${fields})`);
@@ -53,7 +49,7 @@ async function main() {
   const probe = await db.from("car_stock").select("unit_id", { head: true, count: "exact" });
   if (probe.error) throw new Error(`The price list tables are not there yet (${probe.error.message}). Apply migration 35 first.`);
   for (let i = 0; i < toSave.length; i += 100) { const { error: e } = await db.from("car_stock").upsert(toSave.slice(i, i + 100).map((t) => t.row), { onConflict: "unit_id" }); if (e) throw new Error(`car_stock: ${e.message}`); }
-  for (const t of toSave) if (t.spareKeyFill) { const { error: e } = await db.from("docs_units").update({ spare_key: t.spareKeyFill, last_change_source: "pricelist" }).eq("id", t.unitId).is("spare_key", null); if (e) console.log(`  spare key of ${t.unitId} not filled: ${e.message}`); }
+  for (const t of toSave) if (Object.keys(t.fills).length) { const { error: e } = await db.from("docs_units").update({ ...t.fills, last_change_source: "pricelist" }).eq("id", t.unitId); if (e) console.log(`  ${t.unitId}: blank fields not filled: ${e.message}`); }
   await db.from("car_repairs").delete().eq("source", "import");
   await db.from("or_renewals").delete().eq("source", "import");
   if (repairs.length) { const { error: e } = await db.from("car_repairs").insert(repairs.map((x) => ({ plate_no: x!.plate, ym: x!.ym, brand: x!.brand, problem: x!.problem, happened_on: x!.happenedOn, happened_raw: x!.happenedRaw, solution: x!.solution, supplier: x!.supplier, company: x!.company, est_timeline: x!.estTimeline, status: x!.status, bot_id: x!.botId, approved_by: x!.approvedBy, sort_order: x!.order, source: "import", raw: snap.repairs[x!.order - 1] }))); if (e) throw new Error(`car_repairs: ${e.message}`); }
@@ -62,8 +58,11 @@ async function main() {
   const { data: past } = await db.from("car_sync_items").select("plate_no, field, list_value, docs_value").eq("status", "settled");
   const settled = new Set((past ?? []).map((p) => `${p.plate_no}|${p.field}|${p.list_value ?? ""}|${p.docs_value ?? ""}`));
   await db.from("car_sync_items").delete().eq("status", "open");
-  const rows = issues.filter((i) => !settled.has(`${i.plate}|${i.field}|${i.listValue ?? ""}|${i.docsValue ?? ""}`)).map((i) => ({ plate_no: i.plate, field: i.field, list_value: i.listValue, docs_value: i.docsValue, source_row: i.sourceRow || null, message: i.message, unit_id: i.plate ? unitOf.get(i.plate)?.id ?? null : null }));
-  for (let i = 0; i < rows.length; i += 100) { const { error: e } = await db.from("car_sync_items").insert(rows.slice(i, i + 100)); if (e) throw new Error(`price list check: ${e.message}`); }
+  const rows = issues.filter((i) => !settled.has(`${i.plate}|${i.field}|${i.listValue ?? ""}|${i.docsValue ?? ""}`)).map((i) => ({ plate_no: i.plate, field: i.field, list_value: i.listValue, docs_value: i.docsValue, source_row: i.sourceRow || null, payload: i.payload ?? null, message: i.message, unit_id: i.plate ? unitOf.get(i.plate)?.id ?? null : null }));
+  // migration 36 adds the column that keeps a not-yet-added car's price list row; without it the list still works, a car just cannot be added from it
+  const hasPayload = !(await db.from("car_sync_items").select("payload").limit(1)).error;
+  if (!hasPayload) console.log("  (migration 36 is not applied: cars that are only on the price list can be added later, after it is applied and this is run again)");
+  for (let i = 0; i < rows.length; i += 100) { const { error: e } = await db.from("car_sync_items").insert(rows.slice(i, i + 100).map((r) => (hasPayload ? r : { ...r, payload: undefined }))); if (e) throw new Error(`price list check: ${e.message}`); }
   console.log(`\nDone: ${toSave.length} cars, ${repairs.length} repairs, ${renewals.length} renewals, ${rows.length} items on the price list check.`);
 }
 main().catch((e) => { console.error(e instanceof Error ? e.message : e); process.exit(1); });

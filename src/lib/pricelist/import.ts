@@ -7,7 +7,7 @@ export type SnapshotRow = Record<string, string | number | null | undefined> & {
 
 export type SyncField = "arrival_date" | "model" | "color" | "mileage" | "fuel" | "encumbrance" | "year" | "brand" | "trans" | "spare_key" | "status" | "docs_code" | "unmatched" | "odd_value";
 /** One place where the price list and the Docs Bible do not say the same thing (or something a person must know): a row of the price list check. */
-export interface SyncItem { plate: string | null; field: SyncField; listValue: string | null; docsValue: string | null; sourceRow: number; message: string }
+export interface SyncItem { plate: string | null; field: SyncField; listValue: string | null; docsValue: string | null; sourceRow: number; message: string; /** for a car not in the Docs Bible: its price list row, so a person can add it or link it to the right plate later */ payload?: unknown }
 export type PriceIssue = SyncItem;
 
 export interface StockInput {
@@ -108,6 +108,41 @@ export function compareWithDocs(s: StockInput, u: UnitIdentity): SyncItem[] {
   if (listStatus && docsSale.toLowerCase() !== listStatus.toLowerCase()) add("status", remarks, docsText, `Status: the price list says "${remarks}", the Docs Bible says ${docsText}.`);
   else if (!listStatus && /^(sold|reserved)$/i.test(docsSale)) add("status", remarks || "(no status note)", docsText, `Status: the Docs Bible says ${docsText} but the car is still on the price list${remarks ? ` ("${remarks}")` : ""}.`);
   return out;
+}
+
+const blank = (v: unknown) => v === null || v === undefined || String(v).trim() === "";
+
+/** The Docs Bible columns that are still blank for a car the price list knows more about: filled from the price list (never replaced). */
+export function blankFills(s: StockInput, u: UnitIdentity): Record<string, string> {
+  const out: Record<string, string> = {};
+  const year = (() => { const d = String(s.identity.ym ?? "").replace(/\D/g, ""); return d.length === 2 ? d : d.length === 4 ? d.slice(2) : null; })();
+  const pairs: [string, string | null, unknown][] = [
+    ["trans", s.identity.trans, u.trans], ["fuel", s.identity.fuel, u.fuel], ["mileage", s.identity.mileage, u.mileage], ["color", s.identity.color, u.color],
+    ["model_variant", s.identity.make, u.model_variant], ["make", s.identity.brand, u.make], ["year_model", year, u.year_model], ["spare_key", s.identity.spareKey, u.spare_key],
+    ["encumbrance", s.identity.encumbrance, u.encumbrance], ["arrival_date", s.identity.arrived, u.arrival_date],
+  ];
+  for (const [column, listValue, docsValue] of pairs) if (!blank(listValue) && blank(docsValue)) out[column] = String(listValue);
+  return out;
+}
+
+/** The stock row as saved (the same for the import and for a car added from the check list). */
+export function stockRow(s: StockInput, unitId: string, o: Overrides, raw: unknown): Record<string, unknown> {
+  return {
+    unit_id: unitId, plate_no: s.plate, body_group: s.group, sort_order: s.order, list_price: s.listPrice, target_price: s.targetPrice, reprice: s.reprice, retarget: s.retarget,
+    list_model: o.model, list_color: o.color, list_mileage: o.mileage, list_fuel: o.fuel, list_arrived_on: o.arrivedOn, list_encumbrance: o.encumbrance,
+    or_expiry: s.orExpiry, or_expiry_raw: s.orExpiryRaw, papers_with: s.papersWith, tools: s.tools, location: s.location, repair_status: s.repairStatus, remarks: s.remarks,
+    in_stock: true, source: "import", raw,
+  };
+}
+
+/** A new Docs Bible row for a car that is on the price list only (what Add a car would make from the same words). Null when something needed is missing. */
+export function newUnitFromList(s: StockInput, today: string): { fields: Record<string, string | null> } | { missing: string[] } {
+  const year = (() => { const d = String(s.identity.ym ?? "").replace(/\D/g, ""); return d.length === 2 ? d : d.length === 4 ? d.slice(2) : null; })();
+  const need: [string, unknown][] = [["brand", s.identity.brand], ["model", s.identity.make], ["year", year], ["color", s.identity.color]];
+  const missing = need.filter(([, v]) => blank(v)).map(([k]) => k);
+  if (missing.length) return { missing };
+  const up = (v: string | null) => (v ? v.toUpperCase() : null);
+  return { fields: { plate_no: s.plate, plate_display: s.plateDisplay.toUpperCase(), arrival_date: s.identity.arrived ?? today, make: up(s.identity.brand), model_variant: up(s.identity.make), year_model: year, color: up(s.identity.color), mileage: s.identity.mileage, trans: up(s.identity.trans), fuel: up(s.identity.fuel), spare_key: s.identity.spareKey, encumbrance: up(s.identity.encumbrance) } };
 }
 
 export interface Overrides { model: string | null; color: string | null; mileage: string | null; fuel: string | null; arrivedOn: string | null; encumbrance: string | null }

@@ -12,16 +12,21 @@ export const OVERRIDE_COLUMN: Partial<Record<SyncField, string>> = {
   arrival_date: "list_arrived_on", model: "list_model", color: "list_color", mileage: "list_mileage", fuel: "list_fuel", encumbrance: "list_encumbrance",
 };
 
-export type Choice = "list" | "docs" | "noted";
-export const choicesFor = (field: SyncField): Choice[] => (field === "docs_code" || field === "unmatched" || field === "odd_value" ? ["noted"] : ["list", "docs", "noted"]);
+export type Choice = "list" | "docs" | "noted" | "add" | "plate";
+export const choicesFor = (field: SyncField): Choice[] => (field === "unmatched" ? ["add", "plate", "noted"] : field === "docs_code" || field === "odd_value" ? ["noted"] : ["list", "docs", "noted"]);
 
-export interface SettlePlan { decision: string; docsPatch?: Record<string, string | null>; clearOverride?: string }
+export interface SettlePlan { decision: string; docsPatch?: Record<string, string | null>; clearOverride?: string; /** a car that is only on the price list: make its Docs Bible row from the price list row */ addUnit?: boolean; /** ...or link its price list row to this plate, which is already in the Docs Bible */ linkPlate?: string }
 
 const yy = (v: string) => { const d = v.replace(/\D/g, ""); return d.length >= 2 ? d.slice(-2) : d; };
 
-export function planSettle(field: SyncField, choice: Choice, item: { listValue: string | null; docsValue: string | null }): SettlePlan | { error: string } {
+export function planSettle(field: SyncField, choice: Choice, item: { listValue: string | null; docsValue: string | null }, input: { plate?: string } = {}): SettlePlan | { error: string } {
   if (!choicesFor(field).includes(choice)) return { error: "That choice is not available for this item." };
-  if (choice === "noted") return { decision: "Noted, left as it is" };
+  if (choice === "noted") return { decision: field === "unmatched" ? "Left out: not a car of the Docs Bible" : "Noted, left as it is" };
+  if (choice === "add") return { decision: "The car was added to the Docs Bible from the price list", addUnit: true };
+  if (choice === "plate") {
+    const plate = (input.plate ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    return plate.length >= 5 ? { decision: `Linked to the car with plate ${plate}`, linkPlate: plate } : { error: "Type the whole plate number." };
+  }
   const override = OVERRIDE_COLUMN[field];
   if (field === "status") {
     if (choice === "docs") return { decision: "The Docs Bible's status was kept" };

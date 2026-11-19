@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPriceListRows, daysInStock, rowKind, sellableFlag, type PriceRow } from "@/lib/pricelist/export";
-import { compareWithDocs, identityOverrides, isTestRow, normalizeCar, normalizeRenewal, normalizeRepair, spareKeyState, type SnapshotRow } from "@/lib/pricelist/import";
+import { blankFills, compareWithDocs, identityOverrides, isTestRow, newUnitFromList, normalizeCar, normalizeRenewal, normalizeRepair, spareKeyState, type SnapshotRow } from "@/lib/pricelist/import";
 
 const car = (o: Record<string, unknown> = {}): SnapshotRow => ({ _row: 4, _group: "HATCHBACK", _order: 1, "PLATE NUMBER": "NBU4875", BRAND: "TOYOTA", MAKE: "WIGO E", COLOR: "RED", YM: 17, PRICE: 238000, TARGET: 225000, REPRICE: 228000, "RE-TARGET": 215000, "DATE ARRIVED": "2026-09-12", "OR EXP": "2027-05-15", ...o }) as SnapshotRow;
 
@@ -138,5 +138,35 @@ describe("settling an item of the price list check", () => {
     expect(choicesFor("docs_code")).toEqual(["noted"]);
     expect(planSettle("unmatched", "list", { listValue: "X", docsValue: null })).toHaveProperty("error");
     expect(planSettle("docs_code", "noted", { listValue: "C", docsValue: null })).toMatchObject({ decision: "Noted, left as it is" });
+  });
+});
+
+describe("filling what the Docs Bible left blank", () => {
+  const s = normalizeCar(car({ TRANS: "AT", FUEL: "GAS", MILEAGE: "26T KMS", SPAREKEY: "W/SPAREKEY" })).stock!;
+  const blankUnit = { year_model: "17", make: "TOYOTA", model_variant: "WIGO E", color: "RED", trans: null, fuel: "", mileage: null, spare_key: null, encumbrance: "N/A", arrival_date: "2026-09-12" };
+  it("fills only the blanks, with the price list's words", () => {
+    expect(blankFills(s, blankUnit)).toEqual({ trans: "AT", fuel: "GAS", mileage: "26T KMS", spare_key: "W/SPAREKEY" });
+  });
+  it("never replaces what is there", () => {
+    expect(blankFills(s, { ...blankUnit, trans: "MT", fuel: "DIESEL", mileage: "1T KMS", spare_key: "NO" })).toEqual({});
+  });
+});
+
+describe("a car that is only on the price list", () => {
+  const stock = normalizeCar(car({ "PLATE NUMBER": "NU355A", BRAND: "TOYOTA", MAKE: "FORTUNER", YM: 24, COLOR: "BLACK", TRANS: "AT", FUEL: "DSL" })).stock!;
+  it("becomes a Docs Bible row with the same words Add a car uses", () => {
+    const made = newUnitFromList(stock, "2026-11-19");
+    expect(made).toMatchObject({ fields: { plate_no: "NU355A", make: "TOYOTA", model_variant: "FORTUNER", year_model: "24", color: "BLACK", trans: "AT", fuel: "DSL" } });
+  });
+  it("says what is missing instead of guessing", () => {
+    const s2 = normalizeCar(car({ "PLATE NUMBER": "NU355A", COLOR: null })).stock!;
+    expect(newUnitFromList(s2, "2026-11-19")).toEqual({ missing: ["color"] });
+  });
+  it("offers add, link to the right plate, or leave out, and needs a whole plate to link", () => {
+    expect(choicesFor("unmatched")).toEqual(["add", "plate", "noted"]);
+    expect(planSettle("unmatched", "add", { listValue: "NU355A", docsValue: null })).toMatchObject({ addUnit: true });
+    expect(planSettle("unmatched", "plate", { listValue: "NU355A", docsValue: null }, { plate: "nu 35" })).toHaveProperty("error");
+    expect(planSettle("unmatched", "plate", { listValue: "NU355A", docsValue: null }, { plate: "nbu 4875" })).toMatchObject({ linkPlate: "NBU4875" });
+    expect(planSettle("unmatched", "noted", { listValue: "NU355A", docsValue: null })).toMatchObject({ decision: "Left out: not a car of the Docs Bible" });
   });
 });
