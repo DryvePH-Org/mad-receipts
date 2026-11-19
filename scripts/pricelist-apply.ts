@@ -40,6 +40,11 @@ async function main() {
   const by = (k: string) => issues.filter((i) => i.field === k).length;
   console.log(`\nCars to save: ${toSave.length} | left out: ${skipped.length ? skipped.join("; ") : "none"}`);
   const fillCount = new Map<string, number>(); for (const t of toSave) for (const k of Object.keys(t.fills)) fillCount.set(k, (fillCount.get(k) ?? 0) + 1);
+  // a car the price list no longer lists (sold, taken off) leaves the stock: its row is kept, marked not in stock
+  const keep = new Set(toSave.map((t) => t.unitId));
+  const { data: before } = await db.from("car_stock").select("unit_id, plate_no").eq("in_stock", true).eq("source", "import");
+  const gone = (before ?? []).filter((b) => !keep.has(b.unit_id as string));
+  if (gone.length) { await db.from("car_stock").update({ in_stock: false }).in("unit_id", gone.map((g) => g.unit_id as string)); console.log(`Taken off the stock (no longer on the price list): ${gone.map((g) => g.plate_no).join(", ")}`); }
   for (const t of toSave) if (Object.keys(t.fills).length) console.log(`  fills ${t.row.plate_no}: ${JSON.stringify(t.fills)}`);
   console.log(`Blank Docs Bible fields filled from the price list: ${[...fillCount].map(([k, n]) => `${k} ${n}`).join(", ") || "none"}`);
   console.log(`Repairs: ${withRepairs ? repairs.length : "not imported (another project; --with-repairs to import)"} | renewals: ${renewals.length}`);
@@ -59,7 +64,7 @@ async function main() {
   // the price list check: items an earlier run left open are replaced; items the staff already settled stay settled (not made again)
   const { data: past } = await db.from("car_sync_items").select("plate_no, field, list_value, docs_value").eq("status", "settled");
   const settled = new Set((past ?? []).map((p) => `${p.plate_no}|${p.field}|${p.list_value ?? ""}|${p.docs_value ?? ""}`));
-  await db.from("car_sync_items").delete().eq("status", "open");
+  await db.from("car_sync_items").delete().eq("status", "open").neq("field", "or_expiry"); // the OR expiry items belong to scripts/or-expiry-sync.ts
   const rows = issues.filter((i) => !settled.has(`${i.plate}|${i.field}|${i.listValue ?? ""}|${i.docsValue ?? ""}`)).map((i) => ({ plate_no: i.plate, field: i.field, list_value: i.listValue, docs_value: i.docsValue, source_row: i.sourceRow || null, payload: i.payload ?? null, message: i.message, unit_id: i.plate ? unitOf.get(i.plate)?.id ?? null : null }));
   // migration 36 adds the column that keeps a not-yet-added car's price list row; without it the list still works, a car just cannot be added from it
   const hasPayload = !(await db.from("car_sync_items").select("payload").limit(1)).error;
