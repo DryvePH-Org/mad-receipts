@@ -74,3 +74,18 @@ Step 3 next: REMARKS: only the registry of deeds and the documents code are not 
 
 ## 8. Car status reads the database (19 Nov 2026, evening)
 The owner asked for no connection with the price list sheet or its copy. Done: Car status, the car picker of New receipt, the folder names and the receipt approval's Reserved/Sold note all use the database (`car_stock` + the car record); the Google adapter and its tests are removed; the go-live check looks at the database; Add a car puts a new arrival on the price list; Admin and Approver edit a car from Car status. The old workbook is now only an archive and the source of the daily fresh import until the cut-over.
+
+## 9. One MAD database: how, without losing data or its value (19 Nov 2026, night)
+
+The goal in the owner's words: no "MAD Price List" and no "Docs Bible": **one MAD database** with the web app as its only front. The two have been moved into the same database already; what is left is that some facts are still stored twice, and the screens still carry the two old names.
+
+**Why some facts were stored twice.** The About-the-car checklist was built on 13 Nov, the Docs Bible moved in on 17 Nov, the price list on 19 Nov: three separate places that each kept their own "spare key", "mileage", "arrival"... None was wrong; they were never joined.
+
+**The rule for every shared fact: one place, everything else reads it.**
+1. *Same fact typed twice* (spare key, arrival date, mileage, fuel, encumbrance, OR date, status): one value is kept in the car's record; the other value is not thrown away, it stays in the car's history and in the saved original row. Everything (Car status, Car documents, the Excel, Telegram) reads the one value. **Spare key: done** (the record is the only source; answering it on the car page writes the record; a stored checklist answer is only a fallback).
+2. *Two different facts that look alike* (the registration model "WIGO 1.0G E MT" vs the sales label "WIGO E"; a colour name vs a simpler colour): both are kept, each under its own name, so nothing is lost: model = the registered variant, plus a **sales label**.
+3. *Stock facts* (price, target, reprice, location, notes, state) live in the stock row today; once all differences are settled the stock row and the car record become **one table of cars** (a safe merge: a database view first, the same data, then the columns move), and the two old names disappear from the screens: **Cars** (papers, scan, handoff) and **Car status** (price, state, stock) are two views of the same record.
+
+**How it stays safe, at every step:** a dry run first; the verify script compares the app with the workbook cell by cell before and after; each change is recorded in the car's history with who and when (so it can be undone); nothing is deleted, only moved; the old workbooks stay untouched as the archive.
+
+**What is left to settle (77 + 11 rows):** model 28, arrival date 17, color 5, mileage 5, fuel 3, encumbrance 1, status 4, OR expiry 11. Proposed rules (the owner decides): arrival date: ?; model: keep the registered variant and keep the price list's wording as the sales label; color: keep the fuller name, the shorter is kept in the history; mileage: the newer one; fuel: one code (DIESEL); encumbrance: the fuller text; status: the Reserved note stays (a person typed it), the record's status follows; OR expiry: a person chooses per car.

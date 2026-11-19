@@ -30,7 +30,8 @@ export function carRowOf(s: StockFacts, u: CarFacts, today: string, aboutSpareKe
   const location = text(s.location), bodyType = text(s.body_group) || text(u.body_type);
   const encumbrance = text(s.list_encumbrance ?? (/^N\/?A$/i.test(text(u.encumbrance)) ? "" : u.encumbrance));
   const ym = text(u.year_model);
-  const spareKey = aboutSpareKey === "yes" ? "W/SPAREKEY" : aboutSpareKey === "no" ? "NO SPAREKEY" : text(u.spare_key);
+  // one spare key: the car's record; a stored checklist answer only fills in when the record has none
+  const spareKey = text(u.spare_key) || (aboutSpareKey === "yes" ? "W/SPAREKEY" : aboutSpareKey === "no" ? "NO SPAREKEY" : "");
   return {
     plate: s.plate_no, plateDisplay: text(u.plate_display).toUpperCase() || s.plate_no,
     year: fullYear(ym) || ym, brand: text(u.make), make: text(s.list_model ?? u.model_variant), color: text(s.list_color ?? u.color), mileage: text(s.list_mileage ?? u.mileage),

@@ -19,8 +19,8 @@ const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
 
 export function composeRow(s: StockRecord, u: UnitRecord, aboutRaw: unknown, complete: string | null): { price: PriceRow; detail: DetailRow } {
   const d = aboutRaw ? cleanDetails(aboutRaw) : null;
-  // one spare key: the About-the-car answer when someone gave one, else what the Docs Bible row says
-  const spareKey = d?.spareKey === "yes" ? "W/SPAREKEY" : d?.spareKey === "no" ? "NO SPAREKEY" : u.spare_key;
+  // one spare key: the car's record (answering it on the car page writes the record). A stored checklist answer only fills in when the record has none.
+  const spareKey = u.spare_key ?? (d?.spareKey === "yes" ? "W/SPAREKEY" : d?.spareKey === "no" ? "NO SPAREKEY" : null);
   const plate = u.plate_display || s.plate_no;
   return {
     price: {

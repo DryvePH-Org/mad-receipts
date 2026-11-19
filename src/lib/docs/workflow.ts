@@ -46,13 +46,12 @@ export async function loadWorkflow(plate: string, admin: Admin = createAdminClie
   };
 }
 
-/** The spare key is ONE fact, kept in the car's record (Docs Bible). The About-the-car answer shows that fact when nobody answered it there yet. */
+/** The spare key is ONE fact, kept in the car's record. The car page always shows the record's answer; a stored answer of the checklist is only used when the record has none. */
 async function withDocsSpareKey(plate: string, details: UnitDetails): Promise<UnitDetails> {
-  if (details.spareKey) return details;
   try {
     const { data } = await docsDb().from("docs_units").select("spare_key").eq("plate_no", plate).is("archived_at", null).order("arrival_date", { ascending: false }).limit(1);
     const state = spareKeyState((data?.[0]?.spare_key as string | null) ?? null);
-    return state === "unknown" ? details : { ...details, spareKey: state };
+    return state === "unknown" ? details : { ...details, spareKey: state }; // the record wins, so the two can never drift apart
   } catch { return details; }
 }
 
