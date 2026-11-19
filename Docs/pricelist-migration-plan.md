@@ -86,3 +86,18 @@ Built so far (nothing in the live app reads it yet): migration 35 (`car_stock`, 
 Still to build, after the owner has compared the Excel export with the sheet: Car status and the car picker reading the database, the edit screen for Admin and Approver, the receipt approval writing to the database instead of the sheet's REMARKS cell, the info note about ORCR WITH MAD, the repairs and renewals screens, and the cut-over check.
 
 How to run the import: `python3 scripts/pricelist-snapshot.py "<the exported .xlsx>"`, then `JITI_ALIAS='{"@/":"<project folder>/src/"}' npx jiti scripts/pricelist-apply.ts` (dry run), then the same with `--apply`. Repeat both whenever the workbook is exported again; the import replaces what an earlier run imported.
+
+## 7. Accuracy check before anything is written (19 Nov 2026)
+
+`scripts/pricelist-verify.ts` compares what the app would show with every cell of the workbook (1,298 cells for the 59 cars that match the Docs Bible): **1,273 are the same; the 25 that differ are all cells the sheet left empty where the Docs Bible knows the value** (3 mileages, 1 fuel, 21 spare keys). Nothing the sheet said is changed. After the import the same script reads the saved rows and also checks the repairs and renewals.
+
+What was found and fixed while checking:
+- The price list and the Docs Bible differ in model text (13 cars), mileage (8), encumbrance wording (18) and **arrival date (18 cars, from one day to three weeks apart)**. Instead of picking one silently, the stock row keeps what the price list said (`list_model`, `list_color`, `list_mileage`, `list_fuel`, `list_arrived_on`, `list_encumbrance`) only where it differs, so the export reads like the sheet and days in stock stay what the staff are used to. Real disagreements, and every different arrival date, are one review item per car.
+- The renewals tab also had price, target, arrival date, brand, model... for 27 cars (19 of them no longer in the price list). Those cells are now kept in the saved row (`raw`) for repairs and renewals too.
+- The sheet's typed 1/0 column D (can be sold) matched the app's rule for 57 of 61 cars; the other 4 are cars with no price yet, so the rule now says "not for sale without a price", and all 59 compared cars match.
+- The migration no longer relies on the name of an old check constraint, and the price-history trigger is plain SQL.
+- The sheet's REPAIR STATUS column only allows READY TO SELL, SELL AS IS, FOR REPAIR: the edit screen will offer the same three.
+
+Also left out on purpose: column Y (`=TODAY()`), the total row, and the two test rows. All other cells of the three tabs are accounted for.
+
+A decision for the owner: the old workbook cannot be locked as a whole if ORCR WITH MAD stays in it, because the staff must keep updating that tab. Lock only the tabs that moved (INVENTORY 2026, REPAIRS REPORT, FOR RENEWAL and the arrival lists) and leave ORCR WITH MAD open.

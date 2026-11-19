@@ -13,6 +13,9 @@ create table public.car_stock (
   retarget numeric(12, 2) check (retarget is null or retarget >= 0),
   or_expiry date,
   or_expiry_raw text,                             -- what was typed, when it was not a clear date
+  -- What the price list showed where it differs from the Docs Bible row (empty = the Docs Bible value is shown). Nothing the sheet said is lost,
+  -- and the Excel export reads exactly as the sheet did. The review list asks the staff to settle real disagreements.
+  list_model text, list_color text, list_mileage text, list_fuel text, list_arrived_on date, list_encumbrance text,
   papers_with text,                               -- the sheet's DOCS column, as typed (C, K, EW...): the staff say what it means
   tools text,
   location text,                                  -- as typed: ROSE MARY, CLEMENTE, MANILA UNIT TO CEBU
@@ -44,15 +47,19 @@ alter table public.car_price_history enable row level security;
 create index car_price_history_unit on public.car_price_history (unit_id, changed_at desc);
 
 create function public.car_stock_history() returns trigger language plpgsql set search_path = '' as $$
-declare f text; o numeric; n numeric;
 begin
-  foreach f in array array['list_price', 'target_price', 'reprice', 'retarget'] loop
-    execute format('select ($1).%I, ($2).%I', f, f) into o, n using old, new;
-    if o is distinct from n then
-      insert into public.car_price_history (unit_id, plate_no, field, old_value, new_value, changed_by)
-      values (new.unit_id, new.plate_no, f, o, n, new.updated_by);
-    end if;
-  end loop;
+  if old.list_price is distinct from new.list_price then
+    insert into public.car_price_history (unit_id, plate_no, field, old_value, new_value, changed_by) values (new.unit_id, new.plate_no, 'list_price', old.list_price, new.list_price, new.updated_by);
+  end if;
+  if old.target_price is distinct from new.target_price then
+    insert into public.car_price_history (unit_id, plate_no, field, old_value, new_value, changed_by) values (new.unit_id, new.plate_no, 'target_price', old.target_price, new.target_price, new.updated_by);
+  end if;
+  if old.reprice is distinct from new.reprice then
+    insert into public.car_price_history (unit_id, plate_no, field, old_value, new_value, changed_by) values (new.unit_id, new.plate_no, 'reprice', old.reprice, new.reprice, new.updated_by);
+  end if;
+  if old.retarget is distinct from new.retarget then
+    insert into public.car_price_history (unit_id, plate_no, field, old_value, new_value, changed_by) values (new.unit_id, new.plate_no, 'retarget', old.retarget, new.retarget, new.updated_by);
+  end if;
   new.updated_at = now();
   return new;
 end $$;
@@ -92,7 +99,14 @@ alter table public.or_renewals enable row level security;
 create index or_renewals_plate on public.or_renewals (plate_no);
 
 -- The review list also takes what the price list import could not decide.
-alter table public.docs_review_items drop constraint if exists docs_review_items_kind_check;
+-- (whatever the old check was called, it goes; the new one lists every kind)
+do $$
+declare c record;
+begin
+  for c in select conname from pg_constraint where conrelid = 'public.docs_review_items'::regclass and contype = 'c' and pg_get_constraintdef(oid) like '%duplicate_plate%' loop
+    execute format('alter table public.docs_review_items drop constraint %I', c.conname);
+  end loop;
+end $$;
 alter table public.docs_review_items add constraint docs_review_items_kind_check check (kind in (
   'duplicate_plate', 'no_plate', 'status_disagree', 'legacy_classification', 'odd_date', 'odd_plate', 'unknown_value', 'other',
   'pricelist_docs_code', 'pricelist_unmatched', 'pricelist_odd_value', 'pricelist_differs'));

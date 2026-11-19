@@ -22,6 +22,7 @@ def table(ws, header_row):
         row = {h: cell(v) for h, v in zip(hdr, r) if h and cell(v) is not None}
         # the heading rows put their text in the NO. OF DAYS column; a few columns have no header of their own
         row["_row"] = i
+        row["_D"] = cell(ws.cell(row=i, column=4).value) if header_row == 2 else None  # the sheet's narrow, header-less column D (1 = can be sold)
         out.append(row)
     return out
 

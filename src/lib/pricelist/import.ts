@@ -60,7 +60,7 @@ export function normalizeCar(r: SnapshotRow): { stock: StockInput | null; skippe
   return { stock, issues };
 }
 
-export interface UnitIdentity { year_model: string | null; make: string | null; model_variant: string | null; color: string | null; trans: string | null; fuel: string | null; spare_key: string | null }
+export interface UnitIdentity { year_model: string | null; make: string | null; model_variant: string | null; color: string | null; trans: string | null; fuel: string | null; spare_key: string | null; mileage?: string | null; encumbrance?: string | null; arrival_date?: string | null }
 
 const yy = (v: unknown) => { const d = String(v ?? "").replace(/\D/g, ""); return d.length >= 2 ? d.slice(-2) : d; };
 
@@ -86,6 +86,31 @@ export function identityDifferences(s: StockInput, u: UnitIdentity): string[] {
   if (s.identity.fuel && u.fuel && !sameFuel(s.identity.fuel, u.fuel)) out.push(`Fuel: the price list says ${s.identity.fuel}, the Docs Bible says ${u.fuel}.`);
   const a = spareKeyState(s.identity.spareKey), b = spareKeyState(u.spare_key);
   if (a !== "unknown" && b !== "unknown" && a !== b) out.push(`Spare key: the price list says "${s.identity.spareKey}", the Docs Bible says "${u.spare_key}".`);
+  return out;
+}
+
+export interface Overrides { model: string | null; color: string | null; mileage: string | null; fuel: string | null; arrivedOn: string | null; encumbrance: string | null }
+
+/**
+ * What the price list said that the Docs Bible row does not say the same way. These are kept on the stock row so the Excel export (and Car status)
+ * read exactly as the sheet did. A field the sheet left blank, or wrote the same way, is not kept: the Docs Bible value is shown.
+ */
+export function identityOverrides(s: StockInput, u: UnitIdentity): Overrides {
+  const differs = (a: string | null, b: string | null | undefined) => !!a && norm(a) !== norm(b);
+  return {
+    model: differs(s.identity.make, u.model_variant) ? s.identity.make : null,
+    color: differs(s.identity.color, u.color) ? s.identity.color : null,
+    mileage: differs(s.identity.mileage, u.mileage) ? s.identity.mileage : null,
+    fuel: differs(s.identity.fuel, u.fuel) ? s.identity.fuel : null,
+    arrivedOn: s.identity.arrived && s.identity.arrived !== (u.arrival_date ?? null) ? s.identity.arrived : null,
+    encumbrance: differs(s.identity.encumbrance, u.encumbrance) ? s.identity.encumbrance : null,
+  };
+}
+
+/** The differences a person should look at: real disagreements, and an arrival date that is not the same (days in stock depend on it). */
+export function reviewNotes(s: StockInput, u: UnitIdentity): string[] {
+  const out = identityDifferences(s, u);
+  if (s.identity.arrived && u.arrival_date && s.identity.arrived !== u.arrival_date) out.push(`Arrival date: the price list says ${s.identity.arrived}, the Docs Bible says ${u.arrival_date}. The price list's date is used for the days in stock until this is settled.`);
   return out;
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPriceListRows, daysInStock, rowKind, sellableFlag, type PriceRow } from "@/lib/pricelist/export";
-import { identityDifferences, isTestRow, normalizeCar, normalizeRenewal, normalizeRepair, spareKeyState, type SnapshotRow } from "@/lib/pricelist/import";
+import { identityDifferences, identityOverrides, isTestRow, reviewNotes, normalizeCar, normalizeRenewal, normalizeRepair, spareKeyState, type SnapshotRow } from "@/lib/pricelist/import";
 
 const car = (o: Record<string, unknown> = {}): SnapshotRow => ({ _row: 4, _group: "HATCHBACK", _order: 1, "PLATE NUMBER": "NBU4875", BRAND: "TOYOTA", MAKE: "WIGO E", COLOR: "RED", YM: 17, PRICE: 238000, TARGET: 225000, REPRICE: 228000, "RE-TARGET": 215000, "DATE ARRIVED": "2026-09-12", "OR EXP": "2027-05-15", ...o }) as SnapshotRow;
 
@@ -58,6 +58,21 @@ describe("differences with the Docs Bible", () => {
   });
 });
 
+describe("what the price list showed differently", () => {
+  const unit = { year_model: "17", make: "TOYOTA", model_variant: "WIGO 1.0G E MT", color: "RED", trans: "MT", fuel: "DIESEL", spare_key: null, mileage: "108T KMS", encumbrance: "N/A", arrival_date: "2026-09-11" };
+  const s = normalizeCar(car({ MAKE: "WIGO E", MILEAGE: "108T KMS", FUEL: "DSL", ENCUMBRANCE: null, "DATE ARRIVED": "2026-09-12" })).stock!;
+  it("keeps the sheet's own words so the export reads like the sheet", () => {
+    expect(identityOverrides(s, unit)).toEqual({ model: "WIGO E", color: null, mileage: null, fuel: "DSL", arrivedOn: "2026-09-12", encumbrance: null });
+  });
+  it("keeps nothing when they say the same, or when the sheet left it blank", () => {
+    const same = normalizeCar(car({ MAKE: "WIGO 1.0G E MT" })).stock!;
+    expect(identityOverrides(same, { ...unit, fuel: "GAS", arrival_date: "2026-09-12" })).toEqual({ model: null, color: null, mileage: null, fuel: null, arrivedOn: null, encumbrance: null });
+  });
+  it("asks a person to look at a different arrival date (it decides the days in stock)", () => {
+    expect(reviewNotes(s, unit).join(" ")).toContain("Arrival date");
+  });
+});
+
 describe("the two small lists", () => {
   it("reads a repair", () => {
     expect(normalizeRepair({ _row: 2, "PLATE NUMBER": "AAQ3989", PROBLEM: "DOOR", "WHEN THE PROBLEM HAPPENED": "2026-09-27", STATUS: "DONE" } as SnapshotRow, 1)).toMatchObject({ plate: "AAQ3989", happenedOn: "2026-09-27", status: "DONE" });
@@ -81,6 +96,7 @@ describe("the Excel layout", () => {
     expect(rowKind(row({ remarks: "AVAILABLE - reservation cancelled" }))).toBe("normal");
     expect(sellableFlag(row({ remarks: "RESERVED - X 1/1" }))).toBe(0);
     expect(sellableFlag(row())).toBe(1);
+    expect(sellableFlag(row({ price: null }))).toBe(0); // not priced yet: not for sale
   });
   it("puts a heading row where the group changes, keeps the sheet's order, and adds the total", () => {
     const { data, stickyRowsCount } = buildPriceListRows([row({ order: 2, plate: "BBB2222", group: "SUV/MPV" }), row({ order: 1 }), row({ order: 3, plate: "CCC3333", group: "SUV/MPV", remarks: "RESERVED - A 1/1" })], "2026-11-18", "MAD PRICELIST");

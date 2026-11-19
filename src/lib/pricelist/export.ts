@@ -34,8 +34,8 @@ export function daysInStock(arrived: string | null, today: string): number | nul
   return Number.isFinite(d) ? d : null;
 }
 
-/** 1 when the car can be quoted and sold, 0 when it is reserved, sold or for repair (the sheet's narrow column D). */
-export const sellableFlag = (r: Pick<PriceRow, "remarks" | "repairStatus">): 0 | 1 => (rowKind(r) === "normal" ? 1 : 0);
+/** 1 when the car can be quoted and sold, 0 when it is reserved, sold, for repair or has no price yet (the sheet's narrow column D). */
+export const sellableFlag = (r: Pick<PriceRow, "remarks" | "repairStatus" | "price">): 0 | 1 => (rowKind(r) === "normal" && r.price !== null ? 1 : 0);
 
 // ---- cells (the shape the xlsx writer takes) ----
 export interface Cell { value?: string | number | Date | null; type?: StringConstructor | NumberConstructor | DateConstructor; format?: string; fontWeight?: "bold"; backgroundColor?: string; align?: "left" | "center" | "right"; wrap?: boolean; height?: number; fontFamily?: string; fontSize?: number }
