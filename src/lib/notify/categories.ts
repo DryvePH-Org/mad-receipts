@@ -14,6 +14,7 @@ export const NOTIFY_CATEGORIES: readonly NotifyCategory[] = [
   { id: "deal_settled", label: "My deal is settled or the loan was released", detail: "", when: "right away", roles: ["sales"] },
   // Approver
   { id: "receipt_waiting", label: "A receipt is waiting for my approval", detail: "The writer, the amount and the car.", when: "right away", roles: ["approver"] },
+  { id: "repair_waiting", label: "A repair report is waiting for my approval", detail: "The car, the problems and who reported them.", when: "right away", roles: ["approver"] },
   { id: "approval_digest", label: "Receipts waiting too long", detail: "Receipts that have waited longer than the limit in Settings.", when: "every morning at 9:00", roles: ["approver"] },
   // Documentation
   { id: "sold_papers_added", label: "Sales added sold papers on a car", detail: "", when: "right away", roles: ["documentation"] },
