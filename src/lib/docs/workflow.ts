@@ -6,6 +6,8 @@ import type { Json } from "@/lib/supabase/database.types";
 import { createTelegramClient } from "@/lib/telegram";
 import { tell, appUrl } from "@/lib/notify";
 import { loadCar } from "./service";
+import { docsDb } from "@/lib/docsbible/review-server";
+import { spareKeyState } from "@/lib/pricelist/import";
 import { cleanDetails, EMPTY_DETAILS, missingDetails, type UnitDetails } from "./details";
 
 // What happens after the reading: the details checklist, approval (ready to market), and the Handoff of a sold car's papers.
@@ -40,8 +42,30 @@ export async function loadWorkflow(plate: string, admin: Admin = createAdminClie
   ]);
   return {
     workflow: w ? { scanNotifiedAt: w.scan_notified_at, soldReadyNotifiedAt: w.sold_ready_notified_at, approvedAt: w.docs_approved_at, marketingNotifiedAt: w.marketing_notified_at, handoffAt: w.handoff_at, handoffNote: w.handoff_note, handoffChecked: w.handoff_checked ?? [], handoffReturnedAt: w.handoff_returned_at } : EMPTY,
-    details: d ? cleanDetails(d.data) : EMPTY_DETAILS, detailsSaved: !!d,
+    details: await withDocsSpareKey(key, d ? cleanDetails(d.data) : EMPTY_DETAILS), detailsSaved: !!d,
   };
+}
+
+/** The spare key is ONE fact, kept in the car's record (Docs Bible). The About-the-car answer shows that fact when nobody answered it there yet. */
+async function withDocsSpareKey(plate: string, details: UnitDetails): Promise<UnitDetails> {
+  if (details.spareKey) return details;
+  try {
+    const { data } = await docsDb().from("docs_units").select("spare_key").eq("plate_no", plate).is("archived_at", null).order("arrival_date", { ascending: false }).limit(1);
+    const state = spareKeyState((data?.[0]?.spare_key as string | null) ?? null);
+    return state === "unknown" ? details : { ...details, spareKey: state };
+  } catch { return details; }
+}
+
+/** Answering "spare key" on the car page writes the same fact into the car's record, so Car status, the Table and the Excel all show it. */
+async function writeSpareKeyToRecord(plate: string, answer: "yes" | "no" | "", actor: string): Promise<void> {
+  if (!answer) return;
+  try {
+    const db = docsDb();
+    const { data } = await db.from("docs_units").select("id, spare_key").eq("plate_no", plate).is("archived_at", null).order("arrival_date", { ascending: false }).limit(1);
+    const unit = data?.[0];
+    if (!unit || spareKeyState(unit.spare_key as string | null) === answer) return; // already says it (in the staff's own words)
+    await db.from("docs_units").update({ spare_key: answer === "yes" ? "W/SPAREKEY" : "W/O SPAREKEY", last_change_source: "about", updated_by: actor }).eq("id", unit.id as string);
+  } catch (e) { console.warn(`[docs] spare key not copied to the car's record: ${e instanceof Error ? e.message : "unknown"}`); }
 }
 
 const log = (admin: Admin, actor: string, action: string, plate: string, after: Json) =>
@@ -59,6 +83,7 @@ export async function saveDetails(plate: string, data: unknown, actor: string, d
   const clean = cleanDetails(data);
   const { error } = await deps.admin.from("unit_details").upsert({ plate_no: key, data: clean as unknown as Json, updated_by: actor }, { onConflict: "plate_no" });
   if (error) throw new Error(/unit_details/.test(error.message) ? "Saving needs the latest database update (migration 24)." : "Could not save. Try again.");
+  await writeSpareKeyToRecord(key, clean.spareKey, actor);
 }
 
 export type StepResult = { ok: true; notified?: boolean } | { ok: false; needsConfirm: true; missing: string[] } | { ok: false; error: string };
