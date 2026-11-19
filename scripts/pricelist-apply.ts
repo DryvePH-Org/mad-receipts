@@ -7,6 +7,8 @@ import { createClient } from "@supabase/supabase-js";
 import { blankFills, compareWithDocs, identityOverrides, normalizeCar, normalizeRenewal, normalizeRepair, stockRow, type PriceIssue, type SnapshotRow } from "../src/lib/pricelist/import";
 
 const apply = process.argv.includes("--apply");
+// The REPAIRS REPORT belongs to another project that will be connected later: it is not imported unless asked for (--with-repairs).
+const withRepairs = process.argv.includes("--with-repairs");
 const env: Record<string, string | undefined> = { ...process.env };
 if (existsSync(".env.local")) for (const l of readFileSync(".env.local", "utf8").split("\n")) { const m = /^([A-Z_0-9]+)=(.*?)(\s+#.*)?$/.exec(l); if (m && !(m[1] in env)) env[m[1]] = m[2].trim(); }
 const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
@@ -31,7 +33,7 @@ async function main() {
     const o = identityOverrides(s, u);
     toSave.push({ unitId: u.id as string, fills: blankFills(s, u), row: stockRow(s, u.id as string, o, r) });
   }
-  const repairs = snap.repairs.map((r, i) => normalizeRepair(r, i + 1)).filter((x) => !!x);
+  const repairs = withRepairs ? snap.repairs.map((r, i) => normalizeRepair(r, i + 1)).filter((x) => !!x) : [];
   const renewals = snap.renewals.map((r, i) => normalizeRenewal(r, i + 1)).filter((x) => !!x);
   for (const x of renewals) if (x!.orExpiryRaw) issues.push({ field: "odd_value", plate: x!.plate, listValue: x!.orExpiryRaw, docsValue: null, sourceRow: 0, message: `Renewal list: OR EXP "${x!.orExpiryRaw}" is not a clear date.` });
 
@@ -40,7 +42,7 @@ async function main() {
   const fillCount = new Map<string, number>(); for (const t of toSave) for (const k of Object.keys(t.fills)) fillCount.set(k, (fillCount.get(k) ?? 0) + 1);
   for (const t of toSave) if (Object.keys(t.fills).length) console.log(`  fills ${t.row.plate_no}: ${JSON.stringify(t.fills)}`);
   console.log(`Blank Docs Bible fields filled from the price list: ${[...fillCount].map(([k, n]) => `${k} ${n}`).join(", ") || "none"}`);
-  console.log(`Repairs: ${repairs.length} | renewals: ${renewals.length}`);
+  console.log(`Repairs: ${withRepairs ? repairs.length : "not imported (another project; --with-repairs to import)"} | renewals: ${renewals.length}`);
   const fields = [...new Set(issues.map((i) => i.field))].map((f) => `${f} ${by(f)}`).join(", ");
   console.log(`Price list check: ${issues.length} items (${fields})`);
   for (const i of issues.filter((i) => i.field !== "docs_code").slice(0, 30)) console.log(`  [${i.field}] ${i.plate ?? ""} ${i.message}`);
@@ -50,7 +52,7 @@ async function main() {
   if (probe.error) throw new Error(`The price list tables are not there yet (${probe.error.message}). Apply migration 35 first.`);
   for (let i = 0; i < toSave.length; i += 100) { const { error: e } = await db.from("car_stock").upsert(toSave.slice(i, i + 100).map((t) => t.row), { onConflict: "unit_id" }); if (e) throw new Error(`car_stock: ${e.message}`); }
   for (const t of toSave) if (Object.keys(t.fills).length) { const { error: e } = await db.from("docs_units").update({ ...t.fills, last_change_source: "pricelist" }).eq("id", t.unitId); if (e) console.log(`  ${t.unitId}: blank fields not filled: ${e.message}`); }
-  await db.from("car_repairs").delete().eq("source", "import");
+  if (withRepairs) await db.from("car_repairs").delete().eq("source", "import");
   await db.from("or_renewals").delete().eq("source", "import");
   if (repairs.length) { const { error: e } = await db.from("car_repairs").insert(repairs.map((x) => ({ plate_no: x!.plate, ym: x!.ym, brand: x!.brand, problem: x!.problem, happened_on: x!.happenedOn, happened_raw: x!.happenedRaw, solution: x!.solution, supplier: x!.supplier, company: x!.company, est_timeline: x!.estTimeline, status: x!.status, bot_id: x!.botId, approved_by: x!.approvedBy, sort_order: x!.order, source: "import", raw: snap.repairs[x!.order - 1] }))); if (e) throw new Error(`car_repairs: ${e.message}`); }
   if (renewals.length) { const { error: e } = await db.from("or_renewals").insert(renewals.map((x) => ({ plate_no: x!.plate, month_label: x!.monthLabel, or_expiry: x!.orExpiry, or_expiry_raw: x!.orExpiryRaw, location: x!.location, notes: x!.notes, sort_order: x!.order, source: "import", raw: snap.renewals[x!.order - 1] }))); if (e) throw new Error(`or_renewals: ${e.message}`); }

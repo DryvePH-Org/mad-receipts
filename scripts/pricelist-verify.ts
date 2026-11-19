@@ -78,8 +78,9 @@ async function main() {
   if (real) {
     const rep = await db.from("car_repairs").select("plate_no, problem, status, raw").limit(1000);
     const ren = await db.from("or_renewals").select("plate_no, month_label, notes, raw").limit(1000);
+    if ((rep.data?.length ?? 0) === 0) console.log("\nRepairs: not imported (the REPAIRS REPORT belongs to another project).");
     const repWant = snap.repairs.map((r, i) => normalizeRepair(r, i + 1)).filter((x) => !!x), renWant = snap.renewals.map((r, i) => normalizeRenewal(r, i + 1)).filter((x) => !!x);
-    console.log(`\nRepairs: workbook ${repWant.length}, saved ${rep.data?.length ?? 0} ${repWant.length === (rep.data?.length ?? 0) ? "OK" : "DIFF"} | with their original cells kept: ${(rep.data ?? []).filter((x) => x.raw).length}`);
+    if ((rep.data?.length ?? 0) > 0) console.log(`\nRepairs: workbook ${repWant.length}, saved ${rep.data?.length ?? 0} ${repWant.length === (rep.data?.length ?? 0) ? "OK" : "DIFF"} | with their original cells kept: ${(rep.data ?? []).filter((x) => x.raw).length}`);
     console.log(`Renewals: workbook ${renWant.length}, saved ${ren.data?.length ?? 0} ${renWant.length === (ren.data?.length ?? 0) ? "OK" : "DIFF"} | with their original cells (price, target, arrival, days late...) kept: ${(ren.data ?? []).filter((x) => x.raw).length}`);
     console.log(`Stock rows with their original cells kept: ${[...stockOf.values()].filter((s) => s.raw).length} of ${stockOf.size}`);
   }
