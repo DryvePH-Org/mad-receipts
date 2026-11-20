@@ -65,6 +65,29 @@ async function priceListDatabase(): Promise<Check[]> {
   return out;
 }
 
+/** The repairs bot (Telegram): the settings it needs, the people it knows and where Telegram sends its messages now. Never shows a key. */
+async function repairsBot(): Promise<Check[]> {
+  const A = "Repairs bot", e = process.env, out: Check[] = [];
+  out.push(e.REPAIRS_TELEGRAM_BOT_TOKEN ? ok(A, "Bot token", "set") : info(A, "Bot token", "not set: the bot is off and the old bot is undisturbed (add REPAIRS_TELEGRAM_BOT_TOKEN on the switch day)"));
+  out.push(e.REPAIRS_TELEGRAM_CHAT_ID ? ok(A, "Group", `…${e.REPAIRS_TELEGRAM_CHAT_ID.slice(-4)}`) : info(A, "Group", "not set (REPAIRS_TELEGRAM_CHAT_ID: the group's number, negative)"));
+  out.push(e.ELEVENLABS_API_KEY ? ok(A, "Voice (ElevenLabs)", "set") : warn(A, "Voice (ElevenLabs)", "not set: voice notes will be refused, typing still works", "Add ELEVENLABS_API_KEY."));
+  out.push(e.ANTHROPIC_API_KEY || e.GROQ_API_KEY ? ok(A, "Reading the reports", e.ANTHROPIC_API_KEY ? "Claude" : "Groq") : fail(A, "Reading the reports", "no model key", "GROQ_API_KEY (or ANTHROPIC_API_KEY)."));
+  const db = createAdminClient() as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const people = await db.from("repair_people").select("role").eq("active", true);
+  if (people.error) return [...out, fail(A, "Tables", "not there yet", "Apply migrations 42 and 43.")];
+  const rows = (people.data ?? []) as { role: string }[];
+  out.push(rows.some((p) => p.role !== "repairman") && rows.some((p) => p.role === "repairman" || p.role === "admin") ? ok(A, "People", `${rows.length} (${rows.filter((p) => p.role !== "repairman").length} who can approve)`) : warn(A, "People", `${rows.length}: someone must report and someone must approve`, "Repairs page → Telegram bot: who may use it."));
+  if (e.REPAIRS_TELEGRAM_BOT_TOKEN) {
+    try {
+      const { repairsWebhookInfo } = await import("@/lib/repairs/bot/telegram");
+      const w = await repairsWebhookInfo(), mine = /\/api\/repairs\/telegram$/.test(w.url);
+      out.push(mine ? ok(A, "Telegram sends its messages to", "this app") : warn(A, "Telegram sends its messages to", w.url ? "the old bot (still)" : "nowhere", "The switch has not been done yet."));
+      if (w.last_error_message) out.push(warn(A, "Telegram's last delivery error", w.last_error_message.slice(0, 120)));
+    } catch (err) { out.push(warn(A, "Telegram", err instanceof Error ? err.message.slice(0, 120) : "could not be asked")); }
+  }
+  return out;
+}
+
 /** The Docs Bible in the database: the cars, the data check, and today's saved copy. */
 async function docsBibleDatabase(): Promise<Check[]> {
   const A = "Car documents (database)", db = createAdminClient() as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -132,7 +155,7 @@ async function drive(): Promise<Check[]> {
 
 export async function runGoLiveChecks(): Promise<Check[]> {
   const parts = await Promise.all([
-    Promise.resolve(settings()), safe("Database", "Database", database), safe("Car status (database)", "Car status", priceListDatabase),
+    Promise.resolve(settings()), safe("Database", "Database", database), safe("Car status (database)", "Car status", priceListDatabase), safe("Repairs bot", "Repairs bot", repairsBot),
     safe("Car documents (database)", "Car documents", docsBibleDatabase), safe("Cut-over", "Old sheet", oldSheetChanges), safe("Drive folders", "Drive", drive),
   ]);
   return parts.flat();
