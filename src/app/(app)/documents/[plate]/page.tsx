@@ -42,7 +42,7 @@ export default function CarPage({ params }: PageProps<"/documents/[plate]">) {
   return <Suspense fallback={<PageSkeleton />}><Content params={params} /></Suspense>;
 }
 
-const EMPTY_WORKFLOW = { scanNotifiedAt: null, soldReadyNotifiedAt: null, approvedAt: null, marketingNotifiedAt: null, handoffAt: null, handoffNote: null, handoffChecked: [] as string[], handoffReturnedAt: null };
+const EMPTY_WORKFLOW = { scanNotifiedAt: null, soldReadyNotifiedAt: null, approvedAt: null, approvedByName: null as string | null, marketingNotifiedAt: null, handoffAt: null, handoffNote: null, handoffChecked: [] as string[], handoffReturnedAt: null };
 
 async function Content({ params }: { params: PageProps<"/documents/[plate]">["params"] }) {
   const user = await requireModule("register");
@@ -94,6 +94,8 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
   const flagged = car.analysis.files.filter((r) => r.flags.length || r.types.some((t) => t === "id_unmatched" || t === "deed_unmatched")).length;
   const openItems = [...items.filter((i) => !i.present && !i.optional).map((i) => i.label), ...(car.pending ? [`${car.pending} photo${car.pending === 1 ? "" : "s"} not read yet`] : []), ...(flagged ? [`${flagged} file${flagged === 1 ? "" : "s"} still to check`] : [])];
   const soldItems = items.filter((i) => i.stage === "sold").map((i) => ({ key: i.key, label: i.label, present: i.present }));
+  // the app's own printout of the AR (unsigned) saved in the folder: shown beside the signed paper, for Documentation (it does not hold up the car)
+  const arCopy = receipts.length ? [{ key: "ar_copy", label: "AR copy from the app, saved in the folder (UNSIGNED)", present: receipts.every((r) => r.filed), optional: true }] : [];
   const busy = scanning || data.botWork.length > 0;
 
   return (
@@ -111,11 +113,11 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
             {canAct && <ChecksHelp />}
           </div>
           <aside className="space-y-6">
-            {canAct && <ApprovalCard plate={key} approvedAt={flow.workflow.approvedAt} marketingNotifiedAt={flow.workflow.marketingNotifiedAt} rule={stage.rules.approve} />}
+            {canAct && <ApprovalCard plate={key} approvedAt={flow.workflow.approvedAt} approvedBy={flow.workflow.approvedByName} marketingNotifiedAt={flow.workflow.marketingNotifiedAt} rule={stage.rules.approve} />}
             {canUpload && <SoldUploadCard plate={key} items={soldItems} deal={data.deal ? { dealNo: data.deal.dealNo, buyerName: data.deal.buyerName } : null} />}
             {canAct && receipts.length > 0 && <ReceiptsCard plate={key} receipts={receipts} />}
-            {canAct && <SoldCard plate={key} location={data.location} items={soldItems} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />}
-            {canAct && <HandoffCard rules={stage.rules} data={{ plate: key, location: data.location, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, items: items.map((i) => ({ key: i.key, label: i.label, present: i.present, optional: i.optional })) }} />}
+            {canAct && <SoldCard plate={key} location={data.location} items={[...arCopy.map(({ key: k, label, present }) => ({ key: k, label, present })), ...soldItems]} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />}
+            {canAct && <HandoffCard rules={stage.rules} data={{ plate: key, location: data.location, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, items: [...items, ...arCopy].map((i) => ({ key: i.key, label: i.label, present: i.present, optional: i.optional })) }} />}
             {transfers && <Card id="transfer"><CardHeader><CardTitle>Transfer to the buyer</CardTitle></CardHeader><CardContent><TransferList transfers={transfers.transfers} cars={Object.fromEntries(transfers.cars)} today={manilaToday()} plate={key} showCar={false} /></CardContent></Card>}
           </aside>
         </div>

@@ -285,12 +285,12 @@ test("Documentation puts an approved receipt in the car's folder with a button; 
   expect(r.error).toBeNull();
   made.pop(); // approved on purpose: it is removed with the other test receipts at the end
   await docs.reload();
-  await expect(docs.locator("#receipts")).toContainText("Not in the folder");
-  await docs.getByRole("button", { name: /^Put 1 receipt in the car's folder$/ }).click();
-  await expect(docs.locator("#receipts")).toContainText("In the folder", { timeout: 30_000 });
+  await expect(docs.locator("#receipts")).toContainText("Not in the folder yet");
+  await docs.getByRole("button", { name: /^Save 1 receipt in the car's folder \(unsigned\)$/ }).click();
+  await expect(docs.locator("#receipts")).toContainText("Unsigned copy in the folder", { timeout: 30_000 });
   // the copy shows with the car's files, but it is not read as a car document
   await expect(docs.locator("#papers")).toContainText("RECEIPT-", { timeout: 30_000 });
-  await expect(docs.getByRole("button", { name: /^Put .* in the car's folder$/ })).toHaveCount(0);
+  await expect(docs.getByRole("button", { name: /^Save .* in the car's folder \(unsigned\)$/ })).toHaveCount(0);
 
   // Sales have no such button
   const sales = await as(browser, "sales");

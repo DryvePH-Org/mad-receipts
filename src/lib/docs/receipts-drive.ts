@@ -4,15 +4,16 @@ import type { FormState } from "@/lib/deal/types";
 import { normalizePlate } from "@/lib/rules/plate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { docsBridge } from "./bridge";
-import { receiptFileBase } from "./receipt-names";
+import { receiptCopyName, receiptCopyNames, receiptFileBase } from "./receipt-names";
 import { receiptRecordHtml } from "./receipt-record";
 
 // Putting a car's approved receipts into its Drive folder is a button for the Documentation role (it no longer happens by itself).
+// The copy is named ..._UNSIGNED: it is the app's own printout; the signed paper is photographed and uploaded separately.
 
 
 const esc = (t: unknown) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] as string);
 
-export interface CarReceipt { id: string; receiptNo: string; filed: boolean }
+export interface CarReceipt { id: string; receiptNo: string; filed: boolean; copyName: string }
 
 async function approvedReceipts(plate: string) {
   const admin = createAdminClient();
@@ -29,7 +30,7 @@ export async function listCarReceipts(plate: string): Promise<CarReceipt[]> {
   if (!receipts.length) return [];
   let names = new Set<string>();
   if (folder?.folder_id) { try { names = new Set((await docsBridge().listFiles(folder.folder_id)).files.map((f) => f.name)); } catch { /* unknown: shown as not filed */ } }
-  return receipts.map((r) => ({ id: r.id, receiptNo: r.receipt_no, filed: names.has(`${receiptFileBase(r.receipt_no, plate)}.html`) }));
+  return receipts.map((r) => ({ id: r.id, receiptNo: r.receipt_no, filed: receiptCopyNames(r.receipt_no, plate).some((n) => names.has(n)), copyName: receiptCopyName(r.receipt_no, plate) }));
 }
 
 /** Puts every approved receipt that is not in the folder yet there: the receipt as a printable page, and its proofs. Safe to repeat. */
@@ -44,11 +45,11 @@ export async function fileCarReceipts(plate: string): Promise<{ filed: number; s
   let filed = 0, skipped = 0;
   for (const r of receipts) {
     const base = receiptFileBase(r.receipt_no, plate);
-    if (have.has(`${base}.html`)) { skipped++; continue; }
+    if (receiptCopyNames(r.receipt_no, plate).some((n) => have.has(n))) { skipped++; continue; }
     // a receipt saved without its form (an old or hand-made one) gets a short plain record instead of a failure
     const full = !!r.snapshot && typeof r.snapshot === "object" && Array.isArray((r.snapshot as { units?: unknown }).units);
-    const html = new TextEncoder().encode(full ? receiptRecordHtml(r.snapshot as unknown as FormState, company) : `<!doctype html><html lang="en"><meta charset="utf-8"><title>Receipt ${esc(r.receipt_no)}</title><body style="font:14px system-ui;max-width:640px;margin:24px auto"><h1>${esc(company.name)}</h1><p>Receipt No. <b>${esc(r.receipt_no)}</b> · ${esc(r.receipt_date)} · amount received ${esc(r.amount)}</p><p>The full record of this receipt is in the app.</p></body></html>`);
-    await bridge.upload(folder.folder_id, `${base}.html`, html, "text/html");
+    const html = new TextEncoder().encode(full ? receiptRecordHtml(r.snapshot as unknown as FormState, company) : `<!doctype html><html lang="en"><meta charset="utf-8"><title>Receipt ${esc(r.receipt_no)} (unsigned copy)</title><body style="font:14px system-ui;max-width:640px;margin:24px auto"><h1>${esc(company.name)}</h1><p>Receipt No. <b>${esc(r.receipt_no)}</b> · ${esc(r.receipt_date)} · amount received ${esc(r.amount)}</p><p><b>UNSIGNED COPY from MAD.</b> The signed paper copy is uploaded separately by Sales.</p><p>The full record of this receipt is in the app.</p></body></html>`);
+    await bridge.upload(folder.folder_id, receiptCopyName(r.receipt_no, plate), html, "text/html");
     const { data: files } = await admin.from("attachments").select("storage_path, filename, mime_type").eq("receipt_id", r.id).order("created_at");
     let n = 0;
     for (const f of files ?? []) {
@@ -61,4 +62,14 @@ export async function fileCarReceipts(plate: string): Promise<{ filed: number; s
     filed++;
   }
   return { filed, skipped };
+}
+
+/** The cars of a deal (by their folders) so the button can sit on the deal page: each plate's approved receipts are filed. */
+export async function fileDealReceipts(dealId: string): Promise<{ plates: string[]; filed: number; skipped: number }> {
+  const { data: folders } = await createAdminClient().from("unit_folders").select("plate_no, folder_id").eq("deal_id", dealId);
+  const linked = (folders ?? []).filter((f) => f.folder_id);
+  if (!linked.length) throw new Error("This deal's car has no folder in Drive yet. Link the folder in Car documents first.");
+  let filed = 0, skipped = 0;
+  for (const f of linked) { const r = await fileCarReceipts(f.plate_no as string); filed += r.filed; skipped += r.skipped; }
+  return { plates: linked.map((f) => f.plate_no as string), filed, skipped };
 }

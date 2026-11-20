@@ -16,6 +16,7 @@ import { dealStatusKey, relativeDay } from "@/lib/deal/status";
 import { KIND_LABELS } from "@/lib/deal/types";
 import { formatPeso } from "@/lib/rules/money";
 import { DealAdminActions, PrintReceiptButton } from "./deal-actions";
+import { FileArButton } from "./file-ar-button";
 
 export default function DealPage({ params }: PageProps<"/deals/[id]">) {
   return <Suspense fallback={<PageSkeleton />}><Content params={params} /></Suspense>;
@@ -82,6 +83,7 @@ async function Content({ params }: { params: PageProps<"/deals/[id]">["params"] 
                   </tbody>
                 </table>
               </div>
+              {user.modules.includes("documents") && receipts.some((r) => r.status === "approved") && <FileArButton dealId={deal.id} />}
             </CardContent>
           </Card>
         </div>

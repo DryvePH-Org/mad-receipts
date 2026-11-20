@@ -29,10 +29,10 @@ export const HANDOFF_EVERY_DAYS = 3;
 
 export interface Workflow {
   scanNotifiedAt: string | null; soldReadyNotifiedAt: string | null;
-  approvedAt: string | null; marketingNotifiedAt: string | null;
+  approvedAt: string | null; approvedByName: string | null; marketingNotifiedAt: string | null;
   handoffAt: string | null; handoffNote: string | null; handoffChecked: string[]; handoffReturnedAt: string | null;
 }
-const EMPTY: Workflow = { scanNotifiedAt: null, soldReadyNotifiedAt: null, approvedAt: null, marketingNotifiedAt: null, handoffAt: null, handoffNote: null, handoffChecked: [], handoffReturnedAt: null };
+const EMPTY: Workflow = { scanNotifiedAt: null, soldReadyNotifiedAt: null, approvedAt: null, approvedByName: null, marketingNotifiedAt: null, handoffAt: null, handoffNote: null, handoffChecked: [], handoffReturnedAt: null };
 
 export async function loadWorkflow(plate: string, admin: Admin = createAdminClient()): Promise<{ workflow: Workflow; details: UnitDetails; detailsSaved: boolean }> {
   const key = normalizePlate(plate);
@@ -40,8 +40,10 @@ export async function loadWorkflow(plate: string, admin: Admin = createAdminClie
     admin.from("unit_workflow").select("*").eq("plate_no", key).maybeSingle(),
     admin.from("unit_details").select("data").eq("plate_no", key).maybeSingle(),
   ]);
+  // who approved the documents (the name, so the page can say who and when)
+  const approver = w?.docs_approved_by ? (await admin.from("profiles").select("full_name").eq("id", w.docs_approved_by).maybeSingle()).data : null;
   return {
-    workflow: w ? { scanNotifiedAt: w.scan_notified_at, soldReadyNotifiedAt: w.sold_ready_notified_at, approvedAt: w.docs_approved_at, marketingNotifiedAt: w.marketing_notified_at, handoffAt: w.handoff_at, handoffNote: w.handoff_note, handoffChecked: w.handoff_checked ?? [], handoffReturnedAt: w.handoff_returned_at } : EMPTY,
+    workflow: w ? { scanNotifiedAt: w.scan_notified_at, soldReadyNotifiedAt: w.sold_ready_notified_at, approvedAt: w.docs_approved_at, approvedByName: approver?.full_name?.trim() || null, marketingNotifiedAt: w.marketing_notified_at, handoffAt: w.handoff_at, handoffNote: w.handoff_note, handoffChecked: w.handoff_checked ?? [], handoffReturnedAt: w.handoff_returned_at } : EMPTY,
     details: await withDocsSpareKey(key, d ? cleanDetails(d.data) : EMPTY_DETAILS), detailsSaved: !!d,
   };
 }

@@ -24,7 +24,8 @@ export function receiptRecordHtml(s: FormState, company: AppSettings["company"])
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Receipt ${esc(s.receiptNo)}</title><style>
 body{font:14px/1.45 system-ui,sans-serif;max-width:760px;margin:24px auto;padding:0 16px;color:#111}h1{margin:0;font-size:22px}h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#555;margin:22px 0 6px}
 table{width:100%;border-collapse:collapse}th{text-align:left;font-weight:500;color:#555;width:34%;padding:4px 0;vertical-align:top}td{padding:4px 0}.r{text-align:right;font-variant-numeric:tabular-nums}
-.row{display:flex;justify-content:space-between;border-top:1px solid #ddd;padding:6px 0}.total{font-weight:700;border-top:2px solid #111}small{color:#666;display:block}</style></head><body>
+.unsigned{border:2px solid #b45309;background:#fffbeb;color:#92400e;padding:8px 12px;border-radius:6px;margin:0 0 14px;font-weight:600}.row{display:flex;justify-content:space-between;border-top:1px solid #ddd;padding:6px 0}.total{font-weight:700;border-top:2px solid #111}small{color:#666;display:block}</style></head><body>
+<p class="unsigned">UNSIGNED COPY from MAD. The signed paper copy is uploaded separately by Sales.</p>
 <h1>${esc(company.name)}</h1><p>${esc(company.tagline)} · No. <b>${esc(s.receiptNo)}</b> · ${esc(s.date ? formatDate(s.date) : "")} · ${esc(KIND_LABELS[s.kind])}</p>
 <h2>Received from</h2><table>${kv("Buyer", s.receivedFrom)}${kv("Contact", s.contact)}${kv("Address", s.address)}${kv("Amount received", `${formatPeso(t.today)} (${words(t.today)})`)}</table>
 <h2>Vehicle${s.units.length > 1 ? "s" : ""}</h2>${s.units.map((u, i) => `<table>${s.units.length > 1 ? kv("Unit", `${i + 1} of ${s.units.length}`) : ""}${kv("Make / type", u.makeType)}${kv("Plate", u.plate)}${kv("Color", u.color)}</table>`).join("<br>")}

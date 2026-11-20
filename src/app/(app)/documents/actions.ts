@@ -9,7 +9,7 @@ import { CASES, CHOOSABLE, type CaseType, type DocType } from "@/lib/docs/types"
 import { readerMode, scheduleScan } from "@/lib/docs/bot-scan";
 import { allowed } from "@/lib/docs/stage";
 import { stageFor } from "@/lib/docs/stage-server";
-import { fileCarReceipts } from "@/lib/docs/receipts-drive";
+import { fileCarReceipts, fileDealReceipts } from "@/lib/docs/receipts-drive";
 import { carAdded } from "@/lib/notify/events";
 import { unitForFolder } from "@/lib/docsbible/unit-lookup";
 import { addUnit, unitStatus, type AddUnitResult, type UnitStatus } from "@/lib/docsbible/add-unit-server";
@@ -331,6 +331,19 @@ export async function fileReceiptsAction(plate: string): Promise<Done> {
     await scanFolder(p.data).catch(() => undefined);
     revalidatePath(`/documents/${normalizePlate(p.data)}`);
     return { ok: true as const, message: r.filed ? `${r.filed} receipt${r.filed === 1 ? "" : "s"} put in the car's folder.` : "Every approved receipt is already in the folder." };
+  }, (message) => ({ ok: false as const, message }));
+}
+
+/** The same button on the deal page: right after the receipt is approved, the unsigned copy goes into the car's folder. Documentation and Admin. */
+export async function fileDealReceiptsAction(dealId: string): Promise<Done> {
+  await requireModule("documents");
+  if (!/^[0-9a-f-]{36}$/i.test(dealId)) return { ok: false, message: "That deal was not found." };
+  return guard<Done>(async () => {
+    const r = await fileDealReceipts(dealId);
+    for (const plate of r.plates) await scanFolder(plate).catch(() => undefined);
+    for (const plate of r.plates) revalidatePath(`/documents/${normalizePlate(plate)}`);
+    revalidatePath(`/deals/${dealId}`);
+    return { ok: true as const, message: r.filed ? `${r.filed} receipt${r.filed === 1 ? "" : "s"} saved in the car's folder as UNSIGNED copies.` : "Every approved receipt is already in the folder." };
   }, (message) => ({ ok: false as const, message }));
 }
 
