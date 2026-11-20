@@ -5,6 +5,7 @@ import { requireModule } from "@/lib/auth";
 import { manilaToday } from "@/lib/dates";
 import { loadRepairs } from "@/lib/repairs/server";
 import { docsDb } from "@/lib/docsbible/review-server";
+import { botStateAction } from "./bot-actions";
 import { PeoplePanel } from "./people-panel";
 import { RepairsBoard } from "./repairs-board";
 
@@ -20,7 +21,7 @@ async function Content() {
   return (
     <>
       <PageHeader title="Repairs" description="Every repair report on the cars. Everyone can see them; only the Approver approves or rejects a report and updates a job. An approved job that is not done keeps its car marked For repair." />
-      {people && <PeoplePanel people={people} botReady={!!process.env.REPAIRS_TELEGRAM_BOT_TOKEN} />}
+      {people && <PeoplePanel people={people} botReady={!!process.env.REPAIRS_TELEGRAM_BOT_TOKEN} webhook={await botStateAction()} />}
       <RepairsBoard repairs={repairs} today={manilaToday()} canDecide={canDecide} />
     </>
   );

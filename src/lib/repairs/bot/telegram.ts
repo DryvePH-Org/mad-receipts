@@ -42,3 +42,6 @@ export async function downloadVoice(fileId: string): Promise<Uint8Array> {
   if (!res.ok) throw new Error(`The voice file could not be downloaded (HTTP ${res.status}).`);
   return new Uint8Array(await res.arrayBuffer());
 }
+
+export const deleteRepairsWebhook = () => api("deleteWebhook", { drop_pending_updates: false });
+export const setRepairsCommands = (commands: { command: string; description: string }[]) => api("setMyCommands", { commands });

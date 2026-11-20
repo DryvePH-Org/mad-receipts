@@ -4,11 +4,13 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { goBackAction, switchBotAction } from "./bot-actions";
 import { removePersonAction, savePersonAction } from "./people-actions";
 
 export interface PersonRow { tgId: number; name: string; role: string }
 
-export function PeoplePanel({ people, botReady }: { people: PersonRow[]; botReady: boolean }) {
+export function PeoplePanel({ people, botReady, webhook }: { people: PersonRow[]; botReady: boolean; webhook: { url: string; pending: number; error: string | null } | null }) {
+  const [confirm, setConfirm] = useState("");
   const [busy, start] = useTransition();
   const [f, setF] = useState({ tgId: "", name: "", role: "repairman" as "repairman" | "approver" | "admin" });
   const add = () => start(async () => {
@@ -27,6 +29,18 @@ export function PeoplePanel({ people, botReady }: { people: PersonRow[]; botRead
                 <Button className="ml-auto" size="sm" variant="ghost" disabled={busy} onClick={() => start(async () => { const r = await removePersonAction(p.tgId); if (!r.ok) toast.error(r.error); })}>Remove</Button></li>
             ))}
           </ul>
+        )}
+        {botReady && (
+          <div className="space-y-2 rounded-lg bg-muted/50 p-3">
+            <p className="font-medium">Where the group's messages go now: {webhook ? (webhook.url.endsWith("/api/repairs/telegram") ? "to this app" : webhook.url ? "to another address (the old bot's webhook)" : "to the old bot (it polls)") : "could not be read"}</p>
+            {webhook?.error && <p className="text-red-700">Telegram's last error: {webhook.error}</p>}
+            <div className="flex flex-wrap items-center gap-2">
+              <Input aria-label="Type SWITCH to confirm" className="h-8 w-40" placeholder="Type SWITCH" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+              <Button size="sm" disabled={busy || confirm.trim().toUpperCase() !== "SWITCH"} onClick={() => start(async () => { const r = await switchBotAction(confirm); if (r.ok) { toast.success(r.message); setConfirm(""); } else toast.error(r.error); })}>Switch the bot to the app</Button>
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => start(async () => { const r = await goBackAction(); if (r.ok) toast.success(r.message); else toast.error(r.error); })}>Go back to the old bot</Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Switching takes the group's messages away from the old bot at once; stop the old bot on the server too so it does not keep trying. Going back removes the app's address, so the old bot receives the messages again.</p>
+          </div>
         )}
         <div className="grid gap-2 sm:grid-cols-4">
           <Input aria-label="Telegram id" inputMode="numeric" placeholder="Telegram id" value={f.tgId} onChange={(e) => setF({ ...f, tgId: e.target.value.replace(/\D/g, "") })} />
