@@ -37,7 +37,7 @@ async function Content() {
           <CardContent className="space-y-3 text-sm">
             {!configured && <p className="text-muted-foreground">Telegram is not set up on the server yet. Tell the Admin.</p>}
             {configured && <Connect connected={!!link} username={link?.username ?? null} problem={link?.lastError ?? null} />}
-            <p className="text-xs text-muted-foreground">Press the button, then Start in Telegram. Quiet hours: nothing is sent from 9 PM to 7 AM Manila time; it waits until 7 AM (a problem alert for the Admin is the only exception).</p>
+            <p className="text-xs text-muted-foreground"><b>On a phone:</b> install Telegram first, then open MAD on the same phone, press Connect, tap "Open Telegram and press Start" and press Start. <b>On a computer:</b> press Connect, tap the button (Telegram opens, or the web version), press Start. Use the same Telegram account you use on your phone. Quiet hours: nothing is sent from 9 PM to 7 AM Manila time; it waits until 7 AM (a problem alert for the Admin is the only exception).</p>
           </CardContent>
         </Card>
 

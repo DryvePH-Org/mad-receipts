@@ -9,7 +9,7 @@ import { appUrl } from "@/lib/notify";
 import { makeLinkToken, webhookSecret } from "@/lib/notify/link";
 import { getLink, removeLink, setCategory } from "@/lib/notify/store";
 
-export type Result = { ok: true; message: string; url?: string } | { ok: false; error: string };
+export type Result = { ok: true; message: string; url?: string; bot?: string; command?: string } | { ok: false; error: string };
 const fail = (e: unknown): Result => ({ ok: false, error: e instanceof Error ? e.message : "Something went wrong." });
 
 /** The link that opens the bot with this person's one-time token. */
@@ -20,7 +20,9 @@ export async function connectLinkAction(): Promise<Result> {
   try {
     const info = await webhookInfo();
     if (!info.url) return { ok: false, error: "The Admin has to press “Set up the bot” first (below, Admin only)." };
-    return { ok: true, message: "Open Telegram and press Start.", url: `https://t.me/${await botName()}?start=${makeLinkToken(token, user.id)}` };
+    const bot = await botName(), code = makeLinkToken(token, user.id);
+    // the link opens the bot with the code; the same code typed by hand (/start <code>) works when a phone or a browser does not open the link
+    return { ok: true, message: "Open Telegram and press Start.", url: `https://t.me/${bot}?start=${code}`, bot, command: `/start ${code}` };
   } catch (e) { return fail(e); }
 }
 
