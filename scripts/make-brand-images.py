@@ -27,12 +27,25 @@ save(tile(LOGO, 512, 0.62), "public/icons/maskable-512.png")
 save(tile(LOGO, 180, 0.88), "src/app/apple-icon.png")
 # browser tab: only the car, so it can be seen at 16 px
 save(tile(CAR, 256, 0.9), "src/app/icon.png")
-# inside the app: a small wide tile for the phone header (the car), and the whole logo for the side menu and the login page
-def wide(art, w, h, fill):
-    out = Image.new("RGB", (w, h), BG)
+# inside the app: the logo on a transparent background in two colourings, so it shows on a white page and on a dark one.
+# The brightness of the source becomes the opacity: "light" art is white (for dark surfaces), "dark" art is near-black (for light surfaces).
+from PIL import ImageChops
+
+def transparent(art, colour):
+    r, g, b = art.split()
+    bright = ImageChops.lighter(ImageChops.lighter(r, g), b)
+    alpha = bright.point(lambda v: 0 if v < 30 else min(255, round((v - 30) * 255 / (235 - 30))))
+    out = Image.new("RGBA", art.size, colour + (0,))
+    out.putalpha(alpha)
+    return out
+
+def fit(art, w, h, fill):
+    out = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     aw = round(w * fill); ah = round(art.height * aw / art.width)
     out.paste(art.resize((aw, ah), Image.LANCZOS), ((w - aw) // 2, (h - ah) // 2))
     return out
-save(wide(CAR, 168, 108, 0.9), "public/brand/mad-mark.png")
-save(wide(LOGO, 480, 200, 0.88), "public/brand/mad-badge.png")
-save(wide(LOGO, 900, 420, 0.87), "public/brand/mad-logo.png")
+
+for name, colour in (("light", (255, 255, 255)), ("dark", (22, 22, 22))):
+    save(fit(transparent(LOGO, colour), 900, 380, 0.98), f"public/brand/mad-logo-{name}.png")
+    save(fit(transparent(CAR, colour), 336, 108, 0.98), f"public/brand/mad-mark-{name}.png")
+    save(fit(transparent(CAR, colour), 64, 64, 0.96), f"public/icons/favicon-{name}.png")

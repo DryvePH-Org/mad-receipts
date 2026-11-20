@@ -19,6 +19,13 @@ export const metadata: Metadata = {
   title: { default: "MAD App", template: "%s · MAD App" },
   description: "Receipts, cars, car documents and repairs for Manila Auto Display.",
   applicationName: "MAD App",
+  icons: {
+    // the browser tab: white art on a dark tab bar, dark art on a light one
+    icon: [
+      { url: "/icons/favicon-dark.png", media: "(prefers-color-scheme: light)" },
+      { url: "/icons/favicon-light.png", media: "(prefers-color-scheme: dark)" },
+    ],
+  },
   appleWebApp: { capable: true, title: "MAD", statusBarStyle: "default" },
 };
 

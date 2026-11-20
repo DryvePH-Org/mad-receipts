@@ -58,8 +58,11 @@ export default function LoginPage() {
       <section className="relative hidden overflow-hidden bg-primary p-12 text-primary-foreground lg:flex lg:flex-col lg:justify-between xl:p-16">
         <div aria-hidden className="pointer-events-none absolute -top-24 -right-24 size-[28rem] rounded-full bg-primary-foreground/10 blur-3xl" />
         <div className="relative">
+          {/* this panel is the page's "primary" colour, which is dark in the light theme and light in the dark one: the logo is drawn the other way round */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/mad-logo.png" alt="MAD App, Manila Auto Display" width={900} height={420} className="h-28 w-auto rounded-2xl ring-1 ring-primary-foreground/15" />
+          <img src="/brand/mad-logo-light.png" alt="MAD App, Manila Auto Display" className="h-24 w-auto dark:hidden" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/mad-logo-dark.png" alt="" aria-hidden className="hidden h-24 w-auto dark:block" />
         </div>
 
         <div className="relative max-w-md space-y-8">
