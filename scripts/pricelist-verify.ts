@@ -18,7 +18,7 @@ const norm = (v: unknown) => String(v ?? "").toUpperCase().replace(/[^A-Z0-9]/g,
 const same = (a: unknown, b: unknown) => norm(a) === norm(b);
 
 async function main() {
-  const { data: units } = await db.from("docs_units_current").select("id, plate_no, plate_display, arrival_date, year_model, make, model_variant, color, mileage, trans, fuel, encumbrance, spare_key, classification").limit(5000);
+  const { data: units } = await db.from("docs_units_current").select("id, plate_no, plate_display, arrival_date, year_model, make, model_variant, color, mileage, trans, fuel, encumbrance, spare_key, classification, papers_with, registry_of_deeds, stock_state, state_for, state_on, or_expiry").limit(5000);
   const unitOf = new Map((units ?? []).map((u) => [u.plate_no as string, u as UnitRecord & { plate_no: string }]));
   // the car record carries the sale list's fields (migration 40); they are read back as the old stock row shape
   const saved = await db.from("docs_units").select("*").eq("in_stock", true).limit(3000);
@@ -76,6 +76,9 @@ async function main() {
     console.log(`${c.bad.length === 0 ? "OK  " : "DIFF"} ${name.padEnd(24)} ${c.ok}/${c.ok + c.bad.length} same${c.bad.length ? `; differs: ${c.bad.slice(0, 3).map((b) => `${b.plate} sheet "${b.sheet}" / app "${b.app}"`).join(" | ")}${c.bad.length > 3 ? ` (+${c.bad.length - 3} more)` : ""}` : ""}`);
   }
   console.log(`\nCells compared: ${total}; the same: ${total - bad}; different: ${bad}.`);
+  // the one that matters: a value the sheet HAS that the app does not say the same way (a blank in the sheet that the app filled is not a loss)
+  const lost = Object.entries(col).flatMap(([name, c]) => c.bad.filter((b) => b.sheet !== "(empty)").map((b) => `${name} ${b.plate}: sheet "${b.sheet}" / app "${b.app}"`));
+  console.log(`Where the sheet has a value and the app does not say the same: ${lost.length}${lost.length ? `\n  ${lost.join("\n  ")}` : ""}`);
 
   if (real) {
     const rep = await db.from("car_repairs").select("plate_no, problem, status, raw").limit(1000);
