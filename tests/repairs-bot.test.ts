@@ -244,6 +244,8 @@ describe("repairs bot open jobs and spoken updates", () => {
     const d = draftOf(t);
     expect(d.kind).toBe("update");
     expect(d.update!.updates).toHaveLength(1);        // J9 was not a job it was shown: dropped
+    expect(d.update!.plate).toBe("CAS1019");          // the car comes from the matched job
+    expect(t.edits.at(-1)!.text).toContain("2019 Toyota Vios");
     expect(t.edits.at(-1)!.text).toContain("UPDATE TO EXISTING JOBS");
     await t.press(1, `d:${d.id}:apply`);
     expect(t.applied).toHaveLength(1);

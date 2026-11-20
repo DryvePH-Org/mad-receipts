@@ -39,6 +39,11 @@ export function createFlow(ports: Ports) {
       const openJobs = open.map((j, i) => ({ ref: `J${i + 1}`, jobId: j.jobId, plate: j.plate, problem: j.problem }));
       const got = await understand(ports.read, { transcript: draft.transcript, today: ports.today(), currentDraft: instruction ? draft.data : null, instruction, openJobs }, vocab);
       if (got.kind === "update") {
+        // the car comes from the jobs the updates matched (not from the words): one car is named, several cars are warned about
+        const matched = got.update.updates.map((u) => open.find((j) => j.jobId === u.jobId)).filter((j): j is NonNullable<typeof j> => !!j);
+        const plates = [...new Set(matched.map((j) => j.plate))];
+        if (plates.length === 1) { got.update.plate = plates[0]; got.update.year_model = ""; got.update.vehicle = matched[0].car; }
+        else if (plates.length > 1) got.update.warnings.push(`These updates are for more than one car (${plates.join(", ")}). Check each one.`);
         draft.kind = "update"; draft.update = got.update; draft.data = null; draft.state = "ready";
         await store.saveDraft(draft);
         await safeEdit(draft.chatId, draft.cardId, renderUpdate(draft, L), updateKeyboard(draft, L));
