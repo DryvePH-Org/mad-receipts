@@ -18,13 +18,13 @@ import { isLang } from "./texts";
 let carCache: { at: number; cars: CarLite[] } | null = null;
 async function cars(): Promise<CarLite[]> {
   if (carCache && Date.now() - carCache.at < 60_000) return carCache.cars;
-  const { data } = await docsDb().from("docs_units").select("plate_no, plate_display, make, model_variant, year_model").is("archived_at", null).order("arrival_date", { ascending: false, nullsFirst: false }).limit(5000);
+  const { data } = await docsDb().from("docs_units").select("plate_no, plate_display, make, model_variant, year_model, stock_state, in_stock").is("archived_at", null).order("arrival_date", { ascending: false, nullsFirst: false }).limit(5000);
   const seen = new Set<string>(), out: CarLite[] = [];
   for (const u of data ?? []) {
     const plate = u.plate_no as string;
     if (seen.has(plate)) continue;
     seen.add(plate);
-    out.push({ plate, display: ((u.plate_display as string | null) || plate).toUpperCase(), label: [u.make, u.model_variant].filter(Boolean).join(" ") });
+    out.push({ plate, display: ((u.plate_display as string | null) || plate).toUpperCase(), label: [u.make, u.model_variant].filter(Boolean).join(" "), state: (u.stock_state as string | null) ?? null, inStock: u.in_stock === true });
   }
   carCache = { at: Date.now(), cars: out };
   return out;

@@ -48,7 +48,7 @@ export async function understand(llm: (system: string, user: string) => Promise<
   return { kind: "report", report: cleanResult(parsed) };
 }
 
-export interface CarLite { plate: string; display: string; label: string }
+export interface CarLite { plate: string; display: string; label: string; state?: string | null; inStock?: boolean }
 
 const key = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
 
@@ -74,6 +74,9 @@ export function ground(d: DraftData, cars: CarLite[]): DraftData {
   if (mine) {
     const warnings = [...d.warnings];
     if (d.vehicle && mine.label && !key(mine.label).includes(key(d.vehicle).slice(0, 4)) && !key(d.vehicle).includes(key(mine.label).slice(0, 4))) warnings.push(`MAD has ${mine.display} as ${mine.label}, not ${d.vehicle}.`);
+    // "found in MAD" only says the plate is in the car records: say when the car is sold or not on the sale list
+    if (mine.state === "Sold") warnings.push(`${mine.display} is marked Sold in MAD.`);
+    else if (mine.inStock === false) warnings.push(`${mine.display} is not on the sale list (Car status).`);
     return { ...d, plate: mine.display, vehicle: d.vehicle || mine.label, inventory_found: true, warnings };
   }
   const near = nearPlates(d.plate, cars);

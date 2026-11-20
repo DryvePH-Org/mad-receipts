@@ -268,6 +268,14 @@ describe("understanding checks against MAD's cars", () => {
   it("warns when the said car is not the plate's car", () => {
     expect(ground({ ...base, plate: "CAS 1019", vehicle: "Honda City" }, cars).warnings.join(" ")).toContain("Toyota Vios");
   });
+  it("says when the car is Sold or not on the sale list", () => {
+    const sold = [{ plate: "NAS3571", display: "NAS 3571", label: "Mazda CX-5", state: "Sold", inStock: false }];
+    expect(ground({ ...base, plate: "NAS3571" }, sold).warnings).toContain("NAS 3571 is marked Sold in MAD.");
+    const off = [{ plate: "NAS3571", display: "NAS 3571", label: "Mazda CX-5", state: "Onhand", inStock: false }];
+    expect(ground({ ...base, plate: "NAS3571" }, off).warnings.join(" ")).toContain("not on the sale list");
+    const fine = [{ plate: "NAS3571", display: "NAS 3571", label: "Mazda CX-5", state: "Onhand", inStock: true }];
+    expect(ground({ ...base, plate: "NAS3571" }, fine).warnings).toEqual([]);
+  });
   it("suggests the nearest plate when it is not found (one letter off)", () => {
     expect(nearPlates("NAS 3517", cars)).toEqual([]);
     expect(nearPlates("NAS 3572", cars).map((c) => c.plate)).toEqual(["NAS3571"]);
