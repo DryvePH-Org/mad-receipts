@@ -15,7 +15,7 @@ import { CarsBoard } from "./cars-board";
 export default function CarsPage() {
   return (
     <div className="space-y-6">
-      <PageHeader title="Car status" description="Every car in stock: can it be sold, is it being repaired, how long has it been here. This is the app\u0027s own list: Admin and Approver change prices and status here." />
+      <PageHeader title="Car status" description="Every car in stock: can it be sold, is it being repaired, how long has it been here. This is the app’s own list: Admin and Approver change prices and status here." />
       <Suspense fallback={<PageSkeleton />}><Content /></Suspense>
     </div>
   );
@@ -44,8 +44,9 @@ async function Content() {
   return (
     <>
       <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted p-3 text-sm">
-        <p className="min-w-0 flex-1">ORCR transfers to buyers are not in MAD. Keep using the &ldquo;ORCR WITH MAD&rdquo; tab of the old MAD PRICE LIST.</p>
-        {orcr && <Button size="sm" variant="outline" nativeButton={false} render={<a href={orcr} target="_blank" rel="noreferrer" />}><ExternalLink /> Open ORCR WITH MAD</Button>}
+        <p className="min-w-0 flex-1">ORCR transfers to buyers are kept in MAD now, linked to the car: Car documents, then Transfers.</p>
+        {canCheck && <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/documents/transfers" />}>Open Transfers</Button>}
+        {orcr && <Button size="sm" variant="ghost" nativeButton={false} render={<a href={orcr} target="_blank" rel="noreferrer" />}><ExternalLink /> Old sheet</Button>}
       </div>
       {(openChecks > 0 || (canCheck && inApp > 0)) && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100">

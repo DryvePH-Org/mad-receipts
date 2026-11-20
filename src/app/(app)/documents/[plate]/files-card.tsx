@@ -114,13 +114,13 @@ export function PapersCard({ data, rules, readOnly = false, confirmEdits = false
         {!readOnly && !rules.scan.allowed && rules.scan.reason && data.files.length > 0 && <p className="text-xs text-muted-foreground">{rules.scan.reason}</p>}
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className={`flex flex-wrap items-center gap-3 rounded-lg p-3 text-sm ${chosen ? "bg-muted" : "bg-amber-50 text-amber-950 dark:bg-amber-500/10 dark:text-amber-100"}`}>
+        <div className={`flex flex-col gap-3 rounded-lg p-3 text-sm sm:flex-row sm:flex-wrap sm:items-center ${chosen ? "bg-muted" : "bg-amber-50 text-amber-950 dark:bg-amber-500/10 dark:text-amber-100"}`}>
           <label className="flex items-center gap-2 font-medium">Case
-            <NativeSelect aria-label="Case" className="w-44" value={chosen ? data.caseType : ""} disabled={busy || readOnly} onChange={(e) => choose(e.target.value)}>
+            <NativeSelect aria-label="Case" className="w-full sm:w-44" value={chosen ? data.caseType : ""} disabled={busy || readOnly} onChange={(e) => choose(e.target.value)}>
               {!chosen && <option value="" disabled>Choose the case…</option>}
               {CASES.map((c) => <option key={c} value={c}>{CASE_LABELS[c]}</option>)}
             </NativeSelect></label>
-          <p className="min-w-0 flex-1 text-xs">{data.scanned && data.pending === 0 ? <>The bot suggests <b>{CASE_LABELS[data.suggestedCase]}</b>: {data.caseReason}</> : "The bot suggests a case after the scan."}{!chosen && " A person chooses the case before approving."}</p>
+          <p className="min-w-0 text-xs sm:flex-1">{data.scanned && data.pending === 0 ? <>The bot suggests <b>{CASE_LABELS[data.suggestedCase]}</b>: {data.caseReason}</> : "The bot suggests a case after the scan."}{!chosen && " A person chooses the case before approving."}</p>
           {!readOnly && data.scanned && data.pending === 0 && (!chosen || data.caseType !== data.suggestedCase) && <Button size="sm" variant="outline" disabled={busy} onClick={() => choose(data.suggestedCase)}>Use {CASE_LABELS[data.suggestedCase]}</Button>}
         </div>
         {data.files.length === 0 && data.items.length === 0 ? <p className="text-sm text-muted-foreground">{data.scanned ? <>No photos in this folder yet. Use <b>Add documents</b>.</> : "Looking at the folder…"}</p> : (

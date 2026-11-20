@@ -47,9 +47,9 @@ export function SoldUploadCard({ plate, items, deal }: { plate: string; items: {
 
   return (
     <Card id="sold-upload">
-      <CardHeader><CardTitle>Sold papers</CardTitle></CardHeader>
-      <CardContent className="space-y-4 text-sm">
-        {!deal ? <p className="flex gap-2 rounded-lg bg-amber-50 p-3 text-amber-900 dark:bg-amber-500/10 dark:text-amber-200"><CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />No AR has been made for this car yet. The sold papers can be added once it is sold and an AR exists.</p> : (
+      {deal && <CardHeader><CardTitle>Sold papers</CardTitle></CardHeader>}
+      <CardContent className={deal ? "space-y-4 text-sm" : "py-3 text-sm"}>
+        {!deal ? <p className="flex gap-2 text-muted-foreground"><CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden /><span><b className="font-medium text-foreground">Sold papers:</b> no AR has been made for this car yet. They can be added once it is sold and an AR exists.</span></p> : (
           <>
             <p className="text-muted-foreground">Buyer <b className="text-foreground">{deal.buyerName}</b> · AR {deal.dealNo}. Take a photo of each paper: it goes into this car&apos;s folder and is read.</p>
             <ul className="divide-y rounded-lg ring-1 ring-foreground/10">

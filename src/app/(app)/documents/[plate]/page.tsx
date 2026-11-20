@@ -107,23 +107,24 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
       {!linked && data.isAdmin && <RemoveCarCard plate={key} name={data.name} />}
       {linked && <StageCard stage={stage} />}
       {linked && (
+        <>
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start">
-          <div className="space-y-6">
-            <PapersCard data={data} rules={stage.rules} readOnly={!canAct} confirmEdits={data.isAdmin && data.location === "sold"} register={register ? { id: register.id, values: register.values } : null} canEditRegister={canAct} differs={register && car.folder.case_source === "manual" ? registerDiff(car, register.values) : null} />
-            <AboutCard plate={key} details={flow.details} missing={missingDetails(flow.details)} readOnly={!canAct} confirmEdits={data.isAdmin && data.location === "sold"} />
-            <RegisterCard plate={key} row={register} role={user.role} canAct={canAct} confirmEdits={data.isAdmin && data.location === "sold"} />
-            {canAct && <ChecksHelp />}
-          </div>
-          <aside className="space-y-6">
+          {/* On a phone the steps to take come right after the papers, and the reference cards (About, Car record, what the scan checks) after them; on a wide screen the steps sit in the right column */}
+            <div className="xl:col-start-1"><PapersCard data={data} rules={stage.rules} readOnly={!canAct} confirmEdits={data.isAdmin && data.location === "sold"} register={register ? { id: register.id, values: register.values } : null} canEditRegister={canAct} differs={register && car.folder.case_source === "manual" ? registerDiff(car, register.values) : null} /></div>
+          <aside className="space-y-6 xl:col-start-2 xl:row-span-4 xl:row-start-1">
             {canAct && <ApprovalCard isAdmin={data.isAdmin} plate={key} approvedAt={flow.workflow.approvedAt} approvedBy={flow.workflow.approvedByName} marketingNotifiedAt={flow.workflow.marketingNotifiedAt} rule={stage.rules.approve} />}
             {canUpload && <SoldUploadCard plate={key} items={soldItems} deal={data.deal ? { dealNo: data.deal.dealNo, buyerName: data.deal.buyerName } : null} />}
             {canAct && receipts.length > 0 && <ReceiptsCard plate={key} receipts={receipts} />}
             {canAct && <SoldCard plate={key} location={data.location} items={[...arCopy.map(({ key: k, label, present }) => ({ key: k, label, present })), ...soldItems]} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />}
             {canAct && <HandoffCard isAdmin={data.isAdmin} rules={stage.rules} data={{ plate: key, location: data.location, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, items: [...items, ...arCopy].map((i) => ({ key: i.key, label: i.label, present: i.present, optional: i.optional })) }} />}
-            {data.isAdmin && <RemoveCarCard plate={key} name={data.name} />}
             {transfers && <Card id="transfer"><CardHeader><CardTitle>Transfer to the buyer</CardTitle></CardHeader><CardContent><TransferList transfers={transfers.transfers} cars={Object.fromEntries(transfers.cars)} today={manilaToday()} plate={key} showCar={false} /></CardContent></Card>}
           </aside>
+            <div className="xl:col-start-1"><AboutCard plate={key} details={flow.details} missing={missingDetails(flow.details)} readOnly={!canAct} confirmEdits={data.isAdmin && data.location === "sold"} /></div>
+            <div className="xl:col-start-1"><RegisterCard plate={key} row={register} role={user.role} canAct={canAct} confirmEdits={data.isAdmin && data.location === "sold"} /></div>
+            {canAct && <div className="xl:col-start-1"><ChecksHelp /></div>}
         </div>
+        {data.isAdmin && <RemoveCarCard plate={key} name={data.name} />}
+        </>
       )}
     </div>
   );

@@ -300,6 +300,7 @@ test("Documentation adds photos by typing only the plate: the folder is made, th
   await expect(docs.getByRole("button", { name: "Remove this car" })).toHaveCount(0);
   const admin = await as(browser, "admin");
   await admin.goto("/documents/ZZT7010");
+  await admin.getByText("Remove this car (Admin)").click();
   await admin.getByRole("button", { name: "Remove this car" }).click();
   await admin.getByRole("button", { name: "Yes, remove this car" }).click();
   await admin.waitForURL("**/documents");

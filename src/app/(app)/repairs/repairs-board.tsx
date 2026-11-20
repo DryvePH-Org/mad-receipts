@@ -105,7 +105,7 @@ export function RepairsBoard({ repairs, today, canDecide }: { repairs: Repair[];
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         {TABS.map(([t, label]) => <Button key={t} size="sm" variant={tab === t ? "default" : "outline"} onClick={() => setTab(t)}>{label} ({counts[t]})</Button>)}
-        <Input aria-label="Search repairs" className="ml-auto h-9 w-56" placeholder="Search plate or problem" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Input aria-label="Search repairs" className="h-9 w-full sm:ml-auto sm:w-56" placeholder="Search plate or problem" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
       {!shown.length ? <p className="text-sm text-muted-foreground">Nothing here.</p> : (
         <div className="space-y-4">{shown.map((jobs) => <Report key={jobs[0].id} plate={jobs[0].plate} jobs={jobs} today={today} canDecide={canDecide} pending={tab === "pending"} />)}</div>

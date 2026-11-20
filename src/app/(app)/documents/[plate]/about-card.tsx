@@ -27,12 +27,12 @@ export function AboutCard({ plate, details, missing, readOnly = false, confirmEd
     <div className="space-y-1.5"><Label htmlFor={id}>{label}</Label><Input id={id} value={d[key]} maxLength={max} placeholder={placeholder} onChange={(e) => set({ [key]: e.target.value })} /></div>
   );
   return (
-    <Card id="about">
+    <Card id="about" className="gap-0 py-0">
       <details className="group">
       <summary className="flex cursor-pointer list-none flex-wrap items-center gap-3 p-4 font-heading text-base font-medium">About the car
         {missing.length ? <Pill tone="amber">{missing.length} to fill in</Pill> : <Pill tone="emerald">All filled in</Pill>}
         <span className="ml-auto text-xs font-normal text-muted-foreground group-open:hidden">Show</span></summary>
-      <CardContent className="space-y-4"><fieldset disabled={readOnly} className="m-0 min-w-0 space-y-4 border-0 p-0">
+      <CardContent className="pb-4 space-y-4"><fieldset disabled={readOnly} className="m-0 min-w-0 space-y-4 border-0 p-0">
         <div className="grid gap-4 sm:grid-cols-2">
           {yn("ud-key", "Spare key", d.spareKey, (v) => set({ spareKey: v }))}
           {yn("ud-casa", "Maintained at the casa (dealer)", d.casaMaintained, (v) => set({ casaMaintained: v }))}
