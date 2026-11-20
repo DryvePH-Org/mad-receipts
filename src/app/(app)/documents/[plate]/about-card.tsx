@@ -10,11 +10,13 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import type { UnitDetails } from "@/lib/docs/details";
 import { saveDetailsAction } from "../actions";
+import { useEditConfirm } from "./edit-confirm";
 import { useStep } from "./use-step";
 
 /** The staff's own checklist about the car (keys, maintenance, battery, where it was bought, EV). Saved with its own button; never blocks approval. */
-export function AboutCard({ plate, details, missing, readOnly = false }: { plate: string; details: UnitDetails; missing: string[]; readOnly?: boolean }) {
+export function AboutCard({ plate, details, missing, readOnly = false, confirmEdits = false }: { confirmEdits?: boolean; plate: string; details: UnitDetails; missing: string[]; readOnly?: boolean }) {
   const { busy, start, done } = useStep();
+  const { confirm, dialog } = useEditConfirm(confirmEdits);
   const [d, setD] = useState<UnitDetails>(details);
   const set = (patch: Partial<UnitDetails>) => setD((x) => ({ ...x, ...patch }));
   const yn = (id: string, label: string, value: "yes" | "no" | "", onChange: (v: "yes" | "no" | "") => void) => (
@@ -42,10 +44,11 @@ export function AboutCard({ plate, details, missing, readOnly = false }: { plate
         {d.isEv && <div className="grid gap-4 sm:grid-cols-2">{yn("ud-charger", "EV charger", d.evCharger, (v) => set({ evCharger: v }))}{yn("ud-card", "EV charging card", d.evCard, (v) => set({ evCard: v }))}</div>}
         {txt("ud-note", "Note", "note", 300)}
         {!readOnly && missing.length > 0 && <p className="text-sm text-muted-foreground">Still blank: {missing.join("; ")}. You can approve with these blank; you will be asked to confirm.</p>}
-        {!readOnly && <Button disabled={busy} onClick={() => start(async () => done(await saveDetailsAction(plate, d)))}>{busy ? <Loader2 className="animate-spin" /> : <Save />} Save the details</Button>}
+        {!readOnly && <Button disabled={busy} onClick={() => confirm(() => start(async () => done(await saveDetailsAction(plate, d))))}>{busy ? <Loader2 className="animate-spin" /> : <Save />} Save the details</Button>}
       </fieldset>
       </CardContent>
       </details>
+      {dialog}
     </Card>
   );
 }

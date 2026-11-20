@@ -193,6 +193,38 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await expect.poll(async () => (await (adminClient() as unknown as { from: (t: string) => any }).from("docs_units_current").select("sale_status, vehicle_status").eq("plate_no", "ZZT7001").maybeSingle()).data, { timeout: 15_000 }).toMatchObject({ sale_status: "Sold", vehicle_status: "SOLD" }); // eslint-disable-line @typescript-eslint/no-explicit-any
   await expect(docs.getByText("Handoff to").first()).toBeVisible();
 
+  // Documentation hands the papers off; from here only an Admin can correct things, and every correction asks first
+  await docs.getByRole("button", { name: /^Handed off to/ }).click();
+  await docs.getByRole("dialog").getByRole("button", { name: "Go on anyway" }).click();
+  await expect(docs.getByText(/^Handed off on/).first()).toBeVisible({ timeout: 20_000 });
+  await expect(docs.getByText("Admin: correct this handoff")).toHaveCount(0);
+  await expect(docs.getByRole("button", { name: /Withdraw the approval/ })).toHaveCount(0);
+  const admin = await as(browser, "admin");
+  await admin.goto("/documents/ZZT7001");
+  // a change to the car's information asks first: Cancel keeps it as it was, the second time it goes through
+  await admin.getByText("About the car").first().click();
+  await admin.locator("#ud-note").fill("Corrected by the Admin");
+  await admin.getByRole("button", { name: "Save the details" }).click();
+  await expect(admin.getByRole("heading", { name: "Change a car that is already sold?" })).toBeVisible();
+  await admin.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+  expect(((await adminClient().from("unit_details").select("data").eq("plate_no", "ZZT7001").maybeSingle()).data?.data as { note?: string } | undefined)?.note ?? "").not.toBe("Corrected by the Admin");
+  await admin.getByRole("button", { name: "Save the details" }).click();
+  await admin.getByRole("dialog").getByRole("button", { name: "Yes, change this" }).click();
+  await expect.poll(async () => ((await adminClient().from("unit_details").select("data").eq("plate_no", "ZZT7001").maybeSingle()).data?.data as { note?: string } | undefined)?.note, { timeout: 20_000 }).toBe("Corrected by the Admin");
+  // the handoff: change the note, then take it back
+  await admin.locator("#ho-note-admin").fill("Fixed note");
+  await admin.getByRole("button", { name: "Save the ticks and note" }).click();
+  await admin.getByRole("dialog").getByRole("button", { name: "Yes, save the changes" }).click();
+  await expect(admin.getByText(/Handed off on .*Fixed note/)).toBeVisible({ timeout: 20_000 });
+  await admin.getByRole("button", { name: "Undo the handoff" }).click();
+  await admin.getByRole("dialog").getByRole("button", { name: "Yes, undo it" }).click();
+  await expect(admin.getByText("Not handed off").first()).toBeVisible({ timeout: 20_000 });
+  // and the approval can be withdrawn, so it can be approved again
+  await admin.getByRole("button", { name: "Withdraw the approval (Admin)" }).click();
+  await admin.getByRole("dialog").getByRole("button", { name: "Yes, withdraw it" }).click();
+  await expect(admin.getByText("Not approved yet").first()).toBeVisible({ timeout: 20_000 });
+  await admin.close();
+
   // a car that is not approved cannot be moved (only an Admin may go past that), and it says why
   await docs.goto("/documents/ZZT7002");
   await expect(docs.getByRole("button", { name: "Move to Sold" })).toBeDisabled();

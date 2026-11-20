@@ -1,5 +1,6 @@
 "use client";
 
+import { useEditConfirm } from "./edit-confirm";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, RefreshCw } from "lucide-react";
@@ -22,10 +23,12 @@ const GROUPS: { title: string; keys: string[] }[] = [
 ];
 
 /** The car's row of the Docs Bible, right on the car's page: the same columns the sheet had, changed in place by Documentation and Admin. */
-export function RegisterCard({ plate, row, role, canAct }: { plate: string; row: GridRow | null; role: Role; canAct: boolean }) {
+export function RegisterCard({ plate, row, role, canAct, confirmEdits = false }: { plate: string; row: GridRow | null; role: Role; canAct: boolean; confirmEdits?: boolean }) {
   const router = useRouter();
   const [values, setValues] = useState<Record<string, string | null>>(row?.values ?? {});
   const [busy, start] = useTransition();
+  const [nonce, setNonce] = useState(0); // a box whose change was not confirmed is drawn again from the saved value
+  const { confirm, dialog } = useEditConfirm(confirmEdits);
   if (!row) return (
     <Card id="register"><CardHeader><CardTitle>Car record</CardTitle></CardHeader>
       <CardContent className="space-y-3 text-sm"><p className="text-muted-foreground">This car is not in MAD yet. It is added when its documents are approved{canAct ? ", or press the button once the case is chosen" : ""}.</p>
@@ -34,17 +37,17 @@ export function RegisterCard({ plate, row, role, canAct }: { plate: string; row:
   const save = (col: Col, value: string) => {
     const before = values[col.key] ?? null;
     if ((value.trim() || null) === before) return;
-    start(async () => {
+    confirm(() => start(async () => {
       const r = await saveCellAction(row.id, col.key, value, before);
       if (!r.ok) { toast.error(r.message ?? "Could not save."); router.refresh(); return; }
       setValues((v) => ({ ...v, [col.key]: r.value ?? null })); toast.success(`${col.label} saved`);
-    });
+    }), () => setNonce((n) => n + 1));
   };
   const field = (col: Col) => {
     const can = canEditColumn(role, col), choices = choicesOf(col), v = values[col.key] ?? "";
     const id = `reg-${col.key}`;
     return (
-      <div key={col.key} className={col.kind === "remarks" ? "space-y-1.5 sm:col-span-2" : "space-y-1.5"}>
+      <div key={`${col.key}-${nonce}`} className={col.kind === "remarks" ? "space-y-1.5 sm:col-span-2" : "space-y-1.5"}>
         <label htmlFor={id} className="text-xs text-muted-foreground">{col.label} <span className="opacity-60">({col.letter})</span></label>
         {!can ? <p className="min-h-8 rounded-lg bg-muted/50 px-2.5 py-1.5 text-sm break-words whitespace-pre-line">{v || "—"}</p>
           : choices ? <NativeSelect id={id} value={v} onChange={(e) => save(col, e.target.value)}>{col.kind !== "classification" && <option value="">(empty)</option>}{col.kind === "classification" && v === "Not classified (legacy)" && <option value={v}>Not classified</option>}{choices.map((c) => <option key={c} value={c}>{c}</option>)}</NativeSelect>
@@ -66,6 +69,7 @@ export function RegisterCard({ plate, row, role, canAct }: { plate: string; row:
         {canAct && <div className="space-y-1 border-t pt-4"><Button variant="outline" disabled={busy} onClick={() => start(async () => { const r = await updateRegisterAction(plate); if (r.ok) { toast.success(r.message); router.refresh(); } else toast.error(r.message); })}><RefreshCw /> Fill the papers from this scan</Button><p className="text-xs text-muted-foreground">Sets each paper to what is in the folder and adds the dated scan note. It overwrites those boxes.</p></div>}
       </CardContent>
       </details>
+      {dialog}
     </Card>
   );
 }

@@ -109,17 +109,17 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
       {linked && (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start">
           <div className="space-y-6">
-            <PapersCard data={data} rules={stage.rules} readOnly={!canAct} register={register ? { id: register.id, values: register.values } : null} canEditRegister={canAct} differs={register && car.folder.case_source === "manual" ? registerDiff(car, register.values) : null} />
-            <AboutCard plate={key} details={flow.details} missing={missingDetails(flow.details)} readOnly={!canAct} />
-            <RegisterCard plate={key} row={register} role={user.role} canAct={canAct} />
+            <PapersCard data={data} rules={stage.rules} readOnly={!canAct} confirmEdits={data.isAdmin && data.location === "sold"} register={register ? { id: register.id, values: register.values } : null} canEditRegister={canAct} differs={register && car.folder.case_source === "manual" ? registerDiff(car, register.values) : null} />
+            <AboutCard plate={key} details={flow.details} missing={missingDetails(flow.details)} readOnly={!canAct} confirmEdits={data.isAdmin && data.location === "sold"} />
+            <RegisterCard plate={key} row={register} role={user.role} canAct={canAct} confirmEdits={data.isAdmin && data.location === "sold"} />
             {canAct && <ChecksHelp />}
           </div>
           <aside className="space-y-6">
-            {canAct && <ApprovalCard plate={key} approvedAt={flow.workflow.approvedAt} approvedBy={flow.workflow.approvedByName} marketingNotifiedAt={flow.workflow.marketingNotifiedAt} rule={stage.rules.approve} />}
+            {canAct && <ApprovalCard isAdmin={data.isAdmin} plate={key} approvedAt={flow.workflow.approvedAt} approvedBy={flow.workflow.approvedByName} marketingNotifiedAt={flow.workflow.marketingNotifiedAt} rule={stage.rules.approve} />}
             {canUpload && <SoldUploadCard plate={key} items={soldItems} deal={data.deal ? { dealNo: data.deal.dealNo, buyerName: data.deal.buyerName } : null} />}
             {canAct && receipts.length > 0 && <ReceiptsCard plate={key} receipts={receipts} />}
             {canAct && <SoldCard plate={key} location={data.location} items={[...arCopy.map(({ key: k, label, present }) => ({ key: k, label, present })), ...soldItems]} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />}
-            {canAct && <HandoffCard rules={stage.rules} data={{ plate: key, location: data.location, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, items: [...items, ...arCopy].map((i) => ({ key: i.key, label: i.label, present: i.present, optional: i.optional })) }} />}
+            {canAct && <HandoffCard isAdmin={data.isAdmin} rules={stage.rules} data={{ plate: key, location: data.location, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, items: [...items, ...arCopy].map((i) => ({ key: i.key, label: i.label, present: i.present, optional: i.optional })) }} />}
             {data.isAdmin && <RemoveCarCard plate={key} name={data.name} />}
             {transfers && <Card id="transfer"><CardHeader><CardTitle>Transfer to the buyer</CardTitle></CardHeader><CardContent><TransferList transfers={transfers.transfers} cars={Object.fromEntries(transfers.cars)} today={manilaToday()} plate={key} showCar={false} /></CardContent></Card>}
           </aside>

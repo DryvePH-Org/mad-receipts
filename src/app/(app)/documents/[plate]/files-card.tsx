@@ -15,6 +15,7 @@ import type { Rules } from "@/lib/docs/stage";
 import { CASE_LABELS, CASES, CHOOSABLE, DOC_LABELS, type Detection, type DocType } from "@/lib/docs/types";
 import { saveCellAction } from "../../docs-bible/actions";
 import { UploadButton } from "./upload-button";
+import { useEditConfirm } from "./edit-confirm";
 import { removeFileAction, rescanFileAction, editReadingAction, readNextAction, reviewFlagAction, rescanAction, setCaseAction, setFileTypesAction, updateRegisterAction } from "../actions";
 import type { CarViewData, FileView } from "./types";
 
@@ -29,12 +30,15 @@ const REG_CHIP: Record<string, string> = { "Yes": "bg-emerald-100 text-emerald-9
  * warning if something needs a look. Click a paper to see its photos large, what the bot read, and to correct it. What a person corrects shows
  * here at once, and Car documents says the same thing (or says it differs and offers to update it).
  */
-export function PapersCard({ data, rules, readOnly = false, register, canEditRegister, differs }: { data: CarViewData; rules: Rules; readOnly?: boolean; register: { id: string; values: Record<string, string | null> } | null; canEditRegister: boolean; differs: number | null }) {
+export function PapersCard({ data, rules, readOnly = false, confirmEdits = false, register, canEditRegister, differs }: { confirmEdits?: boolean; data: CarViewData; rules: Rules; readOnly?: boolean; register: { id: string; values: Record<string, string | null> } | null; canEditRegister: boolean; differs: number | null }) {
   const router = useRouter();
   const [busy, start] = useTransition();
   const [reading, setReading] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null); // a paper's key, or "file:<id>"
-  const run = (fn: () => Promise<{ ok: boolean; message: string }>) => start(async () => { const r = await fn(); if (r.ok) toast.success(r.message); else toast.error(r.message); router.refresh(); });
+  const { confirm, dialog: confirmDialog } = useEditConfirm(confirmEdits);
+  const runNow = (fn: () => Promise<{ ok: boolean; message: string }>) => start(async () => { const r = await fn(); if (r.ok) toast.success(r.message); else toast.error(r.message); router.refresh(); });
+  /** A change to a car that is already in Sold asks an Admin first; the buttons that ask on their own use runNow. */
+  const run = (fn: () => Promise<{ ok: boolean; message: string }>) => confirm(() => runNow(fn));
 
   /** Reads the waiting photos two at a time (the picture API), or hands them to the bot, which scans them together in the background. */
   async function scan(retryFailed: boolean) {
@@ -157,14 +161,15 @@ export function PapersCard({ data, rules, readOnly = false, register, canEditReg
             </div>
           )}
           {selectedFiles.length === 0 && selectedItem?.present && <p className="text-sm text-muted-foreground">No photo is attached to this paper.</p>}
-          <ul className="divide-y">{selectedFiles.map((f) => <FileRow key={f.id} f={f} busy={busy || data.scanning} onSave={(types) => run(() => setFileTypesAction(f.id, types))} run={run} readOnly={readOnly} />)}</ul>
+          <ul className="divide-y">{selectedFiles.map((f) => <FileRow key={f.id} f={f} busy={busy || data.scanning} onSave={(types) => run(() => setFileTypesAction(f.id, types))} run={run} runNow={runNow} readOnly={readOnly} />)}</ul>
         </div>
       </ResponsiveDialog>
+      {confirmDialog}
     </Card>
   );
 }
 
-function FileRow({ f, busy, onSave, run, readOnly }: { f: FileView; busy: boolean; onSave: (types: string[] | null) => void; run: (fn: () => Promise<{ ok: boolean; message: string }>) => void; readOnly: boolean }) {
+function FileRow({ f, busy, onSave, run, runNow, readOnly }: { f: FileView; busy: boolean; onSave: (types: string[] | null) => void; run: (fn: () => Promise<{ ok: boolean; message: string }>) => void; runNow: (fn: () => Promise<{ ok: boolean; message: string }>) => void; readOnly: boolean }) {
   const [editing, setEditing] = useState(false);
   const [picked, setPicked] = useState<string[]>(f.types);
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -212,7 +217,7 @@ function FileRow({ f, busy, onSave, run, readOnly }: { f: FileView; busy: boolea
         {confirmRemove
           ? <span className="flex flex-wrap items-center gap-2 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs text-red-900 dark:bg-red-500/10 dark:text-red-200">
             Take this photo out of the car&apos;s folder? It goes to the Drive trash for 30 days.
-            <Button size="xs" variant="destructive" disabled={busy} onClick={() => { setConfirmRemove(false); run(() => removeFileAction(f.id)); }}>Yes, remove it</Button>
+            <Button size="xs" variant="destructive" disabled={busy} onClick={() => { setConfirmRemove(false); runNow(() => removeFileAction(f.id)); }}>Yes, remove it</Button>
             <Button size="xs" variant="ghost" onClick={() => setConfirmRemove(false)}>Keep it</Button></span>
           : <button type="button" className="ml-auto flex items-center gap-1 text-xs text-red-700 underline underline-offset-2 disabled:opacity-50 dark:text-red-300" disabled={busy} onClick={() => setConfirmRemove(true)}><Trash2 className="size-3" aria-hidden /> Remove this photo</button>}</div>}
     </li>

@@ -162,6 +162,37 @@ export async function returnUnit(plate: string, actor: string, deps: Pick<Workfl
   return { ok: true };
 }
 
+/**
+ * Admin only (the action checks): change a step that was already taken. "approval" is withdrawn so it can be approved again (marketing is told again then);
+ * "handoff-edit" changes the note and the ticks of a handoff; "handoff-reopen" says the papers are not back after all; "handoff-undo" takes the handoff back.
+ * Nothing is deleted: the handoff history of the register keeps what was recorded, and every change is logged with who made it.
+ */
+export type AdminFix = { kind: "approval" } | { kind: "handoff-edit"; note: string; checked: string[] } | { kind: "handoff-reopen" } | { kind: "handoff-undo" };
+export async function adminFix(plate: string, fix: AdminFix, actor: string, deps: Pick<WorkflowDeps, "admin"> = { admin: createAdminClient() }): Promise<StepResult> {
+  const key = normalizePlate(plate);
+  const { workflow } = await loadWorkflow(key, deps.admin);
+  switch (fix.kind) {
+    case "approval":
+      if (!workflow.approvedAt) return { ok: false, error: "These documents are not approved." };
+      await upsertWorkflow(deps.admin, key, { docs_approved_at: null, docs_approved_by: null, marketing_notified_at: null });
+      break;
+    case "handoff-edit":
+      if (!workflow.handoffAt) return { ok: false, error: "These documents were not handed off." };
+      await upsertWorkflow(deps.admin, key, { handoff_note: fix.note.trim().slice(0, 300) || null, handoff_checked: [...new Set(fix.checked.filter((k) => typeof k === "string" && k.length < 60))].slice(0, 40) });
+      break;
+    case "handoff-reopen":
+      if (!workflow.handoffAt || !workflow.handoffReturnedAt) return { ok: false, error: "These documents are not marked as back." };
+      await upsertWorkflow(deps.admin, key, { handoff_returned_at: null, handoff_returned_by: null, handoff_last_reminded_at: new Date().toISOString() });
+      break;
+    case "handoff-undo":
+      if (!workflow.handoffAt) return { ok: false, error: "These documents were not handed off." };
+      await upsertWorkflow(deps.admin, key, { handoff_at: null, handoff_by: null, handoff_note: null, handoff_last_reminded_at: null, handoff_returned_at: null, handoff_returned_by: null });
+      break;
+  }
+  await log(deps.admin, actor, `docs.admin_${fix.kind.replace("-", "_")}`, key, fix.kind === "handoff-edit" ? { note: fix.note, checked: fix.checked } : {});
+  return { ok: true };
+}
+
 // ---------------- the reminder every 3 days ----------------
 
 export interface HandoffRow { plate: string; name: string; since: string }

@@ -15,7 +15,7 @@ import { unitForFolder } from "@/lib/docsbible/unit-lookup";
 import { removeUnit } from "@/lib/docsbible/remove-unit-server";
 import { addUnit, unitStatus, type AddUnitResult, type UnitStatus } from "@/lib/docsbible/add-unit-server";
 import { markRegisterSold, recordHandoff, setRegisterClassification, syncRegister } from "@/lib/docsbible/sync";
-import { afterReading, approveUnit, handoffUnit, returnUnit, saveDetails, setHandoffChecked, type StepResult } from "@/lib/docs/workflow";
+import { adminFix, afterReading, approveUnit, handoffUnit, returnUnit, saveDetails, setHandoffChecked, type StepResult } from "@/lib/docs/workflow";
 import { normalizePlate } from "@/lib/rules/plate";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -383,5 +383,23 @@ export async function removeUnitAction(plate: string): Promise<Done> {
     const r = await removeUnit(p.data, user.id);
     if (r.ok) { revalidatePath("/documents", "layout"); revalidatePath("/cars"); }
     return r;
+  }, (message) => ({ ok: false as const, message }));
+}
+
+const fixSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("approval") }), z.object({ kind: z.literal("handoff-reopen") }), z.object({ kind: z.literal("handoff-undo") }),
+  z.object({ kind: z.literal("handoff-edit"), note: z.string().max(300), checked: z.array(z.string().max(60)).max(40) }),
+]);
+
+/** Admin only: change a step that was already taken (withdraw the approval, edit or take back the handoff). The page asks first; every change is logged. */
+export async function adminFixAction(plate: string, fix: unknown): Promise<Done> {
+  const user = await requireAdmin();
+  const p = plateSchema.safeParse(plate), f = fixSchema.safeParse(fix);
+  if (!p.success || !f.success) return { ok: false, message: "Bad request." };
+  return guard<Done>(async () => {
+    const r = await adminFix(p.data, f.data, user.id);
+    if (!r.ok) return { ok: false as const, message: "error" in r ? r.error : "Could not do that." };
+    revalidatePath("/documents", "layout");
+    return { ok: true as const, message: { approval: "The approval was withdrawn. Approve again when the documents are right.", "handoff-edit": "The handoff was updated.", "handoff-reopen": "Marked as not back yet. The reminders start again.", "handoff-undo": "The handoff was taken back." }[f.data.kind] };
   }, (message) => ({ ok: false as const, message }));
 }
