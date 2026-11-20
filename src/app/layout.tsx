@@ -16,10 +16,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: "MAD Receipts", template: "%s · MAD Receipts" },
-  description: "Acknowledgement of payment receipts for Manila Auto Display.",
-  applicationName: "MAD Receipts",
-  appleWebApp: { capable: true, title: "Receipts", statusBarStyle: "default" },
+  title: { default: "MAD App", template: "%s · MAD App" },
+  description: "Receipts, cars, car documents and repairs for Manila Auto Display.",
+  applicationName: "MAD App",
+  appleWebApp: { capable: true, title: "MAD", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

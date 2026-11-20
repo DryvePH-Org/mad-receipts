@@ -3,9 +3,9 @@ import type { MetadataRoute } from "next";
 // Lets phones install the app to the home screen.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "MAD Receipts",
-    short_name: "Receipts",
-    description: "Acknowledgement of payment receipts for Manila Auto Display.",
+    name: "MAD App",
+    short_name: "MAD",
+    description: "Receipts, cars, car documents and repairs for Manila Auto Display.",
     start_url: "/",
     display: "standalone",
     orientation: "portrait",

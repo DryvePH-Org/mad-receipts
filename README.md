@@ -1,4 +1,4 @@
-# MAD Receipts
+# MAD App
 
 Staff fill in an **Acknowledgement of Payment** by hand, attach proofs, and send it for approval. Approved receipts sync to Drive, Sheets, Telegram and the inventory sheet. The design prototype is in `Docs/prototype/`.
 
