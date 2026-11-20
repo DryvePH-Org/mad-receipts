@@ -31,6 +31,7 @@ export async function createUser(_prev: ActionResult, form: FormData): Promise<A
     role: form.get("role"),
   });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
+  if (form.get("confirm") !== null && form.get("confirm") !== parsed.data.password) return { ok: false, message: "The two passwords are not the same." };
   const { fullName, email, role } = parsed.data;
   if (!canAssignRole(actor.role, role)) return { ok: false, message: "Only an Admin can create an Admin." };
 
@@ -70,6 +71,7 @@ export async function resetPassword(_prev: ActionResult, form: FormData): Promis
     password: form.get("password"),
   });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
+  if (form.get("confirm") !== null && form.get("confirm") !== parsed.data.password) return { ok: false, message: "The two passwords are not the same." };
 
   const admin = createAdminClient();
   const { data: target } = await admin.from("profiles").select("role").eq("id", parsed.data.userId).single();
@@ -161,4 +163,26 @@ export async function setUserActive(userId: string, active: boolean): Promise<{ 
   await admin.from("audit_logs").insert({ actor_id: actor.id, action: active ? "user.enable" : "user.disable", entity: "user", entity_id: id.data, after: { full_name: target?.full_name } });
   revalidatePath("/admin/users");
   return { ok: true, message: active ? "Account enabled." : "Account disabled. They can no longer log in." };
+}
+
+/**
+ * Removes an account for good. Only a person with no history can go: anyone who made a receipt, approved something or did documents work is
+ * kept in those records, so the database refuses and the message says to disable them instead (which keeps everything). Not yourself, not the last Admin.
+ */
+export async function deleteUser(userId: string): Promise<{ ok: boolean; message: string }> {
+  const actor = await requireModule("users");
+  const id = z.uuid().safeParse(userId);
+  if (!id.success) return { ok: false, message: "That user was not found." };
+  if (id.data === actor.id) return { ok: false, message: "You cannot remove your own account." };
+  const admin = createAdminClient();
+  const { data: target } = await admin.from("profiles").select("full_name, role").eq("id", id.data).single();
+  if (!target) return { ok: false, message: "That user was not found." };
+  if (!canManageUser(actor.role, target.role)) return { ok: false, message: "Only an Admin can remove an Admin." };
+  if (target.role === "admin" && (await adminCount(admin)) <= 1) return { ok: false, message: "That is the only Admin." };
+  const { error } = await admin.auth.admin.deleteUser(id.data);
+  if (error) return { ok: false, message: `${target.full_name} has receipts, approvals or other work in their name, so they cannot be removed without breaking those records. Disable the account instead: they cannot log in, and everything stays.` };
+  await admin.from("audit_logs").insert({ actor_id: actor.id, action: "user.delete", entity: "user", entity_id: null, after: { user: id.data, full_name: target.full_name, role: target.role } });
+  revalidatePath("/admin/users");
+  after(() => userChanged(actor.id, `${target.full_name} (${target.role}) was removed`));
+  return { ok: true, message: `${target.full_name} was removed.` };
 }

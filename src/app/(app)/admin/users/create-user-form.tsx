@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { FormField } from "@/components/shared/form-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/shared/password-input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { createUserSchema } from "@/lib/forms";
 import { useActionForm } from "@/lib/use-action-form";
@@ -12,7 +13,7 @@ import { createUser } from "./actions";
 export function CreateUserForm({ onDone, canMakeAdmin = true }: { onDone?: () => void; canMakeAdmin?: boolean } = {}) {
   const { form, onSubmit, serverError, pending } = useActionForm({
     schema: createUserSchema,
-    defaultValues: { fullName: "", email: "", password: "", role: "sales" as const },
+    defaultValues: { fullName: "", email: "", password: "", confirm: "", role: "sales" as const },
     run: (body) => createUser(null, body),
     onSuccess: (message) => {
       toast.success(message);
@@ -38,8 +39,11 @@ export function CreateUserForm({ onDone, canMakeAdmin = true }: { onDone?: () =>
           {canMakeAdmin && <option value="admin">Admin</option>}
         </NativeSelect>
       </FormField>
-      <FormField id="password" label="Temporary password" error={errors.password?.message} hint="At least 8 characters.">
-        <Input id="password" type="text" autoComplete="new-password" aria-invalid={!!errors.password} {...register("password")} />
+      <FormField id="password" label="Temporary password" error={errors.password?.message} hint="At least 8 characters. Use the eye to check what you typed.">
+        <PasswordInput id="password" autoComplete="new-password" aria-invalid={!!errors.password} {...register("password")} />
+      </FormField>
+      <FormField id="confirm" label="Confirm password" error={errors.confirm?.message}>
+        <PasswordInput id="confirm" autoComplete="new-password" aria-invalid={!!errors.confirm} {...register("confirm")} />
       </FormField>
       {serverError && (
         <p role="alert" className="text-sm text-destructive">

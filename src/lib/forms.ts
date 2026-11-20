@@ -14,11 +14,15 @@ export const passwordSchema = z
   .min(8, "Password must be at least 8 characters.")
   .max(72, "Password is too long.");
 
+const sameAs = (d: { password: string; confirm: string }) => d.password === d.confirm;
+const SAME = { path: ["confirm"], message: "The two passwords are not the same." };
+
 export const createUserSchema = z.object({
   fullName: z.string().trim().min(1, "Enter the person's name.").max(100, "That name is too long."),
   email: z.email("Enter a valid email.").max(254),
   password: passwordSchema,
+  confirm: z.string().min(1, "Type the password again."),
   role: z.enum(["sales", "approver", "documentation", "admin"]),
-});
+}).refine(sameAs, SAME);
 
-export const resetPasswordSchema = z.object({ password: passwordSchema });
+export const resetPasswordSchema = z.object({ password: passwordSchema, confirm: z.string().min(1, "Type the password again.") }).refine(sameAs, SAME);

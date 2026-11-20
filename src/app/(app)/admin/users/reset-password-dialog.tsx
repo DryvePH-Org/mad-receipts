@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { FormField } from "@/components/shared/form-field";
 import { ResponsiveDialog } from "@/components/shared/responsive-dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/shared/password-input";
 import { resetPasswordSchema } from "@/lib/forms";
 import { useActionForm } from "@/lib/use-action-form";
 import { resetPassword } from "./actions";
@@ -14,7 +14,7 @@ export function ResetPasswordDialog({ userId, name }: { userId: string; name: st
   const [open, setOpen] = useState(false);
   const { form, onSubmit, serverError, pending } = useActionForm({
     schema: resetPasswordSchema,
-    defaultValues: { password: "" },
+    defaultValues: { password: "", confirm: "" },
     extra: { userId },
     run: (body) => resetPassword(null, body),
     onSuccess: (message) => {
@@ -34,7 +34,10 @@ export function ResetPasswordDialog({ userId, name }: { userId: string; name: st
       <ResponsiveDialog open={open} onOpenChange={setOpen} title="Reset password" description={`Set a new password for ${name}.`}>
         <form onSubmit={onSubmit} noValidate className="space-y-4">
           <FormField id={id} label="New password" error={errors.password?.message} hint="At least 8 characters. Tell them to keep it private.">
-            <Input id={id} type="text" autoComplete="new-password" aria-invalid={!!errors.password} {...register("password")} />
+            <PasswordInput id={id} autoComplete="new-password" aria-invalid={!!errors.password} {...register("password")} />
+          </FormField>
+          <FormField id={`${id}-confirm`} label="Confirm password" error={errors.confirm?.message}>
+            <PasswordInput id={`${id}-confirm`} autoComplete="new-password" aria-invalid={!!errors.confirm} {...register("confirm")} />
           </FormField>
           {serverError && (
             <p role="alert" className="text-sm text-destructive">

@@ -88,3 +88,39 @@ test("Settings → Print and company: the print layout editor shows the real pap
   await expect(page.getByRole("radio", { name: "Full A4" })).toHaveCount(0); // one print view only: the half page
   await page.close();
 });
+
+test("Users: a new person needs the password twice (with an eye to check it), and a person with no history can be removed", async ({ browser }) => {
+  const email = "zzt-e2e-newhire@example.test";
+  const page = await (await browser.newContext()).newPage();
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(credentials.admin.email);
+  await page.getByLabel("Password").fill(credentials.admin.password);
+  await page.getByRole("button", { name: "Log in" }).click();
+  await page.waitForURL("**/deals");
+  await page.goto("/admin/users");
+  await expect(page.getByText(/^All users/)).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Add a user" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Full name").fill("ZZT E2E New Hire");
+  await dialog.getByLabel("Email").fill(email);
+  await dialog.getByLabel("Temporary password").fill("Newhire-pass-1");
+  await dialog.getByLabel("Confirm password").fill("Newhire-pass-2");
+  // the eye shows what was typed
+  await expect(dialog.locator("#password")).toHaveAttribute("type", "password");
+  await dialog.getByRole("button", { name: "Show the password" }).first().click();
+  await expect(dialog.locator("#password")).toHaveAttribute("type", "text");
+  await dialog.getByRole("button", { name: "Create user" }).click();
+  await expect(dialog.getByText("The two passwords are not the same.")).toBeVisible();
+  await dialog.getByLabel("Confirm password").fill("Newhire-pass-1");
+  await dialog.getByRole("button", { name: "Create user" }).click();
+  const row = page.locator("li", { hasText: email });
+  await expect(row).toBeVisible({ timeout: 30_000 });
+  // removing asks first; Cancel keeps the person
+  await row.getByRole("button", { name: "Remove" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+  await expect(row).toBeVisible();
+  await row.getByRole("button", { name: "Remove" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Yes, remove this account" }).click();
+  await expect(page.locator("li", { hasText: email })).toHaveCount(0, { timeout: 30_000 });
+  await page.close();
+});
