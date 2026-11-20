@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { Camera, Mic, Receipt, RefreshCw } from "lucide-react";
+import { Camera, FileText, Wrench } from "lucide-react";
 import { FormField } from "@/components/shared/form-field";
 import { Brand } from "@/components/layout/brand";
 import { Button } from "@/components/ui/button";
@@ -21,8 +21,8 @@ function friendlyError(message: string): string {
 
 const HIGHLIGHTS = [
   { icon: Camera, text: "Photograph the paper receipt and the form fills itself in." },
-  { icon: Mic, text: "Say who sold the car and each person's commission." },
-  { icon: RefreshCw, text: "Drive, Sheets, Telegram and the inventory update on their own." },
+  { icon: FileText, text: "Every car's papers in one place, from the first photo to the handoff." },
+  { icon: Wrench, text: "Repairs, approvals and reminders reach the right people on Telegram." },
 ];
 
 export default function LoginPage() {
@@ -57,15 +57,13 @@ export default function LoginPage() {
       {/* Brand panel: desktop only. */}
       <section className="relative hidden overflow-hidden bg-primary p-12 text-primary-foreground lg:flex lg:flex-col lg:justify-between xl:p-16">
         <div aria-hidden className="pointer-events-none absolute -top-24 -right-24 size-[28rem] rounded-full bg-primary-foreground/10 blur-3xl" />
-        <div className="relative flex items-center gap-3">
-          <span className="flex size-9 items-center justify-center rounded-lg bg-primary-foreground text-primary">
-            <Receipt className="size-5" aria-hidden />
-          </span>
-          <span className="text-sm font-semibold">MAD App</span>
+        <div className="relative">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/mad-logo.png" alt="MAD App, Manila Auto Display" width={900} height={420} className="h-28 w-auto rounded-2xl ring-1 ring-primary-foreground/15" />
         </div>
 
         <div className="relative max-w-md space-y-8">
-          <h2 className="text-4xl font-semibold tracking-tight text-balance">Every receipt accounted for.</h2>
+          <h2 className="text-4xl font-semibold tracking-tight text-balance">Receipts, cars and papers, all in one app.</h2>
           <ul className="space-y-4">
             {HIGHLIGHTS.map(({ icon: Icon, text }) => (
               <li key={text} className="flex items-start gap-3 text-primary-foreground/80">
