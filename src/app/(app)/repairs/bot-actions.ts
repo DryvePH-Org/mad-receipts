@@ -8,7 +8,7 @@ import { tr } from "@/lib/repairs/bot/texts";
 export type BotResult = { ok: true; message: string } | { ok: false; error: string };
 const ADDRESS = () => `${(process.env.APP_BASE_URL || "https://mad.dryveph.io").replace(/\/$/, "")}/api/repairs/telegram`;
 
-/** The switch: Telegram now sends the repairs group's messages to the app. The old bot (it polls) can no longer receive them; "Go back" undoes this at once. */
+/** The switch: Telegram now sends the repairs group's messages to the app. "Turn off" undoes this. */
 export async function switchBotAction(confirm: string): Promise<BotResult> {
   await requireRole("admin");
   if (!repairsToken()) return { ok: false, error: "The bot token is not set on the server yet." };
@@ -21,13 +21,13 @@ export async function switchBotAction(confirm: string): Promise<BotResult> {
   return { ok: true, message: "Done. The bot now answers from the app." };
 }
 
-/** Back to how it was: no webhook, so the old bot's polling receives the messages again. */
+/** Turns the bot off: no webhook, so nobody receives the group's messages until it is switched on again (the old Python bot is gone). */
 export async function goBackAction(): Promise<BotResult> {
   await requireRole("admin");
   if (!repairsToken()) return { ok: false, error: "The bot token is not set on the server yet." };
   try { await deleteRepairsWebhook(); } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "Telegram refused." }; }
   revalidatePath("/repairs");
-  return { ok: true, message: "Done. The app no longer receives the group's messages; the old bot can again." };
+  return { ok: true, message: "Done. The bot is off: the app no longer receives the group's messages." };
 }
 
 export async function botStateAction(): Promise<{ url: string; pending: number; error: string | null } | null> {

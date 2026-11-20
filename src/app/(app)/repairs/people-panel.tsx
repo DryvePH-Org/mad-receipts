@@ -32,14 +32,14 @@ export function PeoplePanel({ people, botReady, webhook }: { people: PersonRow[]
         )}
         {botReady && (
           <div className="space-y-2 rounded-lg bg-muted/50 p-3">
-            <p className="font-medium">Where the group&apos;s messages go now: {webhook ? (webhook.url.endsWith("/api/repairs/telegram") ? "to this app" : webhook.url ? "to another address (the old bot's webhook)" : "to the old bot (it polls)") : "could not be read"}</p>
+            <p className="font-medium">Where the group&apos;s messages go now: {webhook ? (webhook.url.endsWith("/api/repairs/telegram") ? "to this app" : webhook.url ? "to another address" : "nowhere (the bot is off)") : "could not be read"}</p>
             {webhook?.error && <p className="text-red-700">Telegram&apos;s last error: {webhook.error}</p>}
             <div className="flex flex-wrap items-center gap-2">
               <Input aria-label="Type SWITCH to confirm" className="h-8 w-40" placeholder="Type SWITCH" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
               <Button size="sm" disabled={busy || confirm.trim().toUpperCase() !== "SWITCH"} onClick={() => start(async () => { const r = await switchBotAction(confirm); if (r.ok) { toast.success(r.message); setConfirm(""); } else toast.error(r.error); })}>Switch the bot to the app</Button>
-              <Button size="sm" variant="outline" disabled={busy} onClick={() => start(async () => { const r = await goBackAction(); if (r.ok) toast.success(r.message); else toast.error(r.error); })}>Go back to the old bot</Button>
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => start(async () => { const r = await goBackAction(); if (r.ok) toast.success(r.message); else toast.error(r.error); })}>Turn the bot off</Button>
             </div>
-            <p className="text-xs text-muted-foreground">Switching takes the group&apos;s messages away from the old bot at once; stop the old bot on the server too so it does not keep trying. Going back removes the app&apos;s address, so the old bot receives the messages again.</p>
+            <p className="text-xs text-muted-foreground">The bot answers from this app while it is switched on. Turning it off removes the app&apos;s address: nobody receives the group&apos;s messages until you switch it on again.</p>
           </div>
         )}
         <div className="grid gap-2 sm:grid-cols-4">
