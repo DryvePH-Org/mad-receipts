@@ -2,7 +2,7 @@ import "server-only";
 import { manilaToday, daysBetween } from "@/lib/dates";
 import { docsDb } from "@/lib/docsbible/review-server";
 import { tell } from "@/lib/notify";
-import { esc, failedKeyboard, renderReminder, approvalKeyboard, renderStatus, type OpenLine } from "./cards";
+import { esc, failedKeyboard, renderReminder, approvalKeyboard, type OpenLine } from "./cards";
 import type { Draft } from "./draft";
 import { realPorts } from "./runtime";
 import { tr } from "./texts";
