@@ -47,6 +47,7 @@ const wrapFile = (x: FileNode, tree: ReturnType<typeof build>): any => ({ // esl
   getId: () => x.id, getName: () => x.name, getMimeType: () => x.mime, getSize: () => x.size, getUrl: () => `https://drive/file/${x.id}`,
   getDateCreated: () => new Date("2026-10-27T00:00:00Z"), getParents: () => iter([wrapFolder(x.parent, tree)]),
   getBlob: () => ({ getBytes: () => x.bytes }),
+  setTrashed: (v: boolean) => { (x as FileNode & { trashed?: boolean }).trashed = v; },
 });
 function iter<T>(items: T[]) { let i = 0; return { hasNext: () => i < items.length, next: () => items[i++] }; }
 
@@ -183,5 +184,20 @@ describe("move to Sold", () => {
   it("only moves a car folder, not a sub-folder inside it", () => {
     const sub = s.tree.vios.folders[0];
     expect(s.call({ action: "docs.move", folderId: sub.id })).toMatchObject({ ok: false, code: 409 });
+  });
+});
+
+describe("removing one photo of a car folder", () => {
+  const trashed = (id: string) => (s.tree.files.get(id) as FileNode & { trashed?: boolean }).trashed === true;
+  it("puts the file into the trash, in Available or Sold, even in a sub-folder", () => {
+    const [, pdf] = s.tree.vios.files, buyer = s.tree.vios.folders[0].files[0], escape = s.tree.escape.files[0];
+    for (const f of [pdf, buyer, escape]) expect(s.call({ action: "docs.trashFile", fileId: f.id })).toMatchObject({ ok: true, data: { trashed: true } });
+    expect([pdf, buyer, escape].every((f) => trashed(f.id))).toBe(true);
+    expect(trashed(s.tree.vios.files[0].id)).toBe(false);
+  });
+  it("refuses a file outside the car folders", () => {
+    const hidden = s.tree.file("hidden.jpg", s.tree.secret);
+    expect(s.call({ action: "docs.trashFile", fileId: hidden.id })).toMatchObject({ ok: false, code: 403 });
+    expect(trashed(hidden.id)).toBe(false);
   });
 });

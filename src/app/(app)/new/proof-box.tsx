@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import imageCompression from "browser-image-compression";
 import { FileText, Loader2, Plus, X } from "lucide-react";
+import { ImageViewer } from "@/components/shared/image-viewer";
 import { Button } from "@/components/ui/button";
 import type { ProofFile } from "@/lib/deal/types";
 import { createClient } from "@/lib/supabase/client";
@@ -17,6 +18,7 @@ export function ProofBox({ id, userId, files, onChange, label, hint, need }: {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [zoom, setZoom] = useState<ProofFile | null>(null);
 
   async function add(list: FileList | null) {
     if (!list?.length) return;
@@ -59,7 +61,7 @@ export function ProofBox({ id, userId, files, onChange, label, hint, need }: {
           {files.map((f, i) => (
             <div key={f.path} className="relative w-24 overflow-hidden rounded-md bg-muted ring-1 ring-foreground/10">
               {f.previewUrl ? // eslint-disable-next-line @next/next/no-img-element
-              <img src={f.previewUrl} alt="" className="h-16 w-full object-cover" /> : <span className="grid h-16 place-items-center text-muted-foreground"><FileText className="size-5" aria-hidden /></span>}
+              <button type="button" className="block w-full" aria-label={`View ${f.filename} larger`} onClick={() => setZoom(f)}><img src={f.previewUrl} alt="" className="h-16 w-full object-cover" /></button> : <span className="grid h-16 place-items-center text-muted-foreground"><FileText className="size-5" aria-hidden /></span>}
               <p className="truncate px-1.5 py-0.5 text-[11px]" title={f.filename}>{f.filename}</p>
               <button type="button" aria-label={`Remove ${f.filename}`} onClick={() => onChange(files.filter((_, j) => j !== i))} className="absolute top-1 right-1 grid size-5 place-items-center rounded-full bg-black/65 text-white"><X className="size-3" aria-hidden /></button>
             </div>
@@ -67,6 +69,7 @@ export function ProofBox({ id, userId, files, onChange, label, hint, need }: {
         </div>
       )}
       {error && <p role="alert" className="mt-2 text-xs text-destructive">{error}</p>}
+      {zoom?.previewUrl && <ImageViewer open onOpenChange={(o) => !o && setZoom(null)} src={zoom.previewUrl} name={zoom.filename} />}
     </div>
   );
 }

@@ -21,6 +21,8 @@ export interface DocsBridge {
   createFolder(name: string): Promise<DriveFolder & { created: boolean }>;
   /** Moves the whole car folder from Available to Sold. */
   move(folderId: string): Promise<DriveFolder>;
+  /** Puts one file of a car folder into the Drive trash (it can be restored there for 30 days). */
+  trashFile(fileId: string): Promise<void>;
 }
 
 const PLATEISH = /^(?=.*[A-Z])(?=.*\d)[A-Z0-9]{5,8}$/;
@@ -45,6 +47,7 @@ export function createAppsScriptDocsBridge(): DocsBridge {
     preview: (fileId, size) => appsScriptCall("docs.preview", { fileId, size }),
     createFolder: (name) => appsScriptCall<DriveFolder & { created: boolean }>("docs.createFolder", { name }),
     move: (folderId) => appsScriptCall<DriveFolder>("docs.move", { folderId }),
+    trashFile: async (fileId) => { await appsScriptCall("docs.trashFile", { fileId }); },
   };
 }
 
@@ -90,6 +93,11 @@ export function createMockDocsBridge(): DocsBridge {
       add(name, "available");
       const { files: _f, ...rest } = folders[folders.length - 1]; void _f;
       return { ...rest, created: true };
+    },
+    async trashFile(fileId) {
+      const f = folders.find((x) => x.files.some((y) => y.id === fileId));
+      if (!f) throw new Error("That file is not inside the Available or Sold folder");
+      f.files = f.files.filter((y) => y.id !== fileId);
     },
     async preview() { return { mimeType: "image/jpeg", base64: PIXEL }; },
     async move(folderId) {

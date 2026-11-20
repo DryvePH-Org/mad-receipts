@@ -51,7 +51,7 @@ async function Content({ params }: { params: PageProps<"/deals/[id]">["params"] 
           {deal.status === "open" && deal.balance > 0 && <Button nativeButton={false} render={<Link href={`/new?deal=${deal.id}`} />}><Plus /> Add a payment</Button>}
         </>}
       />
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
         <div className="space-y-6">
           <Card>
             <CardHeader><CardTitle className="flex items-center justify-between gap-3">Where the money stands <DealStatusBadge status={status} /></CardTitle>

@@ -31,7 +31,7 @@ export function ResetPanel() {
         <TriangleAlert className="mt-0.5 size-5 shrink-0" aria-hidden />
         <p><b className="font-medium">Deleted data cannot be brought back.</b> These buttons are for testing, or a clean start. Each one asks you to type its words first. Users, roles and settings are never deleted here, and nothing in Google Sheets or Drive is touched.</p>
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-2">
         {RESETS.map((r) => (
           <Card key={r.kind} className={r.kind === "everything" ? "ring-destructive/40 lg:col-span-2" : undefined}>
             <CardHeader><CardTitle>{r.title}</CardTitle>{counts && <p className="text-sm text-muted-foreground tabular-nums">Now: {HOW_MANY[r.kind](counts)}</p>}</CardHeader>

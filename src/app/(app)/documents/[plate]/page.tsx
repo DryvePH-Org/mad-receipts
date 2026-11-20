@@ -34,6 +34,7 @@ import { listCarReceipts } from "@/lib/docs/receipts-drive";
 import { ReceiptsCard } from "./receipts-card";
 import { SoldUploadCard } from "./sold-upload-card";
 import { RegisterCard } from "./register-card";
+import { RemoveCarCard } from "./remove-car-card";
 import { SoldCard } from "./sold-card";
 import { StageCard } from "./stage-card";
 import type { CarViewData } from "./types";
@@ -103,9 +104,10 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
       <PageHeader title={data.name} description={`Plate ${data.plateDisplay}`} />
       <CarLive plate={key} linked={linked} scanned={data.scanned} busy={busy} canSync={canAct} />
       <CarTop data={data} readOnly={!canAct} />
+      {!linked && data.isAdmin && <RemoveCarCard plate={key} name={data.name} />}
       {linked && <StageCard stage={stage} />}
       {linked && (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start">
           <div className="space-y-6">
             <PapersCard data={data} rules={stage.rules} readOnly={!canAct} register={register ? { id: register.id, values: register.values } : null} canEditRegister={canAct} differs={register && car.folder.case_source === "manual" ? registerDiff(car, register.values) : null} />
             <AboutCard plate={key} details={flow.details} missing={missingDetails(flow.details)} readOnly={!canAct} />
@@ -118,6 +120,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
             {canAct && receipts.length > 0 && <ReceiptsCard plate={key} receipts={receipts} />}
             {canAct && <SoldCard plate={key} location={data.location} items={[...arCopy.map(({ key: k, label, present }) => ({ key: k, label, present })), ...soldItems]} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />}
             {canAct && <HandoffCard rules={stage.rules} data={{ plate: key, location: data.location, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, items: [...items, ...arCopy].map((i) => ({ key: i.key, label: i.label, present: i.present, optional: i.optional })) }} />}
+            {data.isAdmin && <RemoveCarCard plate={key} name={data.name} />}
             {transfers && <Card id="transfer"><CardHeader><CardTitle>Transfer to the buyer</CardTitle></CardHeader><CardContent><TransferList transfers={transfers.transfers} cars={Object.fromEntries(transfers.cars)} today={manilaToday()} plate={key} showCar={false} /></CardContent></Card>}
           </aside>
         </div>
@@ -140,6 +143,7 @@ async function RegisterOnly({ plate, role, canAct }: { plate: string; role: "sal
       <PageHeader title={data.name} description={`Plate ${data.plateDisplay}`} />
       <CarTop data={data} readOnly={!canAct} />
       <RegisterCard plate={key} row={register} role={role} canAct={false} />
+      {data.isAdmin && <RemoveCarCard plate={key} name={data.name} />}
     </div>
   );
 }

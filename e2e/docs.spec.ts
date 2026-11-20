@@ -243,6 +243,39 @@ test("Documentation adds photos by typing only the plate: the folder is made, th
   await expect(docs.locator("#papers")).toBeVisible();
   await expect(docs.getByText("Official receipt (OR)").first()).toBeVisible();
 
+  // a photo opens in the zoom viewer (+, −, Fit), and Documentation can remove it from the folder (after a question)
+  await docs.locator("#papers li", { hasText: "Official receipt (OR)" }).click();
+  const dialog = docs.getByRole("dialog");
+  await dialog.getByRole("button", { name: /^View .* larger$/ }).first().click();
+  await expect(docs.getByRole("button", { name: "Zoom in" })).toBeVisible();
+  await docs.getByRole("button", { name: "Zoom in" }).click();
+  await expect(docs.getByText("150%")).toBeVisible();
+  await docs.getByRole("button", { name: "Fit" }).click();
+  await expect(docs.getByText("100%")).toBeVisible();
+  await docs.keyboard.press("Escape");
+  await dialog.getByRole("button", { name: "Remove this photo" }).first().click();
+  await expect(dialog.getByText(/goes to the Drive trash for 30 days/)).toBeVisible();
+  await dialog.getByRole("button", { name: "Keep it" }).click();
+  await expect(dialog.getByRole("button", { name: "Remove this photo" }).first()).toBeVisible();
+  const before = (await adminClient().from("folder_files").select("id").eq("plate_no", "ZZT7010")).data?.length ?? 0;
+  await dialog.getByRole("button", { name: "Remove this photo" }).first().click();
+  await dialog.getByRole("button", { name: "Yes, remove it" }).click();
+  await expect(async () => expect((await adminClient().from("folder_files").select("id").eq("plate_no", "ZZT7010")).data?.length ?? 0).toBe(before - 1)).toPass({ timeout: 30_000 });
+
+  // only an Admin can remove the car itself; Documentation does not see the button
+  await docs.goto("/documents/ZZT7010");
+  await expect(docs.locator("#papers")).toBeVisible();
+  await expect(docs.getByRole("button", { name: "Remove this car" })).toHaveCount(0);
+  const admin = await as(browser, "admin");
+  await admin.goto("/documents/ZZT7010");
+  await admin.getByRole("button", { name: "Remove this car" }).click();
+  await admin.getByRole("button", { name: "Yes, remove this car" }).click();
+  await admin.waitForURL("**/documents");
+  const gone = await adminClient().from("docs_units_current" as never).select("id" as never).eq("plate_no", "ZZT7010") as unknown as { data: unknown[] };
+  expect(gone.data).toHaveLength(0);
+  expect(((await adminClient().from("unit_folders").select("plate_no").eq("plate_no", "ZZT7010")).data ?? []).length).toBe(0);
+  await admin.close();
+
   const db = adminClient();
   await db.from("folder_files").delete().eq("plate_no", "ZZT7010");
   await db.from("unit_folders").delete().eq("plate_no", "ZZT7010");

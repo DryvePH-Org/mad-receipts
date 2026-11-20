@@ -169,6 +169,11 @@ export async function refreshFolders(deps: DocsDeps = defaultDocsDeps()): Promis
     if (!plate) { skipped++; continue; }
     byPlate.set(plate, [...(byPlate.get(plate) ?? []), folder]);
   }
+  // a car an Admin removed from MAD stays out, even though its Drive folder is still there
+  const register = deps.admin as unknown as { from: (t: string) => { select: (c: string) => { in: (c: string, v: string[]) => Promise<{ data: { plate_no: string; archived_at: string | null }[] | null }> } } };
+  const { data: rows } = await register.from("docs_units").select("plate_no, archived_at").in("plate_no", [...byPlate.keys()].slice(0, 2000));
+  const alive = new Set((rows ?? []).filter((r) => !r.archived_at).map((r) => r.plate_no));
+  for (const r of rows ?? []) if (r.archived_at && !alive.has(r.plate_no)) byPlate.delete(r.plate_no);
   const { data: units } = await deps.admin.from("deal_units").select("plate_no, deal_id").in("plate_no", [...byPlate.keys()].slice(0, 2000));
   const dealOf = new Map((units ?? []).map((u) => [u.plate_no, u.deal_id]));
   let duplicates = 0;
@@ -380,6 +385,18 @@ export async function resetFile(fileId: string, actor: string, deps: DocsDeps = 
   await recompute(file.plate_no, deps);
   await log(deps.admin, actor, "docs.reset_file", file.plate_no, { file: file.filename });
   return file.plate_no;
+}
+
+/** Takes a photo out of the car's folder: it goes to the Drive trash (30 days to restore it there) and leaves the checklist. */
+export async function removeFile(fileId: string, actor: string, deps: DocsDeps = defaultDocsDeps()): Promise<{ plate: string; name: string }> {
+  const { data: file } = await deps.admin.from("folder_files").select("plate_no, filename, drive_file_id").eq("id", fileId).single();
+  if (!file) throw new Error("File not found.");
+  await deps.bridge.trashFile(file.drive_file_id);
+  const { error } = await deps.admin.from("folder_files").delete().eq("id", fileId);
+  if (error) throw new Error(`The file is in the Drive trash, but could not be taken off the list: ${error.message}`);
+  await recompute(file.plate_no, deps);
+  await log(deps.admin, actor, "docs.remove_file", file.plate_no, { file: file.filename, driveFileId: file.drive_file_id });
+  return { plate: file.plate_no, name: file.filename };
 }
 
 export async function setCase(plate: string, caseType: CaseType | null, actor: string, deps: DocsDeps = defaultDocsDeps()): Promise<void> {

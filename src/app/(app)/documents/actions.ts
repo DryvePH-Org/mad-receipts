@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
-import { requireModule } from "@/lib/auth";
-import { resetFile, editReading, reviewFlag, chooseFolder, defaultDocsDeps, docsErrorText, linkFolder, previewCarFolder, type FolderPreview, moveToSold, readPending, refreshFolders, scanFolder, setCase, setFileTypes, type MoveResult, type ReadProgress } from "@/lib/docs/service";
+import { requireModule, requireAdmin } from "@/lib/auth";
+import { removeFile, resetFile, editReading, reviewFlag, chooseFolder, defaultDocsDeps, docsErrorText, linkFolder, previewCarFolder, type FolderPreview, moveToSold, readPending, refreshFolders, scanFolder, setCase, setFileTypes, type MoveResult, type ReadProgress } from "@/lib/docs/service";
 import { CASES, CHOOSABLE, type CaseType, type DocType } from "@/lib/docs/types";
 import { readerMode, scheduleScan } from "@/lib/docs/bot-scan";
 import { allowed } from "@/lib/docs/stage";
@@ -12,6 +12,7 @@ import { stageFor } from "@/lib/docs/stage-server";
 import { fileCarReceipts, fileDealReceipts } from "@/lib/docs/receipts-drive";
 import { carAdded } from "@/lib/notify/events";
 import { unitForFolder } from "@/lib/docsbible/unit-lookup";
+import { removeUnit } from "@/lib/docsbible/remove-unit-server";
 import { addUnit, unitStatus, type AddUnitResult, type UnitStatus } from "@/lib/docsbible/add-unit-server";
 import { markRegisterSold, recordHandoff, setRegisterClassification, syncRegister } from "@/lib/docsbible/sync";
 import { afterReading, approveUnit, handoffUnit, returnUnit, saveDetails, setHandoffChecked, type StepResult } from "@/lib/docs/workflow";
@@ -129,6 +130,18 @@ export async function rescanFileAction(fileId: string): Promise<Done> {
     const plate = await resetFile(id.data, user.id);
     revalidatePath("/documents", "layout");
     return { ok: true as const, message: `This photo is waiting to be scanned again (${plate}). Press Scan.` };
+  }, (message) => ({ ok: false as const, message }));
+}
+
+/** Remove a photo from the car's folder (Drive trash, restorable for 30 days). Documentation and Admin work in this module; the server asks for the module again. */
+export async function removeFileAction(fileId: string): Promise<Done> {
+  const user = await requireModule("documents");
+  const id = z.uuid().safeParse(fileId);
+  if (!id.success) return { ok: false, message: "Bad file." };
+  return guard<Done>(async () => {
+    const r = await removeFile(id.data, user.id);
+    revalidatePath("/documents", "layout");
+    return { ok: true as const, message: `${r.name} was removed. It is in the Drive trash for 30 days.` };
   }, (message) => ({ ok: false as const, message }));
 }
 
@@ -358,5 +371,17 @@ export async function updateRegisterAction(plate: string): Promise<Done> {
     const r = await syncRegister(p.data, user.id);
     revalidatePath("/documents", "layout");
     return r.ok ? { ok: true as const, message: r.changed.length ? `The car record was updated (${r.changed.length} ${r.changed.length === 1 ? "column" : "columns"}).` : "The car record already matches this car's papers." } : { ok: false as const, message: r.message };
+  }, (message) => ({ ok: false as const, message }));
+}
+
+/** Admin only: take a car out of MAD (entered by mistake). Archived, not destroyed; refused while the car has an AR. */
+export async function removeUnitAction(plate: string): Promise<Done> {
+  const user = await requireAdmin();
+  const p = plateSchema.safeParse(plate);
+  if (!p.success) return { ok: false, message: "Bad plate." };
+  return guard<Done>(async () => {
+    const r = await removeUnit(p.data, user.id);
+    if (r.ok) { revalidatePath("/documents", "layout"); revalidatePath("/cars"); }
+    return r;
   }, (message) => ({ ok: false as const, message }));
 }

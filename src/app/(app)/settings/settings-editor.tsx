@@ -103,7 +103,7 @@ export function SettingsEditor({ initial, canDelete = false, today }: { initial:
       {tab === "colors" && (
         <div className="space-y-5">
           <p className="text-sm text-muted-foreground">Colors appear as choices on every vehicle card. Brand colors show up when the car&apos;s make matches the brand name. Make and type come from the inventory sheet, so they are not edited here.</p>
-          <div className="grid gap-5 lg:grid-cols-2">
+          <div className="grid gap-5 xl:grid-cols-2">
             <ColorList title="Common car colors" hint="The colors cars are most often sold in. Shown for every car, after its brand's own colors" items={cfg.colors.common} onChange={(common) => setColors({ ...cfg.colors, common })} />
             {Object.entries(cfg.colors.brands).map(([brand, list]) => (
               <ColorList key={brand} hint="Factory colors for this brand" items={list as Color[]}
@@ -119,7 +119,7 @@ export function SettingsEditor({ initial, canDelete = false, today }: { initial:
       )}
 
       {tab === "pay" && (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid gap-5 xl:grid-cols-2">
           <StringList title="E-wallets and other payment methods" hint="The “Also paid by” buttons in the Payment step" items={cfg.wallets} onChange={(v) => set("wallets", v)} placeholder="e.g. PayMaya QR" />
           <StringList title="Banks for checks" hint="The Bank list in the check row" items={cfg.banks} onChange={(v) => set("banks", v)} placeholder="e.g. Landbank" />
           <StringList title="Financing institutions" hint="The Institution list for financing" items={cfg.institutions} onChange={(v) => set("institutions", v)} placeholder="e.g. Home Credit" />
@@ -128,7 +128,7 @@ export function SettingsEditor({ initial, canDelete = false, today }: { initial:
       )}
 
       {tab === "text" && (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid gap-5 xl:grid-cols-2">
           <Card>
             <CardHeader><CardTitle>Standard notes</CardTitle><p className="text-sm text-muted-foreground">Printed on every receipt. “On by default” decides whether a new receipt starts with it.</p></CardHeader>
             <CardContent className="space-y-2">
@@ -151,7 +151,7 @@ export function SettingsEditor({ initial, canDelete = false, today }: { initial:
       )}
 
       {tab === "fields" && (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid gap-5 xl:grid-cols-2">
           <Card><CardHeader><CardTitle>Required fields</CardTitle><p className="text-sm text-muted-foreground">Staff cannot send a receipt for approval until these are filled in. Receipt number, buyer, plate, price and payment are always required.</p></CardHeader>
             <CardContent>
               <Switch checked={cfg.required.contact} onChange={(v) => set("required", { ...cfg.required, contact: v })} label="Contact number" hint="11 digits starting with 09" />

@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, ChevronRight, CircleAlert, Loader2, Minus, RefreshCw, ScanText, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, CircleAlert, Loader2, Minus, RefreshCw, ScanText, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { ResponsiveDialog } from "@/components/shared/responsive-dialog";
+import { ImageViewer } from "@/components/shared/image-viewer";
 import { Pill } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +15,7 @@ import type { Rules } from "@/lib/docs/stage";
 import { CASE_LABELS, CASES, CHOOSABLE, DOC_LABELS, type Detection, type DocType } from "@/lib/docs/types";
 import { saveCellAction } from "../../docs-bible/actions";
 import { UploadButton } from "./upload-button";
-import { rescanFileAction, editReadingAction, readNextAction, reviewFlagAction, rescanAction, setCaseAction, setFileTypesAction, updateRegisterAction } from "../actions";
+import { removeFileAction, rescanFileAction, editReadingAction, readNextAction, reviewFlagAction, rescanAction, setCaseAction, setFileTypesAction, updateRegisterAction } from "../actions";
 import type { CarViewData, FileView } from "./types";
 
 const typeLabel = (t: string) => DOC_LABELS[t as DocType] ?? t;
@@ -77,9 +78,9 @@ export function PapersCard({ data, rules, readOnly = false, register, canEditReg
     const warn = flagCount(fileIds);
     return (
       <li key={key}>
-        <button type="button" onClick={() => setOpen(key)} className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-muted/50 focus-visible:bg-muted/50">
+        <button type="button" onClick={() => setOpen(key)} className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-left text-sm hover:bg-muted/50 focus-visible:bg-muted/50">
           <span className={present === null ? "text-muted-foreground" : present ? "text-emerald-700" : unchecked ? "text-muted-foreground" : "text-amber-700"} aria-hidden>{present ? <Check className="size-4" /> : unchecked && !present ? <Minus className="size-4" /> : <X className="size-4" />}</span>
-          <span className="min-w-0 flex-1 truncate">{title}</span>
+          <span className="min-w-[9rem] flex-1 break-words">{title}</span>
           {warn > 0 && <Pill tone="amber">{warn} to check</Pill>}
           <span className="hidden gap-1 sm:flex">{fileIds.slice(0, 2).map((id) => (
             <span key={id} className="grid size-7 place-items-center overflow-hidden rounded border bg-muted">
@@ -88,7 +89,7 @@ export function PapersCard({ data, rules, readOnly = false, register, canEditReg
             </span>
           ))}</span>
           <span className={present === null ? "text-muted-foreground" : present ? "text-emerald-800 dark:text-emerald-300" : unchecked ? "text-muted-foreground" : "text-amber-800 dark:text-amber-300"}>{state}</span>
-          <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+          <ChevronRight className="hidden size-4 text-muted-foreground sm:block" aria-hidden />
         </button>
       </li>
     );
@@ -166,11 +167,12 @@ export function PapersCard({ data, rules, readOnly = false, register, canEditReg
 function FileRow({ f, busy, onSave, run, readOnly }: { f: FileView; busy: boolean; onSave: (types: string[] | null) => void; run: (fn: () => Promise<{ ok: boolean; message: string }>) => void; readOnly: boolean }) {
   const [editing, setEditing] = useState(false);
   const [picked, setPicked] = useState<string[]>(f.types);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const unread = f.readStatus === "pending";
   return (
     <li className="space-y-3 py-4">
       <div className="flex flex-wrap items-center gap-2">
-        {f.url ? <a href={f.url} target="_blank" rel="noreferrer" className="font-medium underline-offset-2 hover:underline">{f.name}</a> : <b className="font-medium">{f.name}</b>}
+        {f.url ? <a href={f.url} target="_blank" rel="noreferrer" className="min-w-0 font-medium break-all underline-offset-2 hover:underline">{f.name}</a> : <b className="min-w-0 font-medium break-all">{f.name}</b>}
         {f.source === "upload" && <Pill tone="teal">From Sales</Pill>}
         <span className="ml-auto flex flex-wrap items-center gap-1.5">
           {unread ? <Pill tone="blue">Not read yet</Pill> : f.readStatus === "failed" ? <Pill tone="red">Could not read</Pill> : f.readStatus === "unreadable" ? <Pill tone="red">Too unclear</Pill>
@@ -206,7 +208,13 @@ function FileRow({ f, busy, onSave, run, readOnly }: { f: FileView; busy: boolea
           </div>
         </div>
       ) : <div className="flex flex-wrap gap-3"><button type="button" className="text-xs underline underline-offset-2 disabled:opacity-50" disabled={busy} onClick={() => { setPicked(f.types.filter((t) => (CHOOSABLE as string[]).includes(t))); setEditing(true); }}>Change what this is</button>
-        {f.readStatus !== "pending" && <button type="button" className="text-xs underline underline-offset-2 disabled:opacity-50" disabled={busy} onClick={() => run(() => rescanFileAction(f.id))}>Scan this photo again</button>}</div>}
+        {f.readStatus !== "pending" && <button type="button" className="text-xs underline underline-offset-2 disabled:opacity-50" disabled={busy} onClick={() => run(() => rescanFileAction(f.id))}>Scan this photo again</button>}
+        {confirmRemove
+          ? <span className="flex flex-wrap items-center gap-2 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs text-red-900 dark:bg-red-500/10 dark:text-red-200">
+            Take this photo out of the car&apos;s folder? It goes to the Drive trash for 30 days.
+            <Button size="xs" variant="destructive" disabled={busy} onClick={() => { setConfirmRemove(false); run(() => removeFileAction(f.id)); }}>Yes, remove it</Button>
+            <Button size="xs" variant="ghost" onClick={() => setConfirmRemove(false)}>Keep it</Button></span>
+          : <button type="button" className="ml-auto flex items-center gap-1 text-xs text-red-700 underline underline-offset-2 disabled:opacity-50 dark:text-red-300" disabled={busy} onClick={() => setConfirmRemove(true)}><Trash2 className="size-3" aria-hidden /> Remove this photo</button>}</div>}
     </li>
   );
 }
@@ -232,7 +240,7 @@ function Seen({ f, busy, run, readOnly }: { f: FileView; busy: boolean; run: (fn
               {d.defects?.length ? d.defects.map((x) => <Pill key={x} tone="red">{x}</Pill>) : <span className="text-xs font-normal text-emerald-800 dark:text-emerald-300">No damage seen</span>}
             </p>
             <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
-              {DETAIL_ROWS.filter(([k]) => d[k]).map(([k, name]) => <div key={k} className="flex gap-2"><dt className="w-36 shrink-0 text-xs text-muted-foreground">{name}</dt><dd className="min-w-0 break-words">{String(d[k])}</dd></div>)}
+              {DETAIL_ROWS.filter(([k]) => d[k]).map(([k, name]) => <div key={k} className="flex flex-col gap-0.5 sm:flex-row sm:gap-2"><dt className="text-xs text-muted-foreground sm:w-36 sm:shrink-0">{name}</dt><dd className="min-w-0 break-words">{String(d[k])}</dd></div>)}
             </dl>
             {readOnly ? null : editing === i ? <EditReading d={d} busy={busy} onCancel={() => setEditing(null)} onSave={(patch) => { run(() => editReadingAction(f.id, i, patch)); setEditing(null); }} />
               : <button type="button" className="text-xs underline underline-offset-2 disabled:opacity-50" disabled={busy} onClick={() => setEditing(i)}>Correct what the bot read</button>}
@@ -279,12 +287,7 @@ function Thumb({ id, name, rotation }: { id: string; name: string; rotation: num
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt={name} loading="lazy" className="max-h-24 max-w-24 object-contain" style={turn} />
       </button>
-      <ResponsiveDialog open={open} onOpenChange={setOpen} title={name} description={rotation ? `Turned ${rotation}° to read upright here. The file in Drive is not changed.` : undefined}>
-        <div className="grid max-h-[75svh] place-items-center overflow-auto rounded-lg bg-muted p-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={src} alt={name} className="max-h-[70svh] max-w-full object-contain" style={turn} />
-        </div>
-      </ResponsiveDialog>
+      <ImageViewer open={open} onOpenChange={setOpen} src={src} name={name} rotation={rotation} description={rotation ? `Turned ${rotation}° to read upright here. The file in Drive is not changed.` : undefined} />
     </>
   );
 }

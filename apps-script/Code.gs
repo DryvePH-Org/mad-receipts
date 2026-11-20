@@ -13,7 +13,7 @@
  *    told to write, appends rows, and creates files in the allowed folder.
  *  - The car-documents actions (docs.*) only work inside the two folders named by the
  *    DOC_AVAILABLE_ID and DOC_SOLD_ID script properties (or DOC_ROOT_ID, the folder that holds both). They can list, read previews, add files, make
- *    a car folder in Available and move a car folder from Available to Sold. They never rename anything. The only removal is docs.trashHeic: it puts a HEIC photo that sits in Available units into the Drive trash (recoverable for 30 days), nothing else.
+ *    a car folder in Available and move a car folder from Available to Sold. They never rename anything. The only removals are docs.trashHeic (a HEIC photo in Available units) and docs.trashFile (one file of a car folder, chosen by a person in the app): both put the file into the Drive trash (recoverable for 30 days), nothing else.
  *
  * Setup: see "Google Apps Script bridge" in README.md.
  */
@@ -94,6 +94,10 @@ function handle_(req) {
     case 'docs.trashHeic':
       return withLock_(function () {
         return docsTrashHeic_(req);
+      });
+    case 'docs.trashFile':
+      return withLock_(function () {
+        return docsTrashFile_(req);
       });
     case 'docs.move':
       return withLock_(function () {
@@ -407,6 +411,17 @@ function docsTrashHeic_(req) {
   }
   if (!/^image\/hei[cf]$/i.test(file.getMimeType()) && !/\.hei[cf]$/i.test(file.getName())) {
     throw httpError_(403, 'Only HEIC photos can be removed');
+  }
+  file.setTrashed(true);
+  return { id: file.getId(), trashed: true };
+}
+
+/** Puts ONE file of a car folder (Available or Sold) into the Drive trash (it can be restored from there for 30 days). Refuses anything outside those folders. */
+function docsTrashFile_(req) {
+  var file = DriveApp.getFileById(String(req.fileId));
+  var parents = file.getParents();
+  if (!parents.hasNext() || !rootOf_(parents.next())) {
+    throw httpError_(403, 'Only a file inside the Available or Sold folder can be removed');
   }
   file.setTrashed(true);
   return { id: file.getId(), trashed: true };
