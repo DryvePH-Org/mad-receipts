@@ -2,9 +2,9 @@
 
 ## Only this project. Never touch another project on the server.
 
-The server (Hostinger KVM 2, `srv2113801`) is **shared**. Other projects run on it (`inventory-flow`, `pcf`, `repairs-bot`, and anything else). They belong to the owner but are **not part of this project**.
+The server (Hostinger KVM 2, `srv2113801`) is **shared**. Other projects run on it (`inventory-flow`, `pcf`, and anything else). They belong to the owner but are **not part of this project**. (The old `repairs-bot` Docker project was removed on 2026-11-20: the repairs bot now lives inside this project. Its leftovers on the server, `/opt/repairs-bot.removed-2026-11-20` and a `repairs-bot` block in the shared Caddyfile, are the owner's to clear: do not touch them.)
 
-**This project is only:** the Docker project `mad-receipts` (folder `/opt/mad-receipts`, container `mad-receipts`), its Supabase database, its Google Apps Script bridge and Drive folders, and this repository.
+**This project is only:** the Docker project `mad-receipts` (folder `/opt/mad-receipts`, container `mad-receipts`), its Supabase database, its Google Apps Script bridge and Drive folders, the repairs Telegram bot that runs inside the app (`/api/repairs/telegram`, token `REPAIRS_TELEGRAM_BOT_TOKEN`), and this repository.
 
 Do not, under any circumstance, unless the owner names that other project and asks for it in the same message:
 - read, change, restart, stop, start, update or delete any other Docker project or container, or read its logs, settings or environment (a `get` of a Docker project can show another project's secrets: never do it);
