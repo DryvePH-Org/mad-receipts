@@ -354,3 +354,37 @@ test("Sales and Documentation put a saved receipt in the car's folder with a but
   await expect(sales.locator("#receipts")).toContainText("Unsigned copy in the folder");
   await docs.close(); await sales.close();
 });
+
+test("an Admin deletes a whole transaction: only after typing the deal number, and everything on it goes", async ({ browser }) => {
+  test.setTimeout(120_000);
+  const ar = await makeAr("ZZT 7020");
+  const db = adminClient();
+  const deal = (await db.from("deals").select("deal_no").eq("id", ar.deal_id).single()).data!;
+  const receiptNo = (await db.from("receipts").select("receipt_no").eq("deal_id", ar.deal_id).single()).data!.receipt_no;
+
+  // only an Admin sees the box
+  const docs = await as(browser, "docs");
+  await docs.goto(`/deals/${ar.deal_id}`);
+  await expect(docs.getByText("Delete this transaction (Admin)")).toHaveCount(0);
+  await docs.close();
+
+  const admin = await as(browser, "admin");
+  await admin.goto(`/deals/${ar.deal_id}`);
+  await admin.getByText("Delete this transaction (Admin)").click();
+  await admin.getByRole("button", { name: `Delete ${deal.deal_no}` }).click();
+  const dialog = admin.getByRole("dialog");
+  await dialog.getByLabel(`Type ${deal.deal_no}`).fill("D0");
+  await dialog.getByRole("button", { name: "Yes, delete it" }).click();
+  await expect(dialog.getByText(/Type the deal number/)).toBeVisible(); // a wrong number deletes nothing
+  expect((await db.from("deals").select("id").eq("id", ar.deal_id)).data).toHaveLength(1);
+  await dialog.getByLabel(`Type ${deal.deal_no}`).fill(deal.deal_no.toLowerCase());
+  await dialog.getByRole("button", { name: "Yes, delete it" }).click();
+  await admin.waitForURL("**/deals", { timeout: 30_000 });
+
+  expect((await db.from("deals").select("id").eq("id", ar.deal_id)).data).toHaveLength(0);
+  expect((await db.from("receipts").select("id").eq("receipt_no", receiptNo)).data).toHaveLength(0);
+  expect((await db.from("deal_units").select("id").eq("deal_id", ar.deal_id)).data).toHaveLength(0);
+  expect((await db.from("audit_logs").select("id").eq("action", "deal.delete").order("created_at", { ascending: false }).limit(1)).data).toHaveLength(1);
+  made.pop(); // already gone
+  await admin.close();
+});
