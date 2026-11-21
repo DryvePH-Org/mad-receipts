@@ -1,8 +1,10 @@
+import Link from "next/link";
+import { hrefOfAnchor } from "./tabs";
 import { ArrowDown, Check } from "lucide-react";
 import type { StageModel } from "@/lib/docs/stage";
 
 /** Where the car is, and the one thing to do next. The same on every visit, so a new person always knows what comes next. */
-export function StageCard({ stage }: { stage: StageModel }) {
+export function StageCard({ stage, plate }: { stage: StageModel; plate: string }) {
   const { steps, next } = stage;
   const inSteps = steps.filter((s) => s.group === "in"), outSteps = steps.filter((s) => s.group === "out");
   const bar = (list: typeof steps, label: string) => (
@@ -30,7 +32,7 @@ export function StageCard({ stage }: { stage: StageModel }) {
           <p className="text-xs font-medium tracking-wide text-primary uppercase">Do this next</p>
           <p className="font-medium">{next.title}</p>
           {next.body && <p className="mt-0.5 text-sm text-muted-foreground">{next.body}</p>}
-          {next.anchor && <a href={`#${next.anchor}`} className="mt-1 inline-block text-sm underline underline-offset-2">Go there</a>}
+          {next.anchor && <Link href={hrefOfAnchor(plate, next.anchor)} className="mt-1 inline-block text-sm underline underline-offset-2">Go there</Link>}
         </div>
       </div>
     </section>

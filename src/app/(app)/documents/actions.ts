@@ -16,6 +16,8 @@ import { removeUnit } from "@/lib/docsbible/remove-unit-server";
 import { addUnit, unitStatus, type AddUnitResult, type UnitStatus } from "@/lib/docsbible/add-unit-server";
 import { markRegisterSold, recordHandoff, setRegisterClassification, syncRegister } from "@/lib/docsbible/sync";
 import { releaseTransfer, deliverTransfer } from "@/lib/transfers/steps-server";
+import { handoffOf, isSoldCar } from "@/lib/transfers/handoff";
+import type { Rule } from "@/lib/docs/stage";
 import { adminFix, afterReading, approveUnit, handoffUnit, returnUnit, saveDetails, setHandoffChecked, type StepResult } from "@/lib/docs/workflow";
 import { normalizePlate } from "@/lib/rules/plate";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -28,6 +30,17 @@ async function rulesFor(plate: string) {
   const stage = await stageFor(plate);
   if (!stage) throw new Error("This car is not in Car documents.");
   return stage.rules;
+}
+
+/** The rules of the handoff steps: from the car's documents stage when it has a folder, otherwise from the handoff itself (a sold car with no folder goes through the transfer too). */
+async function handoffRules(plate: string): Promise<{ handoff: Rule; markReturned: Rule }> {
+  const stage = await stageFor(plate);
+  if (stage) return stage.rules;
+  const h = await handoffOf(plate), out = !!h?.handedOffAt && !h.backAt;
+  return {
+    handoff: !(await isSoldCar(plate)) ? { allowed: false, reason: "Mark the car as Sold first.", adminOverride: false } : out ? { allowed: false, reason: "Already handed off.", adminOverride: false } : { allowed: true, reason: null },
+    markReturned: out ? { allowed: true, reason: null } : { allowed: false, reason: h?.backAt ? "The papers are already back." : "The papers have not been handed off.", adminOverride: false },
+  };
 }
 
 async function guard<T>(fn: () => Promise<T>, fail: (message: string) => T): Promise<T> {
@@ -259,7 +272,7 @@ export async function handoffAction(plate: string, note: string, confirmIncomple
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { ok: false, message: "Bad plate." };
   return guard<StepOutcome>(async () => {
-    const rule = (await rulesFor(p.data)).handoff;
+    const rule = (await handoffRules(p.data)).handoff;
     if (!rule.allowed) return { ok: false as const, message: rule.reason ?? "This cannot be handed off yet." };
     const r = await handoffUnit(p.data, String(note ?? ""), user.id, confirmIncomplete);
     if (r.ok) { revalidatePath("/documents", "layout"); after(() => recordHandoff(p.data, "submitted", user.id).catch((e) => console.warn(`[docs] handoff record failed: ${e instanceof Error ? e.message : "unknown"}`))); }
@@ -272,7 +285,7 @@ export async function returnUnitAction(plate: string): Promise<Done> {
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { ok: false, message: "Bad plate." };
   return guard<Done>(async () => {
-    const rule = (await rulesFor(p.data)).markReturned;
+    const rule = (await handoffRules(p.data)).markReturned;
     if (!rule.allowed) return { ok: false as const, message: rule.reason ?? "This cannot be marked as done." };
     const r = await returnUnit(p.data, user.id);
     if (!r.ok) return { ok: false as const, message: "error" in r ? r.error : "Could not do that." };

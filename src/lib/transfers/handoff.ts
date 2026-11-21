@@ -20,6 +20,12 @@ const infoOf = (r: Row): HandoffInfo => ({ transferId: r.id, plate: r.plate_no, 
 const newest = (rows: Row[]) => [...rows].sort((a, b) => (b.sold_on ?? "").localeCompare(a.sold_on ?? "") || b.created_at.localeCompare(a.created_at))[0];
 const latestOut = (rows: Row[]) => [...rows].filter((r) => r.handed_off_at).sort((a, b) => b.handed_off_at!.localeCompare(a.handed_off_at!))[0];
 
+/** Is the car sold, by its status (a sold car may have no folder in Drive, and its transfer goes on all the same)? */
+export async function isSoldCar(plate: string): Promise<boolean> {
+  const { data } = await docsDb().from("docs_units_current").select("stock_state").eq("plate_no", normalizePlate(plate)).maybeSingle();
+  return data?.stock_state === "Sold";
+}
+
 /** The record the handoff of this car is on, or the one it would go on; null when the car has no sale record yet. */
 async function currentRow(plate: string): Promise<Row | null> {
   const { data } = await docsDb().from("car_transfers").select(COLS).eq("plate_no", normalizePlate(plate)).neq("stage", "cancelled");

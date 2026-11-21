@@ -1,6 +1,10 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
+import { Pill } from "@/components/shared/status-badge";
+import { Button } from "@/components/ui/button";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { requireModule } from "@/lib/auth";
 import { getSettings } from "@/lib/data";
@@ -20,7 +24,7 @@ import { registerDiff } from "@/lib/docsbible/sync";
 import { AboutCard } from "./about-card";
 import { ApprovalCard } from "./approval-card";
 import { CarLive } from "./car-live";
-import { CarTop } from "./car-top";
+import { CarTop, FolderBox } from "./car-top";
 import { ChecksHelp } from "./checks-help";
 import { parseSheetDate } from "@/lib/cars/model";
 import { manilaToday } from "@/lib/dates";
@@ -29,6 +33,11 @@ import { docsDb } from "@/lib/docsbible/review-server";
 import { PapersCard } from "./files-card";
 import { HandoffCard } from "./handoff-card";
 import { loadTransfers } from "@/lib/transfers/server";
+import { loadCarFacts, type CarFacts } from "@/lib/cars/car-file";
+import { STAGE_LABEL, type Transfer } from "@/lib/transfers/model";
+import { Overview } from "./overview";
+import { TabBar } from "./tab-bar";
+import { hrefOfAnchor, isTab, type CarTab } from "./tabs";
 import { TransferList } from "../transfers/transfer-list";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listCarReceipts } from "@/lib/docs/receipts-drive";
@@ -40,19 +49,20 @@ import { SoldCard } from "./sold-card";
 import { StageCard } from "./stage-card";
 import type { CarViewData } from "./types";
 
-export default function CarPage({ params }: PageProps<"/documents/[plate]">) {
-  return <Suspense fallback={<PageSkeleton />}><Content params={params} /></Suspense>;
+export default function CarPage({ params, searchParams }: PageProps<"/documents/[plate]">) {
+  return <Suspense fallback={<PageSkeleton />}><Content params={params} searchParams={searchParams} /></Suspense>;
 }
 
 const EMPTY_WORKFLOW = { scanNotifiedAt: null, soldReadyNotifiedAt: null, approvedAt: null, approvedByName: null as string | null, marketingNotifiedAt: null, handoffAt: null, handoffNote: null, handoffChecked: [] as string[], handoffReturnedAt: null };
 
-async function Content({ params }: { params: PageProps<"/documents/[plate]">["params"] }) {
+async function Content({ params, searchParams }: { params: PageProps<"/documents/[plate]">["params"]; searchParams: PageProps<"/documents/[plate]">["searchParams"] }) {
+  const wanted = (await searchParams).tab;
   const user = await requireModule("register");
   const canAct = user.modules.includes("documents");
   const canUpload = canAct || user.modules.includes("upload"); // Sales add the sold papers here; they have no other button
   const { plate } = await params;
   const detail = await getCarDetail(plate);
-  if (!detail) return <RegisterOnly plate={plate} role={user.role} canAct={canAct} />;
+  if (!detail) return <RegisterOnly plate={plate} role={user.role} canAct={canAct} canUpload={canUpload} wanted={wanted} />;
   const { car, deal } = detail;
   const key = car.folder.plate_no;
   const admin = createAdminClient();
@@ -101,52 +111,122 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
   const arCopy = receipts.length ? [{ key: "ar_copy", label: "AR copy from the app, saved in the folder (UNSIGNED)", present: receipts.every((r) => r.filed), optional: true }] : [];
   const busy = scanning || data.botWork.length > 0;
 
-  return (
-    <div className="space-y-6">
-      <PageHeader title={data.name} description={`Plate ${data.plateDisplay}`} />
-      <CarLive plate={key} linked={linked} scanned={data.scanned} busy={busy} canSync={canAct} />
-      <CarTop data={data} readOnly={!canAct} />
-      {!linked && data.isAdmin && <RemoveCarCard plate={key} name={data.name} />}
-      {linked && <StageCard stage={stage} />}
-      {linked && (
-        <>
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start">
-          {/* On a phone the steps to take come right after the papers, and the reference cards (About, Car record, what the scan checks) after them; on a wide screen the steps sit in the right column */}
-            <div className="xl:col-start-1"><PapersCard data={data} rules={stage.rules} readOnly={!canAct} confirmEdits={data.isAdmin && data.location === "sold"} register={register ? { id: register.id, values: register.values } : null} canEditRegister={canAct} differs={register && car.folder.case_source === "manual" ? registerDiff(car, register.values) : null} /></div>
-          <aside className="space-y-6 xl:col-start-2 xl:row-span-4 xl:row-start-1">
-            {canAct && <ApprovalCard isAdmin={data.isAdmin} plate={key} approvedAt={flow.workflow.approvedAt} approvedBy={flow.workflow.approvedByName} marketingNotifiedAt={flow.workflow.marketingNotifiedAt} rule={stage.rules.approve} />}
-            {canUpload && <SoldUploadCard plate={key} items={soldItems} deal={data.deal ? { dealNo: data.deal.dealNo, buyerName: data.deal.buyerName } : null} />}
-            {canUpload && receipts.length > 0 && <ReceiptsCard plate={key} receipts={receipts} />}
-            {canAct && <SoldCard plate={key} location={data.location} items={[...arCopy.map(({ key: k, label, present }) => ({ key: k, label, present })), ...soldItems]} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />}
-            {canAct && <HandoffCard isAdmin={data.isAdmin} rules={stage.rules} data={{ plate: key, location: data.location, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, releasedOn: hand?.releasedOn ?? null, deliveredOn: hand?.deliveredOn ?? null, items: [...items, ...arCopy].map((i) => ({ key: i.key, label: i.label, present: i.present, optional: i.optional })) }} />}
-            {transfers && <Card id="transfer"><CardHeader><CardTitle>Transfer to the buyer</CardTitle></CardHeader><CardContent><TransferList transfers={transfers.transfers} cars={Object.fromEntries(transfers.cars)} today={manilaToday()} plate={key} showCar={false} /></CardContent></Card>}
-          </aside>
-            <div className="xl:col-start-1"><AboutCard plate={key} details={flow.details} missing={missingDetails(flow.details)} readOnly={!canAct} confirmEdits={data.isAdmin && data.location === "sold"} /></div>
-            <div className="xl:col-start-1"><RegisterCard plate={key} row={register} role={user.role} canAct={canAct} confirmEdits={data.isAdmin && data.location === "sold"} /></div>
-            {canAct && <div className="xl:col-start-1"><ChecksHelp /></div>}
-        </div>
+  const facts = await loadCarFacts(key).catch(() => ({ unit: null, repairs: [] } as CarFacts));
+  const sale = transfers ? saleOf(transfers.transfers) : null;
+  const detailsMissing = missingDetails(flow.details).length;
+  const soldCar = data.location === "sold" || facts.unit?.stockState === "Sold";
+  const handData = { plate: key, location: data.location, soldCar, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, releasedOn: hand?.releasedOn ?? null, deliveredOn: hand?.deliveredOn ?? null, stage: sale?.stage ?? hand?.stage ?? null,
+    items: [...items, ...arCopy].map((i) => ({ key: i.key, label: i.label, present: i.present, optional: i.optional })) };
+  const before = items.filter((i) => i.stage === "available" && !i.optional);
+  const panels: Panel[] = [
+    { key: "overview", label: "Overview", node: (
+      <div className="space-y-4">
+        {linked && <StageCard stage={stage} plate={key} />}
+        <Overview data={data} facts={facts} sale={sale} steps={hand ? { ...hand, stage: sale?.stage ?? hand.stage } : sale ? { handedOffAt: null, backAt: null, releasedOn: null, deliveredOn: null, stage: sale.stage } : null} approval={{ at: flow.workflow.approvedAt, by: flow.workflow.approvedByName }} canSale={!!transfers} detailsMissing={detailsMissing} carDescription={null} />
+      </div>) },
+    { key: "documents", label: "Documents", badge: linked ? `${before.filter((i) => i.present).length}/${before.length}` : null, tone: linked && before.some((i) => !i.present) ? "amber" : "emerald", node: linked ? (
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start">
+        <PapersCard data={data} rules={stage.rules} readOnly={!canAct} confirmEdits={data.isAdmin && data.location === "sold"} register={register ? { id: register.id, values: register.values } : null} canEditRegister={canAct} differs={register && car.folder.case_source === "manual" ? registerDiff(car, register.values) : null} />
+        <aside className="space-y-6">
+          {canAct && <ApprovalCard isAdmin={data.isAdmin} plate={key} approvedAt={flow.workflow.approvedAt} approvedBy={flow.workflow.approvedByName} marketingNotifiedAt={flow.workflow.marketingNotifiedAt} rule={stage.rules.approve} />}
+          {canUpload && <SoldUploadCard plate={key} items={soldItems} deal={data.deal ? { dealNo: data.deal.dealNo, buyerName: data.deal.buyerName } : null} />}
+          {canAct && <SoldCard plate={key} location={data.location} items={[...arCopy.map(({ key: k, label, present }) => ({ key: k, label, present })), ...soldItems]} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />}
+          {canAct && <ChecksHelp />}
+        </aside>
+      </div>) : <NoFolder data={data} canAct={canAct} /> },
+    ...(transfers ? [{ key: "sale" as CarTab, label: "Sale and transfer", badge: sale ? STAGE_LABEL[sale.stage].split(" (")[0].split(",")[0].replace("In process at LTO", "In process") : null, tone: (sale?.flags.length ? "amber" : "zinc") as Tone2, node: (
+      <div className="space-y-6">
+        <HandoffCard isAdmin={data.isAdmin} rules={stage.rules} data={handData} />
+        <Card id="transfer"><CardHeader><CardTitle>The sale of this car</CardTitle></CardHeader><CardContent><TransferList transfers={transfers.transfers} cars={Object.fromEntries(transfers.cars)} today={manilaToday()} plate={key} showCar={false} /></CardContent></Card>
+      </div>) }] : []),
+    ...(canUpload ? [{ key: "receipts" as CarTab, label: "Receipts", badge: receipts.length ? String(receipts.length) : null, tone: "zinc" as Tone2, node: (
+      <div className="space-y-6">
+        {receipts.length > 0 ? <ReceiptsCard plate={key} receipts={receipts} /> : <Empty>No receipt made in the app belongs to this car yet.</Empty>}
+        {data.deal && <Card><CardContent className="pt-4 text-sm">Deal <b>{data.deal.dealNo}</b> · {data.deal.buyerName}. <Link href={`/deals/${data.deal.id}`} className="underline underline-offset-2">Open the deal</Link> for the money, the receipts and the payments.</CardContent></Card>}
+      </div>) }] : []),
+    { key: "details", label: "Details", badge: detailsMissing ? String(detailsMissing) : null, tone: "amber", node: (
+      <div className="space-y-6">
+        <AboutCard plate={key} details={flow.details} missing={missingDetails(flow.details)} readOnly={!canAct} confirmEdits={data.isAdmin && data.location === "sold"} />
+        <RegisterCard plate={key} row={register} role={user.role} canAct={canAct} confirmEdits={data.isAdmin && data.location === "sold"} />
+        <RepairsCard repairs={facts.repairs} />
         {data.isAdmin && <RemoveCarCard plate={key} name={data.name} />}
-        </>
-      )}
+      </div>) },
+  ];
+  return <Shell data={data} canAct={canAct} linked={linked} busy={busy} nextAnchor={linked ? stage.next.anchor : "folder"} nextTitle={linked ? stage.next.title : "Add the car's documents"} panels={panels} wanted={wanted} />;
+}
+
+type Tone2 = "amber" | "emerald" | "zinc";
+interface Panel { key: CarTab; label: string; badge?: string | null; tone?: Tone2; node: React.ReactNode }
+
+/** The latest sale of the car that is not cancelled (the page lists them newest first). */
+function saleOf(list: Transfer[]): Transfer | null { return list.find((t) => t.stage !== "cancelled") ?? null; }
+
+/** The Documents tab of a car with no single folder in Drive yet: the way to find or make it. */
+function NoFolder({ data, canAct }: { data: CarViewData; canAct: boolean }) {
+  return <div className="space-y-4"><Empty>This car has no folder in Drive yet, so there are no papers to check. {canAct ? "Add its documents or link its folder below." : "Documentation adds them."}</Empty><FolderBox data={data} readOnly={!canAct} /></div>;
+}
+
+const Empty = ({ children }: { children: React.ReactNode }) => <Card><CardContent className="pt-4 text-sm text-muted-foreground">{children}</CardContent></Card>;
+
+/** One page for the car: its name and status, what to do next, and the tabs (only the open tab is built, and the address says which). */
+function Shell({ data, canAct, linked, busy, nextAnchor, nextTitle, panels, wanted }: { data: CarViewData; canAct: boolean; linked: boolean; busy: boolean; nextAnchor: string | null; nextTitle: string; panels: Panel[]; wanted: string | string[] | undefined }) {
+  const active = (isTab(wanted) && panels.some((p) => p.key === wanted) ? wanted : "overview") as CarTab;
+  const panel = panels.find((p) => p.key === active)!;
+  return (
+    <div className="space-y-4">
+      <PageHeader title={data.name} description={`Plate ${data.plateDisplay}`} actions={canAct ? <Button nativeButton={false} render={<Link href={hrefOfAnchor(data.plate, nextAnchor)} />}><ArrowRight /> Next: {nextTitle}</Button> : undefined} />
+      <CarLive plate={data.plate} linked={linked} scanned={data.scanned} busy={busy} canSync={canAct} />
+      <CarTop data={data} readOnly={!canAct} folderBox={false} />
+      <TabBar active={active} tabs={panels.map((p) => ({ key: p.key, label: p.label, badge: p.badge, tone: p.tone }))} />
+      <div id={`tab-${active}`} role="tabpanel" className="pt-2">{panel.node}</div>
     </div>
   );
 }
 
-/** A car that is in MAD register but has no folder in Car documents yet: its row, and the way to find its folder. */
-async function RegisterOnly({ plate, role, canAct }: { plate: string; role: "sales" | "admin" | "approver" | "documentation"; canAct: boolean }) {
+function RepairsCard({ repairs }: { repairs: CarFacts["repairs"] }) {
+  return (
+    <Card id="repairs">
+      <CardHeader><CardTitle>Repairs of this car</CardTitle></CardHeader>
+      <CardContent className="text-sm">
+        {!repairs.length ? <p className="text-muted-foreground">No repair is recorded for this car.</p> : (
+          <ul className="divide-y rounded-lg ring-1 ring-foreground/10">{repairs.map((r) => <li key={r.id} className="flex flex-wrap items-center gap-2 px-3 py-2.5"><span className="min-w-0 flex-1">{r.problem ?? "A repair"}{r.company ? <span className="text-muted-foreground"> · {r.company}</span> : null}</span>{r.approval !== "approved" && <Pill tone="purple">{r.approval}</Pill>}<Pill tone={/IN PROGRESS|FOR REPAIR|OPEN|ONGOING/i.test(r.status ?? "") ? "amber" : "zinc"}>{r.status ?? "No status"}</Pill>{r.dueOn && <span className="text-xs text-muted-foreground">due {r.dueOn}</span>}</li>)}</ul>
+        )}
+        <p className="mt-3 text-xs text-muted-foreground"><Link href="/repairs" className="underline underline-offset-2">Open Repairs</Link> to report or update a job.</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** A car that is in MAD's register but has no folder in Car documents yet: the same page, with what MAD knows (its record, its sale, its repairs) and the way to find its folder. */
+async function RegisterOnly({ plate, role, canAct, canUpload, wanted }: { plate: string; role: "sales" | "admin" | "approver" | "documentation"; canAct: boolean; canUpload: boolean; wanted: string | string[] | undefined }) {
   const key = plate.toUpperCase().replace(/[^A-Z0-9]/g, "");
   const register = await loadRegisterRow(key).catch(() => null);
   if (!register) notFound();
+  const [facts, transfers, hand, settings] = await Promise.all([loadCarFacts(key).catch(() => ({ unit: null, repairs: [] } as CarFacts)), role === "admin" || role === "approver" || role === "documentation" ? loadTransfers(key) : Promise.resolve(null), handoffOf(key).catch(() => null), getSettings()]);
+  const recipient = settings.print.transmittalReceiver || "the receiver";
   const data: CarViewData = {
     plate: key, plateDisplay: register.values.plate_display ?? key, name: [register.values.year_model, register.values.make, register.values.model_variant].filter(Boolean).join(" ") || key, location: "available", match: "none", folderUrl: null, candidates: [],
     caseType: "clean", suggestedCase: "clean", caseReason: "", caseSource: "auto", deal: null, items: [], files: [], botMode: false, scanning: false, lastScan: null, botWork: [], orExpiry: null, orState: { state: "unknown", days: null }, scanned: false, pending: 0, failed: 0, statusLabel: "No folder", statusKey: "unlinked", isAdmin: role === "admin",
   };
-  return (
-    <div className="space-y-6">
-      <PageHeader title={data.name} description={`Plate ${data.plateDisplay}`} />
-      <CarTop data={data} readOnly={!canAct} />
-      <RegisterCard plate={key} row={register} role={role} canAct={false} />
-      {data.isAdmin && <RemoveCarCard plate={key} name={data.name} />}
-    </div>
-  );
+  const sale = transfers ? saleOf(transfers.transfers) : null;
+  const soldCar = facts.unit?.stockState === "Sold";
+  const rules = { handoff: soldCar && !(hand?.handedOffAt && !hand.backAt) ? { allowed: true, reason: null } : { allowed: false, reason: soldCar ? "Already handed off." : "Mark the car as Sold first.", adminOverride: false }, markReturned: hand?.handedOffAt && !hand.backAt ? { allowed: true, reason: null } : { allowed: false, reason: "The papers have not been handed off.", adminOverride: false } };
+  const handData = { plate: key, location: "available" as const, soldCar, recipient, at: hand?.handedOffAt ?? null, note: hand?.note ?? null, checked: hand?.checked ?? [], returnedAt: hand?.backAt ?? null, releasedOn: hand?.releasedOn ?? null, deliveredOn: hand?.deliveredOn ?? null, stage: sale?.stage ?? hand?.stage ?? null, items: [] };
+  const panels: Panel[] = [
+    { key: "overview", label: "Overview", node: <Overview data={data} facts={facts} sale={sale} steps={hand ? { ...hand, stage: sale?.stage ?? hand.stage } : sale ? { handedOffAt: null, backAt: null, releasedOn: null, deliveredOn: null, stage: sale.stage } : null} approval={{ at: null, by: null }} canSale={!!transfers} detailsMissing={0} carDescription={[register.values.year_model, register.values.make, register.values.model_variant, register.values.color].filter(Boolean).join(" ") || null} /> },
+    { key: "documents", label: "Documents", node: <NoFolder data={data} canAct={canAct} /> },
+    ...(transfers ? [{ key: "sale" as CarTab, label: "Sale and transfer", badge: sale ? STAGE_LABEL[sale.stage].split(" (")[0].split(",")[0].replace("In process at LTO", "In process") : null, tone: (sale?.flags.length ? "amber" : "zinc") as Tone2, node: (
+      <div className="space-y-6">
+        <HandoffCard isAdmin={role === "admin"} rules={rules} data={handData} />
+        <Card id="transfer"><CardHeader><CardTitle>The sale of this car</CardTitle></CardHeader><CardContent><TransferList transfers={transfers.transfers} cars={Object.fromEntries(transfers.cars)} today={manilaToday()} plate={key} showCar={false} /></CardContent></Card>
+      </div>) }] : []),
+    { key: "details", label: "Details", node: (
+      <div className="space-y-6">
+        <RegisterCard plate={key} row={register} role={role} canAct={canAct} />
+        <RepairsCard repairs={facts.repairs} />
+        {data.isAdmin && <RemoveCarCard plate={key} name={data.name} />}
+      </div>) },
+  ];
+  void canUpload;
+  return <Shell data={data} canAct={canAct} linked={false} busy={false} nextAnchor="folder" nextTitle="Add the car's documents" panels={panels} wanted={wanted} />;
 }

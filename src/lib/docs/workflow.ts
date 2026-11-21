@@ -8,7 +8,7 @@ import { tell, appUrl } from "@/lib/notify";
 import { loadCar } from "./service";
 import { docsDb } from "@/lib/docsbible/review-server";
 import { spareKeyState } from "@/lib/pricelist/import";
-import { adminChange, carsOut, handoffOf, markBack, sendOut, setChecked, stampReminded } from "@/lib/transfers/handoff";
+import { adminChange, carsOut, handoffOf, isSoldCar, markBack, sendOut, setChecked, stampReminded } from "@/lib/transfers/handoff";
 import { getSettings } from "@/lib/data";
 import { cleanDetails, EMPTY_DETAILS, missingDetails, type UnitDetails } from "./details";
 
@@ -143,13 +143,13 @@ export async function setHandoffChecked(plate: string, keys: string[], actor: st
 /** The staff reviewed the papers of a sold car and handed them over. From now on they are reminded every 3 days until they come back. */
 export async function handoffUnit(plate: string, note: string, actor: string, confirmIncomplete: boolean, deps: WorkflowDeps = defaultWorkflowDeps()): Promise<StepResult> {
   const key = normalizePlate(plate);
-  const car = await loadCar(key, deps);
-  if (!car) return { ok: false, error: "Car not found." };
-  if (car.folder.location !== "sold") return { ok: false, error: "Move the folder to Sold first." };
+  const car = await loadCar(key, deps);   // null for a sold car that has no folder in Drive: its originals can still go to the liaison
+  if (car ? car.folder.location !== "sold" && !(await isSoldCar(key)) : !(await isSoldCar(key))) return { ok: false, error: car ? "Move the folder to Sold first." : "Mark the car as Sold first." };
   const { workflow } = await loadWorkflow(key, deps.admin);
   if (workflow.handoffAt && !workflow.handoffReturnedAt) return { ok: false, error: "These documents are already handed off." };
-  const unchecked = car.checklist.items.filter((i) => !workflow.handoffChecked.includes(i.key)).map((i) => `Not ticked: ${i.label}`);
-  const missing = [...car.checklist.items.filter((i) => !i.present && !i.optional).map((i) => `Missing: ${i.label}`), ...unchecked.filter((u) => !car.checklist.items.some((i) => !i.optional && !i.present && u.endsWith(i.label)))];
+  const list = car?.checklist.items ?? [];
+  const unchecked = list.filter((i) => !workflow.handoffChecked.includes(i.key)).map((i) => `Not ticked: ${i.label}`);
+  const missing = [...list.filter((i) => !i.present && !i.optional).map((i) => `Missing: ${i.label}`), ...unchecked.filter((u) => !list.some((i) => !i.optional && !i.present && u.endsWith(i.label)))];
   if (missing.length && !confirmIncomplete) return { ok: false, needsConfirm: true, missing };
   const receiver = (await getSettings().catch(() => null))?.print.transmittalReceiver ?? "";
   await sendOut(key, note, workflow.handoffChecked, actor, receiver);

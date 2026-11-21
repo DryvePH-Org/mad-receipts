@@ -9,10 +9,12 @@ export const STEP_ORDER: StepKey[] = ["out", "back", "released", "delivered"];
 export interface StepDates { handedOffAt: string | null; backAt: string | null; releasedOn: string | null; deliveredOn: string | null }
 export interface StepView { key: StepKey; label: string; done: boolean; date: string | null; current: boolean }
 
-/** The four steps with what is done and which one is next. A later step done counts the earlier ones as done too (a client who collects the papers himself). */
-export function stepsOf(d: StepDates): { steps: StepView[]; next: StepKey | null } {
+/** The four steps with what is done and which one is next. A later step done counts the earlier ones as done too (a client who collects the papers himself); so does the stage. */
+export function stepsOf(d: StepDates & { stage?: string | null }): { steps: StepView[]; next: StepKey | null } {
   const dates: Record<StepKey, string | null> = { out: d.handedOffAt, back: d.backAt, released: d.releasedOn, delivered: d.deliveredOn };
-  const last = STEP_ORDER.reduce((n, k, i) => (dates[k] ? i : n), -1);
+  // a record that came from the sold list has a stage but no dates: the stage tells how far it is (its steps are done, the day is not known)
+  const floor = d.stage === "delivered" ? 3 : d.stage === "released" ? 2 : d.stage === "transferred" ? 1 : -1;
+  const last = Math.max(floor, STEP_ORDER.reduce((n, k, i) => (dates[k] ? i : n), -1));
   const steps = STEP_ORDER.map((key, i) => ({ key, label: STEP_LABEL[key], done: i <= last, date: dates[key], current: i === last + 1 }));
   return { steps, next: last + 1 < STEP_ORDER.length ? STEP_ORDER[last + 1] : null };
 }

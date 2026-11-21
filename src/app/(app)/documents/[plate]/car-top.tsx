@@ -16,7 +16,7 @@ import type { CarViewData } from "./types";
 const STATUS_TONE: Record<string, Tone> = { complete: "emerald", missing: "amber", review: "red", unread: "blue", unlinked: "zinc" };
 
 /** The line under the car's name (where it is, its AR, links), what the bots are doing for it, and the folder chooser when it has no single folder. */
-export function CarTop({ data, readOnly = false }: { data: CarViewData; readOnly?: boolean }) {
+export function CarTop({ data, readOnly = false, folderBox = true }: { data: CarViewData; readOnly?: boolean; folderBox?: boolean }) {
   const router = useRouter();
   const orState = data.orState;
   const [busy, start] = useTransition();
@@ -40,25 +40,34 @@ export function CarTop({ data, readOnly = false }: { data: CarViewData; readOnly
         </ul>
       )}
 
-      {data.match !== "linked" && !readOnly && (
-        <Card id="folder">
-          <CardHeader><CardTitle>{data.match === "none" ? "No folder found for this plate" : "More than one folder matches this plate"}</CardTitle></CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <p className="text-muted-foreground">{data.match === "none" ? "Upload the documents here and the folder is made in Available units for you. Or create or rename the car's folder in Drive so its name ends with the plate in brackets, like “14 Toyota Vios (AAX-3622)”, then search again." : "Choose the right one. The others stay where they are."}</p>
-            {data.candidates.map((c) => (
-              <div key={c.id} className="flex flex-wrap items-center gap-2 rounded-lg border p-2.5">
-                <span className="min-w-0 flex-1 truncate">{c.name} <span className="text-muted-foreground">({c.root})</span></span>
-                <Button size="sm" variant="outline" nativeButton={false} render={<a href={c.url} target="_blank" rel="noreferrer" />}><ExternalLink /> Open</Button>
-                <Button size="sm" disabled={busy} onClick={() => run(() => chooseFolderAction(data.plate, c.id))}>Use this one</Button>
-              </div>
-            ))}
-            <div className="flex flex-wrap items-start gap-2">
-              {data.match === "none" && <UploadButton plate={data.plate} botScans={data.botMode} />}
-              <Button variant="outline" disabled={busy} onClick={() => run(() => relinkAction(data.plate))}><RefreshCw /> Search Drive again</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {folderBox && <FolderBox data={data} readOnly={readOnly} />}
     </div>
+  );
+}
+
+/** Finding the car's folder in Drive, or making it by uploading its documents. Shown while the car has no single folder. */
+export function FolderBox({ data, readOnly = false }: { data: CarViewData; readOnly?: boolean }) {
+  const router = useRouter();
+  const [busy, start] = useTransition();
+  const run = (fn: () => Promise<{ ok: boolean; message: string }>) => start(async () => { const r = await fn(); if (r.ok) toast.success(r.message); else toast.error(r.message); router.refresh(); });
+  if (data.match === "linked" || readOnly) return null;
+  return (
+    <Card id="folder">
+      <CardHeader><CardTitle>{data.match === "none" ? "No folder found for this plate" : "More than one folder matches this plate"}</CardTitle></CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        <p className="text-muted-foreground">{data.match === "none" ? "Upload the documents here and the folder is made in Available units for you. Or create or rename the car's folder in Drive so its name ends with the plate in brackets, like “14 Toyota Vios (AAX-3622)”, then search again." : "Choose the right one. The others stay where they are."}</p>
+        {data.candidates.map((c) => (
+          <div key={c.id} className="flex flex-wrap items-center gap-2 rounded-lg border p-2.5">
+            <span className="min-w-0 flex-1 truncate">{c.name} <span className="text-muted-foreground">({c.root})</span></span>
+            <Button size="sm" variant="outline" nativeButton={false} render={<a href={c.url} target="_blank" rel="noreferrer" />}><ExternalLink /> Open</Button>
+            <Button size="sm" disabled={busy} onClick={() => run(() => chooseFolderAction(data.plate, c.id))}>Use this one</Button>
+          </div>
+        ))}
+        <div className="flex flex-wrap items-start gap-2">
+          {data.match === "none" && <UploadButton plate={data.plate} botScans={data.botMode} />}
+          <Button variant="outline" disabled={busy} onClick={() => run(() => relinkAction(data.plate))}><RefreshCw /> Search Drive again</Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -18,8 +18,8 @@ const daysSince = (iso: string) => Math.max(0, Math.floor((Date.now() - Date.par
 const today = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Manila" }).format(new Date());
 
 export interface HandoffData {
-  plate: string; location: "available" | "sold"; recipient: string; at: string | null; note: string | null; checked: string[]; returnedAt: string | null;
-  releasedOn: string | null; deliveredOn: string | null;
+  plate: string; location: "available" | "sold"; soldCar?: boolean; recipient: string; at: string | null; note: string | null; checked: string[]; returnedAt: string | null;
+  releasedOn: string | null; deliveredOn: string | null; stage?: string | null;
   items: { key: string; label: string; present: boolean; optional?: boolean }[];
 }
 
@@ -27,23 +27,24 @@ export interface HandoffData {
  * The transfer of the originals after the sale, in four steps on the car's sale record: With the liaison (the papers are handed to the receiver),
  * Back at MAD (the new CR is here), Released (given to the buyer or the financing company), Delivered (they confirmed). Available only after the folder is in Sold.
  */
-export function HandoffCard({ data, rules, isAdmin = false }: { data: HandoffData; rules: Rules; isAdmin?: boolean }) {
+export function HandoffCard({ data, rules, isAdmin = false }: { data: HandoffData; rules: Pick<Rules, "handoff" | "markReturned">; isAdmin?: boolean }) {
+  const soldCar = data.soldCar ?? data.location === "sold";
   const { busy, start, step, done, dialog } = useStep();
   const [checked, setChecked] = useState<string[]>(data.checked);
   const [note, setNote] = useState(data.note ?? "");
   const [to, setTo] = useState("");
   const [when, setWhen] = useState(today());
   const tick = (key: string, on: boolean) => { const next = on ? [...checked, key] : checked.filter((k) => k !== key); setChecked(next); void setHandoffCheckedAction(data.plate, next); };
-  const { steps, next } = stepsOf({ handedOffAt: data.at, backAt: data.returnedAt, releasedOn: data.releasedOn, deliveredOn: data.deliveredOn });
+  const { steps, next } = stepsOf({ handedOffAt: data.at, backAt: data.returnedAt, releasedOn: data.releasedOn, deliveredOn: data.deliveredOn, stage: data.stage });
   const out = !!data.at && !data.returnedAt;
-  const title = next === null ? <Pill tone="emerald">Delivered {day(data.deliveredOn!)}</Pill> : next === "back" ? <Pill tone="amber">With {data.recipient} for {daysSince(data.at!)} days</Pill>
-    : next === "released" ? <Pill tone="blue">Back at MAD {day(data.returnedAt!)}</Pill> : next === "delivered" ? <Pill tone="purple">Released {day(data.releasedOn!)}</Pill> : <Pill tone="zinc">Not handed off</Pill>;
+  const title = next === null ? <Pill tone="emerald">Delivered{data.deliveredOn ? ` ${day(data.deliveredOn)}` : ""}</Pill> : next === "back" ? <Pill tone="amber">With {data.recipient} for {daysSince(data.at!)} days</Pill>
+    : next === "released" ? <Pill tone="blue">Back at MAD{data.returnedAt ? ` ${day(data.returnedAt)}` : ""}</Pill> : next === "delivered" ? <Pill tone="purple">Released{data.releasedOn ? ` ${day(data.releasedOn)}` : ""}</Pill> : <Pill tone="zinc">Not handed off</Pill>;
   return (
     <Card id="handoff">
       <CardHeader><CardTitle className="flex flex-wrap items-center gap-3">Handoff to {data.recipient} {title}</CardTitle></CardHeader>
       <CardContent className="space-y-4 text-sm">
-        {data.location !== "sold" ? (
-          <p className="text-muted-foreground">This step comes after the sale. First the folder is moved to Sold units.</p>
+        {!soldCar ? (
+          <p className="text-muted-foreground">This step comes after the sale. First the car is sold and its folder moved to Sold units.</p>
         ) : (
           <>
             <ol className="flex flex-wrap gap-x-2 gap-y-1.5" aria-label="The steps of the transfer">
@@ -58,12 +59,12 @@ export function HandoffCard({ data, rules, isAdmin = false }: { data: HandoffDat
             {next === "out" && (
               <>
                 <p className="text-muted-foreground">{data.returnedAt ? `The papers came back on ${day(data.returnedAt)}. You can hand them off again. ` : ""}Check each paper against the folder, then hand them off.</p>
-                <ul className="divide-y rounded-lg ring-1 ring-foreground/10">
+                {data.items.length > 0 && <ul className="divide-y rounded-lg ring-1 ring-foreground/10">
                   {data.items.map((i) => (
                     <li key={i.key}><label className="flex cursor-pointer items-center gap-3 px-3 py-2.5"><input type="checkbox" className="size-4" checked={checked.includes(i.key)} onChange={(e) => tick(i.key, e.target.checked)} />
                       <span className="flex-1">{i.label}</span>{!i.present && !i.optional && <Pill tone="amber">Missing</Pill>}</label></li>
                   ))}
-                </ul>
+                </ul>}
                 <div className="space-y-1.5"><Label htmlFor="ho-note">Note (optional)</Label><Input id="ho-note" value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} /></div>
                 <Button disabled={busy || !rules.handoff.allowed} onClick={() => step("Hand off with things still open?", (c) => handoffAction(data.plate, note, c))}>{busy ? <Loader2 className="animate-spin" /> : <HandCoins />} Handed off to {data.recipient}</Button>
                 {!rules.handoff.allowed && rules.handoff.reason && <p className="text-xs text-muted-foreground">{rules.handoff.reason}</p>}
@@ -79,7 +80,7 @@ export function HandoffCard({ data, rules, isAdmin = false }: { data: HandoffDat
 
             {next === "released" && (
               <>
-                <p>The originals are back at MAD. When they are given to the buyer or to the financing company, say who and when.</p>
+                <p>The originals are back at MAD{data.returnedAt ? "" : " (the date was not recorded)"}. When they are given to the buyer or to the financing company, say who and when.</p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5"><Label htmlFor="rel-to">Given to</Label><Input id="rel-to" value={to} maxLength={70} placeholder="The buyer, GDFI, SAFC…" onChange={(e) => setTo(e.target.value)} /></div>
                   <div className="space-y-1.5"><Label htmlFor="rel-on">Date</Label><Input id="rel-on" type="date" value={when} onChange={(e) => setWhen(e.target.value)} /></div>
@@ -90,17 +91,17 @@ export function HandoffCard({ data, rules, isAdmin = false }: { data: HandoffDat
 
             {next === "delivered" && (
               <>
-                <p>Released on {day(data.releasedOn!)}. When the buyer or the bank confirms they have the originals, the transfer is finished.</p>
+                <p>Released{data.releasedOn ? ` on ${day(data.releasedOn)}` : ""}. When the buyer or the bank confirms they have the originals, the transfer is finished.</p>
                 <div className="max-w-xs space-y-1.5"><Label htmlFor="del-on">Date they received it</Label><Input id="del-on" type="date" value={when} onChange={(e) => setWhen(e.target.value)} /></div>
                 <Button disabled={busy || !when} onClick={() => start(async () => done(await deliverTransferAction(data.plate, when)))}>{busy ? <Loader2 className="animate-spin" /> : <PackageOpen />} Delivered: they have it</Button>
               </>
             )}
 
-            {next === null && <p className="text-muted-foreground">The transfer is finished: the buyer or the bank has the originals ({day(data.deliveredOn!)}).</p>}
+            {next === null && <p className="text-muted-foreground">The transfer is finished: the buyer or the bank has the originals{data.deliveredOn ? ` (${day(data.deliveredOn)})` : " (the date was not recorded)"}.</p>}
           </>
         )}
 
-        {isAdmin && !!data.at && data.location === "sold" && (
+        {isAdmin && !!data.at && soldCar && (
           <div className="space-y-3 border-t pt-4">
             <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Admin: correct this transfer</p>
             {(out || data.returnedAt) && (

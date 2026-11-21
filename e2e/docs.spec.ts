@@ -17,6 +17,12 @@ async function as(browser: Browser, who: keyof typeof credentials) {
   return page;
 }
 
+/** Opens a tab of the car's page and waits until it is the open one (a click while the page refreshes by itself can be lost, so it is tried again). */
+async function openTab(page: Page, name: string) {
+  const tab = page.getByRole("tab", { name: new RegExp(`^${name}`) });
+  await expect(async () => { await tab.click(); await expect(tab).toHaveAttribute("aria-selected", "true", { timeout: 3000 }); }).toPass({ timeout: 30_000 });
+}
+
 const BUYER = "ZZT E2E Docs Buyer";
 let n = Date.now() % 1_000_000; // a number no earlier (aborted) run has used
 /** An AR made the way the app makes it, without going through the form. */
@@ -68,12 +74,13 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
 
   // several folders: choose one
   await docs.getByRole("link", { name: /ZZT-7002|ZZT 7002/ }).first().click();
+  await openTab(docs, "Documents");
   await expect(docs.getByText("More than one folder matches this plate")).toBeVisible();
   await docs.getByRole("button", { name: "Use this one" }).first().click();
   await expect(docs.locator("#papers")).toBeVisible();
 
   // the clean car: read the three photos in the folder
-  await docs.goto("/documents/ZZT7001");
+  await docs.goto("/documents/ZZT7001?tab=documents");
   await expect(docs.getByText(/Plate ZZT.?7001/)).toBeVisible();
   await expect(docs.getByText("All scanned")).toBeVisible({ timeout: 30_000 }); // read automatically, nobody pressed anything
   // the OR and the CR are one photo; the ID belongs to the owner on the CR; the deed is seller to dealership
@@ -84,7 +91,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
 
   // a correction by one person shows in the Papers part at once, and for another person without reloading
   const other = await as(browser, "docs");
-  await other.goto("/documents/ZZT7001");
+  await other.goto("/documents/ZZT7001?tab=documents");
   await other.locator("#papers li", { hasText: "Official receipt (OR)" }).click();
   await other.getByRole("dialog").getByRole("button", { name: "Change what this is" }).first().click();
   await other.getByRole("dialog").getByRole("checkbox", { name: "Official receipt (OR)" }).uncheck();
@@ -120,14 +127,14 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await expect(docs.locator(".paper.tm")).toHaveCount(2);
   await expect(docs.locator(".paper.tm").first()).toContainText("ACKNOWLEDGEMENT/TRANSMITTAL RECEIPT");
   if (!notReady) await expect(docs.locator(".paper.tm").first()).toContainText("ZZT E2E Receiver");
-  await docs.goto("/documents/ZZT7001");
+  await docs.goto("/documents/ZZT7001?tab=documents");
 
   // Sales: the plate leads to the right car, then the papers go in
   const sales = await as(browser, "sales");
   await expect(sales.getByRole("link", { name: "Car documents" }).first()).toBeVisible(); // everyone can look, nobody but Documentation and Admin can act
   await sales.goto("/documents/ZZT7001/transmittal"); // not part of the Sales role
   await expect(sales.getByText("You don't have access to this page.")).toBeVisible();
-  await sales.goto("/documents/ZZT7001"); // the car page for Sales: all the information and the photos, no action button
+  await sales.goto("/documents/ZZT7001?tab=documents"); // the car page for Sales: all the information and the photos, no action button
   await expect(sales.locator("#papers")).toBeVisible();
   await expect(sales.locator("#papers img").first()).toBeVisible(); // they can see the photos
   await sales.locator("#papers li", { hasText: "Official receipt (OR)" }).click(); // and open a paper: the photo large and what the bot read, with no button to change it
@@ -150,7 +157,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await sales.goto("/upload-documents");
   await expect(sales.getByRole("heading", { name: "Car documents" })).toBeVisible();
   await expect(sales.getByRole("link", { name: "Upload documents" })).toHaveCount(0);
-  await sales.goto("/documents/ZZT7001");
+  await sales.goto("/documents/ZZT7001?tab=documents");
 
   // a photo through the screen (the stand-in reader cannot tell what it is) ...
   await sales.waitForTimeout(2500); // the page must be ready (hydrated) before a file is given to it; the car page keeps polling, so "network idle" never comes
@@ -188,6 +195,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await expect(docs.getByText("In Sold units").first()).toBeVisible({ timeout: 20_000 });
   // the register tells the same story as the folder: the car is SOLD there too
   await expect.poll(async () => (await (adminClient() as unknown as { from: (t: string) => any }).from("docs_units_current").select("sale_status, vehicle_status").eq("plate_no", "ZZT7001").maybeSingle()).data, { timeout: 15_000 }).toMatchObject({ sale_status: "Sold", vehicle_status: "SOLD" }); // eslint-disable-line @typescript-eslint/no-explicit-any
+  await docs.goto("/documents/ZZT7001?tab=sale");
   await expect(docs.getByText("Handoff to").first()).toBeVisible();
 
   // Documentation hands the papers off; from here only an Admin can correct things, and every correction asks first
@@ -197,7 +205,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await expect(docs.getByText("Admin: correct this handoff")).toHaveCount(0);
   await expect(docs.getByRole("button", { name: /Withdraw the approval/ })).toHaveCount(0);
   const admin = await as(browser, "admin");
-  await admin.goto("/documents/ZZT7001");
+  await admin.goto("/documents/ZZT7001?tab=details");
   // a change to the car's information asks first: Cancel keeps it as it was, the second time it goes through
   await admin.getByText("About the car").first().click();
   await admin.locator("#ud-note").fill("Corrected by the Admin");
@@ -209,6 +217,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await admin.getByRole("dialog").getByRole("button", { name: "Yes, change this" }).click();
   await expect.poll(async () => ((await adminClient().from("unit_details").select("data").eq("plate_no", "ZZT7001").maybeSingle()).data?.data as { note?: string } | undefined)?.note, { timeout: 20_000 }).toBe("Corrected by the Admin");
   // the handoff: change the note, then take it back
+  await openTab(admin, "Sale and transfer");
   await admin.locator("#ho-note-admin").fill("Fixed note");
   await admin.getByRole("button", { name: "Save the ticks and note" }).click();
   await admin.getByRole("dialog").getByRole("button", { name: "Yes, save the changes" }).click();
@@ -217,13 +226,14 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await admin.getByRole("dialog").getByRole("button", { name: "Yes, undo it" }).click();
   await expect(admin.getByText("Not handed off").first()).toBeVisible({ timeout: 20_000 });
   // and the approval can be withdrawn, so it can be approved again
+  await openTab(admin, "Documents");
   await admin.getByRole("button", { name: "Withdraw the approval (Admin)" }).click();
   await admin.getByRole("dialog").getByRole("button", { name: "Yes, withdraw it" }).click();
   await expect(admin.getByText("Not approved yet").first()).toBeVisible({ timeout: 20_000 });
   await admin.close();
 
   // the transfer goes on after the papers are back: released (to whom, when), then delivered. They are steps of the car's sale record
-  await docs.reload();
+  await docs.goto("/documents/ZZT7001?tab=sale");
   await docs.getByRole("button", { name: /^Handed off to/ }).click();
   await docs.getByRole("dialog").getByRole("button", { name: "Go on anyway" }).click();
   await expect(docs.getByText(/^Handed off on/).first()).toBeVisible({ timeout: 20_000 });
@@ -246,14 +256,14 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   expect((await rec())[0]).toMatchObject({ stage: "delivered" });
   expect((await rec())[0].done_on).toBeTruthy();
   const boss = await as(browser, "admin");  // an Admin can take the last step back
-  await boss.goto("/documents/ZZT7001");
+  await boss.goto("/documents/ZZT7001?tab=sale");
   await boss.getByRole("button", { name: "Go back one step" }).click();
   await boss.getByRole("dialog").getByRole("button", { name: "Yes, go back one step" }).click();
   await expect.poll(async () => (await rec())[0].stage, { timeout: 20_000 }).toBe("released");
   await boss.close();
 
   // a car that is not approved cannot be moved (only an Admin may go past that), and it says why
-  await docs.goto("/documents/ZZT7002");
+  await docs.goto("/documents/ZZT7002?tab=documents");
   await expect(docs.getByRole("button", { name: "Move to Sold" })).toBeDisabled();
   await expect(docs.getByText(/Approve the documents first\./).first()).toBeVisible();
   await expect(docs.getByRole("button", { name: /Move anyway/ })).toHaveCount(0); // that button is the Admin's
@@ -298,7 +308,7 @@ test("Documentation adds photos by typing only the plate: the folder is made, th
   expect(res.ok()).toBe(true);
   expect((await res.json()).result.types).toContain("official_receipt");
   // the car now has its folder and both files
-  await docs.goto("/documents/ZZT7010");
+  await docs.goto("/documents/ZZT7010?tab=documents");
   await expect(docs.locator("#papers")).toBeVisible();
   await expect(docs.getByText("Official receipt (OR)").first()).toBeVisible();
 
@@ -322,11 +332,11 @@ test("Documentation adds photos by typing only the plate: the folder is made, th
   await expect(async () => expect((await adminClient().from("folder_files").select("id").eq("plate_no", "ZZT7010")).data?.length ?? 0).toBe(before - 1)).toPass({ timeout: 30_000 });
 
   // only an Admin can remove the car itself; Documentation does not see the button
-  await docs.goto("/documents/ZZT7010");
-  await expect(docs.locator("#papers")).toBeVisible();
+  await docs.goto("/documents/ZZT7010?tab=details");
+  await expect(docs.getByText("Repairs of this car")).toBeVisible();
   await expect(docs.getByRole("button", { name: "Remove this car" })).toHaveCount(0);
   const admin = await as(browser, "admin");
-  await admin.goto("/documents/ZZT7010");
+  await admin.goto("/documents/ZZT7010?tab=details");
   await admin.getByText("Remove this car (Admin)").click();
   await admin.getByRole("button", { name: "Remove this car" }).click();
   await admin.getByRole("button", { name: "Yes, remove this car" }).click();
@@ -367,21 +377,35 @@ test("Sales and Documentation put a saved receipt in the car's folder with a but
   expect(ar.deal_id).toBeTruthy();
 
   const docs = await as(browser, "docs");
-  await docs.goto("/documents/ZZT7003");
-  await expect(docs.locator("#papers")).toBeVisible();
+  await docs.goto("/documents/ZZT7003?tab=receipts");
+  await expect(docs.getByRole("tab", { name: /^Receipts/ })).toBeVisible();
   // a saved receipt is offered at once, and it is not in the folder until the button is pressed
   expect((await adminClient().from("receipts").select("status").eq("id", receiptId).single()).data?.status).toBe("approved");
   await expect(docs.locator("#receipts")).toContainText("Not in the folder yet");
   await docs.getByRole("button", { name: /^Save 1 receipt in the car's folder \(unsigned\)$/ }).click();
   await expect(docs.locator("#receipts")).toContainText("Unsigned copy in the folder", { timeout: 30_000 });
   // the copy shows with the car's files, but it is not read as a car document
+  await openTab(docs, "Documents");
   await expect(docs.locator("#papers")).toContainText("RECEIPT-", { timeout: 30_000 });
   await expect(docs.getByRole("button", { name: /^Save .* in the car's folder \(unsigned\)$/ })).toHaveCount(0);
 
+  // one page for the car: it opens on the Overview, each tab has its own address, and a link to a part of a page opens the tab that holds it
+  await docs.goto("/documents/ZZT7003");
+  await expect(docs.getByRole("tab", { name: /^Overview/ })).toHaveAttribute("aria-selected", "true");
+  for (const block of ["Status", "Documents", "Sale", "Transfer of the originals", "Repairs", "Needs a person"]) await expect(docs.getByRole("main").locator('[data-slot="card-title"]', { hasText: block }).first()).toBeVisible();
+  await openTab(docs, "Sale and transfer");
+  await expect(docs).toHaveURL(/tab=sale/);
+  await expect(docs.getByText("Handoff to").first()).toBeVisible();
+  await docs.goto("/documents/ZZT7003#papers"); // an old link to a part of the page
+  await expect(docs.getByRole("tab", { name: /^Documents/ })).toHaveAttribute("aria-selected", "true", { timeout: 20_000 });
+  await expect(docs.locator("#papers")).toBeVisible();
+
   // Sales have the same button on the car's page
   const sales = await as(browser, "sales");
-  await sales.goto("/documents/ZZT7003");
+  await sales.goto("/documents/ZZT7003?tab=receipts");
   await expect(sales.locator("#receipts")).toContainText("Unsigned copy in the folder");
+  await expect(sales.getByRole("tab", { name: /^Sale and transfer/ })).toHaveCount(0); // the buyers' details and the transfer are not for Sales
+  for (const t of ["Overview", "Documents", "Receipts", "Details"]) await expect(sales.getByRole("tab", { name: new RegExp(`^${t}`) })).toBeVisible();
   await docs.close(); await sales.close();
 });
 
