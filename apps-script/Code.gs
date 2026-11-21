@@ -95,6 +95,14 @@ function handle_(req) {
       return withLock_(function () {
         return docsTrashHeic_(req);
       });
+    case 'receipts.save':
+      return withLock_(function () {
+        return receiptsSave_(req);
+      });
+    case 'receipts.trash':
+      return withLock_(function () {
+        return receiptsTrash_(req);
+      });
     case 'docs.trashFile':
       return withLock_(function () {
         return docsTrashFile_(req);
@@ -414,6 +422,60 @@ function docsTrashHeic_(req) {
   }
   file.setTrashed(true);
   return { id: file.getId(), trashed: true };
+}
+
+/**
+ * The audit copy of every receipt. Needs the script property RECEIPTS_FOLDER_ID (the Drive folder made for it). Each receipt gets its own folder,
+ * named like "RECEIPT-2541_NKF4771", inside a folder for its month ("2026-11"), with the printout and the proofs in it. Saving the same receipt
+ * again adds only the files that are not there yet.
+ */
+function receiptsRoot_() {
+  var id = PropertiesService.getScriptProperties().getProperty('RECEIPTS_FOLDER_ID');
+  if (!id) throw httpError_(400, 'Set the RECEIPTS_FOLDER_ID script property (the Drive folder for the receipt copies)');
+  return DriveApp.getFolderById(id);
+}
+
+function childFolder_(parent, name) {
+  var it = parent.getFoldersByName(name);
+  return it.hasNext() ? it.next() : parent.createFolder(name);
+}
+
+function receiptsSave_(req) {
+  var root = receiptsRoot_();
+  var month = String(req.month || '').replace(/[^0-9-]/g, '').slice(0, 7);
+  var name = String(req.name || '').replace(/[\/\\\r\n]+/g, ' ').trim().slice(0, 100);
+  if (!month || !name) throw httpError_(400, 'The receipt needs a month and a name');
+  var folder = childFolder_(childFolder_(root, month), name);
+  var have = {};
+  var existing = folder.getFiles();
+  while (existing.hasNext()) have[existing.next().getName()] = true;
+  var files = req.files || [];
+  for (var i = 0; i < files.length && i < 12; i++) {
+    var f = files[i];
+    var base64 = String(f.base64 || '');
+    if (!base64 || base64.length > MAX_BASE64_CHARS) throw httpError_(413, 'A file is empty or too large');
+    var fileName = String(f.name || '').replace(/[\/\\\r\n]+/g, ' ').trim().slice(0, 100);
+    if (!fileName || have[fileName]) continue;
+    folder.createFile(Utilities.newBlob(Utilities.base64Decode(base64), String(f.mimeType || 'application/octet-stream'), fileName));
+  }
+  return { id: folder.getId(), url: folder.getUrl() };
+}
+
+/** Puts one receipt's audit folder (and what is in it) into the Drive trash, restorable for 30 days. Only a folder inside the receipts folder. */
+function receiptsTrash_(req) {
+  var root = receiptsRoot_().getId();
+  var folder = DriveApp.getFolderById(String(req.folderId));
+  var current = folder;
+  for (var depth = 0; depth < 4 && current; depth++) {
+    if (current.getId() === root) {
+      if (folder.getId() === root) throw httpError_(403, 'The receipts folder itself cannot be removed');
+      folder.setTrashed(true);
+      return { id: folder.getId(), trashed: true };
+    }
+    var parents = current.getParents();
+    current = parents.hasNext() ? parents.next() : null;
+  }
+  throw httpError_(403, 'That folder is not inside the receipts folder');
 }
 
 /** Puts ONE file of a car folder (Available or Sold) into the Drive trash (it can be restored from there for 30 days). Refuses anything outside those folders. */

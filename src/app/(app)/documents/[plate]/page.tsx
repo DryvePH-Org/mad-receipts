@@ -66,7 +66,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
   const orRow = await docsDb().from("docs_units_current").select("renewal").eq("plate_no", key).maybeSingle();
   const orDate = orRow.data?.renewal ? parseSheetDate(String(orRow.data.renewal)) : null; // the typed date, read the same way the database reads it
   const transfers = user.role === "admin" || user.role === "approver" || user.role === "documentation" ? await loadTransfers(key) : null;
-  const [register, receipts] = await Promise.all([loadRegisterRow(key).catch(() => null), canAct ? listCarReceipts(key).catch(() => []) : Promise.resolve([])]);
+  const [register, receipts] = await Promise.all([loadRegisterRow(key).catch(() => null), canUpload ? listCarReceipts(key).catch(() => []) : Promise.resolve([])]);
 
   const recipient = settings.print.transmittalReceiver || "the receiver";
   const items = car.checklist.items.map((i) => ({ key: i.key, label: i.label, stage: i.stage, present: i.present, fileIds: i.fileIds, optional: !!i.optional }));
@@ -114,7 +114,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
           <aside className="space-y-6 xl:col-start-2 xl:row-span-4 xl:row-start-1">
             {canAct && <ApprovalCard isAdmin={data.isAdmin} plate={key} approvedAt={flow.workflow.approvedAt} approvedBy={flow.workflow.approvedByName} marketingNotifiedAt={flow.workflow.marketingNotifiedAt} rule={stage.rules.approve} />}
             {canUpload && <SoldUploadCard plate={key} items={soldItems} deal={data.deal ? { dealNo: data.deal.dealNo, buyerName: data.deal.buyerName } : null} />}
-            {canAct && receipts.length > 0 && <ReceiptsCard plate={key} receipts={receipts} />}
+            {canUpload && receipts.length > 0 && <ReceiptsCard plate={key} receipts={receipts} />}
             {canAct && <SoldCard plate={key} location={data.location} items={[...arCopy.map(({ key: k, label, present }) => ({ key: k, label, present })), ...soldItems]} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />}
             {canAct && <HandoffCard isAdmin={data.isAdmin} rules={stage.rules} data={{ plate: key, location: data.location, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, items: [...items, ...arCopy].map((i) => ({ key: i.key, label: i.label, present: i.present, optional: i.optional })) }} />}
             {transfers && <Card id="transfer"><CardHeader><CardTitle>Transfer to the buyer</CardTitle></CardHeader><CardContent><TransferList transfers={transfers.transfers} cars={Object.fromEntries(transfers.cars)} today={manilaToday()} plate={key} showCar={false} /></CardContent></Card>}

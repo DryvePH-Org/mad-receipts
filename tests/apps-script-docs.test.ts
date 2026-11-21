@@ -21,7 +21,7 @@ function build() {
     const f: FileNode = { id: `file${++n}`, name, mime, size, parent, bytes: [1, 2, 3] };
     parent.files.push(f); files.set(f.id, f); return f;
   };
-  const available = folder("Available Units", null, "AV"), sold = folder("Sold Units", null, "SO"), elsewhere = folder("Private", null, "PR");
+  const available = folder("Available Units", null, "AV"), sold = folder("Sold Units", null, "SO"), elsewhere = folder("Private", null, "PR"), receipts = folder("Receipts", null, "RC");
   const vios = folder("14 Toyota Vios (AAX-3622)", available);
   const sonic = folder("15 Chevrolet Sonic (NDS1331)", available);
   const escape = folder("13 Ford Escape (WMO752)", sold);
@@ -29,11 +29,11 @@ function build() {
   file("IMG_1.HEIC", vios, "image/heic", 3_000_000); file("scan.pdf", vios, "application/pdf", 900_000);
   const sub = folder("After sale", vios); file("buyer.jpg", sub);
   file("IMG_9.jpg", escape);
-  return { nodes, files, available, sold, vios, sonic, escape, secret, folder, file };
+  return { nodes, files, available, sold, receipts, vios, sonic, escape, secret, folder, file };
 }
 
 const wrapFolder = (f: FolderNode, tree: ReturnType<typeof build>): any => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
-  getId: () => f.id, getName: () => f.name, getUrl: () => `https://drive/${f.id}`,
+  getId: () => f.id, getName: () => f.name, getUrl: () => `https://drive/${f.id}`, setTrashed: (v: boolean) => { (f as FolderNode & { trashed?: boolean }).trashed = v; },
   getParents: () => iter(f.parent ? [wrapFolder(f.parent, tree)] : []),
   getFolders: () => iter(f.folders.map((x) => wrapFolder(x, tree))),
   searchFolders: (q: string) => { const m = /title contains '(.*)'/.exec(q); return iter(f.folders.filter((x) => x.name.includes(m![1])).map((x) => wrapFolder(x, tree))); },
@@ -53,7 +53,7 @@ function iter<T>(items: T[]) { let i = 0; return { hasNext: () => i < items.leng
 
 function setup(props: Record<string, string> = {}) {
   const tree = build();
-  const properties: Record<string, string> = { SECRET, DOC_AVAILABLE_ID: "AV", DOC_SOLD_ID: "SO", ...props };
+  const properties: Record<string, string> = { SECRET, DOC_AVAILABLE_ID: "AV", DOC_SOLD_ID: "SO", RECEIPTS_FOLDER_ID: "RC", ...props };
   const fetched: string[] = [];
   const sandbox: Record<string, unknown> = {
     PropertiesService: { getScriptProperties: () => ({ getProperty: (k: string) => properties[k] ?? null }) },
@@ -199,5 +199,32 @@ describe("removing one photo of a car folder", () => {
     const hidden = s.tree.file("hidden.jpg", s.tree.secret);
     expect(s.call({ action: "docs.trashFile", fileId: hidden.id })).toMatchObject({ ok: false, code: 403 });
     expect(trashed(hidden.id)).toBe(false);
+  });
+});
+
+describe("the receipts audit folder", () => {
+  const bytes = Buffer.from("<html>AR</html>").toString("base64");
+  const save = (extra: Record<string, unknown> = {}) => s.call({ action: "receipts.save", month: "2026-11", name: "RECEIPT-2541_NKF4771", files: [{ name: "RECEIPT-2541_NKF4771.html", mimeType: "text/html", base64: bytes }], ...extra });
+  it("puts each receipt in its own folder inside a folder for its month, and saving again adds nothing twice", () => {
+    const a = save();
+    expect(a).toMatchObject({ ok: true });
+    const month = s.tree.receipts.folders.find((f) => f.name === "2026-11")!;
+    const mine = month.folders.find((f) => f.name === "RECEIPT-2541_NKF4771")!;
+    expect(mine.files.map((f) => f.name)).toEqual(["RECEIPT-2541_NKF4771.html"]);
+    expect(save().data.id).toBe(a.data.id);
+    expect(mine.files).toHaveLength(1);
+  });
+  it("asks for the RECEIPTS_FOLDER_ID property, and refuses a missing month or name", () => {
+    s = setup({ RECEIPTS_FOLDER_ID: "" });
+    expect(save()).toMatchObject({ ok: false, code: 400 });
+    s = setup();
+    expect(save({ month: "" })).toMatchObject({ ok: false, code: 400 });
+  });
+  it("trashes only a receipt folder inside the receipts folder", () => {
+    const id = save().data.id as string;
+    expect(s.call({ action: "receipts.trash", folderId: id })).toMatchObject({ ok: true, data: { trashed: true } });
+    expect((s.tree.nodes.get(id) as FolderNode & { trashed?: boolean }).trashed).toBe(true);
+    expect(s.call({ action: "receipts.trash", folderId: "RC" })).toMatchObject({ ok: false, code: 403 });
+    expect(s.call({ action: "receipts.trash", folderId: s.tree.vios.id })).toMatchObject({ ok: false, code: 403 });
   });
 });

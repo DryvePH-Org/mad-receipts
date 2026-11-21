@@ -8,8 +8,6 @@ import { ResponsiveList } from "@/components/shared/responsive-list";
 import { SyncStatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { requireModule } from "@/lib/auth";
-import { sheetsFrozen } from "@/lib/google/freeze";
-import { ReplayPanel } from "./replay-panel";
 import { GrokbotPanel } from "./grokbot-panel";
 import { QueuePanel } from "./queue-panel";
 import { grokbotMissing } from "@/lib/grokbot/client";
@@ -19,13 +17,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveConflict, retrySyncJob, runSyncNow } from "./actions";
 
 const TARGET_LABEL: Record<string, string> = {
-  drive: "Google Drive",
-  sheets: "Google Sheets",
+  drive: "Drive audit copy",
+  sheets: "Google Sheets (no longer used)",
   telegram: "Telegram",
-  inventory: "Inventory sheet",
+  inventory: "Car status",
+  docs: "Car folder link",
 };
 const EVENT_LABEL: Record<string, string> = {
-  confirm: "receipt approved",
+  confirm: "receipt saved",
   void: "receipt voided",
   cancel: "deal cancelled",
   edit: "deal changed (loan released)",
@@ -50,6 +49,7 @@ async function SyncContent({ searchParams }: { searchParams: PageProps<"/admin/s
   let query = supabase
     .from("sync_jobs")
     .select("id, target, event, status, attempts, last_error, next_run_at, updated_at, receipts(receipt_no)")
+    .neq("target", "sheets") // Google Sheets are not written any more
     .order("updated_at", { ascending: false })
     .limit(100);
   if (!showAll) query = query.neq("status", "done");
@@ -84,7 +84,7 @@ async function SyncContent({ searchParams }: { searchParams: PageProps<"/admin/s
             </details>
           )}
         </span>
-        <span className="block text-xs">After fixing the sheet yourself, press Retry now to check again.</span>
+        <span className="block text-xs">After fixing it yourself, press Retry now to check again.</span>
       </span>
     ) : null;
 
@@ -98,23 +98,15 @@ async function SyncContent({ searchParams }: { searchParams: PageProps<"/admin/s
       </form>
     ) : null;
 
-  const frozen = sheetsFrozen();
-  const waiting = frozen ? (jobs ?? []).filter((j) => j.status !== "done" && (j.target === "sheets" || j.target === "inventory")).length : 0;
   return (
     <>
-      {frozen && (
-        <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100">
-          <b>Google Sheets are frozen.</b> The app is not writing to any sheet right now (the receipts log, the inventory status and the replay). Reading and the dashboards still work. {waiting ? `${waiting} sheet update${waiting === 1 ? " is" : "s are"} waiting and will be sent when the freeze is lifted.` : "Sheet updates will wait here and are not lost."}
-        </p>
-      )}
       {me.role === "admin" && <GrokbotPanel missing={grokbotMissing()} />}
       {me.role === "admin" && <QueuePanel />}
       <PageHeader
         title="Sync jobs"
-        description={`After a receipt is confirmed, voided or a deal changes, the app updates Drive, the log sheet, Telegram and the inventory sheet. Jobs that fail are retried automatically, up to ${MAX_ATTEMPTS} times.`}
+        description={`When a receipt is saved, voided or a deal changes, the app updates the car's status, saves the audit copy in Drive and tells Telegram. Jobs that fail are retried automatically, up to ${MAX_ATTEMPTS} times.`}
         actions={
           <>
-            {me.role === "admin" && <ReplayPanel />}
             {me.role === "admin" && <Button variant="outline" nativeButton={false} render={<Link href="/admin/golive" />}>Go-live check</Button>}
             <Button variant="outline" nativeButton={false} render={<Link href={showAll ? "/admin/sync" : "/admin/sync?show=all"} />}>
               {showAll ? "Hide finished" : "Show finished"}
@@ -135,7 +127,7 @@ async function SyncContent({ searchParams }: { searchParams: PageProps<"/admin/s
           <EmptyState
             icon={CircleCheck}
             title={showAll ? "No sync jobs yet" : "Everything is up to date"}
-            description={showAll ? "Jobs appear after the first receipt is confirmed." : "Nothing is waiting or failed."}
+            description={showAll ? "Jobs appear after the first receipt is saved." : "Nothing is waiting or failed."}
           />
         }
         columns={[

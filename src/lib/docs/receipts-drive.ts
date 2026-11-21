@@ -1,17 +1,15 @@
 import "server-only";
 import { getSettings } from "@/lib/data";
-import type { FormState } from "@/lib/deal/types";
 import { normalizePlate } from "@/lib/rules/plate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { docsBridge } from "./bridge";
 import { receiptCopyName, receiptCopyNames, receiptFileBase } from "./receipt-names";
-import { receiptRecordHtml } from "./receipt-record";
+import { receiptPageHtml, UNSIGNED_BANNER } from "./receipt-record";
 
 // Putting a car's approved receipts into its Drive folder is a button for the Documentation role (it no longer happens by itself).
 // The copy is named ..._UNSIGNED: it is the app's own printout; the signed paper is photographed and uploaded separately.
 
 
-const esc = (t: unknown) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] as string);
 
 export interface CarReceipt { id: string; receiptNo: string; filed: boolean; copyName: string }
 
@@ -46,9 +44,7 @@ export async function fileCarReceipts(plate: string): Promise<{ filed: number; s
   for (const r of receipts) {
     const base = receiptFileBase(r.receipt_no, plate);
     if (receiptCopyNames(r.receipt_no, plate).some((n) => have.has(n))) { skipped++; continue; }
-    // a receipt saved without its form (an old or hand-made one) gets a short plain record instead of a failure
-    const full = !!r.snapshot && typeof r.snapshot === "object" && Array.isArray((r.snapshot as { units?: unknown }).units);
-    const html = new TextEncoder().encode(full ? receiptRecordHtml(r.snapshot as unknown as FormState, company) : `<!doctype html><html lang="en"><meta charset="utf-8"><title>Receipt ${esc(r.receipt_no)} (unsigned copy)</title><body style="font:14px system-ui;max-width:640px;margin:24px auto"><h1>${esc(company.name)}</h1><p>Receipt No. <b>${esc(r.receipt_no)}</b> · ${esc(r.receipt_date)} · amount received ${esc(r.amount)}</p><p><b>UNSIGNED COPY from MAD.</b> The signed paper copy is uploaded separately by Sales.</p><p>The full record of this receipt is in the app.</p></body></html>`);
+    const html = new TextEncoder().encode(receiptPageHtml({ receiptNo: r.receipt_no, receiptDate: r.receipt_date, amount: r.amount, snapshot: r.snapshot }, company, UNSIGNED_BANNER));
     await bridge.upload(folder.folder_id, receiptCopyName(r.receipt_no, plate), html, "text/html");
     const { data: files } = await admin.from("attachments").select("storage_path, filename, mime_type").eq("receipt_id", r.id).order("created_at");
     let n = 0;

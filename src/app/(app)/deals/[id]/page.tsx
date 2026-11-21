@@ -17,6 +17,7 @@ import { KIND_LABELS } from "@/lib/deal/types";
 import { formatPeso } from "@/lib/rules/money";
 import { DealAdminActions, PrintReceiptButton } from "./deal-actions";
 import { FileArButton } from "./file-ar-button";
+import { DeleteDeal } from "./delete-deal";
 
 export default function DealPage({ params }: PageProps<"/deals/[id]">) {
   return <Suspense fallback={<PageSkeleton />}><Content params={params} /></Suspense>;
@@ -55,7 +56,7 @@ async function Content({ params }: { params: PageProps<"/deals/[id]">["params"] 
         <div className="space-y-6">
           <Card>
             <CardHeader><CardTitle className="flex items-center justify-between gap-3">Where the money stands <DealStatusBadge status={status} /></CardTitle>
-              <p className="text-sm text-muted-foreground">Only approved receipts are counted{deal.pendingPaid ? `. ${formatPeso(deal.pendingPaid)} is still waiting for approval.` : "."}</p></CardHeader>
+              <p className="text-sm text-muted-foreground">Every saved receipt is counted.</p></CardHeader>
             <CardContent className="space-y-4">
               <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} /></div>
               <LedgerView ledger={ledger} />
@@ -83,7 +84,7 @@ async function Content({ params }: { params: PageProps<"/deals/[id]">["params"] 
                   </tbody>
                 </table>
               </div>
-              {user.modules.includes("documents") && receipts.some((r) => r.status === "approved") && <FileArButton dealId={deal.id} />}
+              {(user.modules.includes("documents") || user.modules.includes("new")) && receipts.some((r) => r.status === "approved") && <FileArButton dealId={deal.id} />}
             </CardContent>
           </Card>
         </div>
@@ -113,7 +114,7 @@ async function Content({ params }: { params: PageProps<"/deals/[id]">["params"] 
           )}
 
           <Card size="sm">
-            <CardHeader><CardTitle>Inventory sheet</CardTitle><p className="text-sm text-muted-foreground">What the REMARKS column shows</p></CardHeader>
+            <CardHeader><CardTitle>Car status</CardTitle><p className="text-sm text-muted-foreground">What Car status shows for the car</p></CardHeader>
             <CardContent className="space-y-2">
               {deal.units.map((u) => <div key={u.plate_no} className="flex items-center justify-between gap-3 text-sm"><span><b className="font-medium">{u.make_type}</b><br /><span className="font-mono text-xs text-muted-foreground">{u.plate}</span></span><Pill tone={invStatus === "Sold" ? "zinc" : invStatus === "Reserved" ? "amber" : "emerald"}>{invStatus}</Pill></div>)}
               <p className="text-xs text-muted-foreground">Reserved while anything is unpaid. It becomes Sold only when the buyer&apos;s part is paid{deal.saleType === "financing" ? " and the loan is released" : ""}. A cancelled deal frees the car again.</p>
@@ -125,6 +126,7 @@ async function Content({ params }: { params: PageProps<"/deals/[id]">["params"] 
           )}
 
           {isAdmin && deal.status === "open" && <DealAdminActions mode="deal" dealId={deal.id} today={today} loanStatus="none" institution="" loanAmount="" canCancel />}
+          {isAdmin && <DeleteDeal dealId={deal.id} dealNo={deal.dealNo} receipts={receipts.length} proofs={receipts.reduce((n, r) => n + r.payments.reduce((m, p) => m + p.proofs, 0), 0)} />}
         </div>
       </div>
     </div>

@@ -46,7 +46,7 @@ async function fillFinanced(page: Page, no: string, plate: string) {
   await page.getByLabel("Trade-in value").fill("60000");
 }
 
-test("the whole flow: Sales fills in, the Approver approves, the numbers agree", async ({ browser }) => {
+test("the whole flow: Sales fills in and saves, it is final at once, the numbers agree", async ({ browser }) => {
   const sales = await as(browser, "sales");
   await fillFinanced(sales, NO(1), "ZZT 1001");
 
@@ -76,7 +76,7 @@ test("the whole flow: Sales fills in, the Approver approves, the numbers agree",
   // sending without the proof is blocked
   await next(sales, "Finish");
   await sales.getByLabel(/I checked every field/).check();
-  await expect(sales.getByRole("button", { name: /Send for approval/ })).toBeDisabled();
+  await expect(sales.getByRole("button", { name: /Save the receipt/ })).toBeDisabled();
   await expect(sales.getByText("Photo of the cash")).toBeVisible();
 
   // attach the proof, and it can be sent
@@ -85,43 +85,24 @@ test("the whole flow: Sales fills in, the Approver approves, the numbers agree",
   await expect(sales.getByText("✓ 1 attached")).toBeVisible();
   await next(sales, "Finish");
   await sales.getByLabel(/I checked every field/).check();
-  await sales.getByRole("button", { name: /Send for approval/ }).click();
-  await expect(sales.getByRole("heading", { name: "Sent for approval" })).toBeVisible();
+  await sales.getByRole("button", { name: /Save the receipt/ }).click();
+  await expect(sales.getByRole("heading", { name: "Receipt saved" })).toBeVisible();
   const printHref = await sales.locator("a[href^=\"/print/\"]").first().getAttribute("href");
 
-  // nothing counts until it is approved
+  // a saved receipt is final: it counts at once, and nobody has to approve it
   const admin = adminClient();
-  const { data: before } = await admin.from("deal_summaries").select("balance, approved_paid, pending_count, loan_amount, processing_fee").like("deal_no", "D%").eq("buyer_name", "ZZT E2E Maria Santos").single();
-  expect([Number(before?.approved_paid), Number(before?.pending_count), Number(before?.loan_amount), Number(before?.processing_fee)]).toEqual([0, 1, 570000, 39900]);
-
-  // the Sales person cannot approve their own receipt; the Approver can
-  // Sales keeps looking at Transactions while the Approver works
-  await sales.goto("/deals");
-  const salesRow = sales.getByRole("row").filter({ hasText: "ZZT E2E Maria Santos" });
-  await expect(salesRow).toContainText(/waiting approval/i);
-  const approver = await as(browser, "approver");
-  await approver.goto("/approvals");
-  await expect(approver.getByText(NO(1)).first()).toBeVisible();
-  // other people's receipts may be waiting too: work only on this test's own card
-  const card = approver.locator("div.ring-1").filter({ hasText: NO(1) }).filter({ has: approver.getByRole("button", { name: "Approve" }) }).first();
-  await expect(card.getByText("Balance after this receipt")).toBeVisible();
-  await card.getByRole("button", { name: "Approve" }).click();
-  // the screen reflects it at once, with no refresh: the card leaves the waiting list and shows under "Recently decided"
-  await expect(card).toHaveCount(0, { timeout: 15_000 });
-  await expect(approver.getByRole("row").filter({ hasText: NO(1) })).toBeVisible({ timeout: 15_000 });
-  // the other person's screen updates by itself, with no reload (a small check runs every few seconds)
-  await expect(salesRow).not.toContainText(/waiting approval/i, { timeout: 30_000 });
-  await expect(salesRow).toContainText("₱40,000");
-  // moving to other pages by the menu (no reload) shows it everywhere too
-  await approver.getByRole("link", { name: "Transactions" }).first().click();
-  await expect(approver.getByText("ZZT E2E Maria Santos").first()).toBeVisible({ timeout: 15_000 });
-  const dealRow = approver.getByRole("row").filter({ hasText: "ZZT E2E Maria Santos" });
-  await expect(dealRow).toContainText("₱40,000");
-  await expect(dealRow).not.toContainText(/waiting approval/i);
-  const read = async () => (await admin.from("deal_summaries").select("id, balance, approved_paid, opening_paid").eq("buyer_name", "ZZT E2E Maria Santos").single()).data;
+  const read = async () => (await admin.from("deal_summaries").select("id, balance, approved_paid, opening_paid, pending_count, loan_amount, processing_fee").eq("buyer_name", "ZZT E2E Maria Santos").single()).data;
   await expect.poll(async () => Number((await read())?.approved_paid)).toBe(40000);
   const after = await read();
-  expect([Number(after?.opening_paid), Number(after?.balance)]).toEqual([10000, 79900]); // 129,900 due (down payment − trade-in + fee) − 10,000 earlier − 40,000
+  expect([Number(after?.opening_paid), Number(after?.balance), Number(after?.pending_count), Number(after?.loan_amount), Number(after?.processing_fee)]).toEqual([10000, 79900, 0, 570000, 39900]); // 129,900 due (down payment − trade-in + fee) − 10,000 earlier − 40,000
+  const saved = (await admin.from("receipts").select("status, reviewed_by, submitted_by").eq("receipt_no", NO(1)).single()).data;
+  expect(saved?.status).toBe("approved");
+  expect(saved?.reviewed_by).toBe(saved?.submitted_by);
+  await sales.goto("/deals");
+  const salesRow = sales.getByRole("row").filter({ hasText: "ZZT E2E Maria Santos" });
+  await expect(salesRow).toContainText("₱40,000");
+  await expect(salesRow).not.toContainText(/waiting approval/i);
+  await expect(sales.getByText("Waiting for approval")).toHaveCount(0);
   await sales.goto(`/deals/${after!.id}`);
   await expect(sales.getByText("Adds up").first()).toBeVisible();
   await expect(sales.getByText("Waiting for lender").first()).not.toBeVisible().catch(() => undefined);
@@ -156,7 +137,7 @@ test("the whole flow: Sales fills in, the Approver approves, the numbers agree",
   await boss.getByRole("button", { name: "Keep the sheet's note" }).filter({ visible: true }).first().click();
   await expect.poll(async () => (await admin.from("sync_jobs").select("status").eq("receipt_id", receiptId).eq("target", "inventory").single()).data?.status).toBe("done");
   await boss.close();
-  await sales.close(); await approver.close();
+  await sales.close();
 });
 
 test("continuing a deal fills in at once; earnest money and a full payment work themselves out", async ({ browser }) => {
@@ -231,13 +212,13 @@ test("the checks refuse a wrong or incomplete receipt", async ({ browser }) => {
   await next(sales, "Finish");
   await sales.getByLabel(/I checked every field/).check();
   await expect(sales.getByText("Still to fill in:")).toBeVisible();
-  await expect(sales.getByRole("button", { name: /Send for approval/ })).toBeDisabled();
+  await expect(sales.getByRole("button", { name: /Save the receipt/ })).toBeDisabled();
   await sales.close();
 });
 
 test("people see only what their role allows", async ({ browser }) => {
   const sales = await as(browser, "sales");
-  for (const path of ["/approvals", "/settings", "/activity", "/admin/users"]) {
+  for (const path of ["/settings", "/activity", "/admin/users"]) {
     await sales.goto(path);
     await expect(sales.getByText("You don't have access to this page."), path).toBeVisible();
   }
@@ -247,8 +228,8 @@ test("people see only what their role allows", async ({ browser }) => {
   const admin = await as(browser, "admin");
   await admin.goto("/settings");
   await expect(admin.getByRole("heading", { name: "Settings" })).toBeVisible();
-  await admin.goto("/approvals");
-  await expect(admin.getByText("you can look but not approve", { exact: false })).toBeVisible();
+  await admin.goto("/approvals"); // there is no Approvals page any more: a saved receipt is final
+  await expect(admin.getByText(/This page could not be found|404/i).first()).toBeVisible();
   await admin.close();
 });
 

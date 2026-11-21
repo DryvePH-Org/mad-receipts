@@ -1,11 +1,10 @@
-import { tabRange, type CellValue, type SheetsClient } from "@/lib/google/sheets";
 import { decide } from "@/lib/inventory/decide";
 import { sheetDate } from "@/lib/inventory/remarks";
 import type { InventoryAdapter } from "@/lib/inventory/types";
 import { formatDate } from "@/lib/dates";
-import { formatPeso, toCentavos } from "@/lib/rules/money";
+import { formatPeso } from "@/lib/rules/money";
 import type { AppSettings } from "@/lib/deal/settings";
-import { centsOf, dealStatusKey, STATUS_LABELS, type DealStatusKey } from "@/lib/deal/status";
+import { centsOf, dealStatusKey, type DealStatusKey } from "@/lib/deal/status";
 import type { Tables } from "@/lib/supabase/database.types";
 import type { TelegramClient } from "@/lib/telegram";
 
@@ -17,7 +16,7 @@ export type SyncTarget = "drive" | "sheets" | "telegram" | "inventory" | "docs";
 /** Why a job runs: an AR was created ("submit"), a receipt was approved, a receipt was voided, a deal was cancelled or changed (loan released). */
 export type SyncEvent = "submit" | "confirm" | "void" | "cancel" | "edit";
 
-/** Drive runs first so the Sheets row can carry the link. */
+/** Drive runs first. ("sheets" is no longer written: old queued jobs of that kind just end.) */
 export const TARGET_ORDER: SyncTarget[] = ["drive", "sheets", "telegram", "inventory", "docs"];
 
 export interface ProofBytes { name: string; mime: string; bytes: Uint8Array }
@@ -31,7 +30,6 @@ export interface SyncContext {
   payments: Tables<"receipt_payments">[];
   settings: AppSettings;
   filledInBy: string;
-  approvedBy: string;
   /** Who opened the deal: written in the inventory sheet. */
   salesperson: string;
   lastReceiptNo: string;
@@ -41,29 +39,16 @@ export interface SyncContext {
 }
 
 export interface SyncDeps {
-  sheets: () => SheetsClient;
   telegram: () => TelegramClient;
   inventory: InventoryAdapter;
-  config: { logSheetId?: string };
   /** Finds the car's document folder by plate and links it to the deal. */
   docsLink?: (plate: string, dealId: string) => Promise<unknown>;
+  /** Puts the audit copy of the receipt (its printout and proofs) in the receipts folder in Drive. */
+  auditCopy?: (ctx: SyncContext) => Promise<void>;
 }
 
 export type SyncResult = void;
 
-export const RECEIPTS_TAB = "Receipts";
-export const DEALS_TAB = "Deals";
-export const RECEIPT_HEADERS = [
-  "Timestamp", "Receipt No", "Date", "Buyer", "Contact", "Plate", "Make/Type", "Payment Type", "Paid Today", "Paid Through",
-  "Agreed Price", "Amount Due", "Balance After", "Sale Type", "Institution", "Filled In By", "Approved By", "Drive Link", "Status",
-];
-export const DEAL_HEADERS = [
-  "Deal No", "Buyer", "Plate", "Make/Type", "Agreed Price", "Sale Type", "Institution", "Loan", "Processing Fee", "Trade-in",
-  "Amount Due", "Received", "Balance", "Status", "Loan Status", "Last Receipt No",
-];
-
-const label = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-const pesos = (value: number | string | null | undefined) => centsOf(value) / 100;
 const plates = (ctx: SyncContext) => ctx.units.map((u) => u.plate).join(", ");
 const makes = (ctx: SyncContext) => ctx.units.map((u) => u.make_type).join(" + ");
 
@@ -85,20 +70,14 @@ export const syncTargets: Record<SyncTarget, (ctx: SyncContext, deps: SyncDeps) 
     for (const unit of ctx.units) await deps.docsLink(unit.plate, ctx.deal.id);
   },
 
-  // The approved receipt is not filed in Drive any more (it used to be, automatically). Old queued jobs for this target finish at once.
-  // If it comes back, it will be a button for the Documentation role on the car's page, not something that happens by itself.
-  async drive() { return; },
-
-  async sheets(ctx, deps) {
-    const sheetId = required(deps.config.logSheetId, "GOOGLE_SHEET_ID");
-    const sheets = deps.sheets();
-    // Receipts are appended once when approved, and their row is updated when voided. Cancelling or
-    // changing a deal only changes the deal's row.
-    if (ctx.event === "confirm" || ctx.event === "void") {
-      await upsertRow(sheets, sheetId, RECEIPTS_TAB, RECEIPT_HEADERS, 1, ctx.receipt.receipt_no, receiptRow(ctx), { updateExisting: ctx.event === "void" });
-    }
-    await upsertRow(sheets, sheetId, DEALS_TAB, DEAL_HEADERS, 0, ctx.deal.deal_no, dealRow(ctx), { updateExisting: true });
+  // The audit copy: every saved receipt goes to the receipts folder in Drive (its printout and its proofs), once. The copy into the car's own folder is a button.
+  async drive(ctx, deps) {
+    if (ctx.event !== "confirm") return;
+    if (deps.auditCopy) await deps.auditCopy(ctx);
   },
+
+  // Google Sheets are not written any more: old queued jobs for this target just end.
+  async sheets() { return; },
 
   async telegram(ctx, deps) {
     if (ctx.event === "confirm") {
@@ -125,77 +104,7 @@ export const syncTargets: Record<SyncTarget, (ctx: SyncContext, deps: SyncDeps) 
   },
 };
 
-function required(value: string | undefined, name: string): string {
-  if (!value) throw new Error(`${name} is not set`);
-  return value;
-}
-
-async function upsertRow(sheets: SheetsClient, sheetId: string, tab: string, headers: string[], keyColumn: number, key: string, row: CellValue[], { updateExisting }: { updateExisting: boolean }) {
-  let rows: string[][];
-  try {
-    rows = await sheets.getValues(sheetId, tabRange(tab));
-  } catch (err) {
-    if (Number((err as { code?: unknown }).code) === 400) throw new Error(`Tab "${tab}" was not found in the receipts log sheet`);
-    throw err;
-  }
-  // The first row must be the app's own headers (or empty): a sheet with something else there is the wrong sheet or tab, and is not written to.
-  const problem = headerProblem(tab, rows[0], headers);
-  if (problem) throw new SyncConflict(problem);
-  // Write the header row when the tab is empty, or add the names of newer columns to an older header row.
-  if (rows.length === 0 || rows[0].length < headers.length) await sheets.updateValues(sheetId, tabRange(tab, "A1"), [headers]);
-  const index = rows.findIndex((r, i) => i > 0 && r[keyColumn] === key);
-  if (index === -1) await sheets.appendValues(sheetId, tabRange(tab), [row]);
-  else if (updateExisting) await sheets.updateValues(sheetId, tabRange(tab, `A${index + 1}`), [row]);
-}
-
-const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
-/** Null when the tab's first row is empty or starts with the app's headers; otherwise what is wrong, and what to do. */
-export function headerProblem(tab: string, first: string[] | undefined, headers: string[]): string | null {
-  if (!first || first.every((c) => norm(c) === "")) return null;
-  const n = Math.min(first.length, headers.length);
-  if (headers.slice(0, n).every((h, i) => norm(first[i]) === norm(h))) return null;
-  return `The first row of the "${tab}" tab in the log sheet starts with "${first.filter(Boolean).slice(0, 4).join(", ")}", not the app's headers ("${headers.slice(0, 3).join(", ")}…"), so the app did not write there. Check that the log sheet id points at the right file, or use a tab with that name that is empty.`;
-}
-
-/** Checks the log sheet's two tabs without writing anything. Null when all is well. */
-export async function logSheetProblem(sheets: SheetsClient, sheetId: string): Promise<string | null> {
-  for (const [tab, headers] of [[RECEIPTS_TAB, RECEIPT_HEADERS], [DEALS_TAB, DEAL_HEADERS]] as const) {
-    let rows: string[][] = [];
-    try { rows = await sheets.getValues(sheetId, tabRange(tab, "A1:Z1")); } catch (err) {
-      if (Number((err as { code?: unknown }).code) === 400) return `The log sheet has no "${tab}" tab. Add an empty tab with that name.`;
-      throw err;
-    }
-    const p = headerProblem(tab, rows[0], headers as unknown as string[]);
-    if (p) return p;
-  }
-  return null;
-}
-
-/** "2026-11-02 15:30" in Manila time. */
-function manilaTimestamp(iso: string): string {
-  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
-}
-
 const saleText = (ctx: SyncContext) => (ctx.deal.sale_type === "financing" ? `Financing (${ctx.deal.institution})` : "Cash");
-
-export function receiptRow(ctx: SyncContext): CellValue[] {
-  const { receipt, deal } = ctx;
-  return [
-    manilaTimestamp(receipt.created_at), receipt.receipt_no, receipt.receipt_date, deal.buyer_name, deal.buyer_contact ?? "", plates(ctx), makes(ctx),
-    label(receipt.kind), pesos(receipt.amount), ctx.payments.map((p) => `${p.label} ${formatPeso(centsOf(p.amount))}`).join(", "),
-    pesos(deal.agreed_price), pesos(deal.amount_due), pesos(receipt.balance_after), deal.sale_type === "financing" ? "Financing" : "Cash", deal.institution ?? "",
-    ctx.filledInBy, ctx.approvedBy, receipt.drive_file_id ? `https://drive.google.com/file/d/${receipt.drive_file_id}/view` : "", label(receipt.status),
-  ];
-}
-
-export function dealRow(ctx: SyncContext): CellValue[] {
-  const { deal } = ctx;
-  return [
-    deal.deal_no, deal.buyer_name, plates(ctx), makes(ctx), pesos(deal.agreed_price), deal.sale_type === "financing" ? "Financing" : "Cash", deal.institution ?? "",
-    pesos(deal.loan_amount), pesos(deal.processing_fee), pesos(deal.trade_in_value), pesos(deal.amount_due),
-    (toCentavos(deal.approved_paid) ?? 0) / 100 + pesos(deal.opening_paid), pesos(deal.balance), STATUS_LABELS[dealStatusOf(deal, ctx.today)], label(deal.loan_status), ctx.lastReceiptNo,
-  ];
-}
 
 /** Sent when an admin voids a receipt. */
 export function voidMessage(ctx: SyncContext): string {
@@ -213,13 +122,13 @@ export function cancelMessage(ctx: SyncContext): string {
   ].join("\n");
 }
 
-/** Sent when the Approver approves a receipt. */
+/** Sent when a receipt is saved. */
 export function telegramCaption(ctx: SyncContext): string {
   const { receipt, deal } = ctx, balance = centsOf(receipt.balance_after);
   const money = [`Paid ${formatPeso(centsOf(receipt.amount))}`, `Balance ${formatPeso(Math.max(0, balance))}`];
   if (balance > 0 && deal.due_date) money.push(`Due ${formatDate(deal.due_date)}`);
   return [
     `🧾 Receipt #${receipt.receipt_no} · ${receipt.kind.toUpperCase()}`, deal.buyer_name, [makes(ctx), plates(ctx)].filter(Boolean).join(" · "), money.join(" · "),
-    saleText(ctx), `Approved by ${ctx.approvedBy}`, `Unit: ${unitStatusFor(dealStatusOf(deal, ctx.today))}`,
+    saleText(ctx), `Filled in by ${ctx.filledInBy}`, `Unit: ${unitStatusFor(dealStatusOf(deal, ctx.today))}`,
   ].join("\n");
 }

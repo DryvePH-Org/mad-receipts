@@ -8,11 +8,23 @@ import { words } from "@/lib/deal/math";
 const esc = (t: unknown) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] as string);
 const peso = (v: string) => toCentavos(v) ?? 0;
 
+/** What the printout says at the top when it is the copy put in a car's folder: the signed paper is a separate thing. */
+export const UNSIGNED_BANNER = "UNSIGNED COPY from MAD. The signed paper copy is uploaded separately by Sales.";
+/** And when it is the audit copy kept in the receipts folder. */
+export const AUDIT_BANNER = "AUDIT COPY from MAD, kept when the receipt was saved.";
+
+/** The printout of a saved receipt; a receipt saved without its form (an old or hand-made one) gets a short plain record instead of a failure. */
+export function receiptPageHtml(r: { receiptNo: string; receiptDate: string; amount: unknown; snapshot: unknown }, company: AppSettings["company"], banner: string): string {
+  const full = !!r.snapshot && typeof r.snapshot === "object" && Array.isArray((r.snapshot as { units?: unknown }).units);
+  if (full) return receiptRecordHtml(r.snapshot as FormState, company, banner);
+  return `<!doctype html><html lang="en"><meta charset="utf-8"><title>Receipt ${esc(r.receiptNo)}</title><body style="font:14px system-ui;max-width:640px;margin:24px auto"><h1>${esc(company.name)}</h1><p>Receipt No. <b>${esc(r.receiptNo)}</b> · ${esc(r.receiptDate)} · amount received ${esc(r.amount)}</p><p><b>${esc(banner)}</b></p><p>The full record of this receipt is in the app.</p></body></html>`;
+}
+
 /**
  * A plain, printable record of one receipt, filed in Drive next to its proof files. It lists what
  * the receipt says and the money line by line; the layout copies on paper come from the print page.
  */
-export function receiptRecordHtml(s: FormState, company: AppSettings["company"]): string {
+export function receiptRecordHtml(s: FormState, company: AppSettings["company"], banner: string = UNSIGNED_BANNER): string {
   const t = totalsFromForm(s);
   const payRows = [
     ...(peso(s.cash) ? [{ label: "Cash", detail: "", amount: peso(s.cash), proofs: s.cashProofs.length }] : []),
@@ -25,7 +37,7 @@ export function receiptRecordHtml(s: FormState, company: AppSettings["company"])
 body{font:14px/1.45 system-ui,sans-serif;max-width:760px;margin:24px auto;padding:0 16px;color:#111}h1{margin:0;font-size:22px}h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#555;margin:22px 0 6px}
 table{width:100%;border-collapse:collapse}th{text-align:left;font-weight:500;color:#555;width:34%;padding:4px 0;vertical-align:top}td{padding:4px 0}.r{text-align:right;font-variant-numeric:tabular-nums}
 .unsigned{border:2px solid #b45309;background:#fffbeb;color:#92400e;padding:8px 12px;border-radius:6px;margin:0 0 14px;font-weight:600}.row{display:flex;justify-content:space-between;border-top:1px solid #ddd;padding:6px 0}.total{font-weight:700;border-top:2px solid #111}small{color:#666;display:block}</style></head><body>
-<p class="unsigned">UNSIGNED COPY from MAD. The signed paper copy is uploaded separately by Sales.</p>
+<p class="unsigned">${esc(banner)}</p>
 <h1>${esc(company.name)}</h1><p>${esc(company.tagline)} · No. <b>${esc(s.receiptNo)}</b> · ${esc(s.date ? formatDate(s.date) : "")} · ${esc(KIND_LABELS[s.kind])}</p>
 <h2>Received from</h2><table>${kv("Buyer", s.receivedFrom)}${kv("Contact", s.contact)}${kv("Address", s.address)}${kv("Amount received", `${formatPeso(t.today)} (${words(t.today)})`)}</table>
 <h2>Vehicle${s.units.length > 1 ? "s" : ""}</h2>${s.units.map((u, i) => `<table>${s.units.length > 1 ? kv("Unit", `${i + 1} of ${s.units.length}`) : ""}${kv("Make / type", u.makeType)}${kv("Plate", u.plate)}${kv("Color", u.color)}</table>`).join("<br>")}

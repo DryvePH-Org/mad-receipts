@@ -34,12 +34,9 @@ async function makeAr(plate: string) {
   made.push((data as { receipt_id: string }).receipt_id);
   return data as { deal_id: string };
 }
-/** The ARs made here would crowd the Approver's list for the other tests, so they are rejected at the end. */
+/** The ARs made here stay until the test run is cleaned up at the end (nothing waits for approval any more). */
 const made: string[] = [];
-async function tidy() {
-  const approver = await userId(credentials.approver.email);
-  for (const id of made.splice(0)) await adminClient().rpc("review_receipt", { p_actor: approver, p_receipt_id: id, p_approve: false, p_reason: "test" });
-}
+async function tidy() { made.splice(0); }
 
 const JPEG = Buffer.from("/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACv/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==", "base64");
 
@@ -317,7 +314,7 @@ test("Documentation adds photos by typing only the plate: the folder is made, th
 
 test("each role sees only its own pages", async ({ browser }) => {
   const docs = await as(browser, "docs");
-  for (const path of ["/new", "/approvals", "/settings"]) {
+  for (const path of ["/new", "/settings"]) {
     await docs.goto(path);
     await expect(docs.getByText("You don't have access to this page."), path).toBeVisible();
   }
@@ -331,7 +328,7 @@ test("each role sees only its own pages", async ({ browser }) => {
   await admin.close();
 });
 
-test("Documentation puts an approved receipt in the car's folder with a button; nothing is filed by itself", async ({ browser, playwright, baseURL }) => {
+test("Sales and Documentation put a saved receipt in the car's folder with a button; nothing is filed by itself", async ({ browser, playwright, baseURL }) => {
   test.setTimeout(180_000);
   const ar = await makeAr("ZZT 7003"); // a car with one folder (in Sold) and an AR
   const receiptId = made[made.length - 1];
@@ -342,15 +339,8 @@ test("Documentation puts an approved receipt in the car's folder with a button; 
   const docs = await as(browser, "docs");
   await docs.goto("/documents/ZZT7003");
   await expect(docs.locator("#papers")).toBeVisible();
-  // a receipt that is still waiting for approval is not offered
-  await expect(docs.locator("#receipts")).toHaveCount(0);
-
-  // approved: the card appears, and the receipt is not in the folder until the button is pressed
-  const approver = await userId(credentials.approver.email);
-  const r = await adminClient().rpc("review_receipt", { p_actor: approver, p_receipt_id: receiptId, p_approve: true, p_reason: null });
-  expect(r.error).toBeNull();
-  made.pop(); // approved on purpose: it is removed with the other test receipts at the end
-  await docs.reload();
+  // a saved receipt is offered at once, and it is not in the folder until the button is pressed
+  expect((await adminClient().from("receipts").select("status").eq("id", receiptId).single()).data?.status).toBe("approved");
   await expect(docs.locator("#receipts")).toContainText("Not in the folder yet");
   await docs.getByRole("button", { name: /^Save 1 receipt in the car's folder \(unsigned\)$/ }).click();
   await expect(docs.locator("#receipts")).toContainText("Unsigned copy in the folder", { timeout: 30_000 });
@@ -358,9 +348,9 @@ test("Documentation puts an approved receipt in the car's folder with a button; 
   await expect(docs.locator("#papers")).toContainText("RECEIPT-", { timeout: 30_000 });
   await expect(docs.getByRole("button", { name: /^Save .* in the car's folder \(unsigned\)$/ })).toHaveCount(0);
 
-  // Sales have no such button
+  // Sales have the same button on the car's page
   const sales = await as(browser, "sales");
   await sales.goto("/documents/ZZT7003");
-  await expect(sales.locator("#receipts")).toHaveCount(0);
+  await expect(sales.locator("#receipts")).toContainText("Unsigned copy in the folder");
   await docs.close(); await sales.close();
 });

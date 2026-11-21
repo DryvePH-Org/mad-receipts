@@ -48,11 +48,10 @@ async function Content() {
       <PageHeader title="Reminders" description={`What needs a nudge, for ${user.fullName ?? user.email} (${ROLE_LABELS[user.role]}). Reminders also go to Telegram every morning at 8:00.`}
         actions={list.length > 0 ? <SendReminderButton label="Send all to Telegram" /> : undefined} />
       <div className="max-w-4xl space-y-6">
-        {list.length === 0 ? <EmptyState icon={CircleCheck} title="Nothing needs attention" description="Overdue deals, deals due soon, loans waiting too long and receipts waiting for approval show up here." /> : (
+        {list.length === 0 ? <EmptyState icon={CircleCheck} title="Nothing needs attention" description="Overdue deals, deals due soon, and loans waiting too long show up here." /> : (
           <>
             <Group title="Needs action now" items={list.filter((n) => n.level === "red")} />
             <Group title="Coming up" items={list.filter((n) => n.level === "amber" || n.level === "blue")} />
-            <Group title="Waiting for approval" items={list.filter((n) => n.level === "purple")} />
           </>
         )}
         {user.role === "admin" && <p className="text-sm text-muted-foreground">The Admin sets when reminders go out in <Link href="/settings" className="underline">Settings</Link>.</p>}

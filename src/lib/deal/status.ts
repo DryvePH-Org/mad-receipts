@@ -86,7 +86,7 @@ export interface Notification {
 }
 
 export function buildNotifications(
-  deals: NotifyDeal[], receipts: NotifyReceipt[], settings: AppSettings["reminders"], today: string, nowMs: number = Date.now(),
+  deals: NotifyDeal[], _receipts: NotifyReceipt[], settings: AppSettings["reminders"], today: string, _nowMs: number = Date.now(),
 ): Notification[] {
   const out: Notification[] = [];
   for (const d of deals) {
@@ -107,18 +107,6 @@ export function buildNotifications(
     if (lieu > 0 && d.balance > 0 && d.lieu_until) {
       const k = daysBetween(today, d.lieu_until);
       if (k <= 7) out.push({ key: `li-${d.id}`, level: k < 0 ? "red" : "amber", icon: "file", title: `${k < 0 ? "Collateral date passed" : "Collateral date coming"}: ${name}`, detail: `We hold the buyer's documents for ${formatPeso(lieu)} until ${formatDate(d.lieu_until)} (${k < 0 ? `${-k} days ago` : k === 0 ? "today" : `in ${k} days`}).`, dealId: d.id, audience: owner, rank: 20 + k });
-    }
-  }
-  for (const r of receipts) {
-    if (r.status === "pending") {
-      const hours = (nowMs - Date.parse(r.submitted_at)) / 3_600_000;
-      if (hours >= settings.approvalHours) {
-        const days = Math.max(1, Math.floor(hours / 24));
-        out.push({ key: `ap-${r.id}`, level: "purple", icon: "shield", title: `Waiting for approval: receipt ${r.receipt_no}`, detail: `${r.buyer_name} · ${r.unit_name}: ${formatPeso(centsOf(r.amount))} has waited ${days} ${days === 1 ? "day" : "days"}.`, dealId: r.deal_id, audience: { role: "approver" }, rank: 25 });
-      }
-    }
-    if (r.status === "rejected" && r.reject_reason && r.reject_reason !== "The deal was cancelled") {
-      out.push({ key: `rj-${r.id}`, level: "red", icon: "x", title: `Rejected: receipt ${r.receipt_no}`, detail: `${r.buyer_name} · ${r.unit_name}: ${r.reject_reason} Fill in a new receipt.`, dealId: r.deal_id, audience: { userId: r.submitted_by }, rank: 5 });
     }
   }
   return out.sort((a, b) => a.rank - b.rank);

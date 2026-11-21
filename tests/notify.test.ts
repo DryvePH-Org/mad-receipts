@@ -48,7 +48,7 @@ describe("categories", () => {
   it("every role has some, and ids are unique", () => {
     const ids = NOTIFY_CATEGORIES.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const role of ["sales", "approver", "documentation", "admin"] as const) expect(categoriesForRole(role).length).toBeGreaterThanOrEqual(2);
+    for (const role of ["sales", "approver", "documentation", "admin"] as const) expect(categoriesForRole(role).length).toBeGreaterThanOrEqual(1);
   });
   it("only the Admin alert ignores quiet hours", () => {
     expect(NOTIFY_CATEGORIES.filter((c) => c.urgent).map((c) => c.id)).toEqual(["system_alert"]);
@@ -70,9 +70,8 @@ describe("digest words", () => {
     expect(text.length).toBeLessThan(4096);
   });
   it("writes the weekly summary", () => {
-    const text = weeklyText("2026-11-23", { receiptsApproved: 12, receiptsRejected: 2, receiptsPending: 3, oldestPendingDays: 4, overdueDeals: 5, overdueBalance: "₱120,000.00", carsNeedScan: 7, carsHandedOff: 2, reviewOpen: 56 }, "https://x");
-    expect(text).toContain("12 approved, 2 rejected");
-    expect(text).toContain("the oldest 4 days");
+    const text = weeklyText("2026-11-23", { receiptsSaved: 12, overdueDeals: 5, overdueBalance: "₱120,000.00", carsNeedScan: 7, carsHandedOff: 2, reviewOpen: 56 }, "https://x");
+    expect(text).toContain("Receipts this week: 12");
     expect(text).toContain("56 in the data check");
   });
 });

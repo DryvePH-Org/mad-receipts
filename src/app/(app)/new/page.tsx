@@ -13,7 +13,7 @@ import type { InvUnit } from "./inventory-picker";
 export default function NewReceiptPage({ searchParams }: PageProps<"/new">) {
   return (
     <div className="space-y-6">
-      <PageHeader title="New acknowledgement of payment" description="Five short steps. Fill in what you know, check it, then send it to the Approver." />
+      <PageHeader title="New acknowledgement of payment" description="Five short steps. Fill in what you know, check it, then save it. A saved receipt is final." />
       <Suspense fallback={<PageSkeleton />}><Content searchParams={searchParams} /></Suspense>
     </div>
   );

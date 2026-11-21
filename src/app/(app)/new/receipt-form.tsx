@@ -178,16 +178,16 @@ export function ReceiptForm({ userId, today, settings, inventory, liveDeals, con
           {step < 5 && (hereMissing.length > 0 ? <span className={cn("self-center rounded-full px-2.5 py-1 text-xs font-medium", revealed.has(step) ? "bg-amber-100 text-amber-900" : "bg-muted text-muted-foreground")} role="status">{hereMissing.length} to fill in{revealed.has(step) ? ", or press Next again to continue" : ""}</span> : <span className="self-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800" role="status">✓ This step is done</span>)}
         </div>
         {step < 5 ? <Button size="lg" onClick={next}><span className="max-sm:hidden">Next: {STEPS[step][0]}</span><span className="sm:hidden">Next</span> <ChevronRight /></Button>
-          : <Button size="lg" disabled={!canSend} onClick={send} title={missing.length ? "Fill in the missing fields first" : !confirmed ? "Tick the box to confirm you checked everything" : undefined}>{pending ? <Loader2 className="animate-spin" /> : <Send />} <span className="max-sm:hidden">Send for approval</span><span className="sm:hidden">Send</span></Button>}
+          : <Button size="lg" disabled={!canSend} onClick={send} title={missing.length ? "Fill in the missing fields first" : !confirmed ? "Tick the box to confirm you checked everything" : undefined}>{pending ? <Loader2 className="animate-spin" /> : <Send />} <span className="max-sm:hidden">Save the receipt</span><span className="sm:hidden">Save</span></Button>}
       </div>
 
-      <ResponsiveDialog open={!!result} onOpenChange={() => undefined} title="Sent for approval" description={result ? `Receipt ${result.receiptNo} · ${formatPeso(t.today)} from ${s.receivedFrom} · deal ${result.dealNo}. The Approver will check it next.` : undefined}>
+      <ResponsiveDialog open={!!result} onOpenChange={() => undefined} title="Receipt saved" description={result ? `Receipt ${result.receiptNo} · ${formatPeso(t.today)} from ${s.receivedFrom} · deal ${result.dealNo}. It is final: nobody has to approve it.` : undefined}>
         {result && (
           <div className="space-y-4">
             <ul className="space-y-2 text-sm">
               <li className="flex justify-between rounded-lg bg-emerald-50 px-3 py-2 text-emerald-900"><span>Receipt saved</span><b>✓ Done</b></li>
-              <li className="flex justify-between rounded-lg bg-emerald-50 px-3 py-2 text-emerald-900"><span>Sent to the Approver</span><b>✓ Done</b></li>
-              <li className="flex justify-between rounded-lg bg-muted px-3 py-2 text-muted-foreground"><span>Drive, Sheets, inventory sheet and Telegram</span><b>After approval</b></li>
+              <li className="flex justify-between rounded-lg bg-emerald-50 px-3 py-2 text-emerald-900"><span>Car marked Reserved (Sold when settled)</span><b>✓ Done</b></li>
+              <li className="flex justify-between rounded-lg bg-muted px-3 py-2 text-muted-foreground"><span>Drive audit copy and Telegram</span><b>On their way</b></li>
             </ul>
             <div className="flex flex-wrap justify-end gap-2">
               <Button variant="outline" nativeButton={false} render={<a href={`/print/${result.receiptId}`} target="_blank" rel="noreferrer" />}>Print copies</Button>

@@ -1,6 +1,6 @@
 # MAD App
 
-Staff fill in an **Acknowledgement of Payment** by hand, attach proofs, and send it for approval. Approved receipts sync to Drive, Sheets, Telegram and the inventory sheet. The design prototype is in `Docs/prototype/`.
+Staff fill in an **Acknowledgement of Payment** by hand, attach proofs, and save it. A saved receipt is final: nobody approves it. The car's status is set in the database at once, the AR goes to the receipts audit folder in Drive and Telegram is told. Google Sheets are not written. The design prototype is in `Docs/prototype/`.
 
 ## Setup
 
@@ -146,9 +146,9 @@ Two dashboards, **Buy** and **Sell / Online marketing**, read live from the team
 ## How a receipt works
 
 Staff fill in the form by hand (Buyer, Vehicle, Deal, Payment, Finish), attach a proof for every payment, check
-the live receipt preview and send it for approval. The Approver (never the person who wrote it) approves or
-rejects. Only approved receipts count in a deal's balance. Approving queues the Drive, Sheets, Telegram and
-inventory updates (see Background sync).
+the live receipt preview and save it. A saved receipt is final and counts in the deal's balance at once (the database
+marks it approved by itself, migration 44). Saving queues the Drive audit copy, Telegram and the car's status
+(see Background sync). An Admin can delete a whole transaction from its page (receipts, proofs, the audit and AR copies in Drive).
 
 **Money rules** (the database function `submit_receipt` is the authority, `src/lib/deal/math.ts` only mirrors it
 for the screen; `tests/deal-math.test.ts` and `tests/db/manual-entry.test.ts` check both against an independent calculator):
@@ -164,11 +164,11 @@ for the screen; `tests/deal-math.test.ts` and `tests/db/manual-entry.test.ts` ch
 - Balance = amount due − earlier payments − paid today + payout. An overpayment cannot be saved.
 - Always: price + fee = trade-in + loan + received − payout + balance.
 
-**Roles:** Sales fills in receipts and sees deals; Approver approves and sees approvals and activity;
+**Roles:** Sales fills in receipts and sees deals; Approver sees the dashboards, the prices and the activity;
 Admin manages users, Settings (colors, banks, institutions, notes, phrases, required proofs...) and sync, and can
 void, cancel and mark loans released. Settings live in one document (`app_settings`) and change the form at once.
 
-**Pages:** Transactions (`/deals`), New receipt, Approvals, Reminders, Activity, Settings, Users, Sync.
+**Pages:** Transactions (`/deals`), New receipt, Reminders, Activity, Settings, Users, Sync.
 `/print/<receipt id>` prints 3 copies by default.
 
 **Voice entry** ("Fill it by voice" on the form): staff speak (English, Tagalog or mixed) or type a note. Groq Whisper
@@ -204,8 +204,7 @@ For local runs without touching real services, blank `GOOGLE_*`, `TELEGRAM_*` an
 After a receipt is confirmed, four jobs (Drive, Sheets, Telegram, inventory) run right away and are
 retried by `POST /api/sync/run` (send `Authorization: Bearer $CRON_SECRET`; schedule it every 5 minutes).
 A failed job retries after 1 min, 5 min, 15 min, then 1 h, and stops after 5 attempts. The receipt
-itself is never affected. The receipts log sheet needs two tabs named **Receipts** and **Deals**;
-header rows are written automatically when a tab is empty.
+itself is never affected. The audit copies go to one Drive folder: set the Apps Script property `RECEIPTS_FOLDER_ID` to its id (each receipt gets its own folder inside a folder for its month).
 
 ## The grokbot scanner
 

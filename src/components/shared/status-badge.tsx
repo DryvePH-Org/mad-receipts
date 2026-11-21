@@ -34,7 +34,7 @@ export function DealStatusBadge({ status }: { status: DealStatusKey }) {
 }
 
 const RECEIPT_TONE: Record<string, [Tone, string]> = {
-  pending: ["purple", "Waiting approval"], approved: ["emerald", "Approved"], rejected: ["red", "Rejected"], void: ["zinc", "Voided"],
+  pending: ["purple", "Waiting approval"], approved: ["emerald", "Saved"], rejected: ["red", "Rejected"], void: ["zinc", "Voided"],
 };
 export function ReceiptStatusBadge({ status }: { status: string }) {
   const [tone, label] = RECEIPT_TONE[status] ?? (["grey", status] as [Tone, string]);

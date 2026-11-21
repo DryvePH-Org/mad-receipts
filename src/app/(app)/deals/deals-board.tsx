@@ -26,7 +26,6 @@ export interface BoardDeal {
   dueText: string | null;
   status: DealStatusKey;
   receiptCount: number;
-  pendingCount: number;
   searchText: string;
 }
 
@@ -80,7 +79,7 @@ export function DealsBoard({ deals, today }: { deals: BoardDeal[]; today: string
                 </dl>
                 <p className="text-xs text-muted-foreground">
                   {d.status === "cancelled" || d.balance <= 0 ? "" : d.dueDate ? <span className={d.status === "overdue" ? "text-destructive" : ""}>Due {formatDate(d.dueDate)} · {relativeDay(d.dueDate, today)} · </span> : d.dueText ? `${d.dueText} · ` : ""}
-                  {d.receiptCount} {d.receiptCount === 1 ? "receipt" : "receipts"}{d.pendingCount > 0 && <span className="text-violet-700"> · {d.pendingCount} waiting approval</span>}
+                  {d.receiptCount} {d.receiptCount === 1 ? "receipt" : "receipts"}
                 </p>
               </Link>
             </li>
@@ -104,7 +103,7 @@ export function DealsBoard({ deals, today }: { deals: BoardDeal[]; today: string
                     {d.status === "cancelled" || d.balance <= 0 ? "—" : d.dueDate ? <>{formatDate(d.dueDate)}<p className={cn("text-xs", d.status === "overdue" ? "text-destructive" : "text-muted-foreground")}>{relativeDay(d.dueDate, today)}</p></> : (d.dueText ?? "No date")}
                   </td>
                   <td className="px-4 py-3"><DealStatusBadge status={d.status} /></td>
-                  <td className="px-4 py-3">{d.receiptCount}{d.pendingCount > 0 && <p className="text-xs text-violet-700">{d.pendingCount} waiting approval</p>}</td>
+                  <td className="px-4 py-3">{d.receiptCount}</td>
                 </tr>
               ))}
             </tbody>

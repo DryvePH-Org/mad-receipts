@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fileReceiptsAction } from "../actions";
 
-/** The car's approved receipts and a button to put them in its Drive folder (Documentation and Admin: it never happens by itself). */
+/** The car's saved receipts and a button to put them in its Drive folder (Sales and Documentation: it never happens by itself). */
 export function ReceiptsCard({ plate, receipts }: { plate: string; receipts: { id: string; receiptNo: string; filed: boolean; copyName?: string }[] }) {
   const router = useRouter();
   const [busy, start] = useTransition();

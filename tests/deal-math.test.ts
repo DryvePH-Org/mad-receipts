@@ -133,20 +133,18 @@ describe("reminders", () => {
     id: "d1", status: "open", balance: 5000000, due_date: null as string | null, sale_type: "cash", loan_status: "none", buyer_name: "Juan", institution: null,
     loan_amount: 0, lieu_amount: 0, lieu_until: null as string | null, loan_since: null as string | null, created_by: "u1", unit_name: "Vios", ...over,
   });
-  it("overdue, due soon, lender, collateral and approvals", () => {
+  it("overdue, due soon, lender and collateral (receipts are final when saved: nothing waits for approval)", () => {
     const list = buildNotifications([
       deal({ id: "a", due_date: "2026-10-30" }), deal({ id: "b", due_date: "2026-11-07" }), deal({ id: "c", due_date: "2026-12-20" }),
       deal({ id: "d", balance: 0, sale_type: "financing", loan_status: "waiting", institution: "BDO", loan_since: "2026-10-01", loan_amount: 100000 }),
       deal({ id: "e", due_date: "2026-12-20", lieu_amount: 25000, lieu_until: "2026-11-06" }),
     ], [
-      { id: "r1", receipt_no: "2530", deal_id: "b", buyer_name: "Juan", unit_name: "Vios", amount: 1000, status: "pending", submitted_by: "u2", submitted_at: "2026-11-01T00:00:00Z", reject_reason: null },
-      { id: "r2", receipt_no: "2531", deal_id: "b", buyer_name: "Juan", unit_name: "Vios", amount: 1000, status: "rejected", submitted_by: "u2", submitted_at: "2026-11-02T00:00:00Z", reject_reason: "Blurry" },
     ], settings, today, Date.parse("2026-11-04T00:00:00Z"));
-    expect(list.map((n) => n.key).sort()).toEqual(["ap-r1", "due-b", "li-e", "ln-d", "od-a", "rj-r2"]);
+    expect(list.map((n) => n.key).sort()).toEqual(["due-b", "li-e", "ln-d", "od-a"]);
     expect(notificationsFor(list, { id: "u1", role: "sales" }).map((n) => n.key).sort()).toEqual(["due-b", "li-e", "ln-d", "od-a"]);
-    expect(notificationsFor(list, { id: "u2", role: "sales" }).map((n) => n.key)).toEqual(["rj-r2"]);
-    expect(notificationsFor(list, { id: "x", role: "approver" }).map((n) => n.key).sort()).toEqual(["ap-r1", "od-a", "rj-r2"]);
-    expect(notificationsFor(list, { id: "x", role: "admin" })).toHaveLength(6);
+    expect(notificationsFor(list, { id: "u2", role: "sales" })).toEqual([]);
+    expect(notificationsFor(list, { id: "x", role: "approver" }).map((n) => n.key)).toEqual(["od-a"]);
+    expect(notificationsFor(list, { id: "x", role: "admin" })).toHaveLength(4);
   });
   it("respects the settings", () => {
     const off = { ...settings, before7: false, before3: false, dueDay: false };

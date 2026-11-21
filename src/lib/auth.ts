@@ -4,7 +4,7 @@ import { forbidden, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { effectiveModules, type ModuleId } from "@/lib/navigation";
 
-/** Sales fill in receipts, the Approver approves every one, Documentation watches the car papers, the Admin manages everything else. */
+/** Sales fill in receipts (final when saved), the Approver watches the dashboards and the prices, Documentation watches the car papers, the Admin manages everything else. */
 export type Role = "sales" | "admin" | "approver" | "documentation";
 
 export interface CurrentUser {
@@ -68,7 +68,12 @@ export async function requireModule(id: ModuleId): Promise<CurrentUser> {
   return user;
 }
 
+/** 403 unless the signed-in user has at least one of these modules. */
+export async function requireAnyModule(...ids: ModuleId[]): Promise<CurrentUser> {
+  const user = await requireUser();
+  if (!ids.some((id) => user.modules.includes(id))) forbidden();
+  return user;
+}
+
 // For every admin page, admin server action and admin API route: 403 unless admin.
 export const requireAdmin = () => requireRole("admin");
-/** Whoever has the Approvals module: the Approver role, or anyone the Admin gave it to. (Nobody can approve their own receipt; the database checks that.) */
-export const requireApprover = () => requireModule("approvals");

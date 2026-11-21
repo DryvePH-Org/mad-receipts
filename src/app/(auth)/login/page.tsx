@@ -22,7 +22,7 @@ function friendlyError(message: string): string {
 const HIGHLIGHTS = [
   { icon: Camera, text: "Photograph the paper receipt and the form fills itself in." },
   { icon: FileText, text: "Every car's papers in one place, from the first photo to the handoff." },
-  { icon: Wrench, text: "Repairs, approvals and reminders reach the right people on Telegram." },
+  { icon: Wrench, text: "Repairs and reminders reach the right people on Telegram." },
 ];
 
 export default function LoginPage() {

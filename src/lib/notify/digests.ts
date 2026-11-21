@@ -12,14 +12,13 @@ export function digestText(heading: string, today: string, items: readonly Diges
   return [`${heading} · ${formatDate(today)}`, "", shown.join("\n\n"), items.length > MAX_LINES ? `\n…and ${items.length - MAX_LINES} more.` : "", "", link].filter((l, i) => l !== "" || i === 1).join("\n");
 }
 
-export interface WeeklyStats { receiptsApproved: number; receiptsRejected: number; receiptsPending: number; oldestPendingDays: number | null; overdueDeals: number; overdueBalance: string; carsNeedScan: number; carsHandedOff: number; reviewOpen: number }
+export interface WeeklyStats { receiptsSaved: number; overdueDeals: number; overdueBalance: string; carsNeedScan: number; carsHandedOff: number; reviewOpen: number }
 
 export function weeklyText(today: string, s: WeeklyStats, link: string): string {
   return [
     `📊 Weekly summary · ${formatDate(today)}`,
     "",
-    `Receipts this week: ${s.receiptsApproved} approved, ${s.receiptsRejected} rejected`,
-    `Waiting for approval: ${s.receiptsPending}${s.oldestPendingDays ? ` (the oldest ${s.oldestPendingDays} ${s.oldestPendingDays === 1 ? "day" : "days"})` : ""}`,
+    `Receipts this week: ${s.receiptsSaved}`,
     `Overdue deals: ${s.overdueDeals}${s.overdueDeals ? ` (${s.overdueBalance} to collect)` : ""}`,
     `Car documents: ${s.carsNeedScan} to scan or check, ${s.carsHandedOff} papers still with the receiver, ${s.reviewOpen} in the data check`,
     "",

@@ -64,7 +64,7 @@ export const DEFAULT_SETTINGS = {
   sections: { trade: true, lieu: true, remarks: true },
   // the Approver's dashboards: units to buy and to sell each month, and how long a reservation may stay open when the sheet gives no date
   dashboard: { buyGoal: 60, sellGoal: 60, pendingDays: 14, months: {} as Record<string, { buy?: number; sell?: number }> },
-  reminders: { before7: true, before3: true, dueDay: true, overdueDaily: true, lenderDays: 14, approvalHours: 24, telegram: true, inApp: true },
+  reminders: { before7: true, before3: true, dueDay: true, overdueDaily: true, lenderDays: 14, telegram: true, inApp: true },
 };
 
 const color = z.tuple([z.string().min(1), z.string().regex(/^#[0-9a-fA-F]{6}$/)]);
@@ -111,7 +111,7 @@ export const settingsSchema = z.object({
   }).catch(D.dashboard),
   reminders: z.object({
     before7: flag(true), before3: flag(true), dueDay: flag(true), overdueDaily: flag(true),
-    lenderDays: z.number().int().min(1).max(365).catch(14), approvalHours: z.number().int().min(1).max(720).catch(24),
+    lenderDays: z.number().int().min(1).max(365).catch(14),
     telegram: flag(true), inApp: flag(true),
   }).catch(D.reminders),
 });

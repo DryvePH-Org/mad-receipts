@@ -85,7 +85,7 @@ export function AccessDialog({ userId, name, role, grants, denies, locked }: { u
             {power.length > 0 && (
               <div className="space-y-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100">
                 <p className="flex gap-2"><TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden /><span><b className="font-medium">This gives real power:</b> {power.map(label).join(", ")}.
-                  {power.includes("approvals") && " They will be able to approve receipts (never their own)."}{power.includes("settings") && " They will be able to change every list and rule."}
+                  {power.includes("settings") && " They will be able to change every list and rule."}
                   {power.includes("users") && " They will be able to create and manage ordinary accounts, but not Admins."}{power.includes("sync") && " They will be able to retry and run sync jobs."}</span></p>
                 <div className="space-y-1.5"><Label htmlFor="grant-word">Type GRANT to confirm</Label><Input id="grant-word" value={typed} placeholder="GRANT" autoComplete="off" onChange={(e) => setTyped(e.target.value)} /></div>
               </div>

@@ -40,11 +40,11 @@ beforeAll(async () => {
 }, 60_000);
 
 describe("submitting a receipt", () => {
-  it("cash: the buyer owes the price, the receipt waits for approval", async () => {
+  it("cash: the buyer owes the price, and the receipt is final when saved", async () => {
     const r = await submit(sales, payload(sales));
     expect(num(r.balance_after)).toBe(620000);
     const rec = await one<{ status: string; amount: string }>("select status, amount from public.receipts where id = $1", [r.receipt_id]);
-    expect([rec.status, num(rec.amount)]).toEqual(["pending", 100000]);
+    expect([rec.status, num(rec.amount)]).toEqual(["approved", 100000]);
     const d = await one("select * from public.deals where id = $1", [r.deal_id]);
     expect([num(d.amount_due), num(d.loan_amount), d.loan_status, d.status]).toEqual([720000, 0, "none", "open"]);
   });
@@ -65,7 +65,7 @@ describe("submitting a receipt", () => {
     expect(num(second.balance_after)).toBe(0);
     await fails(submit(sales, { deal_id: first.deal_id, receipt_no: `R-${++n}`, receipt_date: "2026-11-06", kind: "partial", payments: [cash(sales, "1")] }), "overpayment");
     const s2 = await one("select balance, amount_due from public.deal_summaries where id = $1", [first.deal_id]);
-    expect([num(s2.amount_due), num(s2.balance)]).toEqual([189900, 189900 - 20000]); // only the earlier 20,000 counts: pending receipts wait for approval
+    expect([num(s2.amount_due), num(s2.balance)]).toEqual([189900, 0]); // every saved receipt counts at once
   });
 
   it("financing with a trade-in: the trade-in is part of the down payment", async () => {
@@ -86,7 +86,7 @@ describe("submitting a receipt", () => {
     await fails(submit(sales, payload(sales, { payout: { amount: "1000", attachments: proof(sales) } })), "payout_not_allowed");
   });
 
-  it("continuing a deal counts every earlier receipt, pending or approved", async () => {
+  it("continuing a deal counts every earlier receipt", async () => {
     const first = await submit(sales, payload(sales));
     const second = await submit(sales, { receipt_no: `R-${++n}`, deal_id: first.deal_id, kind: "partial", payments: [cash(sales, "50000")] });
     expect(num(second.balance_after)).toBe(570000);
@@ -143,54 +143,69 @@ describe("in lieu of documents", () => {
   });
 });
 
-describe("approving", () => {
-  it("only the Approver, never the one who filled it in; approving queues the updates", async () => {
+describe("a saved receipt is final", () => {
+  it("it is approved by itself and queues the updates (the Drive copy, Telegram, the car's status), never a Google Sheet", async () => {
     const r = await submit(sales, payload(sales));
-    await fails(db.query("select public.review_receipt($1, $2, true, null)", [admin, r.receipt_id]), "not_approver");
-    await fails(db.query("select public.review_receipt($1, $2, true, null)", [sales, r.receipt_id]), "not_approver");
-    await db.query("select public.review_receipt($1, $2, true, null)", [approver, r.receipt_id]);
-    expect((await one<{ status: string }>("select status from public.receipts where id = $1", [r.receipt_id])).status).toBe("approved");
+    const rec = await one<{ status: string; reviewed_by: string; reviewed_at: string | null }>("select status, reviewed_by, reviewed_at from public.receipts where id = $1", [r.receipt_id]);
+    expect([rec.status, rec.reviewed_by, rec.reviewed_at !== null]).toEqual(["approved", sales, true]);
     const jobs = await db.query<{ target: string }>("select target from public.sync_jobs where receipt_id = $1 and event = 'confirm' order by target", [r.receipt_id]);
-    expect(jobs.rows.map((x) => x.target)).toEqual(["drive", "inventory", "sheets", "telegram"]);
-    await fails(db.query("select public.review_receipt($1, $2, true, null)", [approver, r.receipt_id]), "not_pending");
+    expect(jobs.rows.map((x) => x.target)).toEqual(["drive", "inventory", "telegram"]);
   });
 
-  it("an Approver cannot approve their own receipt", async () => {
-    const r = await submit(approver, payload(approver));
-    await fails(db.query("select public.review_receipt($1, $2, true, null)", [approver, r.receipt_id]), "own_receipt");
-  });
-
-  it("rejecting needs a reason", async () => {
+  it("nobody reviews it afterwards", async () => {
     const r = await submit(sales, payload(sales));
-    await fails(db.query("select public.review_receipt($1, $2, false, '')", [approver, r.receipt_id]), "reason_required");
-    await db.query("select public.review_receipt($1, $2, false, 'The photo is blurry')", [approver, r.receipt_id]);
-    const rec = await one<{ status: string; reject_reason: string }>("select status, reject_reason from public.receipts where id = $1", [r.receipt_id]);
-    expect([rec.status, rec.reject_reason]).toEqual(["rejected", "The photo is blurry"]);
+    await fails(db.query("select public.review_receipt($1, $2, true, null)", [approver, r.receipt_id]), "not_pending");
+    await fails(db.query("select public.review_receipt($1, $2, false, 'The photo is blurry')", [approver, r.receipt_id]), "not_pending");
   });
 
-  it("a deal's balance counts approved receipts only", async () => {
+  it("a deal's balance counts every saved receipt at once", async () => {
     const a = await submit(sales, payload(sales));
     await submit(sales, { receipt_no: `R-${++n}`, deal_id: a.deal_id, kind: "partial", payments: [cash(sales, "50000")] });
-    let s = await one("select balance, approved_paid, pending_paid, pending_count from public.deal_summaries where id = $1", [a.deal_id]);
-    expect([num(s.balance), num(s.approved_paid), num(s.pending_paid), num(s.pending_count)]).toEqual([720000, 0, 150000, 2]);
-    await db.query("select public.review_receipt($1, $2, true, null)", [approver, a.receipt_id]);
-    s = await one("select balance, approved_paid from public.deal_summaries where id = $1", [a.deal_id]);
-    expect([num(s.balance), num(s.approved_paid)]).toEqual([620000, 100000]);
+    const s = await one("select balance, approved_paid, pending_paid, pending_count from public.deal_summaries where id = $1", [a.deal_id]);
+    expect([num(s.balance), num(s.approved_paid), num(s.pending_paid), num(s.pending_count)]).toEqual([570000, 150000, 0, 0]);
+  });
+});
+
+describe("deleting a transaction", () => {
+  const dealWithProof = async () => {
+    const p = payload(sales, { payments: [cash(sales, "100000")] });
+    const r = await submit(sales, p);
+    await submit(sales, { receipt_no: `R-${++n}`, deal_id: r.deal_id, kind: "partial", payments: [cash(sales, "50000")] });
+    await db.query("update public.receipts set drive_file_id = 'audit-folder-1' where id = $1", [r.receipt_id]);
+    return { p, r };
+  };
+  const del = (actor: string, dealId: string) => db.query<{ r: Record<string, unknown> }>("select public.delete_deal($1, $2) as r", [actor, dealId]);
+
+  it("is for the Admin only", async () => {
+    const { r } = await dealWithProof();
+    await fails(del(sales, r.deal_id), "not_admin");
+    await fails(del(approver, r.deal_id), "not_admin");
+    expect(num((await one<{ n: string }>("select count(*) as n from public.deals where id = $1", [r.deal_id])).n)).toBe(1);
   });
 
-  it("two pending receipts cannot both be approved past the amount due", async () => {
-    const a = await submit(sales, payload(sales, { price: "100000", payments: [cash(sales, "60000")] }));
-    const b = await submit(sales, { receipt_no: `R-${++n}`, deal_id: a.deal_id, kind: "partial", payments: [cash(sales, "40000")] });
-    await db.query("update public.receipts set amount = 70000 where id = $1", [b.receipt_id]); // simulates the race
-    await db.query("select public.review_receipt($1, $2, true, null)", [approver, a.receipt_id]);
-    await fails(db.query("select public.review_receipt($1, $2, true, null)", [approver, b.receipt_id]), "overpayment");
+  it("removes the deal and everything on it, frees the plate, and says what is left to clean up outside the database", async () => {
+    const { p, r } = await dealWithProof();
+    await db.query("insert into public.unit_folders (plate_no, plate_display, deal_id) values ($1, 'X', $2) on conflict (plate_no) do update set deal_id = excluded.deal_id", [(p.units as { plate: string }[])[0].plate.replace(" ", ""), r.deal_id]);
+    const out = (await del(admin, r.deal_id)).rows[0].r as { storage_paths: string[]; audit_folders: string[]; plates: string[]; receipt_nos: string[]; deal_no: string };
+    expect(out.storage_paths).toHaveLength(2);
+    expect(out.audit_folders).toEqual(["audit-folder-1"]);
+    expect(out.plates).toEqual([(p.units as { plate: string }[])[0].plate.replace(" ", "")]);
+    expect(out.receipt_nos).toHaveLength(2);
+    for (const [table, col] of [["deals", "id"], ["receipts", "deal_id"], ["deal_units", "deal_id"]] as const)
+      expect(num((await one<{ n: string }>(`select count(*) as n from public.${table} where ${col} = $1`, [r.deal_id])).n), table).toBe(0);
+    expect(num((await one<{ n: string }>("select count(*) as n from public.attachments a where not exists (select 1 from public.receipts x where x.id = a.receipt_id)")).n)).toBe(0);
+    expect(num((await one<{ n: string }>("select count(*) as n from public.sync_jobs j where not exists (select 1 from public.receipts x where x.id = j.receipt_id)")).n)).toBe(0);
+    expect((await one<{ deal_id: string | null }>("select deal_id from public.unit_folders where plate_no = $1", [out.plates[0]])).deal_id).toBeNull(); // the car's folder just loses its link
+    await expect(submit(sales, payload(sales, { units: p.units }))).resolves.toBeTruthy(); // the plate is free again
+    const log = await one<{ after: { deal_no: string; receipts: string[] } }>("select after from public.audit_logs where action = 'deal.delete' order by created_at desc limit 1");
+    expect([log.after.deal_no, log.after.receipts.length]).toEqual([out.deal_no, 2]);
+    await fails(del(admin, r.deal_id), "deal_not_found");
   });
 });
 
 describe("admin controls", () => {
   it("void, loan, cancel and settings are for the Admin", async () => {
     const r = await submit(sales, payload(sales, { sale_type: "financing", institution: "BDO", down_payment: "150000", payments: [cash(sales, "150000")] }));
-    await db.query("select public.review_receipt($1, $2, true, null)", [approver, r.receipt_id]);
     await fails(db.query("select public.set_loan_status($1, $2, 'released', null)", [sales, r.deal_id]), "not_admin");
     await db.query("select public.set_loan_status($1, $2, 'released', '2026-11-05')", [admin, r.deal_id]);
     expect((await one<{ loan_status: string }>("select loan_status from public.deals where id = $1", [r.deal_id])).loan_status).toBe("released");
@@ -203,15 +218,13 @@ describe("admin controls", () => {
     expect((await one<{ config: { feeStd: string } }>("select config from public.app_settings")).config.feeStd).toBe("8");
   });
 
-  it("cancelling frees the plate, rejects what was waiting, and limits the refund to what was paid", async () => {
+  it("cancelling frees the plate and limits the refund to what was paid", async () => {
     const p = payload(sales);
     const r = await submit(sales, p);
-    await db.query("select public.review_receipt($1, $2, true, null)", [approver, r.receipt_id]);
-    const pending = await submit(sales, { receipt_no: `R-${++n}`, deal_id: r.deal_id, kind: "partial", payments: [cash(sales, "10000")] });
+    await submit(sales, { receipt_no: `R-${++n}`, deal_id: r.deal_id, kind: "partial", payments: [cash(sales, "10000")] });
     await fails(db.query("select public.cancel_deal($1, $2, 'He changed his mind', 0)", [sales, r.deal_id]), "not_admin");
     await fails(db.query("select public.cancel_deal($1, $2, 'He changed his mind', 999999)", [admin, r.deal_id]), "refund_invalid");
     await db.query("select public.cancel_deal($1, $2, 'He changed his mind', 5000)", [admin, r.deal_id]);
-    expect((await one<{ status: string }>("select status from public.receipts where id = $1", [pending.receipt_id])).status).toBe("rejected");
     await expect(submit(sales, payload(sales, { units: p.units }))).resolves.toBeTruthy(); // the plate is free again
     await fails(submit(sales, { receipt_no: `R-${++n}`, deal_id: r.deal_id, kind: "partial", payments: [cash(sales, "1000")] }), "deal_cancelled");
   });

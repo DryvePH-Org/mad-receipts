@@ -1,7 +1,5 @@
 import "server-only";
 import { linkFolder } from "@/lib/docs/service";
-import { assertSheetsWritable, sheetsFrozen } from "@/lib/google/freeze";
-import { createSheetsClient } from "@/lib/google/sheets";
 import { inventory } from "@/lib/inventory";
 import { manilaToday } from "@/lib/dates";
 import { parseSettings } from "@/lib/deal/settings";
@@ -9,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { Tables } from "@/lib/supabase/database.types";
 import { createTelegramClient } from "@/lib/telegram";
 import { sheetDate } from "@/lib/inventory/remarks";
+import { saveAuditCopy } from "./audit-drive";
 import { dealStatusOf, SyncConflict, syncTargets, TARGET_ORDER, unitStatusFor, type ProofBytes, type SyncContext, type SyncDeps, type SyncEvent, type SyncTarget } from "./targets";
 
 /** Wait before the next try, by failed attempts so far. */
@@ -20,9 +19,6 @@ type Admin = ReturnType<typeof createAdminClient>;
 
 export interface SyncRunSummary { claimed: number; done: number; failed: number; /** left waiting because Google Sheets are frozen */ held?: number }
 
-/** The jobs that write to a Google Sheet. */
-const WRITES_TO_SHEETS = new Set<SyncTarget>(["sheets", "inventory"])
-
 function memo<T>(make: () => T): () => T {
   let value: T | undefined;
   return () => (value ??= make());
@@ -31,9 +27,9 @@ function memo<T>(make: () => T): () => T {
 /** Real clients, created on first use so one missing config only fails its own target. */
 export function defaultSyncDeps(): SyncDeps {
   return {
-    sheets: memo(createSheetsClient), telegram: memo(createTelegramClient), inventory,
-    config: { logSheetId: process.env.GOOGLE_SHEET_ID },
+    telegram: memo(createTelegramClient), inventory,
     docsLink: (plate, dealId) => linkFolder(plate, dealId),
+    auditCopy: saveAuditCopy,
   };
 }
 
@@ -49,7 +45,6 @@ export async function processDueJobs(options: { receiptId?: string; limit?: numb
   if (error) throw new Error(`Could not claim sync jobs: ${error.message}`);
 
   const summary: SyncRunSummary = { claimed: jobs.length, done: 0, failed: 0, held: 0 };
-  const frozen = sheetsFrozen();
   const byReceipt = new Map<string, Job[]>();
   for (const job of jobs) byReceipt.set(job.receipt_id, [...(byReceipt.get(job.receipt_id) ?? []), job]);
 
@@ -64,8 +59,6 @@ export async function processDueJobs(options: { receiptId?: string; limit?: numb
       continue;
     }
     for (const job of receiptJobs) {
-      // Frozen: a sheet job is left exactly as it is (no attempt counted, no error). It comes due again on its own and runs once the freeze is lifted.
-      if (frozen && WRITES_TO_SHEETS.has(job.target as SyncTarget)) { summary.held = (summary.held ?? 0) + 1; continue; }
       try {
         await syncTargets[job.target as SyncTarget]({ ...ctx, event: job.event as SyncEvent }, deps);
         await markDone(admin, job);
@@ -97,7 +90,7 @@ async function loadContext(admin: Admin, receiptId: string): Promise<Omit<SyncCo
 
   return {
     receipt, deal, units: (units ?? []).map((u) => ({ make_type: u.make_type, plate: u.plate_display, plate_no: u.plate_no, color: u.color })), payments: payments ?? [],
-    settings: parseSettings(settingsRow?.config), filledInBy: name(receipt.submitted_by), approvedBy: name(receipt.reviewed_by), salesperson: name(deal.created_by),
+    settings: parseSettings(settingsRow?.config), filledInBy: name(receipt.submitted_by), salesperson: name(deal.created_by),
     lastReceiptNo: last?.receipt_no ?? receipt.receipt_no, // the date written on the receipt (noon in Manila), not the day it was typed in: a past transaction keeps its own date
     lastReceiptAt: `${last?.receipt_date ?? receipt.receipt_date}T04:00:00Z`, today: manilaToday(),
     proofs: () => (proofs ??= (async () => {
@@ -135,7 +128,6 @@ export function errorText(err: unknown): string {
 
 /** After a person looked at a conflict and chose to write the app's note anyway. Writes the inventory note for every unit of the receipt's deal. */
 export async function writeInventoryAnyway(receiptId: string, admin: Admin = createAdminClient(), deps: SyncDeps = defaultSyncDeps()): Promise<void> {
-  assertSheetsWritable();
   const ctx = await loadContext(admin, receiptId);
   const status = unitStatusFor(dealStatusOf(ctx.deal, ctx.today));
   const ref = { receiptNo: ctx.lastReceiptNo, people: [{ name: ctx.salesperson, percent: null }], date: sheetDate(ctx.lastReceiptAt) };

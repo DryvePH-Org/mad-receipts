@@ -33,14 +33,16 @@ describe("the Documentation role", () => {
 });
 
 describe("linking a car folder when an AR is created", () => {
-  it("queues one docs job for the first receipt of a deal, approved or not", async () => {
+  it("queues one docs job for the first receipt of a deal (and, since a receipt is final when saved, the Drive copy, Telegram and the car status)", async () => {
     const r = await submit(newDeal("AAX 3622"));
-    expect(await jobs(r.receipt_id)).toEqual([{ target: "docs", event: "submit" }]);
+    expect(await jobs(r.receipt_id)).toEqual([
+      { target: "docs", event: "submit" }, { target: "drive", event: "confirm" }, { target: "inventory", event: "confirm" }, { target: "telegram", event: "confirm" },
+    ].sort((a, b) => a.target.localeCompare(b.target)));
   });
   it("does not queue another for the next receipt of the same deal", async () => {
     const first = await submit(newDeal("NDS 1331"));
     const next = await submit({ deal_id: first.deal_id, receipt_no: `D-${++n}`, receipt_date: "2026-11-06", kind: "partial", payments: [{ method: "cash", amount: "50000" }] });
-    expect(await jobs(next.receipt_id)).toEqual([]);
+    expect((await jobs(next.receipt_id)).map((j) => j.target)).toEqual(["drive", "inventory", "telegram"]); // no second link, but its own updates
   });
 });
 

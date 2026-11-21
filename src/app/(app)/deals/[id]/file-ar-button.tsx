@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { fileDealReceiptsAction } from "../../documents/actions";
 
-/** Right after a receipt is approved: saves the unsigned copy (and its proofs) in the car's Drive folder. Documentation and Admin. */
+/** After a receipt is saved: puts the unsigned copy (and its proofs) in the car's Drive folder, when someone presses it. Sales and Documentation. */
 export function FileArButton({ dealId }: { dealId: string }) {
   const [busy, start] = useTransition();
   return (

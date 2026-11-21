@@ -35,7 +35,6 @@ export async function runScheduled(now = new Date()): Promise<Record<string, unk
     if (monday) await part("weekly", () => weekly(now, today));
   }
   if (hour >= 9) {
-    await part("approvals", () => approvalDigest(today));
     await part("review", () => reviewDigest(today));
     await part("orRenewal", () => orDigest(today));
   }
@@ -55,15 +54,7 @@ async function moneyDigests(today: string) {
   return { people: owners.size, sent };
 }
 
-/** Approvers: receipts that waited longer than the limit in Settings. */
-async function approvalDigest(today: string) {
-  const { list } = await allReminders();
-  const items = list.filter((n) => n.icon === "shield").map((n) => ({ title: n.title, detail: n.detail }));
-  const text = digestText("🧾 Receipts waiting too long", today, items, appUrl("/approvals"));
-  return text ? notify({ category: "approval_digest", dedupe: `approvals:${today}`, text }) : { sent: 0 };
-}
-
-/** Sales: the deal's AR was approved at least 2 days ago and a sold paper (signed AR, buyer's ID, deed) is still missing. Repeats every 3 days. */
+/** Sales: the deal's AR was saved at least 2 days ago and a sold paper (signed AR, buyer's ID, deed) is still missing. Repeats every 3 days. */
 async function soldPapersMissing(now: Date, today: string) {
   const admin = createAdminClient();
   const cutoff = new Date(now.getTime() - 2 * 86_400_000).toISOString();
@@ -120,10 +111,8 @@ async function orDigest(today: string) {
 async function weekly(now: Date, today: string) {
   const admin = createAdminClient(), db = notifyDb();
   const since = new Date(now.getTime() - 7 * 86_400_000).toISOString();
-  const [{ count: approved }, { count: rejected }, { data: pending }, { list, deals }, { count: reviewOpen }, { count: handed }, { count: unscanned }] = await Promise.all([
-    admin.from("receipts").select("id", { count: "exact", head: true }).eq("status", "approved").gte("reviewed_at", since),
-    admin.from("receipts").select("id", { count: "exact", head: true }).eq("status", "rejected").gte("reviewed_at", since),
-    admin.from("receipts").select("submitted_at").eq("status", "pending").order("submitted_at").limit(500),
+  const [{ count: saved }, { list, deals }, { count: reviewOpen }, { count: handed }, { count: unscanned }] = await Promise.all([
+    admin.from("receipts").select("id", { count: "exact", head: true }).eq("status", "approved").gte("created_at", since),
     allReminders(),
     db.from("docs_review_items").select("id", { count: "exact", head: true }).eq("status", "open"),
     admin.from("unit_workflow").select("plate_no", { count: "exact", head: true }).not("handoff_at", "is", null).is("handoff_returned_at", null),
@@ -131,8 +120,7 @@ async function weekly(now: Date, today: string) {
   ]);
   const overdue = list.filter((n) => n.key.startsWith("od-"));
   const overdueBalance = deals.filter((d) => overdue.some((n) => n.dealId === d.id)).reduce((sum, d) => sum + centsOf(d.balance / 100), 0);
-  const oldest = pending?.[0]?.submitted_at ? Math.floor((now.getTime() - Date.parse(pending[0].submitted_at)) / 86_400_000) : null;
-  return notify({ category: "weekly_summary", dedupe: `weekly:${today}`, text: weeklyText(today, { receiptsApproved: approved ?? 0, receiptsRejected: rejected ?? 0, receiptsPending: pending?.length ?? 0, oldestPendingDays: oldest, overdueDeals: overdue.length, overdueBalance: pesos(overdueBalance / 100), carsNeedScan: unscanned ?? 0, carsHandedOff: handed ?? 0, reviewOpen: reviewOpen ?? 0 }, appUrl("/dashboard")) });
+  return notify({ category: "weekly_summary", dedupe: `weekly:${today}`, text: weeklyText(today, { receiptsSaved: saved ?? 0, overdueDeals: overdue.length, overdueBalance: pesos(overdueBalance / 100), carsNeedScan: unscanned ?? 0, carsHandedOff: handed ?? 0, reviewOpen: reviewOpen ?? 0 }, appUrl("/dashboard")) });
 }
 
 /** Admin: something is broken. At most one message an hour per problem; these ignore quiet hours. */

@@ -6,7 +6,8 @@ import { requireAdmin, requireModule } from "@/lib/auth";
 import { friendlyError } from "@/lib/deal/errors";
 import { toCentavos, fromCentavos } from "@/lib/rules/money";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { loanReleased, voidedOrCancelled } from "@/lib/notify/events";
+import { loanReleased, transactionDeleted, voidedOrCancelled } from "@/lib/notify/events";
+import { deleteTransaction } from "@/lib/deal/delete-server";
 import { processDueJobs } from "@/lib/sync/process";
 
 export type AdminResult = { ok: true } | { ok: false; error: string };
@@ -39,6 +40,19 @@ export async function cancelDeal(dealId: string, reason: string, refundText: str
   syncSoon();
   after(() => voidedOrCancelled("cancel", user.id, { dealId, reason }));
   return { ok: true };
+}
+
+/** Admin only: deletes the transaction and what hangs on it (the receipts, proofs, the audit and AR copies in Drive). The deal number is typed to confirm. */
+export async function deleteDeal(dealId: string, typedDealNo: string): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  const user = await requireAdmin();
+  await requireModule("deals");
+  if (!uuid(dealId)) return { ok: false, error: "That deal was not found." };
+  const r = await deleteTransaction(dealId, user.id, typedDealNo);
+  if (!r.ok) return { ok: false, error: r.message };
+  revalidatePath("/", "layout");
+  after(() => transactionDeleted(user.id, { dealNo: r.summary.dealNo, buyer: r.summary.buyer, receipts: r.summary.receipts }));
+  const s = r.summary;
+  return { ok: true, message: `Deleted ${s.dealNo}: ${s.receipts} receipt${s.receipts === 1 ? "" : "s"}, ${s.storageRemoved} proof photo${s.storageRemoved === 1 ? "" : "s"}, ${s.driveTrashed} file${s.driveTrashed === 1 ? "" : "s"} in Drive.${s.warnings.length ? ` Not everything could be removed: ${s.warnings.join(" ")}` : ""}` };
 }
 
 export async function setLoanStatus(dealId: string, status: "waiting" | "released", on: string): Promise<AdminResult> {

@@ -11,7 +11,7 @@ import { missingFields, totalsOf } from "@/lib/deal/validate";
 import type { FormState } from "@/lib/deal/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
-import { receiptSubmitted } from "@/lib/notify/events";
+import { receiptSaved } from "@/lib/notify/events";
 import { processDueJobs } from "@/lib/sync/process";
 
 export type SubmitResult =
@@ -19,7 +19,7 @@ export type SubmitResult =
   | { ok: false; error: string; missing?: string[] };
 
 /**
- * Sends a filled-in receipt to the Approver. The checks run again here and in the database, which
+ * Saves a filled-in receipt: it is final at once. The checks run again here and in the database, which
  * also recomputes every number from the raw amounts: nothing is trusted from the screen.
  */
 export async function submitReceipt(input: unknown, dealId: string | null): Promise<SubmitResult> {
@@ -42,8 +42,8 @@ export async function submitReceipt(input: unknown, dealId: string | null): Prom
   }
   const r = data as { deal_id: string; receipt_id: string; deal_no: string; receipt_no: string; balance_after: string | number };
   revalidatePath("/", "layout"); // every screen that shows deals, receipts or balances
-  // The first receipt of a deal queues "find the car's document folder by plate"; run it now instead of waiting for the next cron.
+  // What the database queued on saving (the car's status, the Drive audit copy, Telegram, the car's folder link) runs now instead of waiting for the next cron.
   after(() => processDueJobs({ receiptId: r.receipt_id }).catch((e) => console.error(`[sync] after submit failed: ${e instanceof Error ? e.message : "unknown"}`)));
-  after(() => receiptSubmitted(r.receipt_id)); // the Approvers hear about it on Telegram
+  after(() => receiptSaved(r.receipt_id)); // the deal's owner hears when it settles the deal
   return { ok: true, dealId: r.deal_id, receiptId: r.receipt_id, dealNo: r.deal_no, receiptNo: r.receipt_no, balanceAfter: String(r.balance_after) };
 }

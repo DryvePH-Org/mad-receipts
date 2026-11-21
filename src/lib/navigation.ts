@@ -10,7 +10,6 @@ import {
   Wrench,
   RefreshCw,
   Settings,
-  ShieldCheck,
   Upload,
   Users,
   type LucideIcon,
@@ -18,7 +17,7 @@ import {
 
 export type Role = "sales" | "admin" | "approver" | "documentation";
 
-export type ModuleId = "dashboard" | "cars" | "register" | "new" | "deals" | "approvals" | "reminders" | "documents" | "repairs" | "upload" | "activity" | "settings" | "users" | "sync";
+export type ModuleId = "dashboard" | "cars" | "register" | "new" | "deals" | "reminders" | "documents" | "repairs" | "upload" | "activity" | "settings" | "users" | "sync";
 
 export interface NavItem {
   id: ModuleId;
@@ -30,7 +29,7 @@ export interface NavItem {
   /** false: the module exists (it can be given or hidden, and its pages check it) but has no menu entry of its own */
   menu?: false;
   /** Which live count (if any) is shown beside the item. */
-  badge?: "approvals" | "reminders";
+  badge?: "reminders";
 }
 
 const ALL: Role[] = ["sales", "admin", "approver", "documentation"];
@@ -43,7 +42,6 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "deals", href: "/deals", label: "Transactions", icon: Car, group: "Operations", roles: ALL },
   { id: "cars", href: "/cars", label: "Car status", icon: CarFront, group: "Operations", roles: ALL },
   { id: "repairs", href: "/repairs", label: "Repairs", icon: Wrench, group: "Operations", roles: ALL },
-  { id: "approvals", href: "/approvals", label: "Approvals", icon: ShieldCheck, group: "Operations", roles: ["admin", "approver"], badge: "approvals" },
   { id: "reminders", href: "/reminders", label: "Reminders", icon: Bell, group: "Operations", roles: MONEY, badge: "reminders" },
   { id: "documents", href: "/documents", label: "Car documents (act)", icon: FolderCheck, group: "Operations", roles: ["admin", "documentation"], menu: false }, // scan, approve, move, hand off: the menu entry is "register" below
   { id: "register", href: "/documents", label: "Car documents", icon: BookOpenCheck, group: "Operations", roles: ALL },
@@ -56,9 +54,9 @@ export const NAV_ITEMS: NavItem[] = [
 
 /**
  * Every module can be given to a person whose role does not include it, or hidden from a person whose role does.
- * Four of them carry real power: approving receipts, Settings, Users and Sync jobs. Giving those asks for an extra typed confirmation.
+ * Three of them carry real power: Settings, Users and Sync jobs. Giving those asks for an extra typed confirmation.
  */
-export const SENSITIVE: ModuleId[] = ["approvals", "settings", "users", "sync"];
+export const SENSITIVE: ModuleId[] = ["settings", "users", "sync"];
 /** An Admin can never lose these two, so someone always stays in charge. */
 export const ADMIN_FLOOR: ModuleId[] = ["users", "settings"];
 

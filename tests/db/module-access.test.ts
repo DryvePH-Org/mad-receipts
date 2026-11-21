@@ -60,17 +60,13 @@ describe("approving and settings follow a person's modules (migration 21)", () =
     expect(await can(await person("st@x.test", "sales", ["settings"]), "settings")).toBe(true);
     expect(await can(await person("no@x.test", "approver"), "settings")).toBe(false);
   });
-  it("review_receipt refuses someone without the module, and still refuses your own receipt", async () => {
+  it("a saved receipt is final: there is nothing left to review, whoever tries", async () => {
     const sales = await person("s2@x.test", "sales");
-    const granted = await person("g2@x.test", "sales", ["approvals"]);
-    const plain = await person("p2@x.test", "documentation");
+    const approver = await person("a2@x.test", "approver");
     const payload = { receipt_no: "D-MOD-1", receipt_date: "2026-11-07", kind: "partial", buyer: { name: "Test Buyer" }, units: [{ make_type: "2023 Toyota Vios", plate: "ZZT 9101" }], price: "500000", sale_type: "cash", due: { mode: "text", text: "soon" }, payments: [{ method: "cash", amount: "100000" }] };
     const r = (await db.query<{ r: { receipt_id: string } }>("select public.submit_receipt($1, $2::jsonb, false) as r", [sales, JSON.stringify(payload)])).rows[0].r;
-    await expect(db.query("select public.review_receipt($1, $2, true)", [plain, r.receipt_id])).rejects.toThrow(/not_approver/);
-    await expect(db.query("select public.review_receipt($1, $2, true)", [sales, r.receipt_id])).rejects.toThrow(/not_approver/);
-    await db.query("select public.review_receipt($1, $2, true)", [granted, r.receipt_id]); // the granted person can
-    expect((await db.query<{ status: string }>("select status from public.receipts where id = $1", [r.receipt_id])).rows[0].status).toBe("approved");
-    const own = (await db.query<{ r: { receipt_id: string } }>("select public.submit_receipt($1, $2::jsonb, false) as r", [granted, JSON.stringify({ ...payload, receipt_no: "D-MOD-2", units: [{ make_type: "2023 Toyota Vios", plate: "ZZT 9102" }] })])).rows[0].r;
-    await expect(db.query("select public.review_receipt($1, $2, true)", [granted, own.receipt_id])).rejects.toThrow(/own_receipt/);
+    const rec = (await db.query<{ status: string; reviewed_by: string }>("select status, reviewed_by from public.receipts where id = $1", [r.receipt_id])).rows[0];
+    expect(rec).toEqual({ status: "approved", reviewed_by: sales });
+    await expect(db.query("select public.review_receipt($1, $2, true)", [approver, r.receipt_id])).rejects.toThrow(/not_pending/);
   });
 });

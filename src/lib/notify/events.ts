@@ -18,26 +18,22 @@ async function dealLine(dealId: string): Promise<DealLine | null> {
   return { id: data.id, dealNo: data.deal_no, buyer: data.buyer_name, units, owner: data.created_by, settled: key === "settled", released: data.loan_status === "released" };
 }
 
-/** A new receipt is waiting: tell the Approvers. */
-export async function receiptSubmitted(receiptId: string): Promise<void> {
+/** A receipt was saved: when it settles the deal, the deal's owner is told. */
+export async function receiptSaved(receiptId: string): Promise<void> {
   try {
-    const { data: r } = await createAdminClient().from("receipts").select("receipt_no, amount, kind, deal_id, submitted_by").eq("id", receiptId).maybeSingle();
-    if (!r) return;
-    const [deal, who] = await Promise.all([dealLine(r.deal_id), nameOf(r.submitted_by)]);
-    await tell({ category: "receipt_waiting", except: r.submitted_by, text: `🧾 Receipt waiting for approval\n${r.receipt_no} · ${pesos(r.amount)}\n${deal ? `${deal.buyer} · ${deal.units || deal.dealNo}` : ""}\nFrom ${who}.\n${appUrl("/approvals")}` });
-  } catch (e) { console.warn(`[notify] receipt_waiting: ${e instanceof Error ? e.message : "unknown"}`); }
-}
-
-/** The Approver decided: tell the person who wrote it, and the deal's owner when the deal is now settled. */
-export async function receiptDecided(receiptId: string, approved: boolean, reason?: string): Promise<void> {
-  try {
-    const { data: r } = await createAdminClient().from("receipts").select("receipt_no, amount, deal_id, submitted_by, reject_reason").eq("id", receiptId).maybeSingle();
+    const { data: r } = await createAdminClient().from("receipts").select("deal_id").eq("id", receiptId).maybeSingle();
     if (!r) return;
     const deal = await dealLine(r.deal_id);
-    const what = `${r.receipt_no} · ${pesos(r.amount)}${deal ? ` · ${deal.buyer}` : ""}`;
-    await tell({ category: "receipt_result", userIds: [r.submitted_by], text: approved ? `✅ Receipt approved\n${what}\n${appUrl(`/deals/${r.deal_id}`)}` : `❌ Receipt rejected\n${what}\nReason: ${reason || r.reject_reason || "none given"}\nFill in a new receipt.\n${appUrl("/new")}` });
-    if (approved && deal?.settled) await tell({ category: "deal_settled", userIds: [deal.owner], dedupe: `settled:${deal.id}`, text: `💰 Deal settled\n${deal.dealNo} · ${deal.buyer}${deal.units ? ` · ${deal.units}` : ""}\nThe balance is fully paid.\n${appUrl(`/deals/${deal.id}`)}` });
-  } catch (e) { console.warn(`[notify] receipt_result: ${e instanceof Error ? e.message : "unknown"}`); }
+    if (deal?.settled) await tell({ category: "deal_settled", userIds: [deal.owner], dedupe: `settled:${deal.id}`, text: `💰 Deal settled\n${deal.dealNo} · ${deal.buyer}${deal.units ? ` · ${deal.units}` : ""}\nThe balance is fully paid.\n${appUrl(`/deals/${deal.id}`)}` });
+  } catch (e) { console.warn(`[notify] receipt saved: ${e instanceof Error ? e.message : "unknown"}`); }
+}
+
+/** An Admin deleted a transaction: the Admins hear who did it and what went. */
+export async function transactionDeleted(actorId: string, what: { dealNo: string; buyer: string; receipts: number }): Promise<void> {
+  try {
+    const who = await nameOf(actorId);
+    await tell({ category: "void_cancel", except: actorId, text: `🗑 Transaction deleted\n${what.dealNo} · ${what.buyer} · ${what.receipts} ${what.receipts === 1 ? "receipt" : "receipts"}\nBy ${who}.` });
+  } catch (e) { console.warn(`[notify] transaction deleted: ${e instanceof Error ? e.message : "unknown"}`); }
 }
 
 /** The loan was marked released: the deal's owner is told (and when that settles the deal, it says so). */

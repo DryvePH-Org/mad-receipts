@@ -42,21 +42,19 @@ async function Content() {
     id: d.id, dealNo: d.dealNo, unitName: d.unitName, plates: d.plates, buyerName: d.buyerName, createdByName: d.createdByName, saleType: d.saleType,
     institution: d.institution, price: d.price, received: d.approvedPaid, balance: d.balance, dueDate: d.dueDate, dueText: d.dueText,
     status: dealStatusKey({ status: d.status, balance: d.balance, due_date: d.dueDate, sale_type: d.saleType, loan_status: d.loanStatus }, today),
-    receiptCount: d.approvedCount + d.pendingCount, pendingCount: d.pendingCount, loan: d.loan,
+    receiptCount: d.approvedCount, loan: d.loan,
     searchText: `${d.unitName} ${d.plates} ${d.buyerName} ${d.createdByName} ${d.institution ?? ""} ${d.receiptNos} ${d.dealNo}`.toLowerCase(),
   }));
   const owe = rows.filter((r) => r.status !== "cancelled" && r.balance > 0);
   const overdue = rows.filter((r) => r.status === "overdue");
   const waiting = rows.filter((r) => r.status === "lender");
-  const pending = deals.reduce((n, d) => n + d.pendingCount, 0), pendingAmount = deals.reduce((n, d) => n + d.pendingPaid, 0);
   const late = (lo: number, hi: number) => overdue.filter((r) => { const n = daysBetween(r.dueDate!, today); return n >= lo && n <= hi; }).reduce((s, r) => s + r.balance, 0);
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3">
         <Stat label="Still to collect" value={formatPeso(owe.reduce((n, r) => n + r.balance, 0))} sub={`${owe.length} open ${owe.length === 1 ? "deal" : "deals"}`} />
         <Stat label="Overdue" value={formatPeso(overdue.reduce((n, r) => n + r.balance, 0))} tone="text-destructive" sub={`${overdue.length} ${overdue.length === 1 ? "deal" : "deals"} · 1–30 days ${formatPeso(late(1, 30))} · 31–60 ${formatPeso(late(31, 60))} · 60+ ${formatPeso(late(61, 99999))}`} />
         <Stat label="Waiting for the lender" value={String(waiting.length)} tone="text-teal-700" sub={`${formatPeso(waiting.reduce((n, r) => n + r.loan, 0))} in loans not released`} />
-        <Stat label="Waiting for approval" value={String(pending)} tone="text-violet-700" sub={`${formatPeso(pendingAmount)} in receipts`} />
       </div>
       <DealsBoard deals={rows} today={today} />
     </>

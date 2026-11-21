@@ -27,9 +27,10 @@ const peso = (v: unknown) => formatPeso(Math.round(Number(v ?? 0) * 100));
 function describe(e: ActivityEntry): string {
   const a = obj(e.after), r = obj(a.receipt);
   switch (e.action) {
-    case "receipt.submit": return `Filled in receipt ${r.receipt_no} for deal ${a.deal_no}: ${peso(r.amount)} received. Sent to the Approver.`;
+    case "receipt.submit": return `Saved receipt ${r.receipt_no} for deal ${a.deal_no}: ${peso(r.amount)} received.`;
     case "receipt.approve": return `Approved receipt ${r.receipt_no} (${peso(r.amount)}) on deal ${a.deal_no}.`;
     case "receipt.reject": return `Rejected receipt ${r.receipt_no} on deal ${a.deal_no}: ${a.reason}`;
+    case "deal.delete": return `Deleted deal ${a.deal_no} (${a.buyer}) with ${Array.isArray(a.receipts) ? a.receipts.length : 0} receipt(s).`;
     case "receipt.void": return `Voided receipt ${r.receipt_no} (${peso(r.amount)}): ${a.reason}`;
     case "deal.cancel": return `Cancelled deal ${a.deal_no}. Refunded ${peso(a.refund)}. ${a.reason}`;
     case "deal.loan": return a.status === "released" ? `Marked the ${a.institution} loan of deal ${a.deal_no} as released.` : `Marked the ${a.institution} loan of deal ${a.deal_no} as waiting again.`;

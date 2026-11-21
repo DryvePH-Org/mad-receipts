@@ -4,10 +4,10 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 
-// Screens that show other people's work (approvals, balances, the log) keep themselves up to date. Every few seconds a tiny check
+// Screens that show other people's work (balances, the log) keep themselves up to date. Every few seconds a tiny check
 // asks "did anything change?"; only when it did does the screen reload its data, with a thin bar at the top while it does.
 // Your typing is kept, and the form pages are left alone.
-const WATCHED = ["/deals", "/approvals", "/reminders", "/activity", "/admin"];
+const WATCHED = ["/deals", "/reminders", "/activity", "/admin"];
 const EVERY_MS = 8_000;
 
 export function LiveRefresh() {

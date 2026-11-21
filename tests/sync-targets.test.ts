@@ -2,9 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { emptyForm } from "@/app/(app)/new/form-state";
 import { DEFAULT_SETTINGS, parseSettings } from "@/lib/deal/settings";
 import { createMockInventory } from "@/lib/inventory/mock";
-import { DEAL_HEADERS, RECEIPT_HEADERS, SyncConflict, cancelMessage, headerProblem, logSheetProblem, syncTargets, telegramCaption, unitStatusFor, voidMessage, type SyncContext, type SyncDeps } from "@/lib/sync/targets";
+import { SyncConflict, cancelMessage, syncTargets, telegramCaption, unitStatusFor, voidMessage, type SyncContext, type SyncDeps } from "@/lib/sync/targets";
 import type { TelegramClient } from "@/lib/telegram";
-import { fakeSheets } from "./fakes";
 
 const settings = parseSettings(DEFAULT_SETTINGS);
 const IMAGE = { name: "cash.jpg", mime: "image/jpeg", bytes: new Uint8Array([0xff, 0xd8, 0xff]) };
@@ -22,47 +21,36 @@ function context(over: { receipt?: Partial<SyncContext["receipt"]>; deal?: Parti
     },
     units: [{ make_type: "2023 Toyota Vios", plate: "NBC 4821", plate_no: "NBC4821", color: "Silver" }],
     payments: [{ id: "p1", receipt_id: "r1", position: 1, method: "cash", label: "Cash", amount: 40000, reference: null, check_no: null, bank: null, branch: null }],
-    settings, filledInBy: "David", approvedBy: "Karl", salesperson: "David", lastReceiptNo: "2556", lastReceiptAt: "2026-11-04T01:00:00Z", today: "2026-11-04",
+    settings, filledInBy: "David", salesperson: "David", lastReceiptNo: "2556", lastReceiptAt: "2026-11-04T01:00:00Z", today: "2026-11-04",
     proofs: over.proofs ?? (async () => [IMAGE]),
   };
 }
 
 function deps() {
   const telegram: TelegramClient = { sendPhoto: vi.fn(async () => undefined), sendMessage: vi.fn(async () => undefined) };
-  const sheets = fakeSheets({ Receipts: [], Deals: [] });
   const inventory = createMockInventory([{ plate: "NBC4821", status: "Available" }]);
-  const d: SyncDeps = { sheets: () => sheets.client, telegram: () => telegram, inventory, config: { logSheetId: "sheet" } };
-  return { d, telegram, sheets, inventory };
+  const d: SyncDeps = { telegram: () => telegram, inventory };
+  return { d, telegram, inventory };
 }
 
 describe("drive", () => {
-  it("files nothing: the approved receipt is not put in Drive any more, and an old queued job just ends", async () => {
+  it("saves the audit copy once, when a receipt is saved, and does nothing for other events", async () => {
     const { d } = deps();
-    expect(await syncTargets.drive(context(), d)).toBeUndefined();
-    expect(await syncTargets.drive(context({ event: "void" }), d)).toBeUndefined();
+    const auditCopy = vi.fn(async () => undefined);
+    await syncTargets.drive(context(), { ...d, auditCopy });
+    expect(auditCopy).toHaveBeenCalledTimes(1);
+    await syncTargets.drive(context({ event: "void" }), { ...d, auditCopy });
+    await syncTargets.drive(context({ event: "cancel" }), { ...d, auditCopy });
+    expect(auditCopy).toHaveBeenCalledTimes(1);
+    expect(await syncTargets.drive(context(), d)).toBeUndefined(); // no Drive set up: nothing happens
   });
 });
 
 describe("sheets", () => {
-  it("adds the receipt and the deal on approval, and never twice", async () => {
-    const { d, sheets } = deps();
-    await syncTargets.sheets(context(), d);
-    await syncTargets.sheets(context(), d);
-    const receipts = sheets.tabs.Receipts, deals = sheets.tabs.Deals;
-    expect(receipts[0]).toEqual(RECEIPT_HEADERS);
-    expect(receipts).toHaveLength(2);
-    expect(receipts[1].slice(1, 4)).toEqual(["2556", "2026-11-04", "Maria Santos"]);
-    expect(receipts[1][8]).toBe(40000); // paid today
-    expect(deals[0]).toEqual(DEAL_HEADERS);
-    expect(deals).toHaveLength(2);
-    expect(deals[1].slice(0, 3)).toEqual(["D1001", "Maria Santos", "NBC 4821"]);
-  });
-  it("marks the receipt voided and updates the deal's balance", async () => {
-    const { d, sheets } = deps();
-    await syncTargets.sheets(context(), d);
-    await syncTargets.sheets(context({ event: "void", receipt: { status: "void" }, deal: { balance: 720000, approved_paid: 0 } }), d);
-    expect(sheets.tabs.Receipts[1][18]).toBe("Void");
-    expect(sheets.tabs.Deals[1][12]).toBe(720000);
+  it("are not written any more: an old queued job just ends", async () => {
+    const { d } = deps();
+    expect(await syncTargets.sheets(context(), d)).toBeUndefined();
+    expect(await syncTargets.sheets(context({ event: "void" }), d)).toBeUndefined();
   });
 });
 
@@ -73,7 +61,7 @@ describe("telegram", () => {
     expect(a.telegram.sendPhoto).toHaveBeenCalledOnce();
     const caption = vi.mocked(a.telegram.sendPhoto).mock.calls[0][1];
     expect(caption).toContain("Receipt #2556 · PARTIAL");
-    expect(caption).toContain("Approved by Karl");
+    expect(caption).toContain("Filled in by David");
     expect(caption).toContain("Unit: Reserved");
     const b = deps();
     await syncTargets.telegram(context({ proofs: async () => [] }), b.d);
@@ -117,7 +105,7 @@ describe("inventory", () => {
   });
 });
 
-describe("conflicts with the shared sheets: nothing is written, and the person is told what to do", () => {
+describe("conflicts with a note on the car: nothing is written, and the person is told what to do", () => {
   it("the inventory note of someone else is never overwritten", async () => {
     const { d } = deps();
     const inventory = createMockInventory([{ plate: "NBC4821", status: "Reserved", remarks: "RESERVED - ELLA 10/30" }]);
@@ -138,20 +126,5 @@ describe("conflicts with the shared sheets: nothing is written, and the person i
     const inventory = createMockInventory([{ plate: "NBC4821", status: "Reserved", remarks: "RESERVED - DAVID 11/4" }]);
     await syncTargets.inventory(context(), { ...d, inventory });
     expect(inventory.changes).toEqual([]);
-  });
-  it("a log sheet whose first row is something else is not written to", async () => {
-    const sheets = fakeSheets({ Receipts: [["Date", "Amount", "Notes"], ["x", "1", "y"]], Deals: [] });
-    const { d } = deps();
-    const err = await syncTargets.sheets(context(), { ...d, sheets: () => sheets.client }).catch((e) => e);
-    expect(err).toBeInstanceOf(SyncConflict);
-    expect(String(err.message)).toContain("not the app's headers");
-    expect(sheets.calls.filter((c) => c.op !== "get")).toEqual([]);
-  });
-  it("an empty tab, or the app's own headers, is fine; the preview check says the same", async () => {
-    expect(headerProblem("Receipts", undefined, RECEIPT_HEADERS)).toBeNull();
-    expect(headerProblem("Receipts", RECEIPT_HEADERS.slice(0, 5), RECEIPT_HEADERS)).toBeNull(); // an older, shorter header row
-    expect(await logSheetProblem(fakeSheets({ Receipts: [], Deals: [] }).client, "sheet")).toBeNull();
-    expect(await logSheetProblem(fakeSheets({ Receipts: [["Foo"]], Deals: [] }).client, "sheet")).toContain("not the app's headers");
-    expect(await logSheetProblem(fakeSheets({ Receipts: [] }).client, "sheet")).toContain('no "Deals" tab');
   });
 });

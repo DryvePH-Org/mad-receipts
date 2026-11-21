@@ -49,7 +49,7 @@ test("Settings → Delete data: each button needs its exact words (nothing is de
   await page.close();
 });
 
-test("Sync jobs → Replay to the live sheets: shows what is connected and what would change, and writes nothing without REPLAY", async ({ browser }) => {
+test("Sync jobs: the page lists the jobs of the app, and there is no sheet replay any more", async ({ browser }) => {
   const page = await (await browser.newContext()).newPage();
   await page.goto("/login");
   await page.getByLabel("Email").fill(credentials.admin.email);
@@ -57,16 +57,9 @@ test("Sync jobs → Replay to the live sheets: shows what is connected and what 
   await page.getByRole("button", { name: "Log in" }).click();
   await page.waitForURL("**/deals");
   await page.goto("/admin/sync");
-  await page.getByRole("button", { name: "Replay to the live sheets" }).click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog.getByText("Connected right now")).toBeVisible({ timeout: 60_000 });
-  await expect(dialog.getByText(/Telegram is never replayed/)).toBeVisible();
-  const send = dialog.getByRole("button", { name: /^Send / });
-  await expect(send).toBeDisabled(); // needs the word REPLAY
-  await dialog.getByLabel("Type REPLAY to confirm").fill("replay"); // wrong case
-  await expect(send).toBeDisabled();
-  await dialog.getByRole("button", { name: "Cancel" }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Sync jobs" })).toBeVisible();
+  await expect(page.getByText(/saves the audit copy in Drive and tells Telegram/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Replay to the live sheets" })).toHaveCount(0);
   await page.close();
 });
 

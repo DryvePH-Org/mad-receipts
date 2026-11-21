@@ -8,14 +8,11 @@ export interface NotifyCategory { id: string; label: string; detail: string; whe
 
 export const NOTIFY_CATEGORIES: readonly NotifyCategory[] = [
   // Sales
-  { id: "receipt_result", label: "My receipt was approved or rejected", detail: "With the reason when it is rejected.", when: "right away", roles: ["sales"] },
   { id: "money_digest", label: "My deals: due, overdue, loan waiting", detail: "Deals due in 7 days, due today or late, loans waiting too long, collateral dates. Only your own deals.", when: "every morning at 8:00", roles: ["sales"] },
-  { id: "sold_papers_missing", label: "Sold papers still missing on my deal", detail: "The signed AR, the buyer's ID or the deed is not in the car's folder.", when: "every 3 days, from 2 days after the AR is approved", roles: ["sales"] },
+  { id: "sold_papers_missing", label: "Sold papers still missing on my deal", detail: "The signed AR, the buyer's ID or the deed is not in the car's folder.", when: "every 3 days, from 2 days after the AR is saved", roles: ["sales"] },
   { id: "deal_settled", label: "My deal is settled or the loan was released", detail: "", when: "right away", roles: ["sales"] },
   // Approver
-  { id: "receipt_waiting", label: "A receipt is waiting for my approval", detail: "The writer, the amount and the car.", when: "right away", roles: ["approver"] },
   { id: "repair_waiting", label: "A repair report is waiting for my approval", detail: "The car, the problems and who reported them.", when: "right away", roles: ["approver"] },
-  { id: "approval_digest", label: "Receipts waiting too long", detail: "Receipts that have waited longer than the limit in Settings.", when: "every morning at 9:00", roles: ["approver"] },
   // Documentation
   { id: "sold_papers_added", label: "Sales added sold papers on a car", detail: "", when: "right away", roles: ["documentation"] },
   { id: "scan_result", label: "A scan finished with warnings, or failed", detail: "One message per car.", when: "right away", roles: ["documentation"] },
@@ -26,9 +23,9 @@ export const NOTIFY_CATEGORIES: readonly NotifyCategory[] = [
   { id: "car_added", label: "Someone else added a new car", detail: "", when: "right away", roles: ["documentation"] },
   // Admin
   { id: "system_alert", label: "Something is broken", detail: "The scanner is stuck, a Drive upload failed, sync jobs keep failing, or the daily backup is missing.", when: "right away, at most once an hour per problem", roles: ["admin"], urgent: true },
-  { id: "void_cancel", label: "A receipt was voided or a deal cancelled", detail: "And who did it.", when: "right away", roles: ["admin"] },
+  { id: "void_cancel", label: "A receipt was voided, a deal cancelled or deleted", detail: "And who did it.", when: "right away", roles: ["admin"] },
   { id: "user_change", label: "A user was added or changed role", detail: "", when: "right away", roles: ["admin"] },
-  { id: "weekly_summary", label: "Weekly summary", detail: "Receipts, approvals, overdue deals and documents stuck.", when: "Mondays at 8:00", roles: ["admin"] },
+  { id: "weekly_summary", label: "Weekly summary", detail: "Receipts, overdue deals and documents stuck.", when: "Mondays at 8:00", roles: ["admin"] },
 ];
 
 export const categoryById = (id: string): NotifyCategory | undefined => NOTIFY_CATEGORIES.find((c) => c.id === id);

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
-import { requireModule, requireAdmin } from "@/lib/auth";
+import { requireModule, requireAdmin, requireAnyModule } from "@/lib/auth";
 import { removeFile, resetFile, editReading, reviewFlag, chooseFolder, defaultDocsDeps, docsErrorText, linkFolder, previewCarFolder, type FolderPreview, moveToSold, readPending, refreshFolders, scanFolder, setCase, setFileTypes, type MoveResult, type ReadProgress } from "@/lib/docs/service";
 import { CASES, CHOOSABLE, type CaseType, type DocType } from "@/lib/docs/types";
 import { readerMode, scheduleScan } from "@/lib/docs/bot-scan";
@@ -334,29 +334,29 @@ export async function finishAddAction(plate: string): Promise<Done> {
 
 // ---------------- receipts in the car's folder ----------------
 
-/** Puts the car's approved receipts (and their proofs) into its Drive folder. Documentation and Admin only: it is never done by itself. */
+/** Puts the car's saved receipts (and their proofs) into its Drive folder. Sales and Documentation: it is never done by itself. */
 export async function fileReceiptsAction(plate: string): Promise<Done> {
-  await requireModule("documents");
+  await requireAnyModule("documents", "new");
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { ok: false, message: "Bad plate." };
   return guard<Done>(async () => {
     const r = await fileCarReceipts(p.data);
     await scanFolder(p.data).catch(() => undefined);
     revalidatePath(`/documents/${normalizePlate(p.data)}`);
-    return { ok: true as const, message: r.filed ? `${r.filed} receipt${r.filed === 1 ? "" : "s"} put in the car's folder.` : "Every approved receipt is already in the folder." };
+    return { ok: true as const, message: r.filed ? `${r.filed} receipt${r.filed === 1 ? "" : "s"} put in the car's folder.` : "Every receipt is already in the folder." };
   }, (message) => ({ ok: false as const, message }));
 }
 
-/** The same button on the deal page: right after the receipt is approved, the unsigned copy goes into the car's folder. Documentation and Admin. */
+/** The same button on the deal page: right after the receipt is saved, the unsigned copy can go into the car's folder. Sales and Documentation. */
 export async function fileDealReceiptsAction(dealId: string): Promise<Done> {
-  await requireModule("documents");
+  await requireAnyModule("documents", "new");
   if (!/^[0-9a-f-]{36}$/i.test(dealId)) return { ok: false, message: "That deal was not found." };
   return guard<Done>(async () => {
     const r = await fileDealReceipts(dealId);
     for (const plate of r.plates) await scanFolder(plate).catch(() => undefined);
     for (const plate of r.plates) revalidatePath(`/documents/${normalizePlate(plate)}`);
     revalidatePath(`/deals/${dealId}`);
-    return { ok: true as const, message: r.filed ? `${r.filed} receipt${r.filed === 1 ? "" : "s"} saved in the car's folder as UNSIGNED copies.` : "Every approved receipt is already in the folder." };
+    return { ok: true as const, message: r.filed ? `${r.filed} receipt${r.filed === 1 ? "" : "s"} saved in the car's folder as UNSIGNED copies.` : "Every receipt is already in the folder." };
   }, (message) => ({ ok: false as const, message }));
 }
 

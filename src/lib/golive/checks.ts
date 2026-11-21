@@ -33,7 +33,7 @@ function settings(): Check[] {
   out.push(e.CRON_SECRET ? ok(A, "Scheduled jobs key", "set") : fail(A, "Scheduled jobs key", "CRON_SECRET is not set"));
   out.push(e.DOCS_BIBLE_SHEET_ID ? info(A, "Old Docs Bible sheet (watched for changes)", `ends ${tail(e.DOCS_BIBLE_SHEET_ID)}`) : warn(A, "Old Docs Bible sheet", "DOCS_BIBLE_SHEET_ID is not set: the cut-over check cannot look for changes made in the old sheet", "Set it to the live sheet's id (shared \"Anyone with the link can view\")."));
   out.push(info(A, "Who reads the photos", (e.DOCS_READER ?? "").toLowerCase() === "grokbot" ? "the grokbot scanner" : "a picture API (Groq or Grok)"));
-  out.push((e.SHEETS_WRITES ?? "").trim().toLowerCase() === "on" ? warn(A, "Writing to Google Sheets", "ON (the receipts log and the inventory status)", "Be sure those sheets are the right ones.") : info(A, "Writing to Google Sheets", "frozen: the receipts log and the inventory status wait (the Docs Bible is in the database and never goes to a sheet)"));
+  out.push(info(A, "Receipt audit copies in Drive", "saved by the app when a receipt is saved (the Apps Script needs the RECEIPTS_FOLDER_ID property). Google Sheets are not written any more."));
   out.push(e.TELEGRAM_BOT_TOKEN && (e.TELEGRAM_DOCS_CHAT_ID || e.TELEGRAM_CHAT_ID) ? ok(A, "Telegram", e.TELEGRAM_DOCS_CHAT_ID ? "a separate chat for the documents team" : "the main chat") : warn(A, "Telegram", "not configured: no scan, approval or handoff messages will be sent"));
   return out;
 }
