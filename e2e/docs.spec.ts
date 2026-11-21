@@ -445,3 +445,34 @@ test("Sales and transfers: the stages filter the list, what is flagged waits for
   await db.from("car_transfers").delete().like("plate_no", "ZZT95%");
   await docs.close(); await sales.close();
 });
+
+test("A sold list row without a plate waits in the Data check; typing the plate makes it a sale", async ({ browser }) => {
+  test.setTimeout(120_000);
+  const db = adminClient() as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+  await db.from("docs_review_items").delete().eq("payload->>rowKey", "sold|ZZT|1");
+  await db.from("car_transfers").delete().like("plate_no", "ZZT96%");
+  const payload = {
+    rowKey: "sold|ZZT|1", keyParts: { tab: "transfer tab", date: "2026-04-01", buyer: "ZZTE2EBUYER" }, fillUnit: {},
+    fields: { buyer: "ZZT E2E BUYER", sales: "DAVID", sold_on: "2026-04-01", agreed_price: 700000, route: "mad", stage: "released", is_reference: false, flags: ["plate: a date was typed where the plate goes."], car_text: "2025 BYD SHARK 6", source: "import" },
+  };
+  const ins = await db.from("docs_review_items").insert({ kind: "sold_no_plate", plate_no: null, message: "Sold list, transfer tab, row 1: the plate \"4744-11-01\" cannot be used. ZZT E2E BUYER bought 2025 BYD SHARK 6.", source_row: 1, payload });
+  expect(ins.error).toBeNull();
+
+  const docs = await as(browser, "docs");
+  await docs.goto("/data-check?tab=move");
+  const item = docs.locator("li", { hasText: "ZZT E2E BUYER bought 2025 BYD SHARK 6" });
+  await expect(item).toBeVisible({ timeout: 30_000 });
+  await expect(item).toContainText("Sold row without a plate");
+  await item.getByLabel("Plate number of the sale").fill("zzt 9601");
+  await item.getByRole("button", { name: "Record the sale" }).click();
+  await expect.poll(async () => (await db.from("car_transfers").select("plate_no, buyer, stage, source_key, flags").eq("plate_no", "ZZT9601")).data?.length, { timeout: 20_000 }).toBe(1);
+  const t = (await db.from("car_transfers").select("plate_no, buyer, stage, agreed_price, source_key, flags, unit_id").eq("plate_no", "ZZT9601").single()).data;
+  expect([t.buyer, t.stage, Number(t.agreed_price), t.unit_id]).toEqual(["ZZT E2E BUYER", "released", 700000, null]); // MAD has no such car: the sale keeps the car as the sheet described it
+  expect(t.source_key).toBe("ft|ZZT9601|2026-04-01|ZZTE2EBUYER");
+  expect(t.flags.join(" ")).toContain("typed by a person");
+  expect(t.flags.join(" ")).not.toContain("a date was typed");
+  expect((await db.from("docs_review_items").select("status").eq("payload->>rowKey", "sold|ZZT|1").single()).data.status).toBe("resolved");
+  await db.from("docs_review_items").delete().eq("payload->>rowKey", "sold|ZZT|1");
+  await db.from("car_transfers").delete().like("plate_no", "ZZT96%");
+  await docs.close();
+});
