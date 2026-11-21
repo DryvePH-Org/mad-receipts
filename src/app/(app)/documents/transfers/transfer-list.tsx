@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useId, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CircleAlert, Loader2, Plus, Search } from "lucide-react";
@@ -33,19 +33,20 @@ const FIELDS: TextField[] = [
 ];
 
 function Form({ value, onSave, label }: { value: TransferInput; onSave: (v: TransferInput) => Promise<{ ok: true } | { ok: false; error: string }>; label: string }) {
+  const uid = useId(); // each form has its own ids: the list holds many forms and a label must find its own box
   const [v, setV] = useState(value);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, start] = useTransition();
   return (
     <form className="grid gap-3 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); setMsg(null); start(async () => { const r = await onSave(v); setMsg(r.ok ? { ok: true, text: "Saved." } : { ok: false, text: r.error }); if (r.ok && label === "Add") setV(blank); }); }}>
-      <div className="space-y-1.5"><Label htmlFor="tf-stage">Stage</Label>
-        <NativeSelect id="tf-stage" value={v.stage} onChange={(e) => setV({ ...v, stage: e.target.value as TransferStage })}>{STAGES.map((s) => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}</NativeSelect></div>
-      <div className="space-y-1.5"><Label htmlFor="tf-route">Who does the transfer</Label>
-        <NativeSelect id="tf-route" value={v.route} onChange={(e) => setV({ ...v, route: e.target.value as Route })}>{(Object.keys(ROUTE_LABEL) as Route[]).map((r) => <option key={r} value={r}>{ROUTE_LABEL[r]}</option>)}</NativeSelect></div>
+      <div className="space-y-1.5"><Label htmlFor={`${uid}-stage`}>Stage</Label>
+        <NativeSelect id={`${uid}-stage`} value={v.stage} onChange={(e) => setV({ ...v, stage: e.target.value as TransferStage })}>{STAGES.map((s) => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}</NativeSelect></div>
+      <div className="space-y-1.5"><Label htmlFor={`${uid}-route`}>Who does the transfer</Label>
+        <NativeSelect id={`${uid}-route`} value={v.route} onChange={(e) => setV({ ...v, route: e.target.value as Route })}>{(Object.keys(ROUTE_LABEL) as Route[]).map((r) => <option key={r} value={r}>{ROUTE_LABEL[r]}</option>)}</NativeSelect></div>
       {FIELDS.map((f) => (
         <div key={f.key} className={`space-y-1.5 ${f.wide ? "sm:col-span-2" : ""}`}>
-          <Label htmlFor={`tf-${f.key}`}>{f.label}</Label>
-          <Input id={`tf-${f.key}`} type={f.type ?? "text"} value={v[f.key]} onChange={(e) => setV({ ...v, [f.key]: e.target.value })} />
+          <Label htmlFor={`${uid}-${f.key}`}>{f.label}</Label>
+          <Input id={`${uid}-${f.key}`} type={f.type ?? "text"} value={v[f.key]} onChange={(e) => setV({ ...v, [f.key]: e.target.value })} />
         </div>
       ))}
       <div className="flex items-center gap-3 sm:col-span-2">
