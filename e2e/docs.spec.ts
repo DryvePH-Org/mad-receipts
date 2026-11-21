@@ -388,3 +388,58 @@ test("an Admin deletes a whole transaction: only after typing the deal number, a
   made.pop(); // already gone
   await admin.close();
 });
+
+test("Sales and transfers: the stages filter the list, what is flagged waits for 'Checked', and a change made here is kept", async ({ browser }) => {
+  test.setTimeout(120_000);
+  const db = adminClient() as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const row = (plate: string, over: Record<string, unknown>) => ({ plate_no: plate, buyer: "ZZT E2E BUYER", sales: "DAVID", source: "import", sold_on: "2026-03-10", agreed_price: 500000, ...over });
+  await db.from("car_transfers").delete().like("plate_no", "ZZT95%");
+  const ins = await db.from("car_transfers").insert([
+    row("ZZT9501", { stage: "in_process", route: "mad", liaison: "JEP", originals_at: "with Jep" }),
+    row("ZZT9502", { stage: "delivered", route: "mad" }),
+    row("ZZT9503", { stage: "unknown", is_reference: true, flags: ["the transfer status is not known (this tab is old): a person checks it"] }),
+    row("ZZT9504", { stage: "released", flags: ["no agreed price"], agreed_price: null }),
+  ]);
+  expect(ins.error).toBeNull();
+
+  const docs = await as(browser, "docs");
+  await docs.goto("/documents/transfers");
+  await expect(docs.getByRole("heading", { name: "Sales and transfers" })).toBeVisible();
+  await docs.getByLabel("Search transfers").fill("ZZT95");
+  // the default list is the work that is open: not delivered and not an old row
+  await expect(docs.getByText("ZZT9501")).toBeVisible();
+  await expect(docs.getByText("ZZT9504")).toBeVisible();
+  await expect(docs.getByText("ZZT9502")).toHaveCount(0);
+  await expect(docs.getByText("ZZT9503")).toHaveCount(0);
+  await docs.getByRole("tab", { name: /^Delivered/ }).click();
+  await expect(docs.getByText("ZZT9502")).toBeVisible();
+  await docs.getByRole("tab", { name: /^Old list/ }).click();
+  await expect(docs.getByText("ZZT9503")).toBeVisible();
+  await docs.getByRole("tab", { name: /^To check/ }).click();
+  await expect(docs.getByText("ZZT9504")).toBeVisible();
+
+  // open the flagged one: it says what to look at; "Checked" clears it and the record is then protected from a later import
+  await docs.getByText("ZZT9504").click();
+  await expect(docs.getByText("no agreed price").first()).toBeVisible();
+  await docs.getByRole("button", { name: "Checked, it is fine" }).click();
+  await expect(docs.getByText("ZZT9504")).toHaveCount(0, { timeout: 20_000 }); // it left "To check"
+  const checked = (await db.from("car_transfers").select("flags, edited_in_app").eq("plate_no", "ZZT9504").single()).data;
+  expect(checked).toEqual({ flags: [], edited_in_app: true });
+
+  // change the stage and the price of the first one
+  await docs.getByRole("tab", { name: /^Not delivered/ }).click();
+  await docs.getByText("ZZT9501").click();
+  await docs.getByLabel("Stage").selectOption("transferred");
+  await docs.getByLabel("Agreed price (₱)").fill("₱ 650,000");
+  await docs.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(docs.getByText("Saved.")).toBeVisible({ timeout: 20_000 });
+  const saved = (await db.from("car_transfers").select("stage, agreed_price, edited_in_app").eq("plate_no", "ZZT9501").single()).data;
+  expect([saved.stage, Number(saved.agreed_price), saved.edited_in_app]).toEqual(["transferred", 650000, true]);
+
+  // Sales have no access to the buyers' details
+  const sales = await as(browser, "sales");
+  await sales.goto("/documents/transfers");
+  await expect(sales.getByText("You don't have access to this page.")).toBeVisible();
+  await db.from("car_transfers").delete().like("plate_no", "ZZT95%");
+  await docs.close(); await sales.close();
+});

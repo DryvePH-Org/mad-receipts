@@ -1,20 +1,24 @@
 import "server-only";
 import { docsDb } from "@/lib/docsbible/review-server";
-import { transferColumns, type Transfer, type TransferInput } from "./model";
+import { transferColumns, type Route, type Transfer, type TransferInput, type TransferStage } from "./model";
 
-const COLS = "id, unit_id, plate_no, car_text, particular, financing, buyer, address, contact, cr_date, transaction_date, liaison, sales, balance, note, done_on";
+const COLS = "id, unit_id, plate_no, car_text, particular, financing, buyer, address, contact, cr_date, transaction_date, liaison, sales, balance, note, done_on, sold_on, agreed_price, route, stage, liaison_status, originals_at, next_step, chassis_no, engine_no, is_reference, flags, plate_original";
 
 const rowOf = (r: Record<string, unknown>): Transfer => ({
   id: r.id as string, unitId: (r.unit_id as string | null) ?? null, plate: r.plate_no as string, carText: (r.car_text as string | null) ?? null, particular: (r.particular as string | null) ?? null,
   financing: (r.financing as string | null) ?? null, buyer: (r.buyer as string | null) ?? null, address: (r.address as string | null) ?? null, contact: (r.contact as string | null) ?? null,
   crDate: (r.cr_date as string | null) ?? null, transactionDate: (r.transaction_date as string | null) ?? null, liaison: (r.liaison as string | null) ?? null, sales: (r.sales as string | null) ?? null,
   balance: (r.balance as string | null) ?? null, note: (r.note as string | null) ?? null, doneOn: (r.done_on as string | null) ?? null,
+  soldOn: (r.sold_on as string | null) ?? null, agreedPrice: r.agreed_price === null || r.agreed_price === undefined ? null : Number(r.agreed_price), route: ((r.route as Route | null) ?? "unknown"),
+  stage: ((r.stage as TransferStage | null) ?? "in_process"), liaisonStatus: (r.liaison_status as string | null) ?? null, originalsAt: (r.originals_at as string | null) ?? null,
+  nextStep: (r.next_step as string | null) ?? null, chassisNo: (r.chassis_no as string | null) ?? null, engineNo: (r.engine_no as string | null) ?? null,
+  isReference: !!r.is_reference, flags: (r.flags as string[] | null) ?? [], plateOriginal: (r.plate_original as string | null) ?? null,
 });
 
-/** Every transfer (newest CR date first), with the car's description where the car has a record. Empty when migration 41 is not applied yet. */
+/** Every transfer (newest sale first), with the car's description where the car has a record. Empty when migration 41 is not applied yet. */
 export async function loadTransfers(plate?: string): Promise<{ transfers: Transfer[]; cars: Map<string, string> }> {
   const db = docsDb();
-  let q = db.from("car_transfers").select(COLS).order("cr_date", { ascending: false, nullsFirst: false }).limit(2000);
+  let q = db.from("car_transfers").select(COLS).order("sold_on", { ascending: false, nullsFirst: false }).order("cr_date", { ascending: false, nullsFirst: false }).limit(3000);
   if (plate) q = q.eq("plate_no", plate);
   const { data, error } = await q;
   if (error) return { transfers: [], cars: new Map() };
@@ -26,7 +30,14 @@ export async function loadTransfers(plate?: string): Promise<{ transfers: Transf
 }
 
 export async function saveTransfer(id: string, input: TransferInput, actor: string): Promise<string | null> {
-  const { error } = await docsDb().from("car_transfers").update({ ...transferColumns(input), updated_by: actor, updated_at: new Date().toISOString() }).eq("id", id);
+  // once a person changed a record here, a later import of the sold list never overwrites it
+  const { error } = await docsDb().from("car_transfers").update({ ...transferColumns(input), edited_in_app: true, updated_by: actor, updated_at: new Date().toISOString() }).eq("id", id);
+  return error ? error.message : null;
+}
+
+/** "Checked": a person looked at what was flagged on this record. */
+export async function markChecked(id: string, actor: string): Promise<string | null> {
+  const { error } = await docsDb().from("car_transfers").update({ flags: [], edited_in_app: true, updated_by: actor, updated_at: new Date().toISOString() }).eq("id", id);
   return error ? error.message : null;
 }
 
