@@ -18,6 +18,8 @@ import { formatPeso } from "@/lib/rules/money";
 import { DealAdminActions, PrintReceiptButton } from "./deal-actions";
 import { FileArButton } from "./file-ar-button";
 import { DeleteDeal } from "./delete-deal";
+import { salesOfDeal } from "@/lib/transfers/server";
+import { STAGE_LABEL, type TransferStage } from "@/lib/transfers/model";
 
 export default function DealPage({ params }: PageProps<"/deals/[id]">) {
   return <Suspense fallback={<PageSkeleton />}><Content params={params} /></Suspense>;
@@ -40,6 +42,7 @@ async function Content({ params }: { params: PageProps<"/deals/[id]">["params"] 
   const ledger = buildLedger(t, { units: deal.units.length, institution: deal.institution ?? "", tradeInText: tradeText, payRows: [], payoutProofs: 0, lieuUntilText: deal.lieuUntil ? formatDate(deal.lieuUntil) : "" });
   const pct = t.due > 0 ? Math.max(0, Math.min(100, Math.round(((deal.openingPaid + deal.approvedPaid) / t.due) * 100))) : 100;
   const isAdmin = user.role === "admin";
+  const sales = user.role === "admin" || user.role === "approver" || user.role === "documentation" ? await salesOfDeal(deal.id) : [];
   const invStatus = deal.status === "cancelled" ? "Available" : status === "settled" ? "Sold" : "Reserved";
 
   return (
@@ -98,6 +101,7 @@ async function Content({ params }: { params: PageProps<"/deals/[id]">["params"] 
                 ["Due", deal.balance > 0 && deal.status !== "cancelled" ? (deal.dueDate ? `${formatDate(deal.dueDate)} (${relativeDay(deal.dueDate, today)})` : (deal.dueText ?? "No date")) : "—"],
                 ["Sale", deal.saleType === "financing" ? "Financing" : "Cash"], ["Salesperson", deal.createdByName],
               ]} />
+              {sales.length > 0 && <p className="text-sm text-muted-foreground">Transfer: {sales.map((x, n) => <span key={x.plate}>{n > 0 && ", "}<Link href={`/documents/${x.plate}#transfer`} className="underline underline-offset-2">{x.plate}: {STAGE_LABEL[x.stage as TransferStage] ?? x.stage}</Link></span>)}</p>}
               {deal.status === "cancelled" && <p className="text-sm text-muted-foreground">Cancelled {deal.cancelledAt ? formatDate(deal.cancelledAt.slice(0, 10)) : ""}: {deal.cancelReason} Refunded {formatPeso(deal.refund)}.</p>}
             </CardContent>
           </Card>

@@ -3,7 +3,7 @@
 import { STAGE_LABEL, type TransferStage } from "@/lib/sold/parse";
 
 export { STAGE_LABEL, type TransferStage };
-export const STAGES: TransferStage[] = ["in_process", "transferred", "released", "delivered", "unknown"];
+export const STAGES: TransferStage[] = ["in_process", "transferred", "released", "delivered", "unknown", "cancelled"];
 export type Route = "mad" | "client" | "unknown";
 export const ROUTE_LABEL: Record<Route, string> = { mad: "MAD does the transfer", client: "The client does it", unknown: "Not known" };
 
@@ -12,6 +12,7 @@ export interface Transfer {
   contact: string | null; crDate: string | null; transactionDate: string | null; liaison: string | null; sales: string | null; balance: string | null; note: string | null; doneOn: string | null;
   soldOn: string | null; agreedPrice: number | null; route: Route; stage: TransferStage; liaisonStatus: string | null; originalsAt: string | null; nextStep: string | null;
   chassisNo: string | null; engineNo: string | null; isReference: boolean; flags: string[]; plateOriginal: string | null;
+  dealId: string | null; dealNo: string | null;
 }
 
 export interface TransferInput {
@@ -49,4 +50,4 @@ export function transferState(t: Pick<Transfer, "doneOn" | "crDate"> & { stage?:
 }
 
 /** Work that is still open: not delivered, not finished, and not an old row kept for reference. */
-export const isOpen = (t: Pick<Transfer, "doneOn" | "stage" | "isReference">): boolean => !t.isReference && !t.doneOn && t.stage !== "delivered";
+export const isOpen = (t: Pick<Transfer, "doneOn" | "stage" | "isReference">): boolean => !t.isReference && !t.doneOn && t.stage !== "delivered" && t.stage !== "cancelled";

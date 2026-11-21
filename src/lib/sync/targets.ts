@@ -43,6 +43,8 @@ export interface SyncDeps {
   inventory: InventoryAdapter;
   /** Finds the car's document folder by plate and links it to the deal. */
   docsLink?: (plate: string, dealId: string) => Promise<unknown>;
+  /** Makes (or joins) the sale record of each car of the deal. */
+  saleRecords?: (ctx: SyncContext) => Promise<void>;
   /** Puts the audit copy of the receipt (its printout and proofs) in the receipts folder in Drive. */
   auditCopy?: (ctx: SyncContext) => Promise<void>;
 }
@@ -68,6 +70,7 @@ export const syncTargets: Record<SyncTarget, (ctx: SyncContext, deps: SyncDeps) 
     if (ctx.event !== "submit") return;
     if (!deps.docsLink) throw new Error("The documents folders are not set up");
     for (const unit of ctx.units) await deps.docsLink(unit.plate, ctx.deal.id);
+    if (deps.saleRecords) await deps.saleRecords(ctx);   // and the sale of each car becomes a record of the sale list
   },
 
   // The audit copy: every saved receipt goes to the receipts folder in Drive (its printout and its proofs), once. The copy into the car's own folder is a button.

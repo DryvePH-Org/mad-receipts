@@ -13,7 +13,7 @@ const date = z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/, "Dates are day, month an
 const input = z.object({
   particular: text(60), financing: text(60), buyer: text(120), address: text(200), contact: text(120), crDate: date, transactionDate: date,
   liaison: text(60), sales: text(60), balance: text(60), note: text(400), doneOn: date,
-  soldOn: date, agreedPrice: text(20), route: z.enum(["mad", "client", "unknown"]), stage: z.enum(["in_process", "transferred", "released", "delivered", "unknown"]), originalsAt: text(80), nextStep: text(160),
+  soldOn: date, agreedPrice: text(20), route: z.enum(["mad", "client", "unknown"]), stage: z.enum(["in_process", "transferred", "released", "delivered", "unknown", "cancelled"]), originalsAt: text(80), nextStep: text(160),
 });
 
 export async function saveTransferAction(id: string, raw: z.input<typeof input>): Promise<TransferResult> {

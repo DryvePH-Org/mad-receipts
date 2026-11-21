@@ -8,6 +8,7 @@ import { toCentavos, fromCentavos } from "@/lib/rules/money";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loanReleased, transactionDeleted, voidedOrCancelled } from "@/lib/notify/events";
 import { deleteTransaction } from "@/lib/deal/delete-server";
+import { cancelSaleRecords } from "@/lib/sales/ensure";
 import { processDueJobs } from "@/lib/sync/process";
 
 export type AdminResult = { ok: true } | { ok: false; error: string };
@@ -38,6 +39,7 @@ export async function cancelDeal(dealId: string, reason: string, refundText: str
   const { error } = await createAdminClient().rpc("cancel_deal", { p_actor: user.id, p_deal_id: dealId, p_reason: reason, p_refund: Number(fromCentavos(refund)) });
   if (error) return { ok: false, error: friendlyError(error.message) };
   syncSoon();
+  after(() => cancelSaleRecords(dealId).catch((e) => console.error(`[sales] cancel failed: ${e instanceof Error ? e.message : "unknown"}`)));
   after(() => voidedOrCancelled("cancel", user.id, { dealId, reason }));
   return { ok: true };
 }

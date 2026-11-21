@@ -46,3 +46,21 @@ describe("the review list can hold a sold list row without a plate (migration 46
   });
 });
 
+describe("a sale made in the app (migration 47)", () => {
+  const user = async (role: string, email: string) => {
+    const id = (await db.query<{ id: string }>("insert into auth.users (email) values ($1) returning id", [email])).rows[0].id;
+    await db.query("update public.profiles set role = $2 where id = $1", [id, role]);
+    return id;
+  };
+  it("can be cancelled, and deleting its deal deletes the record the deal made but only unlinks an older one", async () => {
+    const admin = await user("admin", "a47@example.test"), sales = await user("sales", "s47@example.test");
+    const payload = { receipt_no: "D47-1", receipt_date: "2026-11-05", kind: "partial", buyer: { name: "Test Buyer" }, units: [{ make_type: "2023 Toyota Vios", plate: "ZZT 4701" }], price: "500000", sale_type: "cash", due: { mode: "text", text: "soon" }, payments: [{ method: "cash", amount: "100000" }] };
+    const r = (await db.query<{ r: { deal_id: string } }>("select public.submit_receipt($1, $2::jsonb, false) as r", [sales, JSON.stringify(payload)])).rows[0].r;
+    await db.query("insert into public.car_transfers (plate_no, buyer, deal_id, source, source_key, stage) values ('ZZT4701', 'TEST BUYER', $1, 'app', $2, 'cancelled')", [r.deal_id, `deal|${r.deal_id}|ZZT4701`]);   // made by the deal; the stage can be cancelled
+    await db.query("insert into public.car_transfers (plate_no, buyer, deal_id, source, source_key) values ('ZZT4701', 'OLDER BUYER', $1, 'import', 'ft|ZZT4701|2026-01-01|OLDERBUYER')", [r.deal_id]);   // an older record, joined to the deal
+    await db.query("select public.delete_deal($1, $2)", [admin, r.deal_id]);
+    const left = (await db.query<{ buyer: string; deal_id: string | null }>("select buyer, deal_id from public.car_transfers where plate_no = 'ZZT4701'")).rows;
+    expect(left).toEqual([{ buyer: "OLDER BUYER", deal_id: null }]);
+  });
+});
+

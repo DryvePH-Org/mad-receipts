@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { Tables } from "@/lib/supabase/database.types";
 import { createTelegramClient } from "@/lib/telegram";
 import { sheetDate } from "@/lib/inventory/remarks";
+import { ensureSaleRecords } from "@/lib/sales/ensure";
 import { saveAuditCopy } from "./audit-drive";
 import { dealStatusOf, SyncConflict, syncTargets, TARGET_ORDER, unitStatusFor, type ProofBytes, type SyncContext, type SyncDeps, type SyncEvent, type SyncTarget } from "./targets";
 
@@ -30,6 +31,7 @@ export function defaultSyncDeps(): SyncDeps {
     telegram: memo(createTelegramClient), inventory,
     docsLink: (plate, dealId) => linkFolder(plate, dealId),
     auditCopy: saveAuditCopy,
+    saleRecords: ensureSaleRecords,
   };
 }
 

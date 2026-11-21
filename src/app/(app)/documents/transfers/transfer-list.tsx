@@ -21,7 +21,7 @@ const inputOf = (t: Transfer): TransferInput => ({
   route: t.route, stage: t.stage, originalsAt: t.originalsAt ?? "", nextStep: t.nextStep ?? "",
 });
 const day = (iso: string) => new Date(iso).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Manila" });
-const STAGE_TONE: Record<TransferStage, Tone> = { in_process: "blue", transferred: "amber", released: "purple", delivered: "emerald", unknown: "zinc" };
+const STAGE_TONE: Record<TransferStage, Tone> = { in_process: "blue", transferred: "amber", released: "purple", delivered: "emerald", unknown: "zinc", cancelled: "red" };
 
 type TextField = { key: Exclude<keyof TransferInput, "route" | "stage">; label: string; type?: "date"; wide?: boolean };
 const FIELDS: TextField[] = [
@@ -58,7 +58,7 @@ function Form({ value, onSave, label }: { value: TransferInput; onSave: (v: Tran
 }
 
 type Filter = "open" | "all" | TransferStage | "check" | "reference";
-const FILTER_LABEL: [Filter, string][] = [["open", "Not delivered"], ["in_process", "In process"], ["transferred", "Transferred"], ["released", "Released"], ["delivered", "Delivered"], ["check", "To check"], ["reference", "Old list (reference)"], ["all", "All"]];
+const FILTER_LABEL: [Filter, string][] = [["open", "Not delivered"], ["in_process", "In process"], ["transferred", "Transferred"], ["released", "Released"], ["delivered", "Delivered"], ["cancelled", "Cancelled"], ["check", "To check"], ["reference", "Old list (reference)"], ["all", "All"]];
 
 /** The sales and their transfers. Each opens to its fields; Documentation, Approver and Admin edit them. On the car's own page (`plate`) it is just that car's records. */
 export function TransferList({ transfers, cars, today, plate, showCar = true }: { transfers: Transfer[]; cars: Record<string, string>; today: string; plate?: string; showCar?: boolean }) {
@@ -114,6 +114,7 @@ export function TransferList({ transfers, cars, today, plate, showCar = true }: 
                         <Button size="sm" variant="outline" disabled={checking} onClick={() => startCheck(async () => { const r = await markCheckedAction(t.id); if (r.ok) toast.success("Marked as checked."); else toast.error(r.error); router.refresh(); })}>Checked, it is fine</Button>
                       </div>
                     )}
+                    {t.dealId && <p className="text-xs text-muted-foreground">Made in the app: <Link href={`/deals/${t.dealId}`} className="underline underline-offset-2">deal {t.dealNo ?? ""}</Link>. A cancelled deal cancels this record.</p>}
                     {(t.plateOriginal || t.chassisNo || t.engineNo || !t.unitId) && (
                       <p className="text-xs text-muted-foreground">
                         {t.plateOriginal && <>The sheet had the plate as <b>{t.plateOriginal}</b>: it was corrected to match the car. </>}

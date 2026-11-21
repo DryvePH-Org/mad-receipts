@@ -476,3 +476,56 @@ test("A sold list row without a plate waits in the Data check; typing the plate 
   await db.from("car_transfers").delete().like("plate_no", "ZZT96%");
   await docs.close();
 });
+
+test("A saved receipt makes the sale record of its car, or joins the one that is already there", async ({ browser, playwright, baseURL }) => {
+  test.setTimeout(180_000);
+  const db = adminClient() as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+  await db.from("car_transfers").delete().like("plate_no", "ZZT703%");
+  // an older record of the sold list, with the same buyer (will be joined), and one of another buyer on another car (a new record is made)
+  await db.from("car_transfers").insert([
+    { plate_no: "ZZT7031", buyer: "ZZT E2E DOCS BUYER", source: "import", sold_on: null, agreed_price: null, stage: "released", route: "mad", is_reference: false, flags: [], sales: null },
+    { plate_no: "ZZT7032", buyer: "SOMEONE ELSE ENTIRELY", source: "import", sold_on: "2026-02-02", agreed_price: 100000, stage: "delivered", route: "mad", is_reference: false, flags: [], sales: "ELLA" },
+  ]);
+  const a = await makeAr("ZZT 7030"), b = await makeAr("ZZT 7031"), c = await makeAr("ZZT 7032");
+  const cron = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { "x-cron-secret": cronSecret() } });
+  expect((await cron.post("/api/sync/run")).ok()).toBe(true);
+  const recs = async (plate: string) => (await db.from("car_transfers").select("buyer, agreed_price, sold_on, sales, stage, deal_id, source, source_key").eq("plate_no", plate)).data as Record<string, unknown>[];
+
+  // a new car: a new record, from the deal, ready for its transfer
+  await expect.poll(async () => (await recs("ZZT7030")).length, { timeout: 30_000 }).toBe(1);
+  const made = (await recs("ZZT7030"))[0];
+  expect([made.buyer, Number(made.agreed_price), made.stage, made.deal_id, made.source]).toEqual(["ZZT E2E DOCS BUYER", 500000, "in_process", a.deal_id, "app"]);
+  expect(made.source_key).toBe(`deal|${a.deal_id}|ZZT7030`);
+  // the same buyer's older record is joined to the deal, not doubled; what it had stays, what it lacked is filled
+  await expect.poll(async () => (await recs("ZZT7031"))[0]?.deal_id, { timeout: 30_000 }).toBe(b.deal_id);
+  const joined = await recs("ZZT7031");
+  expect(joined).toHaveLength(1);
+  expect([joined[0].stage, Number(joined[0].agreed_price), joined[0].sold_on]).toEqual(["released", 500000, "2026-11-05"]);
+  // another buyer's record stays as it is, and the new sale gets its own
+  await expect.poll(async () => (await recs("ZZT7032")).length, { timeout: 30_000 }).toBe(2);
+  expect((await recs("ZZT7032")).find((r) => !r.deal_id)).toMatchObject({ buyer: "SOMEONE ELSE ENTIRELY", stage: "delivered" });
+  // running the jobs again changes nothing
+  await db.from("sync_jobs").update({ status: "pending", attempts: 0, next_run_at: new Date().toISOString() }).eq("target", "docs").in("receipt_id", made ? (await db.from("receipts").select("id").in("deal_id", [a.deal_id, b.deal_id, c.deal_id])).data.map((x: { id: string }) => x.id) : []);
+  expect((await cron.post("/api/sync/run")).ok()).toBe(true);
+  expect((await recs("ZZT7030")).length + (await recs("ZZT7031")).length + (await recs("ZZT7032")).length).toBe(4);
+
+  // the deal page and the Transfers list show the link both ways
+  const admin = await as(browser, "admin");
+  await admin.goto(`/deals/${a.deal_id}`);
+  await expect(admin.getByRole("link", { name: /ZZT7030: In process/ })).toBeVisible({ timeout: 20_000 });
+  await admin.goto("/documents/transfers");
+  await admin.getByLabel("Search transfers").fill("ZZT7030");
+  await admin.locator("li", { hasText: "ZZT7030" }).getByText("ZZT7030").first().click();
+  await expect(admin.getByText(/Made in the app/)).toBeVisible();
+  // deleting the transaction deletes the record it made
+  await admin.goto(`/deals/${a.deal_id}`);
+  await admin.getByText("Delete this transaction (Admin)").click();
+  const dealNo = (await db.from("deals").select("deal_no").eq("id", a.deal_id).single()).data.deal_no;
+  await admin.getByRole("button", { name: `Delete ${dealNo}` }).click();
+  await admin.getByRole("dialog").getByLabel(`Type ${dealNo}`).fill(dealNo);
+  await admin.getByRole("dialog").getByRole("button", { name: "Yes, delete it" }).click();
+  await admin.waitForURL("**/deals", { timeout: 30_000 });
+  expect(await recs("ZZT7030")).toHaveLength(0);
+  made && (await db.from("car_transfers").delete().like("plate_no", "ZZT703%"));
+  await admin.close();
+});

@@ -48,8 +48,8 @@ export function salesperson(raw: unknown): { name: string | null; problem?: stri
   return SELLERS[t] ? { name: SELLERS[t] } : { name: t, problem: `an unknown sales name "${t}"` };
 }
 
-export type TransferStage = "in_process" | "transferred" | "released" | "delivered" | "unknown";
-export const STAGE_LABEL: Record<TransferStage, string> = { in_process: "In process at LTO", transferred: "Transferred, with MAD", released: "Released (to the buyer or the financing company)", delivered: "Delivered and confirmed", unknown: "Not known: check" };
+export type TransferStage = "in_process" | "transferred" | "released" | "delivered" | "unknown" | "cancelled";
+export const STAGE_LABEL: Record<TransferStage, string> = { in_process: "In process at LTO", transferred: "Transferred, with MAD", released: "Released (to the buyer or the financing company)", delivered: "Delivered and confirmed", unknown: "Not known: check", cancelled: "Cancelled (the deal was cancelled)" };
 
 /**
  * The stage the team kept as the row's color: white = in process, yellow = transferred, red = released, green = delivered.
