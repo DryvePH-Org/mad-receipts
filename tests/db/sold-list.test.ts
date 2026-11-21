@@ -64,3 +64,18 @@ describe("a sale made in the app (migration 47)", () => {
   });
 });
 
+describe("the handoff moves onto the transfer (migration 48)", () => {
+  it("copies a handoff onto the latest sale of the plate, or makes a record, and does not copy twice", async () => {
+    await db.query("insert into public.car_transfers (plate_no, buyer, sold_on, stage) values ('HND1111', 'OLD', '2025-01-01', 'unknown'), ('HND1111', 'NEW', '2026-05-05', 'unknown')");
+    await db.query("insert into public.unit_workflow (plate_no, handoff_at, handoff_note, handoff_checked) values ('HND1111', '2026-06-01T01:00:00Z', 'with the CR', array['or'])");
+    await db.query("insert into public.unit_workflow (plate_no, handoff_at, handoff_returned_at) values ('HND2222', '2026-06-02T01:00:00Z', '2026-06-20T01:00:00Z')");
+    expect((await one<{ n: number }>("select public.move_handoffs_to_transfers() as n")).n).toBe(2);
+    const a = await one<Record<string, unknown>>("select buyer, stage, handoff_note, handoff_checked, back_at from public.car_transfers where plate_no = 'HND1111' and handed_off_at is not null");
+    expect([a.buyer, a.stage, a.handoff_note, a.handoff_checked, a.back_at]).toEqual(["NEW", "in_process", "with the CR", ["or"], null]); // the latest sale, still out
+    const b = await one<Record<string, unknown>>("select stage, source, back_at is not null as back from public.car_transfers where plate_no = 'HND2222'");
+    expect(b).toEqual({ stage: "transferred", source: "app", back: true });                                                                  // no record yet: one is made, and the papers are back
+    expect((await one<{ n: number }>("select public.move_handoffs_to_transfers() as n")).n).toBe(0);
+    expect((await one<{ n: string }>("select count(*)::text as n from public.car_transfers where plate_no = 'HND1111'")).n).toBe("2");
+  });
+});
+

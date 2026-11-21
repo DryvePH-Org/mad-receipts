@@ -222,6 +222,36 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await expect(admin.getByText("Not approved yet").first()).toBeVisible({ timeout: 20_000 });
   await admin.close();
 
+  // the transfer goes on after the papers are back: released (to whom, when), then delivered. They are steps of the car's sale record
+  await docs.reload();
+  await docs.getByRole("button", { name: /^Handed off to/ }).click();
+  await docs.getByRole("dialog").getByRole("button", { name: "Go on anyway" }).click();
+  await expect(docs.getByText(/^Handed off on/).first()).toBeVisible({ timeout: 20_000 });
+  const rec = async () => (await adminClient().from("car_transfers").select("stage, handed_off_at, back_at, released_on, delivered_on, done_on, originals_at, next_step").eq("plate_no", "ZZT7001").neq("stage", "cancelled")).data ?? [];
+  expect((await rec()).length).toBe(1);
+  expect((await rec())[0]).toMatchObject({ stage: "in_process", back_at: null });
+  const list = await as(browser, "docs"); // the list of documents that are out comes from the same record
+  await list.goto("/documents/handoff");
+  await expect(list.getByRole("link", { name: /ZZT.?7001/ }).first()).toBeVisible({ timeout: 20_000 });
+  await list.close();
+  await docs.getByRole("button", { name: "Mark as done: documents are back" }).click();
+  await expect(docs.getByText("The originals are back at MAD.")).toBeVisible({ timeout: 20_000 });
+  expect((await rec())[0]).toMatchObject({ stage: "transferred", originals_at: "on hand at MAD" });
+  await docs.getByLabel("Given to").fill("GDFI");
+  await docs.getByRole("button", { name: "Released", exact: true }).click();
+  await expect(docs.getByText(/^Released on /)).toBeVisible({ timeout: 20_000 });
+  expect((await rec())[0]).toMatchObject({ stage: "released", originals_at: "with GDFI" });
+  await docs.getByRole("button", { name: /Delivered: they have it/ }).click();
+  await expect(docs.getByText(/The transfer is finished/)).toBeVisible({ timeout: 20_000 });
+  expect((await rec())[0]).toMatchObject({ stage: "delivered" });
+  expect((await rec())[0].done_on).toBeTruthy();
+  const boss = await as(browser, "admin");  // an Admin can take the last step back
+  await boss.goto("/documents/ZZT7001");
+  await boss.getByRole("button", { name: "Go back one step" }).click();
+  await boss.getByRole("dialog").getByRole("button", { name: "Yes, go back one step" }).click();
+  await expect.poll(async () => (await rec())[0].stage, { timeout: 20_000 }).toBe("released");
+  await boss.close();
+
   // a car that is not approved cannot be moved (only an Admin may go past that), and it says why
   await docs.goto("/documents/ZZT7002");
   await expect(docs.getByRole("button", { name: "Move to Sold" })).toBeDisabled();

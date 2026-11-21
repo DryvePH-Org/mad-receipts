@@ -8,6 +8,8 @@ import { tell, appUrl } from "@/lib/notify";
 import { loadCar } from "./service";
 import { docsDb } from "@/lib/docsbible/review-server";
 import { spareKeyState } from "@/lib/pricelist/import";
+import { adminChange, carsOut, handoffOf, markBack, sendOut, setChecked, stampReminded } from "@/lib/transfers/handoff";
+import { getSettings } from "@/lib/data";
 import { cleanDetails, EMPTY_DETAILS, missingDetails, type UnitDetails } from "./details";
 
 // What happens after the reading: the details checklist, approval (ready to market), and the Handoff of a sold car's papers.
@@ -42,8 +44,11 @@ export async function loadWorkflow(plate: string, admin: Admin = createAdminClie
   ]);
   // who approved the documents (the name, so the page can say who and when)
   const approver = w?.docs_approved_by ? (await admin.from("profiles").select("full_name").eq("id", w.docs_approved_by).maybeSingle()).data : null;
+  // the handoff is kept on the car's sale/transfer record (migration 48), not in unit_workflow any more
+  const hand = await handoffOf(key).catch(() => null);
+  const handoff = { handoffAt: hand?.handedOffAt ?? null, handoffNote: hand?.note ?? null, handoffChecked: hand?.checked ?? [], handoffReturnedAt: hand?.backAt ?? null };
   return {
-    workflow: w ? { scanNotifiedAt: w.scan_notified_at, soldReadyNotifiedAt: w.sold_ready_notified_at, approvedAt: w.docs_approved_at, approvedByName: approver?.full_name?.trim() || null, marketingNotifiedAt: w.marketing_notified_at, handoffAt: w.handoff_at, handoffNote: w.handoff_note, handoffChecked: w.handoff_checked ?? [], handoffReturnedAt: w.handoff_returned_at } : EMPTY,
+    workflow: { ...(w ? { scanNotifiedAt: w.scan_notified_at, soldReadyNotifiedAt: w.sold_ready_notified_at, approvedAt: w.docs_approved_at, approvedByName: approver?.full_name?.trim() || null, marketingNotifiedAt: w.marketing_notified_at, handoffAt: w.handoff_at, handoffNote: w.handoff_note, handoffChecked: w.handoff_checked ?? [], handoffReturnedAt: w.handoff_returned_at } : EMPTY), ...handoff },
     details: await withDocsSpareKey(key, d ? cleanDetails(d.data) : EMPTY_DETAILS), detailsSaved: !!d,
   };
 }
@@ -131,8 +136,8 @@ export async function afterReading(plate: string, deps: WorkflowDeps = defaultWo
   }
 }
 
-export async function setHandoffChecked(plate: string, keys: string[], deps: Pick<WorkflowDeps, "admin"> = { admin: createAdminClient() }): Promise<void> {
-  await upsertWorkflow(deps.admin, normalizePlate(plate), { handoff_checked: [...new Set(keys.filter((k) => typeof k === "string" && k.length < 60))].slice(0, 40) });
+export async function setHandoffChecked(plate: string, keys: string[], actor: string): Promise<void> {
+  await setChecked(normalizePlate(plate), keys, actor);
 }
 
 /** The staff reviewed the papers of a sold car and handed them over. From now on they are reminded every 3 days until they come back. */
@@ -146,8 +151,8 @@ export async function handoffUnit(plate: string, note: string, actor: string, co
   const unchecked = car.checklist.items.filter((i) => !workflow.handoffChecked.includes(i.key)).map((i) => `Not ticked: ${i.label}`);
   const missing = [...car.checklist.items.filter((i) => !i.present && !i.optional).map((i) => `Missing: ${i.label}`), ...unchecked.filter((u) => !car.checklist.items.some((i) => !i.optional && !i.present && u.endsWith(i.label)))];
   if (missing.length && !confirmIncomplete) return { ok: false, needsConfirm: true, missing };
-  const now = new Date().toISOString();
-  await upsertWorkflow(deps.admin, key, { handoff_at: now, handoff_by: actor, handoff_note: note.trim().slice(0, 300) || null, handoff_returned_at: null, handoff_returned_by: null, handoff_last_reminded_at: now });
+  const receiver = (await getSettings().catch(() => null))?.print.transmittalReceiver ?? "";
+  await sendOut(key, note, workflow.handoffChecked, actor, receiver);
   await log(deps.admin, actor, "docs.handoff", key, { complete: missing.length === 0, missing });
   return { ok: true };
 }
@@ -157,7 +162,7 @@ export async function returnUnit(plate: string, actor: string, deps: Pick<Workfl
   const key = normalizePlate(plate);
   const { workflow } = await loadWorkflow(key, deps.admin);
   if (!workflow.handoffAt || workflow.handoffReturnedAt) return { ok: false, error: "These documents are not out on handoff." };
-  await upsertWorkflow(deps.admin, key, { handoff_returned_at: new Date().toISOString(), handoff_returned_by: actor });
+  await markBack(key, actor);
   await log(deps.admin, actor, "docs.handoff_returned", key, {});
   return { ok: true };
 }
@@ -167,7 +172,7 @@ export async function returnUnit(plate: string, actor: string, deps: Pick<Workfl
  * "handoff-edit" changes the note and the ticks of a handoff; "handoff-reopen" says the papers are not back after all; "handoff-undo" takes the handoff back.
  * Nothing is deleted: the handoff history of the register keeps what was recorded, and every change is logged with who made it.
  */
-export type AdminFix = { kind: "approval" } | { kind: "handoff-edit"; note: string; checked: string[] } | { kind: "handoff-reopen" } | { kind: "handoff-undo" };
+export type AdminFix = { kind: "approval" } | { kind: "handoff-edit"; note: string; checked: string[] } | { kind: "handoff-reopen" } | { kind: "handoff-undo" } | { kind: "step-back" };
 export async function adminFix(plate: string, fix: AdminFix, actor: string, deps: Pick<WorkflowDeps, "admin"> = { admin: createAdminClient() }): Promise<StepResult> {
   const key = normalizePlate(plate);
   const { workflow } = await loadWorkflow(key, deps.admin);
@@ -176,18 +181,11 @@ export async function adminFix(plate: string, fix: AdminFix, actor: string, deps
       if (!workflow.approvedAt) return { ok: false, error: "These documents are not approved." };
       await upsertWorkflow(deps.admin, key, { docs_approved_at: null, docs_approved_by: null, marketing_notified_at: null });
       break;
-    case "handoff-edit":
-      if (!workflow.handoffAt) return { ok: false, error: "These documents were not handed off." };
-      await upsertWorkflow(deps.admin, key, { handoff_note: fix.note.trim().slice(0, 300) || null, handoff_checked: [...new Set(fix.checked.filter((k) => typeof k === "string" && k.length < 60))].slice(0, 40) });
+    case "handoff-edit": case "handoff-reopen": case "handoff-undo": case "step-back": {
+      const r = await adminChange(key, fix.kind === "handoff-edit" ? { kind: "edit", note: fix.note, checked: fix.checked } : fix.kind === "handoff-reopen" ? { kind: "reopen" } : fix.kind === "handoff-undo" ? { kind: "undo" } : { kind: "step-back" }, actor);
+      if (!r.ok) return r;
       break;
-    case "handoff-reopen":
-      if (!workflow.handoffAt || !workflow.handoffReturnedAt) return { ok: false, error: "These documents are not marked as back." };
-      await upsertWorkflow(deps.admin, key, { handoff_returned_at: null, handoff_returned_by: null, handoff_last_reminded_at: new Date().toISOString() });
-      break;
-    case "handoff-undo":
-      if (!workflow.handoffAt) return { ok: false, error: "These documents were not handed off." };
-      await upsertWorkflow(deps.admin, key, { handoff_at: null, handoff_by: null, handoff_note: null, handoff_last_reminded_at: null, handoff_returned_at: null, handoff_returned_by: null });
-      break;
+    }
   }
   await log(deps.admin, actor, `docs.admin_${fix.kind.replace("-", "_")}`, key, fix.kind === "handoff-edit" ? { note: fix.note, checked: fix.checked } : {});
   return { ok: true };
@@ -201,22 +199,22 @@ export function buildHandoffReminder(rows: HandoffRow[], today: string, to: stri
   if (!rows.length) return null;
   const days = (iso: string) => Math.max(0, Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${iso.slice(0, 10)}T00:00:00Z`)) / 86_400_000));
   const lines = rows.slice(0, 40).map((r) => `• ${r.name} · handed off ${formatDate(r.since.slice(0, 10))} (${days(r.since)} days)`);
-  return [`📋 Documents still with ${to}`, "Not yet returned. Press “Mark as done” in the app once they are back.", lines.join("\n"), rows.length > 40 ? `…and ${rows.length - 40} more.` : ""].filter(Boolean).join("\n\n");
+  return [`📋 Documents still with ${to}`, "Not yet returned. Press “Mark as done” in the app once they are back at MAD.", lines.join("\n"), rows.length > 40 ? `…and ${rows.length - 40} more.` : ""].filter(Boolean).join("\n\n");
 }
 
 /** Run once a day: one message listing every handed-off car whose last reminder (or handoff) was 3 or more days ago. */
 export async function runHandoffReminders(to: string, deps: WorkflowDeps = defaultWorkflowDeps(), now = new Date()): Promise<{ sent: boolean; cars: number }> {
   const cutoff = new Date(now.getTime() - HANDOFF_EVERY_DAYS * 86_400_000 + 3_600_000).toISOString(); // an hour of slack so a daily run does not slip a day
-  const { data } = await deps.admin.from("unit_workflow").select("plate_no, handoff_at, handoff_last_reminded_at").not("handoff_at", "is", null).is("handoff_returned_at", null).limit(500);
-  const due = (data ?? []).filter((r) => (r.handoff_last_reminded_at ?? r.handoff_at!) <= cutoff);
+  const out = await carsOut();
+  const due = out.filter((h) => (h.lastRemindedAt ?? h.handedOffAt!) <= cutoff);
   if (!due.length) return { sent: false, cars: 0 };
-  const { data: folders } = await deps.admin.from("unit_folders").select("plate_no, plate_display, folder_name").in("plate_no", due.map((d) => d.plate_no));
+  const { data: folders } = await deps.admin.from("unit_folders").select("plate_no, plate_display, folder_name").in("plate_no", due.map((d) => d.plate));
   const nameOf = new Map((folders ?? []).map((f) => [f.plate_no, f.folder_name ?? f.plate_display]));
-  const message = buildHandoffReminder(due.map((d) => ({ plate: d.plate_no, name: nameOf.get(d.plate_no) ?? d.plate_no, since: d.handoff_at! })).sort((a, b) => a.since.localeCompare(b.since)), manilaToday(), to);
+  const message = buildHandoffReminder(due.map((d) => ({ plate: d.plate, name: nameOf.get(d.plate) ?? d.plate, since: d.handedOffAt! })).sort((a, b) => a.since.localeCompare(b.since)), manilaToday(), to);
   if (!message) return { sent: false, cars: 0 };
   await deps.notify(message);
   await tell({ category: "handoff_reminder", dedupe: `handoff:${manilaToday()}`, text: message });
   const stamp = now.toISOString();
-  await deps.admin.from("unit_workflow").update({ handoff_last_reminded_at: stamp }).in("plate_no", due.map((d) => d.plate_no));
+  await stampReminded(due.map((d) => d.transferId), stamp);
   return { sent: true, cars: due.length };
 }

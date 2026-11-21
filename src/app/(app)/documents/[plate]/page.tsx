@@ -11,6 +11,7 @@ import { cleanDetails, missingDetails } from "@/lib/docs/details";
 import { deriveStage } from "@/lib/docs/stage";
 import { loadStageInput } from "@/lib/docs/stage-server";
 import { loadWorkflow } from "@/lib/docs/workflow";
+import { handoffOf } from "@/lib/transfers/handoff";
 import { workLabel } from "@/lib/grokbot/labels";
 import { workForPlate } from "@/lib/grokbot/store";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -66,6 +67,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
   const orRow = await docsDb().from("docs_units_current").select("renewal").eq("plate_no", key).maybeSingle();
   const orDate = orRow.data?.renewal ? parseSheetDate(String(orRow.data.renewal)) : null; // the typed date, read the same way the database reads it
   const transfers = user.role === "admin" || user.role === "approver" || user.role === "documentation" ? await loadTransfers(key) : null;
+  const hand = await handoffOf(key).catch(() => null); // the steps of the transfer are kept on the car's sale record
   const [register, receipts] = await Promise.all([loadRegisterRow(key).catch(() => null), canUpload ? listCarReceipts(key).catch(() => []) : Promise.resolve([])]);
 
   const recipient = settings.print.transmittalReceiver || "the receiver";
@@ -116,7 +118,7 @@ async function Content({ params }: { params: PageProps<"/documents/[plate]">["pa
             {canUpload && <SoldUploadCard plate={key} items={soldItems} deal={data.deal ? { dealNo: data.deal.dealNo, buyerName: data.deal.buyerName } : null} />}
             {canUpload && receipts.length > 0 && <ReceiptsCard plate={key} receipts={receipts} />}
             {canAct && <SoldCard plate={key} location={data.location} items={[...arCopy.map(({ key: k, label, present }) => ({ key: k, label, present })), ...soldItems]} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />}
-            {canAct && <HandoffCard isAdmin={data.isAdmin} rules={stage.rules} data={{ plate: key, location: data.location, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, items: [...items, ...arCopy].map((i) => ({ key: i.key, label: i.label, present: i.present, optional: i.optional })) }} />}
+            {canAct && <HandoffCard isAdmin={data.isAdmin} rules={stage.rules} data={{ plate: key, location: data.location, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, releasedOn: hand?.releasedOn ?? null, deliveredOn: hand?.deliveredOn ?? null, items: [...items, ...arCopy].map((i) => ({ key: i.key, label: i.label, present: i.present, optional: i.optional })) }} />}
             {transfers && <Card id="transfer"><CardHeader><CardTitle>Transfer to the buyer</CardTitle></CardHeader><CardContent><TransferList transfers={transfers.transfers} cars={Object.fromEntries(transfers.cars)} today={manilaToday()} plate={key} showCar={false} /></CardContent></Card>}
           </aside>
             <div className="xl:col-start-1"><AboutCard plate={key} details={flow.details} missing={missingDetails(flow.details)} readOnly={!canAct} confirmEdits={data.isAdmin && data.location === "sold"} /></div>

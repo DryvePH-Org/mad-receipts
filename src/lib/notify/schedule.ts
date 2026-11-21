@@ -12,6 +12,7 @@ import { digestText, weeklyText, type DigestItem } from "./digests";
 import { appUrl, flushOutbox, notify } from "./index";
 import { notifyDb } from "./store";
 import { isQuiet } from "./quiet";
+import { carsOut } from "@/lib/transfers/handoff";
 
 const manila = (now: Date) => new Date(now.getTime() + 8 * 3_600_000);
 
@@ -115,7 +116,7 @@ async function weekly(now: Date, today: string) {
     admin.from("receipts").select("id", { count: "exact", head: true }).eq("status", "approved").gte("created_at", since),
     allReminders(),
     db.from("docs_review_items").select("id", { count: "exact", head: true }).eq("status", "open"),
-    admin.from("unit_workflow").select("plate_no", { count: "exact", head: true }).not("handoff_at", "is", null).is("handoff_returned_at", null),
+    carsOut().then((l) => ({ count: l.length })),
     admin.from("folder_files").select("plate_no", { count: "exact", head: true }).eq("read_status", "pending"),
   ]);
   const overdue = list.filter((n) => n.key.startsWith("od-"));

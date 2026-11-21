@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { handoffMap, type HandoffInfo } from "@/lib/transfers/handoff";
 
 export type DocsTone = "zinc" | "blue" | "amber" | "emerald" | "purple";
 export interface DocsSummary { label: string; tone: DocsTone; case: string | null }
@@ -11,13 +12,14 @@ export async function loadDocsSummaries(admin = createAdminClient()): Promise<Ma
     admin.from("unit_workflow").select("plate_no, docs_approved_at, handoff_at, handoff_returned_at").limit(5000),
   ]);
   const flow = new Map((flows ?? []).map((f) => [f.plate_no, f]));
+  const hand = await handoffMap().catch(() => new Map<string, HandoffInfo>()); // the handoff is kept on the car's sale/transfer record
   const out = new Map<string, DocsSummary>();
   for (const f of folders ?? []) {
-    const w = flow.get(f.plate_no);
+    const w = flow.get(f.plate_no), h = hand.get(f.plate_no);
     const caseLabel = f.case_source === "manual" ? f.case_type : null;
     let s: Omit<DocsSummary, "case">;
-    if (w?.handoff_returned_at) s = { label: "Papers done", tone: "emerald" };
-    else if (w?.handoff_at) s = { label: "With the processor", tone: "purple" };
+    if (h?.backAt) s = { label: "Papers done", tone: "emerald" };
+    else if (h?.handedOffAt) s = { label: "With the processor", tone: "purple" };
     else if (f.location === "sold") s = { label: "In Sold, handoff next", tone: "blue" };
     else if (w?.docs_approved_at) s = { label: "Documents approved", tone: "emerald" };
     else if (f.match_status !== "linked" || !f.folder_id) s = { label: "Folder not linked", tone: "zinc" };

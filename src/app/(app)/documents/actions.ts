@@ -15,6 +15,7 @@ import { unitForFolder } from "@/lib/docsbible/unit-lookup";
 import { removeUnit } from "@/lib/docsbible/remove-unit-server";
 import { addUnit, unitStatus, type AddUnitResult, type UnitStatus } from "@/lib/docsbible/add-unit-server";
 import { markRegisterSold, recordHandoff, setRegisterClassification, syncRegister } from "@/lib/docsbible/sync";
+import { releaseTransfer, deliverTransfer } from "@/lib/transfers/steps-server";
 import { adminFix, afterReading, approveUnit, handoffUnit, returnUnit, saveDetails, setHandoffChecked, type StepResult } from "@/lib/docs/workflow";
 import { normalizePlate } from "@/lib/rules/plate";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -243,11 +244,11 @@ export async function approveUnitAction(plate: string, confirmIncomplete: boolea
 }
 
 export async function setHandoffCheckedAction(plate: string, keys: string[]): Promise<Done> {
-  await requireModule("documents");
+  const user = await requireModule("documents");
   const p = plateSchema.safeParse(plate);
   if (!p.success || !Array.isArray(keys)) return { ok: false, message: "Bad request." };
   return guard<Done>(async () => {
-    await setHandoffChecked(p.data, keys);
+    await setHandoffChecked(p.data, keys, user.id);
     revalidatePath(`/documents/${normalizePlate(p.data)}`);
     return { ok: true as const, message: "Saved." };
   }, (message) => ({ ok: false as const, message }));
@@ -387,7 +388,7 @@ export async function removeUnitAction(plate: string): Promise<Done> {
 }
 
 const fixSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("approval") }), z.object({ kind: z.literal("handoff-reopen") }), z.object({ kind: z.literal("handoff-undo") }),
+  z.object({ kind: z.literal("approval") }), z.object({ kind: z.literal("handoff-reopen") }), z.object({ kind: z.literal("handoff-undo") }), z.object({ kind: z.literal("step-back") }),
   z.object({ kind: z.literal("handoff-edit"), note: z.string().max(300), checked: z.array(z.string().max(60)).max(40) }),
 ]);
 
@@ -400,6 +401,32 @@ export async function adminFixAction(plate: string, fix: unknown): Promise<Done>
     const r = await adminFix(p.data, f.data, user.id);
     if (!r.ok) return { ok: false as const, message: "error" in r ? r.error : "Could not do that." };
     revalidatePath("/documents", "layout");
-    return { ok: true as const, message: { approval: "The approval was withdrawn. Approve again when the documents are right.", "handoff-edit": "The handoff was updated.", "handoff-reopen": "Marked as not back yet. The reminders start again.", "handoff-undo": "The handoff was taken back." }[f.data.kind] };
+    return { ok: true as const, message: { approval: "The approval was withdrawn. Approve again when the documents are right.", "handoff-edit": "The handoff was updated.", "step-back": "The transfer went back one step.", "handoff-reopen": "Marked as not back yet. The reminders start again.", "handoff-undo": "The handoff was taken back." }[f.data.kind] };
+  }, (message) => ({ ok: false as const, message }));
+}
+
+const dayText = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a date.");
+
+/** The originals are given to the buyer or to the financing company. Documentation and Admin. */
+export async function releaseTransferAction(plate: string, to: string, on: string): Promise<Done> {
+  const user = await requireModule("documents");
+  const p = plateSchema.safeParse(plate), d = dayText.safeParse(on), who = z.string().max(70).safeParse(to);
+  if (!p.success || !d.success || !who.success) return { ok: false, message: d.success ? "Bad request." : "Choose a date." };
+  return guard<Done>(async () => {
+    await releaseTransfer(p.data, who.data, d.data, user.id);
+    revalidatePath("/documents", "layout");
+    return { ok: true as const, message: "Marked as released." };
+  }, (message) => ({ ok: false as const, message }));
+}
+
+/** The buyer or the bank confirmed they have the originals: the transfer is finished. */
+export async function deliverTransferAction(plate: string, on: string): Promise<Done> {
+  const user = await requireModule("documents");
+  const p = plateSchema.safeParse(plate), d = dayText.safeParse(on);
+  if (!p.success || !d.success) return { ok: false, message: "Choose a date." };
+  return guard<Done>(async () => {
+    await deliverTransfer(p.data, d.data, user.id);
+    revalidatePath("/documents", "layout");
+    return { ok: true as const, message: "Marked as delivered. The transfer is finished." };
   }, (message) => ({ ok: false as const, message }));
 }
