@@ -6,6 +6,8 @@ import { stageFor, stepBack, type StepDates } from "./steps";
 // The documents handoff, kept on the sale/transfer record of the car (migration 48) instead of a second tracker. The car's current record is the one
 // that has the latest handoff, otherwise its latest sale that is not cancelled.
 
+/** A record made only because papers were handed off for a car that has no sale record yet. */
+export const NO_SALE_DETAILS = "No sale details yet (buyer, price, sold date, salesperson): add them.";
 const COLS = "id, plate_no, stage, sold_on, created_at, handed_off_at, handoff_note, handoff_checked, back_at, released_on, delivered_on, last_reminded_at";
 type Row = { id: string; plate_no: string; stage: string; sold_on: string | null; created_at: string; handed_off_at: string | null; handoff_note: string | null; handoff_checked: string[] | null; back_at: string | null; released_on: string | null; delivered_on: string | null; last_reminded_at: string | null };
 
@@ -49,7 +51,7 @@ async function target(plate: string, actor: string): Promise<Row> {
   if (have) return have;
   const db = docsDb();
   const { data: unit } = await db.from("docs_units").select("id").eq("plate_no", key).is("archived_at", null).order("arrival_date", { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
-  const { data, error } = await db.from("car_transfers").insert({ plate_no: key, unit_id: unit?.id ?? null, source: "app", stage: "in_process", created_by: actor, updated_by: actor }).select(COLS).single();
+  const { data, error } = await db.from("car_transfers").insert({ plate_no: key, unit_id: unit?.id ?? null, source: "app", stage: "in_process", flags: [NO_SALE_DETAILS], created_by: actor, updated_by: actor }).select(COLS).single();
   if (error || !data) throw new Error(`The transfer record could not be made: ${error?.message ?? "unknown"}`);
   return data as Row;
 }
