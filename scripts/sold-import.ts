@@ -131,14 +131,13 @@ async function main() {
   console.log(` price:        filled ${plans.filter((p) => p.sale.price).length}, missing ${plans.filter((p) => !p.sale.price).length}`);
   console.log(` a plate sold more than once (kept as separate sales):`, dupPlates.map(([p, n]) => `${p} ×${n}`).join(", ") || "none");
   console.log(` transfers already in MAD that these merge into: ${plans.filter((p) => p.transfer.merges_existing).length}`);
-  const fills = ft.flatMap((p) => Object.keys(p.fill)); const fixes = ft.flatMap((p) => Object.keys(p.fix));
+  const fills = ft.flatMap((p) => Object.keys(p.fill));
   console.log(`\nWHAT IS FILLED INTO CARS MAD ALREADY HAS (only where MAD is empty): `, by(fills.map((f) => ({ f })), (x) => x.f));
   console.log(`WHAT IS FIXED (MAD is wrong and the sheet proves it): ${ft.filter((p) => p.fix.reg_owner_name).length} car(s) with the owner and the CR office swapped`);
   console.log(`\nNEW CARS TO CREATE as "Sold, not on the sale list": ${plans.filter((p) => p.car === "new car").length}`);
   console.log(`WAITING FOR A DECISION (plate almost like a MAD car):`);
   for (const p of plans.filter((x) => x.car === "decide")) { const u = unitOf.get(p.near!); const row = p.source === "transfer tab" ? snap.for_transfer_2026.find((x) => x.row === p.row) : null, old = p.source === "transfer tab" ? null : snap.sold_2026_tab.find((x) => x.row === p.row); console.log(`  ${p.plate} (${p.source}, row ${p.row}, buyer ${p.sale.buyer ?? "?"}${row ? `, ${row.B} ${row.C} ${row.D} ${row.I}` : old ? `, ${old.YEAR} ${old.MAKE} ${old.MODEL} ${old.COLOR}` : ""})  ~  MAD ${p.near}: ${[u?.year_model, u?.make, u?.model_variant, u?.color].filter(Boolean).join(" ")}, ${u?.stock_state}`); }
   console.log(`\nFLAGGED FOR A PERSON: ${flags.length} item(s)`, by(flags, (f) => f.issue.replace(/"[^"]*"/g, "").replace(/\d+/g, "#").slice(0, 60)));
-  void fixMake;
   writeFileSync("Docs/sheets-private/sold-dryrun.json", JSON.stringify({ plans, flags, skipped }, null, 1));
   writeFileSync("Docs/sheets-private/sold-flags.csv", ["source,row,plate,issue", ...flags.map((f) => [f.source, f.row, f.plate, `"${f.issue.replace(/"/g, "'")}"`].join(","))].join("\n"));
   console.log("\nWrote Docs/sheets-private/sold-dryrun.json and sold-flags.csv. Nothing was written to the database.");
