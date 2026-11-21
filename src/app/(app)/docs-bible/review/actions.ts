@@ -13,6 +13,7 @@ const action = z.discriminatedUnion("type", [
   z.object({ type: z.literal("classify"), value: z.string().max(40) }),
   z.object({ type: z.literal("set_date"), date: z.string().max(20) }),
   z.object({ type: z.literal("set_plate"), plate: z.string().max(20) }),
+  z.object({ type: z.literal("add_sale_plate"), plate: z.string().max(20) }),
 ]);
 
 /** Settling one item of the review list. Documentation and Admin only; everyone else can look. */

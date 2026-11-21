@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { colLetter, planImport, type Cell, type Snapshot } from "./import";
+import { createSaleFromRow, type SoldRowPayload } from "@/lib/sold/server";
 import { planResolution, type ReviewAction, type ReviewKind, type UnitLite } from "./review";
 
 /** The docs_* tables are newer than the generated database types, so this client is untyped (the shapes are checked where they are read). */
@@ -50,7 +51,7 @@ async function unitFromRawRow(admin: Admin, runId: string, tab: string, row: num
 }
 
 export async function resolveReview(itemId: string, action: ReviewAction, actor: string, admin: Admin = docsDb()): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
-  const { data: item } = await admin.from("docs_review_items").select("id, kind, status, unit_id, plate_no, source_row, import_run_id").eq("id", itemId).maybeSingle();
+  const { data: item } = await admin.from("docs_review_items").select("id, kind, status, unit_id, plate_no, source_row, import_run_id, payload").eq("id", itemId).maybeSingle();
   if (!item) return { ok: false, message: "That item is not there any more." };
   if (item.status !== "open") return { ok: false, message: "This item was already settled." };
   let unit: UnitLite | null = null;
@@ -60,6 +61,11 @@ export async function resolveReview(itemId: string, action: ReviewAction, actor:
 
   const stamp = { updated_by: actor, last_change_source: "review" };
   if (plan.patch) { const r = await admin.from("docs_units").update({ ...plan.patch.fields, ...stamp }).eq("id", plan.patch.unitId); if (r.error) return { ok: false, message: `Could not save: ${r.error.message}` }; }
+  if (plan.createSale) {
+    if (!item.payload) return { ok: false, message: "This row's details were not kept." };
+    const sale = await createSaleFromRow(item.payload as SoldRowPayload, plan.createSale.plate, actor);
+    if (!sale.ok) return { ok: false, message: sale.message };
+  }
   if (plan.archive) { const r = await admin.from("docs_units").update({ archived_at: new Date().toISOString(), archived_by: actor, ...stamp }).eq("id", plan.archive); if (r.error) return { ok: false, message: `Could not save: ${r.error.message}` }; }
   if (plan.createFromRow) {
     if (!item.source_row || !item.import_run_id) return { ok: false, message: "This row's source was not kept." };

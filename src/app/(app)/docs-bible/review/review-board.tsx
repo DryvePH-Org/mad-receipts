@@ -91,6 +91,10 @@ function Item({ item, canEdit }: { item: ReviewRow; canEdit: boolean }) {
                 <Input aria-label="Plate number" className="w-40" placeholder="Plate number" value={text} onChange={(e) => setText(e.target.value)} />
                 <Button size="sm" disabled={busy || text.trim().length < 4} onClick={() => run({ type: "add_plate", plate: text })}>Add as a car</Button>
               </>}
+              {item.kind === "sold_no_plate" && <>
+                <Input aria-label="Plate number of the sale" className="w-40" placeholder="Plate number" value={text} onChange={(e) => setText(e.target.value)} />
+                <Button size="sm" disabled={busy || text.trim().length < 3} onClick={() => run({ type: "add_sale_plate", plate: text })}>Record the sale</Button>
+              </>}
               {item.kind === "odd_date" && <>
                 <Input aria-label="Arrival date" className="w-44" placeholder="2026-07-10" value={text} onChange={(e) => setText(e.target.value)} />
                 <Button size="sm" disabled={busy || !text.trim()} onClick={() => run({ type: "set_date", date: text })}>Save the date</Button>

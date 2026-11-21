@@ -50,7 +50,7 @@ async function main() {
   const known = [...new Set(units.map((u) => (u.make ?? "").toUpperCase()).filter(Boolean))];
   const transfers = await readAll<{ plate_no: string; note: string | null }>("car_transfers", "plate_no, note");
   const transferOf = new Set(transfers.map((t) => t.plate_no));
-  const flags: Flag[] = [], plans: Plan[] = [];
+  const flags: Flag[] = [], plans: Plan[] = [], unplated: Plan[] = []; // unplated: rows whose plate cannot be used: they go to the review list
   let inferredLiaison = 0;
   const flag = (source: string, row: number, plate: string, issue: string) => flags.push({ source, row, plate, issue });
 
@@ -63,9 +63,9 @@ async function main() {
   for (const r of snap.for_transfer_2026) {
     let plate = normPlate(r.E), original: string | null = null; const src = "transfer tab";
     const pp = plateProblem(r.E);
-    if (pp) { flag(src, r.row, String(r.E), `plate: ${pp}. The row is left out until a person fixes the plate.`); continue; }
+    if (pp) { flag(src, r.row, String(r.E), `plate: ${pp}. A person types the right plate in the review list.`); plate = ""; }
     if (PLATE_FIXES[plate]) { original = plate; flag(src, r.row, PLATE_FIXES[plate], `plate: the sheet had ${plate}; it was corrected to ${PLATE_FIXES[plate]}, the car MAD has. Check it against the OR/CR.`); plate = PLATE_FIXES[plate]; }
-    const u = unitOf.get(plate), near = u || KEEP_SEPARATE.has(plate) ? undefined : nearPlate(plate, s(r.C));
+    const u = unitOf.get(plate), near = !plate || u || KEEP_SEPARATE.has(plate) ? undefined : nearPlate(plate, s(r.C));
     const d = parseSoldDate(r.W);
     if (d.problem) flag(src, r.row, plate, `sold date: ${d.problem}`); else if (!d.date) flag(src, r.row, plate, "no sold date");
     const sp = salesperson(r.A); if (sp.problem) flag(src, r.row, plate, sp.problem); else if (!sp.name) flag(src, r.row, plate, "no sales person");
@@ -98,7 +98,7 @@ async function main() {
     if (s(r.J)) fill.chassis_no = s(r.J)!;   // MAD has no chassis or engine number yet: new columns
     if (s(r.K)) fill.engine_no = s(r.K)!;
     const carText = [fullYear(yearModel(r.B)), fixMake(r.C, known), s(r.D), s(r.I), s(r.F)].filter(Boolean).join(" ");
-    plans.push({
+    (plate ? plans : unplated).push({
       key: `ft|${plate}|${d.date ?? `row${r.row}`}|${normPlate(s(r.X)).slice(0, 12)}`, carText, chassis: s(r.J), engine: s(r.K), plateOriginal: original, isReference: false, flags: [], raw: r,
       source: src, row: r.row, plate, car: u ? "in MAD" : near ? "decide" : "new car", near,
       sale: { sold_on: d.date, price: Number.isFinite(price) && price > 0 ? price : null, buyer: s(r.X), contact: ph.value, address: s(r.Z), salesperson: sp.name, route },
@@ -112,10 +112,10 @@ async function main() {
   const skipped: string[] = [];
   for (const r of snap.sold_2026_tab) {
     let plate = normPlate(r.PLATE), original: string | null = null; const src = "SOLD 2026 tab";
-    if (have.has(plate)) { skipped.push(plate); continue; }
-    const pp = plateProblem(r.PLATE); if (pp) { flag(src, r.row, String(r.PLATE), `plate: ${pp}`); continue; }
+    if (plate && have.has(plate)) { skipped.push(plate); continue; }
+    const pp = plateProblem(r.PLATE); if (pp) { flag(src, r.row, String(r.PLATE), `plate: ${pp}. A person types the right plate in the review list.`); plate = ""; }
     if (PLATE_FIXES[plate]) { original = plate; flag(src, r.row, PLATE_FIXES[plate], `plate: the sheet had ${plate}; it was corrected to ${PLATE_FIXES[plate]}, the car MAD has. Check it against the OR/CR.`); plate = PLATE_FIXES[plate]; }
-    const u = unitOf.get(plate), near = u || KEEP_SEPARATE.has(plate) ? undefined : nearPlate(plate, r.MAKE);
+    const u = unitOf.get(plate), near = !plate || u || KEEP_SEPARATE.has(plate) ? undefined : nearPlate(plate, r.MAKE);
     const d = parseSoldDate(r.DATE); if (d.problem) flag(src, r.row, plate, `sold date: ${d.problem}`);
     const sp = salesperson(r.SALES); if (sp.problem) flag(src, r.row, plate, sp.problem); else if (!sp.name) flag(src, r.row, plate, "no sales person");
     const ph = cleanPhone(r.CONTACT);
@@ -123,7 +123,7 @@ async function main() {
     const liaison = /^(JEP|LEO)$/i.test(r.LIAISON ?? "") ? r.LIAISON!.toUpperCase() : null;
     flag(src, r.row, plate, "the transfer status is not known (this tab is old): a person checks it");
     const carText = [fullYear(yearModel(r.YEAR)), fixMake(r.MAKE, known), s(r.MODEL), s(r.COLOR), s(r.FUEL)].filter(Boolean).join(" ");
-    plans.push({
+    (plate ? plans : unplated).push({
       key: `s26|${plate}|${d.date ?? `row${r.row}`}|${normPlate(s(r.BUYER)).slice(0, 12)}`, carText, chassis: null, engine: null, plateOriginal: original, isReference: true, flags: [], raw: r,
       source: src, row: r.row, plate, car: u ? "in MAD" : near ? "decide" : "new car", near,
       sale: { sold_on: d.date, price: Number.isFinite(price) && price > 0 ? price : null, buyer: s(r.BUYER), contact: ph.value, address: s(r.ADDRESS), salesperson: sp.name, route: /^MAD$/i.test(r.TRANSFER ?? "") ? "mad" : /^CLIENT$/i.test(r.TRANSFER ?? "") ? "client" : "unknown" },
@@ -132,7 +132,7 @@ async function main() {
     });
   }
 
-  for (const p of plans) p.flags = flags.filter((f) => f.source === p.source && f.row === p.row).map((f) => f.issue);
+  for (const p of [...plans, ...unplated]) p.flags = flags.filter((f) => f.source === p.source && f.row === p.row).map((f) => f.issue);
 
   // ---- the report ----
   const by = <T,>(list: T[], f: (x: T) => string) => Object.fromEntries([...list.reduce((m, x) => m.set(f(x), (m.get(f(x)) ?? 0) + 1), new Map<string, number>())].sort((a, b) => b[1] - a[1]));
@@ -157,12 +157,45 @@ async function main() {
   console.log(`\nSALES OF CARS MAD HAS NO RECORD OF (no car record is made; the sale keeps the car as the sheet described it): ${plans.filter((p) => p.car === "new car").length}`);
   console.log(`WAITING FOR A DECISION (plate almost like a MAD car):`);
   for (const p of plans.filter((x) => x.car === "decide")) { const u = unitOf.get(p.near!); const row = p.source === "transfer tab" ? snap.for_transfer_2026.find((x) => x.row === p.row) : null, old = p.source === "transfer tab" ? null : snap.sold_2026_tab.find((x) => x.row === p.row); console.log(`  ${p.plate} (${p.source}, row ${p.row}, buyer ${p.sale.buyer ?? "?"}${row ? `, ${row.B} ${row.C} ${row.D} ${row.I}` : old ? `, ${old.YEAR} ${old.MAKE} ${old.MODEL} ${old.COLOR}` : ""})  ~  MAD ${p.near}: ${[u?.year_model, u?.make, u?.model_variant, u?.color].filter(Boolean).join(" ")}, ${u?.stock_state}`); }
-  console.log(`\nFLAGGED FOR A PERSON: ${flags.length} item(s)`, by(flags, (f) => f.issue.replace(/"[^"]*"/g, "").replace(/\d+/g, "#").slice(0, 60)));
+  console.log(`\nROWS WITHOUT A USABLE PLATE (they go to the review list, where a person types the plate): ${unplated.length}`, unplated.map((p) => `${p.source} row ${p.row}`).join(", "));
+  console.log(`FLAGGED FOR A PERSON: ${flags.length} item(s)`, by(flags, (f) => f.issue.replace(/"[^"]*"/g, "").replace(/\d+/g, "#").slice(0, 60)));
   writeFileSync("Docs/sheets-private/sold-dryrun.json", JSON.stringify({ plans, flags, skipped }, null, 1));
   writeFileSync("Docs/sheets-private/sold-flags.csv", ["source,row,plate,issue", ...flags.map((f) => [f.source, f.row, f.plate, `"${f.issue.replace(/"/g, "'")}"`].join(","))].join("\n"));
   console.log("\nWrote Docs/sheets-private/sold-dryrun.json and sold-flags.csv.");
   if (!apply) { console.log("This was a dry run: nothing was written to the database. Add --apply to do it (after migration 45)."); return; }
   await applyPlans(plans, unitOf, new Map(units.map((u) => [u.plate_no, u])));
+  await reviewUnplated(unplated);
+}
+
+/** The columns of a sale record, without the plate, the car and the key (those depend on where it is saved). */
+function fieldsOf(p: Plan) {
+  return {
+    car_text: p.carText, financing: p.transfer.financing, buyer: p.sale.buyer?.toUpperCase() ?? null, address: p.sale.address?.toUpperCase() ?? null, contact: p.sale.contact,
+    liaison: p.transfer.liaison, sales: p.sale.salesperson, note: p.transfer.note, sold_on: p.sale.sold_on, agreed_price: p.sale.price, route: p.sale.route, stage: p.transfer.stage,
+    liaison_status: p.transfer.liaison_status, liaison_received_on: p.transfer.received_on, originals_at: p.transfer.originals, next_step: p.transfer.next_step,
+    chassis_no: p.chassis, engine_no: p.engine, is_reference: p.isReference, flags: p.flags, plate_original: p.plateOriginal, source: "import", sheet_row: p.row, raw: p.raw,
+    ...(p.sale.route === "mad" ? { particular: "ORCR TRANSFER" } : {}),
+  };
+}
+
+/** A row with no usable plate waits in the review list (Data check): the person types the plate there and the row becomes a sale record. Once per row. */
+async function reviewUnplated(rows: Plan[]) {
+  let added = 0;
+  for (const p of rows) {
+    const rowKey = `sold|${p.source}|${p.row}`;
+    const have = await db.from("docs_review_items").select("id").eq("payload->>rowKey", rowKey).maybeSingle();
+    if (have.data) continue;
+    const raw = p.raw as Record<string, unknown>;
+    const plateText = String(raw.E ?? raw.PLATE ?? "");
+    const message = `Sold list, ${p.source}, row ${p.row}: the plate "${plateText}" cannot be used. ${p.sale.buyer ?? "No buyer"} bought ${p.carText ?? "a car"}${p.sale.sold_on ? ` on ${p.sale.sold_on}` : ""}${p.sale.price ? ` for ₱${p.sale.price.toLocaleString("en-PH")}` : ""}. Type the right plate and it becomes a sale record.`;
+    const { source_key: _k, plate_no: _p, unit_id: _u, ...fields } = fieldsOf(p) as Record<string, unknown>;
+    void _k; void _p; void _u;
+    const payload = { rowKey, keyParts: { tab: p.source, date: p.sale.sold_on, buyer: normPlate(p.sale.buyer).slice(0, 12) }, fields, fillUnit: { ...(p.chassis ? { chassis_no: p.chassis } : {}), ...(p.engine ? { engine_no: p.engine } : {}) } };
+    const r = await db.from("docs_review_items").insert({ kind: "sold_no_plate", plate_no: null, message, source_row: p.row, payload });
+    if (r.error) throw new Error(`Review item for row ${p.row}: ${r.error.message}`);
+    added++;
+  }
+  console.log(`Review list: ${added} row(s) without a usable plate added (${rows.length - added} were already there).`);
 }
 
 async function undoImport() {
@@ -174,6 +207,8 @@ async function undoImport() {
   for (let i = 0; i < made.length; i += 100) { const r = await db.from("car_transfers").delete().in("id", made.slice(i, i + 100)); if (r.error) throw r.error; }
   for (const t of before.transfers) { const { id, ...rest } = t; const r = await db.from("car_transfers").update(rest).eq("id", id); if (r.error) throw r.error; }
   for (const u of before.units) { const { id, ...rest } = u; const r = await db.from("docs_units").update({ ...rest, last_change_source: "sold-import undone" }).eq("id", id); if (r.error) throw r.error; }
+  const gone = await db.from("docs_review_items").delete().like("payload->>rowKey", "sold|%").select("id");
+  console.log(`Review items of the sold list removed: ${gone.data?.length ?? 0}.`);
   console.log(`Undone: ${made.length} record(s) removed, ${before.transfers.length} transfer(s) and ${before.units.length} car(s) put back as they were.`);
 }
 
@@ -207,13 +242,7 @@ async function applyPlans(plans: Plan[], unitOf: Map<string, { stock_state: stri
       if (Object.keys(patch).length) { const r = await db.from("docs_units").update({ ...patch, last_change_source: "sold-import" }).eq("id", u.id); if (r.error) throw new Error(`${p.plate}: ${r.error.message}`); done.cars++; }
     }
     const note = p.transfer.note;
-    const fields = {
-      plate_no: p.plate, unit_id: u?.id ?? null, car_text: p.carText, financing: p.transfer.financing, buyer: p.sale.buyer?.toUpperCase() ?? null, address: p.sale.address?.toUpperCase() ?? null, contact: p.sale.contact,
-      liaison: p.transfer.liaison, sales: p.sale.salesperson, note, sold_on: p.sale.sold_on, agreed_price: p.sale.price, route: p.sale.route, stage: p.transfer.stage,
-      liaison_status: p.transfer.liaison_status, liaison_received_on: p.transfer.received_on, originals_at: p.transfer.originals, next_step: p.transfer.next_step,
-      chassis_no: p.chassis, engine_no: p.engine, is_reference: p.isReference, flags: p.flags, plate_original: p.plateOriginal, source: "import", sheet_row: p.row, raw: p.raw, source_key: p.key,
-      ...(p.sale.route === "mad" ? { particular: "ORCR TRANSFER" } : {}),
-    };
+    const fields = { ...fieldsOf(p), plate_no: p.plate, unit_id: u?.id ?? null, source_key: p.key };
     const mine = byKey.get(p.key);
     if (mine) {
       if (mine.edited_in_app) { done.kept++; continue; }

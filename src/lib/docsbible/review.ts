@@ -2,10 +2,10 @@
 // disagree, an old car with no classification, a date or plate that looks wrong). planResolution is pure; resolveReview does the saving.
 import { CLASSIFICATIONS, dateOf, plateKey, plateLooksUsual } from "./normalize";
 
-export type ReviewKind = "duplicate_plate" | "no_plate" | "status_disagree" | "legacy_classification" | "odd_date" | "odd_plate" | "unknown_value" | "other";
+export type ReviewKind = "duplicate_plate" | "no_plate" | "status_disagree" | "legacy_classification" | "odd_date" | "odd_plate" | "unknown_value" | "other" | "sold_no_plate";
 export const KIND_LABELS: Record<ReviewKind, string> = {
   duplicate_plate: "Same plate twice", no_plate: "Row without a plate", status_disagree: "Status differs", legacy_classification: "Needs a classification",
-  odd_date: "Date to fix", odd_plate: "Plate to check", unknown_value: "Unknown value", other: "Other",
+  odd_date: "Date to fix", odd_plate: "Plate to check", unknown_value: "Unknown value", other: "Other", sold_no_plate: "Sold row without a plate",
 };
 
 export type ReviewAction =
@@ -15,7 +15,8 @@ export type ReviewAction =
   | { type: "use_status"; which: "sale" | "vehicle" }         // status: the one that is right is copied to the other
   | { type: "classify"; value: string }                       // legacy classification
   | { type: "set_date"; date: string }                        // odd date
-  | { type: "set_plate"; plate: string };                     // odd plate
+  | { type: "set_plate"; plate: string }                      // odd plate
+  | { type: "add_sale_plate"; plate: string };                // sold list row without a usable plate: the plate is typed, the row becomes a sale
 
 export interface UnitLite { id: string; plate_no: string; plate_display: string; arrival_date: string | null; sale_status: string | null; vehicle_status: string | null; classification: string }
 export interface Resolution {
@@ -23,6 +24,8 @@ export interface Resolution {
   patch?: { unitId: string; fields: Record<string, string | null> };
   archive?: string;
   createFromRow?: { plate: string };
+  /** a sold list row gets its plate and becomes a sale record */
+  createSale?: { plate: string };
   /** nothing is saved except the review item itself */
   recordOnly?: boolean;
 }
@@ -49,6 +52,11 @@ export function planResolution(kind: ReviewKind, unit: UnitLite | null, action: 
     case "set_date": {
       const d = dateOf(action.date);
       return unit && kind === "odd_date" && d.value ? { decision: `Arrival date set to ${d.value}`, patch: { unitId: unit.id, fields: { arrival_date: d.value } } } : { error: "Type a real date, like 2026-07-10." };
+    }
+    case "add_sale_plate": {
+      if (kind !== "sold_no_plate") return { error: "This item is not a sold list row." };
+      const plate = plateKey(action.plate);
+      return plate.length >= 3 ? { decision: `Plate ${plate} added: the sale was recorded`, createSale: { plate } } : { error: "Type the plate number." };
     }
     case "set_plate": {
       const plate = plateKey(action.plate);

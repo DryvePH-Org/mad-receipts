@@ -35,3 +35,14 @@ describe("the car record", () => {
     expect((await one<{ unit_id: string | null }>("select unit_id from public.car_transfers where plate_no = 'CCC1111'")).unit_id).not.toBeNull();
   });
 });
+
+describe("the review list can hold a sold list row without a plate (migration 46)", () => {
+  it("accepts the new kind with its row, once per row", async () => {
+    const payload = JSON.stringify({ rowKey: "sold|transfer tab|112", fields: {} });
+    await db.query("insert into public.docs_review_items (kind, message, payload) values ('sold_no_plate', 'row 112', $1::jsonb)", [payload]);
+    await expect(db.query("insert into public.docs_review_items (kind, message, payload) values ('sold_no_plate', 'row 112 again', $1::jsonb)", [payload])).rejects.toThrow();
+    await db.query("insert into public.docs_review_items (kind, message) values ('no_plate', 'a row of the old register'), ('no_plate', 'another')"); // items without a row can repeat
+    await expect(db.query("insert into public.docs_review_items (kind, message) values ('weird', 'x')")).rejects.toThrow();
+  });
+});
+

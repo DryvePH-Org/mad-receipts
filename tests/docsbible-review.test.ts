@@ -28,6 +28,10 @@ describe("settling a review item", () => {
   it("adds a plate to a row that had none, cleaned", () => {
     expect(planResolution("no_plate", null, { type: "add_plate", plate: "ngr 7902" })).toMatchObject({ createFromRow: { plate: "NGR7902" } });
     expect(err(planResolution("no_plate", null, { type: "add_plate", plate: "x" }))).toBeTruthy();
+    // a sold list row without a usable plate: the typed plate makes it a sale, and only on that kind of item
+    expect(planResolution("sold_no_plate", null, { type: "add_sale_plate", plate: "nbw 8246" })).toMatchObject({ createSale: { plate: "NBW8246" } });
+    expect(err(planResolution("sold_no_plate", null, { type: "add_sale_plate", plate: "x" }))).toBeTruthy();
+    expect(err(planResolution("no_plate", null, { type: "add_sale_plate", plate: "NBW8246" }))).toBeTruthy();
   });
   it("corrects a plate", () => {
     expect(planResolution("odd_plate", unit, { type: "set_plate", plate: "lui 86" })).toMatchObject({ patch: { fields: { plate_no: "LUI86", plate_display: "LUI86" } } });
