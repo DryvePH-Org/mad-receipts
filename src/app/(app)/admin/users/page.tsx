@@ -5,7 +5,8 @@ import { Pill } from "@/components/shared/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireModule } from "@/lib/auth";
-import type { Role } from "@/lib/navigation";
+import { roleFromDb } from "@/lib/roles";
+import { canManageUser } from "@/lib/user-rules";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AccessDialog } from "./access-dialog";
 import { ActiveToggle } from "./active-toggle";
@@ -29,7 +30,7 @@ const isBanned = (until?: string | null) => !!until && Date.parse(until) > Date.
 
 async function UsersContent() {
   const me = await requireModule("users");
-  const isAdmin = me.role === "admin";
+  const isAdmin = me.role === "super_admin"; // only a Super Admin makes or changes Admins and Super Admins
 
   const admin = createAdminClient();
   const [{ data: authUsers, error }, base, extra] = await Promise.all([
@@ -47,7 +48,7 @@ async function UsersContent() {
     .map((u) => {
       const profile = profileById.get(u.id), access = accessById.get(u.id);
       return {
-        id: u.id, email: u.email ?? "", name: profile?.full_name ?? u.email ?? "", role: (profile?.role ?? "sales") as Role,
+        id: u.id, email: u.email ?? "", name: profile?.full_name ?? u.email ?? "", role: roleFromDb(profile?.role),
         grants: access?.module_grants ?? [], denies: access?.module_denies ?? [],
         disabled: isBanned(u.banned_until),
       };
@@ -68,11 +69,11 @@ async function UsersContent() {
                 <p className="truncate font-medium">{u.name}</p>
                 <p className="truncate text-sm text-muted-foreground">{u.email}</p>
                 <div className="mt-1 flex flex-wrap gap-1.5">
-                  {u.role === "admin" ? <Badge>Admin</Badge> : u.role === "approver" ? <Pill tone="purple">Approver</Pill> : u.role === "documentation" ? <Pill tone="blue">Documentation</Pill> : <Pill tone="grey">Sales</Pill>}
+                  {u.role === "super_admin" ? <Badge>Super Admin</Badge> : u.role === "admin" ? <Badge variant="secondary">Admin</Badge> : u.role === "buying" ? <Pill tone="blue">Buying</Pill> : u.role === "marketing" ? <Pill tone="purple">Online Marketing</Pill> : <Pill tone="grey">Sales</Pill>}
                   {u.disabled && <Pill tone="red">Disabled</Pill>}
                 </div>
               </div>
-              {isAdmin || u.role !== "admin" ? (
+              {canManageUser(me.role, u.role) ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <RoleSelect userId={u.id} role={u.role} canMakeAdmin={isAdmin} />
                   {isAdmin && accessReady && <AccessDialog userId={u.id} name={u.name} role={u.role} grants={u.grants} denies={u.denies} locked={u.id === me.id} />}

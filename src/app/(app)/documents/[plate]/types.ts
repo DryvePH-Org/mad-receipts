@@ -26,6 +26,8 @@ export interface CarViewData {
   lastScan: { at: string; seconds: number | null; photos: number; ok: boolean; error: string | null } | null;
   scanned: boolean; pending: number; failed: number; statusLabel: string; statusKey: string;
   isAdmin: boolean;
+  /** this person has the Transactions pages, so the deal can be opened */
+  dealLinks: boolean;
 }
 
 export type { Rules, StageModel };

@@ -1,5 +1,6 @@
 import { daysBetween } from "@/lib/dates";
 import { formatPeso } from "@/lib/rules/money";
+import { isAdmin, type Role } from "@/lib/roles";
 import { formatDate } from "@/lib/dates";
 import type { AppSettings } from "./settings";
 
@@ -112,9 +113,8 @@ export function buildNotifications(
   return out.sort((a, b) => a.rank - b.rank);
 }
 
-/** What one person should see: the Admin everything, the Approver approval items and red alerts, Sales their own deals. */
-export function notificationsFor(list: Notification[], user: { id: string; role: "sales" | "admin" | "approver" | "documentation" }): Notification[] {
-  if (user.role === "admin") return list;
-  if (user.role === "approver") return list.filter((n) => n.audience.role === "approver" || n.level === "red");
+/** What one person should see: the Admins everything, everyone else their own deals. */
+export function notificationsFor(list: Notification[], user: { id: string; role: Role }): Notification[] {
+  if (isAdmin(user.role)) return list;
   return list.filter((n) => n.audience.userId === user.id);
 }

@@ -19,9 +19,9 @@ export type StockInput = z.infer<typeof input>;
 
 const clean = (v: string) => v.replace(/\s+/g, " ").trim();
 
-/** Admin and Approver change a car of the price list: prices, where it is, its state and its notes. The price history is kept by the database. */
+/** Super Admin, Admin and Sales change a car of the price list: prices, where it is, its state and its notes. The price history is kept by the database. */
 export async function updateStockAction(raw: StockInput): Promise<StockResult> {
-  const user = await requireRole("admin", "approver");
+  const user = await requireRole("super_admin", "admin", "sales");
   const p = input.safeParse(raw);
   if (!p.success) return { ok: false, error: "Some of the values are not valid. Prices are whole pesos." };
   const v = p.data, plate = v.plate.toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -43,7 +43,7 @@ export async function updateStockAction(raw: StockInput): Promise<StockResult> {
 
 /** The car leaves the price list (sold and handed over, or not for sale any more). Its row and history are kept. */
 export async function takeOffStockAction(plateRaw: string): Promise<StockResult> {
-  const user = await requireRole("admin", "approver");
+  const user = await requireRole("super_admin", "admin", "sales");
   const plate = plateRaw.toUpperCase().replace(/[^A-Z0-9]/g, "");
   const { error } = await docsDb().from("docs_units").update({ in_stock: false, updated_by: user.id, last_change_source: "app" }).eq("plate_no", plate).eq("in_stock", true);
   if (error) return { ok: false, error: `Could not take it off: ${error.message}` };

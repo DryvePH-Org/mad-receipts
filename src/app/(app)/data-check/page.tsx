@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { requireModule } from "@/lib/auth";
+import { editsPapers } from "@/lib/roles";
 import { loadReview } from "@/lib/docsbible/review-server";
 import { loadSyncItems } from "@/lib/pricelist/sync-server";
 import { DataCheckBoard } from "./data-check-board";
@@ -20,8 +21,8 @@ export default function DataCheckPage({ searchParams }: { searchParams: Search }
 async function Content({ searchParams }: { searchParams: Search }) {
   const user = await requireModule("register");
   const { tab } = await searchParams;
-  const editsDocs = user.role === "admin" || user.role === "documentation";
-  const seesDifferences = user.role === "admin" || user.role === "approver" || user.role === "documentation";
+  const editsDocs = editsPapers(user.role);
+  const seesDifferences = editsPapers(user.role);
   const [review, differences] = await Promise.all([loadReview().catch(() => []), seesDifferences ? loadSyncItems().catch(() => []) : Promise.resolve([])]);
   const t = tab === "move" ? "move" : tab === "differences" ? "differences" : undefined;
   return <DataCheckBoard review={review} differences={differences} canEdit={editsDocs} seesDifferences={seesDifferences} initial={t} />;

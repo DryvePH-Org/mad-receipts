@@ -3,7 +3,7 @@ import { botToken, sendTo } from "@/lib/notify/bot";
 import { readLinkToken, webhookSecret } from "@/lib/notify/link";
 import { notifyDb, removeLinkOfChat, saveLink } from "@/lib/notify/store";
 import { categoriesForRole } from "@/lib/notify/categories";
-import type { Role } from "@/lib/auth";
+import { roleFromDb } from "@/lib/roles";
 
 interface Update { message?: { text?: string; chat?: { id: number; type?: string }; from?: { username?: string } } }
 
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     const { data: p } = await notifyDb().from("profiles").select("full_name, role").eq("id", userId).maybeSingle();
     if (!p) { await reply("I could not find your MAD account. Ask the Admin."); return Response.json({ ok: true }); }
     await saveLink(userId, chat.id, update?.message?.from?.username ?? null);
-    const mine = categoriesForRole(p.role as Role);
+    const mine = categoriesForRole(roleFromDb(p.role));
     await reply(`✅ Connected${p.full_name ? `, ${p.full_name}` : ""}.\nYou will get your MAD messages here:\n${mine.map((c) => `• ${c.label}`).join("\n")}\n\nChoose what you get in MAD → My Telegram. Send /stop to disconnect.`);
   } else if (cmd === "/stop") {
     const had = await removeLinkOfChat(chat.id);

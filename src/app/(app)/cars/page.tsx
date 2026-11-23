@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { Button } from "@/components/ui/button";
 import { requireModule } from "@/lib/auth";
+import { editsCars, editsPapers } from "@/lib/roles";
 import { docsDb } from "@/lib/docsbible/review-server";
 import { countOpenSyncItems } from "@/lib/pricelist/sync-server";
 import { forRole } from "@/lib/cars/model";
@@ -35,10 +36,10 @@ async function Content() {
     );
   }
   const docs = Object.fromEntries(await loadDocsSummaries().catch(() => new Map()));
-  const canOpenSheet = user.role === "admin" || user.role === "approver"; // the same two roles edit the price list
-  // the Excel copy in the price list's layout, once the price list is in the database (Admin and Approver)
+  const canOpenSheet = editsCars(user.role); // the roles that edit the price list
+  // the Excel copy in the price list's layout, once the price list is in the database (for the roles that edit it)
   const inApp = canOpenSheet ? await docsDb().from("docs_units").select("id", { count: "exact", head: true }).eq("in_stock", true).then((r) => (r.error ? 0 : r.count ?? 0), () => 0) : 0;
-  const canCheck = user.role === "admin" || user.role === "approver" || user.role === "documentation";
+  const canCheck = editsPapers(user.role);
   const openChecks = canCheck ? await countOpenSyncItems() : 0;
   const orcr = orcrSheetUrl();
   return (
@@ -59,7 +60,7 @@ async function Content() {
           <Button variant="outline" size="sm" nativeButton={false} render={<a href="/api/cars/export" download />}><Download /> Download Excel</Button>
         </div>
       )}
-      <CarsBoard cars={data.cars.map((c) => forRole(c, user.role))} role={user.role} docs={docs} canEdit={canOpenSheet} canOpenDocs={user.role === "admin" || user.role === "documentation"} />
+      <CarsBoard cars={data.cars.map((c) => forRole(c, user.role))} role={user.role} docs={docs} canEdit={canOpenSheet} canOpenDocs={user.modules.includes("register")} />
     </>
   );
 }

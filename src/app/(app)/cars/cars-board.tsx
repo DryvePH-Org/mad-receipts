@@ -154,12 +154,12 @@ export function CarsBoard({ cars, role, canEdit, canOpenDocs, docs }: { cars: Ca
             <div className="flex flex-wrap items-center gap-2"><Pill tone={TONE[open.availability]}>{AVAILABILITY_LABEL[open.availability]}</Pill>{open.repairStatus && <Pill tone="red">{open.repairStatus}</Pill>}{open.toCebu && <Pill tone="purple">Manila unit to Cebu</Pill>}</div>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
               {([
-                ["Price", peso(open.price)], ...(open.repriced ? [["Original price", peso(open.originalPrice)] as [string, string]] : []), ...(showTarget && role !== "sales" ? [["Target", peso(open.target)] as [string, string]] : []),
+                ["Price", peso(open.price)], ...(open.repriced ? [["Original price", peso(open.originalPrice)] as [string, string]] : []), ...(showTarget && role !== "marketing" ? [["Target", peso(open.target)] as [string, string]] : []),
                 ["Body type", open.bodyType || "—"], ["Color", open.color || "—"], ["Mileage", open.mileage || "—"], ["Transmission", open.trans || "—"], ["Fuel", open.fuel || "—"],
                 ["Documents", docs[open.plate] ? docs[open.plate].label : "Not started"],
                 ["Arrived", nice(open.arrived)], ["Days in stock", open.daysInStock !== null ? String(open.daysInStock) : "—"], ["Location", open.location || "—"],
                 ["Spare key", spareKeyState(open.spareKey) === "yes" ? "Yes" : spareKeyState(open.spareKey) === "no" ? "No" : open.spareKey || "—"],
-                ...(open.encumbrance || role !== "sales" ? [["Encumbrance", open.encumbrance || "None"] as [string, string]] : []),
+                ...(open.encumbrance || role !== "marketing" ? [["Encumbrance", open.encumbrance || "None"] as [string, string]] : []),
                 ...(open.orExp ? [["OR expires", nice(open.orExp)] as [string, string]] : []), ...(open.docsCode ? [["Documents", open.docsCode] as [string, string]] : []),
               ] as [string, string][]).map(([k, v]) => <div key={k}><dt className="text-xs text-muted-foreground">{k}</dt><dd className="font-medium">{v}</dd></div>)}
             </dl>

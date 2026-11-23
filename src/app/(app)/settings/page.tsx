@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { requireModule } from "@/lib/auth";
+import { isSuper } from "@/lib/roles";
 import { getSettings } from "@/lib/data";
 import { manilaToday } from "@/lib/dates";
 import { SettingsEditor } from "./settings-editor";
@@ -17,6 +18,6 @@ export default function SettingsPage() {
 
 async function Content() {
   const user = await requireModule("settings");
-  // wiping data stays with the Admin role, even for someone who was given Settings
-  return <SettingsEditor initial={await getSettings()} canDelete={user.role === "admin"} today={manilaToday()} />;
+  // wiping data stays with the Super Admin role, even for someone who was given Settings
+  return <SettingsEditor initial={await getSettings()} canDelete={isSuper(user.role)} today={manilaToday()} />;
 }

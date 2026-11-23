@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/lib/auth-actions";
 import { isActivePath, navGroups, ROLE_LABELS, type ModuleId, type Role } from "@/lib/navigation";
+import { isAdmin } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -78,7 +79,7 @@ function View({ role, modules, name, pathname }: Props & { pathname: string | nu
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <p className="truncate text-sm font-medium">{name}</p>
-            <Badge variant={role === "admin" ? "default" : "secondary"} className="mt-0.5">
+            <Badge variant={isAdmin(role) ? "default" : "secondary"} className="mt-0.5">
               {ROLE_LABELS[role]}
             </Badge>
           </div>

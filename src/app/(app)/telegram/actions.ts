@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { requireAdmin, requireUser } from "@/lib/auth";
+import { requireSuper, requireUser } from "@/lib/auth";
 import { botName, botToken, sendTo, setWebhook, webhookInfo } from "@/lib/notify/bot";
 import { categoriesForRole } from "@/lib/notify/categories";
 import { appUrl } from "@/lib/notify";
@@ -51,7 +51,7 @@ export async function sendTestAction(): Promise<Result> {
 
 /** Admin: tells Telegram to send the bot's messages to this app. Refuses when the bot already feeds another program. */
 export async function setUpBotAction(): Promise<Result> {
-  await requireAdmin();
+  await requireSuper();
   const token = botToken();
   if (!token) return { ok: false, error: "TELEGRAM_BOT_TOKEN is not set on the server." };
   const h = await headers();

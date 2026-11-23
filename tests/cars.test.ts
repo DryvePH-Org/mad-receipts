@@ -96,10 +96,10 @@ describe("reading the tab", () => {
   });
   it("keeps the internal fields away from a role that must not see them", () => {
     const c = by("ASA9497");
-    expect(forRole(c, "sales")).toMatchObject({ target: null, encumbrance: "", orExp: null, docsCode: "" });
-    expect(forRole(c, "documentation")).toMatchObject({ target: null, encumbrance: "JACCS FINANCE - RELEASED", docsCode: "C" });
+    expect(forRole(c, "marketing")).toMatchObject({ target: null, encumbrance: "", orExp: null, docsCode: "" });
+    expect(forRole(c, "buying")).toMatchObject({ target: null, encumbrance: "JACCS FINANCE - RELEASED", docsCode: "C" });
     expect(forRole(c, "admin")).toMatchObject({ target: 250000, encumbrance: "JACCS FINANCE - RELEASED" });
-    expect(forRole(c, "approver").target).toBe(250000);
-    expect(forRole(c, "sales").price).toBe(259000); // the quoted price is for everyone
+    expect(forRole(c, "sales").target).toBe(250000); // Sales change the price list, so they see all of it
+    expect(forRole(c, "marketing").price).toBe(259000); // the quoted price is for everyone
   });
 });

@@ -1,5 +1,5 @@
 import "server-only";
-import type { Role } from "@/lib/auth";
+import { roleFromDb, type Role } from "@/lib/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTo, TelegramError } from "./bot";
 import { categoryById } from "./categories";
@@ -35,7 +35,7 @@ async function recipients(category: string, roles: readonly Role[], only?: reado
     db.from("notify_prefs").select("user_id").eq("category", category).eq("enabled", false).in("user_id", ids),
   ]);
   const off = new Set((muted ?? []).map((m) => String(m.user_id)));
-  const roleOf = new Map((profiles ?? []).map((p) => [String(p.id), p.role as Role]));
+  const roleOf = new Map((profiles ?? []).map((p) => [String(p.id), roleFromDb(p.role)]));
   return links.filter((l) => ids.includes(l.userId) && !off.has(l.userId) && roles.includes(roleOf.get(l.userId) as Role));
 }
 

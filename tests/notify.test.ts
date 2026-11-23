@@ -45,10 +45,10 @@ describe("the connect link", () => {
 });
 
 describe("categories", () => {
-  it("every role has some, and ids are unique", () => {
+  it("every role that gets messages has some, and ids are unique", () => {
     const ids = NOTIFY_CATEGORIES.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const role of ["sales", "approver", "documentation", "admin"] as const) expect(categoriesForRole(role).length).toBeGreaterThanOrEqual(1);
+    for (const role of ["sales", "buying", "admin", "super_admin"] as const) expect(categoriesForRole(role).length).toBeGreaterThanOrEqual(1);
   });
   it("only the Admin alert ignores quiet hours", () => {
     expect(NOTIFY_CATEGORIES.filter((c) => c.urgent).map((c) => c.id)).toEqual(["system_alert"]);

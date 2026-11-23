@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin, requireModule } from "@/lib/auth";
+import { requireSuper, requireModule } from "@/lib/auth";
 import { startBotScan } from "@/lib/docs/bot-scan";
 import { GrokbotError, grokbotMissing, sendJob } from "@/lib/grokbot/client";
 import { defaultGrokbotDeps } from "@/lib/grokbot/store";
@@ -12,7 +12,7 @@ export type GrokbotTest = { ok: true; message: string } | { ok: false; message: 
 
 /** Sends a "ping" to the scanner and waits for its answer: proves the address, the key and the callback all work. Admin only. */
 export async function testGrokbotAction(): Promise<GrokbotTest> {
-  const user = await requireAdmin();
+  const user = await requireSuper();
   await requireModule("sync");
   const missing = grokbotMissing();
   if (missing.length) return { ok: false, message: `Not set up on this server yet: ${missing.join(", ")}.` };
@@ -28,7 +28,7 @@ export async function testGrokbotAction(): Promise<GrokbotTest> {
 
 /** Takes a job that has not been sent yet out of the queue. A job already with the bot cannot be cancelled. */
 export async function cancelQueuedJobAction(formData: FormData): Promise<void> {
-  await requireAdmin();
+  await requireSuper();
   await requireModule("sync");
   const id = String(formData.get("id") ?? "");
   if (!/^[a-z_]{3,40}-[0-9a-f]{10}$/.test(id)) return;
@@ -41,7 +41,7 @@ export async function cancelQueuedJobAction(formData: FormData): Promise<void> {
 
 /** Makes a car's failed photos waiting again and puts a new scan in the queue. */
 export async function retryScanAction(formData: FormData): Promise<void> {
-  await requireAdmin();
+  await requireSuper();
   await requireModule("sync");
   const plate = normalizePlate(String(formData.get("plate") ?? ""));
   if (plate.length < 5) return;

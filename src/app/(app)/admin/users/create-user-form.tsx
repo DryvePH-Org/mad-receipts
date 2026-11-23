@@ -31,12 +31,13 @@ export function CreateUserForm({ onDone, canMakeAdmin = true }: { onDone?: () =>
       <FormField id="email" label="Email" error={errors.email?.message}>
         <Input id="email" type="email" inputMode="email" aria-invalid={!!errors.email} {...register("email")} />
       </FormField>
-      <FormField id="role" label="Role" hint="Sales fill in receipts, the Approver approves every one, the Admin manages everything else.">
+      <FormField id="role" label="Role" hint="Sales and Buying work on the cars, Online Marketing only looks, the Admin oversees every module, the Super Admin also runs Settings, Users and Sync jobs.">
         <NativeSelect id="role" {...register("role")}>
           <option value="sales">Sales</option>
-          <option value="approver">Approver</option>
-          <option value="documentation">Documentation</option>
+          <option value="buying">Buying</option>
+          <option value="marketing">Online Marketing</option>
           {canMakeAdmin && <option value="admin">Admin</option>}
+          {canMakeAdmin && <option value="super_admin">Super Admin</option>}
         </NativeSelect>
       </FormField>
       <FormField id="password" label="Temporary password" error={errors.password?.message} hint="At least 8 characters. Use the eye to check what you typed.">

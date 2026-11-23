@@ -143,8 +143,9 @@ describe("reminders", () => {
     expect(list.map((n) => n.key).sort()).toEqual(["due-b", "li-e", "ln-d", "od-a"]);
     expect(notificationsFor(list, { id: "u1", role: "sales" }).map((n) => n.key).sort()).toEqual(["due-b", "li-e", "ln-d", "od-a"]);
     expect(notificationsFor(list, { id: "u2", role: "sales" })).toEqual([]);
-    expect(notificationsFor(list, { id: "x", role: "approver" }).map((n) => n.key)).toEqual(["od-a"]);
+    expect(notificationsFor(list, { id: "x", role: "buying" })).toEqual([]);
     expect(notificationsFor(list, { id: "x", role: "admin" })).toHaveLength(4);
+    expect(notificationsFor(list, { id: "x", role: "super_admin" })).toHaveLength(4);
   });
   it("respects the settings", () => {
     const off = { ...settings, before7: false, before3: false, dueDay: false };

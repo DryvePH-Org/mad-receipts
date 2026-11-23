@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
-import { requireAdmin, requireModule } from "@/lib/auth";
+import { requireSuper, requireModule } from "@/lib/auth";
 import { ChecksPanel } from "./checks-panel";
 
 export default function GoLivePage() {
@@ -14,7 +14,7 @@ export default function GoLivePage() {
 }
 
 async function Content() {
-  await requireAdmin();
+  await requireSuper();
   await requireModule("sync");
   return <ChecksPanel />;
 }

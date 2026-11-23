@@ -1,8 +1,9 @@
-import type { Role } from "@/lib/navigation";
+import type { Role } from "@/lib/roles";
 
 /**
- * Someone who has the Users module without being an Admin can look after ordinary accounts, but cannot make an Admin,
- * change an Admin, reset an Admin's password or switch an Admin off (that would be a way to become Admin).
+ * Someone who has the Users module without being a Super Admin can look after ordinary accounts, but cannot make an Admin or a
+ * Super Admin, change one, reset one's password or switch one off (that would be a way to become one).
  */
-export const canAssignRole = (actor: Role, role: string): boolean => actor === "admin" || role !== "admin";
-export const canManageUser = (actor: Role, target: string): boolean => actor === "admin" || target !== "admin";
+const POWERFUL = ["super_admin", "admin"];
+export const canAssignRole = (actor: Role, role: string): boolean => actor === "super_admin" || !POWERFUL.includes(role);
+export const canManageUser = (actor: Role, target: string): boolean => actor === "super_admin" || !POWERFUL.includes(target);

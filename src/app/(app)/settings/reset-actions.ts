@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth";
+import { requireSuper } from "@/lib/auth";
 import { phraseMatches, resetInfo } from "@/lib/reset";
 import { countData, runReset, type ResetCounts } from "@/lib/reset-run";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -10,13 +10,13 @@ export type ResetResult = { ok: true; message: string } | { ok: false; error: st
 
 /** How much there is to delete, for the Reset tab. */
 export async function getResetCounts(): Promise<ResetCounts> {
-  await requireAdmin();
+  await requireSuper();
   return countData(createAdminClient());
 }
 
 /** Deletes data for the Admin, only if the typed words match exactly (checked here, not only in the browser). */
 export async function resetData(kind: string, typed: string): Promise<ResetResult> {
-  const user = await requireAdmin();
+  const user = await requireSuper();
   const info = resetInfo(kind);
   if (!info) return { ok: false, error: "That is not something that can be deleted." };
   if (!phraseMatches(kind, String(typed ?? ""))) return { ok: false, error: `Type ${info.phrase} exactly to confirm.` };

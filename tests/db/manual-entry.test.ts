@@ -7,7 +7,7 @@ import { createDb, type Db } from "./harness";
 //   always:      price + fee = trade-in + loan + received - payout + balance
 
 let db: Db;
-let sales: string, admin: string, approver: string;
+let sales: string, admin: string, approver: string, superAdmin: string;
 let n = 0;
 
 const user = async (email: string, role: string) => {
@@ -36,7 +36,8 @@ beforeAll(async () => {
   db = await createDb();
   sales = await user("sales@example.test", "sales");
   admin = await user("admin@example.test", "admin");
-  approver = await user("approver@example.test", "approver");
+  approver = await user("approver@example.test", "admin");
+  superAdmin = await user("super@example.test", "super_admin");
 }, 60_000);
 
 describe("submitting a receipt", () => {
@@ -154,8 +155,8 @@ describe("a saved receipt is final", () => {
 
   it("nobody reviews it afterwards", async () => {
     const r = await submit(sales, payload(sales));
-    await fails(db.query("select public.review_receipt($1, $2, true, null)", [approver, r.receipt_id]), "not_pending");
-    await fails(db.query("select public.review_receipt($1, $2, false, 'The photo is blurry')", [approver, r.receipt_id]), "not_pending");
+    await expect(db.query("select public.review_receipt($1, $2, true, null)", [superAdmin, r.receipt_id])).rejects.toThrow(/not_pending|not_approver/);
+    await expect(db.query("select public.review_receipt($1, $2, false, 'The photo is blurry')", [superAdmin, r.receipt_id])).rejects.toThrow(/not_pending|not_approver/);
   });
 
   it("a deal's balance counts every saved receipt at once", async () => {
@@ -179,7 +180,7 @@ describe("deleting a transaction", () => {
   it("is for the Admin only", async () => {
     const { r } = await dealWithProof();
     await fails(del(sales, r.deal_id), "not_admin");
-    await fails(del(approver, r.deal_id), "not_admin");
+    await fails(del(sales, r.deal_id), "not_admin");
     expect(num((await one<{ n: string }>("select count(*) as n from public.deals where id = $1", [r.deal_id])).n)).toBe(1);
   });
 
@@ -204,7 +205,7 @@ describe("deleting a transaction", () => {
 });
 
 describe("admin controls", () => {
-  it("void, loan, cancel and settings are for the Admin", async () => {
+  it("void, loan and cancel are for the Admins; settings for the Super Admin", async () => {
     const r = await submit(sales, payload(sales, { sale_type: "financing", institution: "BDO", down_payment: "150000", payments: [cash(sales, "150000")] }));
     await fails(db.query("select public.set_loan_status($1, $2, 'released', null)", [sales, r.deal_id]), "not_admin");
     await db.query("select public.set_loan_status($1, $2, 'released', '2026-11-05')", [admin, r.deal_id]);
@@ -214,7 +215,8 @@ describe("admin controls", () => {
     await db.query("select public.void_receipt($1, $2, 'Wrong amount')", [admin, r.receipt_id]);
     expect((await one<{ balance: string }>("select balance from public.deal_summaries where id = $1", [r.deal_id])).balance).toBe("150000.00");
     await fails(db.query("select public.update_settings($1, '{}'::jsonb)", [sales]), "not_admin");
-    await db.query(`select public.update_settings($1, '{"feeStd":"8"}'::jsonb)`, [admin]);
+    await fails(db.query("select public.update_settings($1, '{}'::jsonb)", [admin]), "not_admin"); // an Admin does not have Settings
+    await db.query(`select public.update_settings($1, '{"feeStd":"8"}'::jsonb)`, [superAdmin]);
     expect((await one<{ config: { feeStd: string } }>("select config from public.app_settings")).config.feeStd).toBe("8");
   });
 

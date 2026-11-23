@@ -52,7 +52,7 @@ export function AccessDialog({ userId, name, role, grants, denies, locked }: { u
             <ul className="divide-y rounded-lg border">
               {NAV_ITEMS.map((i) => {
                 const inRole = base.includes(i.id);
-                const floor = role === "admin" && ADMIN_FLOOR.includes(i.id);
+                const floor = role === "super_admin" && ADMIN_FLOOR.includes(i.id);
                 const has = final.includes(i.id);
                 return (
                   <li key={i.id} className="flex flex-wrap items-center justify-between gap-2 p-2.5">
@@ -67,8 +67,8 @@ export function AccessDialog({ userId, name, role, grants, denies, locked }: { u
                 );
               })}
             </ul>
-            <p className="text-xs text-muted-foreground">Powerful modules: approving receipts, Settings, Users and Sync jobs. Giving one asks you to type GRANT. Wiping data (Settings → Delete data) stays with the Admin role whatever you choose.</p>
-            {locked && <p role="alert" className="text-sm text-destructive">You cannot change your own access. Ask another Admin.</p>}
+            <p className="text-xs text-muted-foreground">Powerful modules: Settings, Users and Sync jobs. Giving one asks you to type GRANT. Wiping data (Settings → Delete data) stays with the Admin role whatever you choose.</p>
+            {locked && <p role="alert" className="text-sm text-destructive">You cannot change your own access. Ask another Super Admin.</p>}
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button type="button" variant="outline" onClick={close}>Cancel</Button>
               <Button type="button" disabled={locked || !changed} onClick={() => setConfirming(true)}>Review the change…</Button>

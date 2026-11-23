@@ -8,6 +8,7 @@ import { ResponsiveList } from "@/components/shared/responsive-list";
 import { SyncStatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { requireModule } from "@/lib/auth";
+import { isSuper } from "@/lib/roles";
 import { GrokbotPanel } from "./grokbot-panel";
 import { QueuePanel } from "./queue-panel";
 import { grokbotMissing } from "@/lib/grokbot/client";
@@ -100,14 +101,14 @@ async function SyncContent({ searchParams }: { searchParams: PageProps<"/admin/s
 
   return (
     <>
-      {me.role === "admin" && <GrokbotPanel missing={grokbotMissing()} />}
-      {me.role === "admin" && <QueuePanel />}
+      {isSuper(me.role) && <GrokbotPanel missing={grokbotMissing()} />}
+      {isSuper(me.role) && <QueuePanel />}
       <PageHeader
         title="Sync jobs"
         description={`When a receipt is saved, voided or a deal changes, the app updates the car's status, saves the audit copy in Drive and tells Telegram. Jobs that fail are retried automatically, up to ${MAX_ATTEMPTS} times.`}
         actions={
           <>
-            {me.role === "admin" && <Button variant="outline" nativeButton={false} render={<Link href="/admin/golive" />}>Go-live check</Button>}
+            {isSuper(me.role) && <Button variant="outline" nativeButton={false} render={<Link href="/admin/golive" />}>Go-live check</Button>}
             <Button variant="outline" nativeButton={false} render={<Link href={showAll ? "/admin/sync" : "/admin/sync?show=all"} />}>
               {showAll ? "Hide finished" : "Show finished"}
             </Button>

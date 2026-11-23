@@ -4,8 +4,8 @@ import { forbidden, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { effectiveModules, type ModuleId } from "@/lib/navigation";
 
-/** Sales fill in receipts (final when saved), the Approver watches the dashboards and the prices, Documentation watches the car papers, the Admin manages everything else. */
-export type Role = "sales" | "admin" | "approver" | "documentation";
+import { roleFromDb, type Role } from "@/lib/roles";
+export type { Role } from "@/lib/roles";
 
 export interface CurrentUser {
   id: string;
@@ -34,7 +34,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const { data: extra } = await supabase.from("profiles").select("module_grants, module_denies").eq("id", user.id).single();
   const grants = Array.isArray(extra?.module_grants) ? (extra.module_grants as string[]) : [];
   const denies = Array.isArray(extra?.module_denies) ? (extra.module_denies as string[]) : [];
-  const role: Role = profile?.role === "admin" ? "admin" : profile?.role === "approver" ? "approver" : profile?.role === "documentation" ? "documentation" : "sales";
+  const role: Role = roleFromDb(profile?.role);
 
   return {
     id: user.id,
@@ -75,5 +75,8 @@ export async function requireAnyModule(...ids: ModuleId[]): Promise<CurrentUser>
   return user;
 }
 
-// For every admin page, admin server action and admin API route: 403 unless admin.
-export const requireAdmin = () => requireRole("admin");
+/** 403 unless the signed-in user is an Admin or a Super Admin: prices, decisions, deleting a transaction or a car. */
+export const requireAdmin = () => requireRole("admin", "super_admin");
+
+/** For every administration page, action and API route (Settings, Users, Sync jobs, the bot set-up): 403 unless Super Admin. */
+export const requireSuper = () => requireRole("super_admin");

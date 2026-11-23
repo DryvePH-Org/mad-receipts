@@ -1,5 +1,6 @@
 import writeXlsxFile from "write-excel-file/node";
 import { getCurrentUser } from "@/lib/auth";
+import { isAdmin } from "@/lib/roles";
 import { manilaToday } from "@/lib/dates";
 import { buildDetailRows, buildPriceListRows, DETAIL_WIDTHS, WIDTHS } from "@/lib/pricelist/export";
 import { loadPriceList } from "@/lib/pricelist/load";
@@ -8,7 +9,7 @@ import { loadPriceList } from "@/lib/pricelist/load";
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return new Response("Not logged in", { status: 401 });
-  if (!user.modules.includes("cars") || (user.role !== "admin" && user.role !== "approver")) return new Response("Not allowed", { status: 403 });
+  if (!user.modules.includes("cars") || !isAdmin(user.role)) return new Response("Not allowed", { status: 403 });
   try {
     const today = manilaToday();
     const { rows, details } = await loadPriceList();

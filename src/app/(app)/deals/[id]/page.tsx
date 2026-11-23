@@ -9,6 +9,7 @@ import { DealStatusBadge, Pill, ReceiptStatusBadge } from "@/components/shared/s
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireModule } from "@/lib/auth";
+import { isAdmin as isAdminRole, seesSales } from "@/lib/roles";
 import { getDeal, receiptsOfDeal } from "@/lib/data";
 import { formatDate, manilaToday } from "@/lib/dates";
 import { buildLedger, totals } from "@/lib/deal/math";
@@ -41,8 +42,8 @@ async function Content({ params }: { params: PageProps<"/deals/[id]">["params"] 
   const tradeText = [[deal.tradeInInfo?.year, deal.tradeInInfo?.unit].filter(Boolean).join(" "), deal.tradeInInfo?.plate].filter(Boolean).join(" · ");
   const ledger = buildLedger(t, { units: deal.units.length, institution: deal.institution ?? "", tradeInText: tradeText, payRows: [], payoutProofs: 0, lieuUntilText: deal.lieuUntil ? formatDate(deal.lieuUntil) : "" });
   const pct = t.due > 0 ? Math.max(0, Math.min(100, Math.round(((deal.openingPaid + deal.approvedPaid) / t.due) * 100))) : 100;
-  const isAdmin = user.role === "admin";
-  const sales = user.role === "admin" || user.role === "approver" || user.role === "documentation" ? await salesOfDeal(deal.id) : [];
+  const isAdmin = isAdminRole(user.role);
+  const sales = seesSales(user.role) ? await salesOfDeal(deal.id) : [];
   const invStatus = deal.status === "cancelled" ? "Available" : status === "settled" ? "Sold" : "Reserved";
 
   return (

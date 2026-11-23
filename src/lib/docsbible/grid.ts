@@ -1,4 +1,5 @@
 // The Docs Bible table: its columns (same names and order as the sheet), who may edit which, and the checking of an edit. Pure.
+import { editsPapers, isAdmin, type Role } from "@/lib/roles";
 import { dateOf, PAPER_VALUES, plateKey, text } from "./normalize";
 
 export type ColKind = "plate" | "text" | "paper" | "classification" | "date" | "sale_status" | "vehicle_status" | "stock_state" | "complete" | "remarks";
@@ -69,9 +70,9 @@ export const STOCK_STATE_VALUES = ["Onhand", "Reserved", "Sold", "Not for sale",
 export const VEHICLE_STATUSES = ["SOLD", "AVAILABLE", "SHIPPED TO CEB", "NOT FOR SALE"] as const;
 export const GRID_CLASSIFICATIONS = ["Clean", "Repo (bank)", "Encumbered (Indiv)"] as const;
 
-export type Role = "sales" | "admin" | "approver" | "documentation";
+export type { Role };
 /** The owner's rule: Documentation has full control of the car's documents record (who the car is, its papers, OR date, spare key, arrival); the one STATE is Admin's here (Admin and Approver also change it in Car status); the two old status columns are worked out from it and nobody types them. Sales and Approver only read (the Approver changes prices in Car status). */
-export const canEditColumn = (role: Role, col: Col): boolean => col.edit === "admin" ? role === "admin" : col.edit === "papers" ? role === "admin" || role === "documentation" : false;
+export const canEditColumn = (role: Role, col: Col): boolean => col.edit === "admin" ? isAdmin(role) : col.edit === "papers" ? editsPapers(role) : false;
 
 /** What the cell becomes, or why the typing is refused. An empty cell is allowed (null) except where the database needs a value. */
 export function checkEdit(col: Col, raw: string): { ok: true; value: string | null } | { ok: false; error: string } {

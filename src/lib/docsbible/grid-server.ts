@@ -1,4 +1,5 @@
 import "server-only";
+import { isAdmin } from "@/lib/roles";
 import { COLUMN_BY_KEY, canEditColumn, checkEdit, COLUMNS, type GridRow, type Role } from "./grid";
 import { docsDb } from "./review-server";
 
@@ -40,7 +41,7 @@ export async function loadRegisterRow(plate: string): Promise<GridRow | null> {
 export async function saveCell(role: Role, actor: string, unitId: string, key: string, raw: string, expected: string | null): Promise<{ ok: true; value: string | null } | { ok: false; message: string }> {
   const col = COLUMN_BY_KEY.get(key);
   if (!col || !col.edit) return { ok: false, message: "This column cannot be edited." };
-  if (!canEditColumn(role, col)) return { ok: false, message: role === "admin" ? "This column cannot be edited." : "You can look at this column; Documentation edits the paper columns and Admin the rest." };
+  if (!canEditColumn(role, col)) return { ok: false, message: isAdmin(role) ? "This column cannot be edited." : "You can look at this column; the paper columns are edited by the people who handle the papers, and the rest by an Admin." };
   const checked = checkEdit(col, raw);
   if (!checked.ok) return { ok: false, message: checked.error };
   const db = docsDb();

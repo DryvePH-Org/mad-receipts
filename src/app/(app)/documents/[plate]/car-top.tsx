@@ -27,7 +27,7 @@ export function CarTop({ data, readOnly = false, folderBox = true }: { data: Car
         <Pill tone={data.location === "sold" ? "teal" : "grey"}>{data.location === "sold" ? "In Sold units" : "In Available units"}</Pill>
         {data.match === "linked" && <Pill tone={STATUS_TONE[data.statusKey] ?? "grey"}>{data.statusLabel}</Pill>}
         {orState.state !== "unknown" && <Pill tone={orState.state === "overdue" ? "red" : orState.state === "soon" ? "amber" : "grey"}>{orLabel(orState)}{data.orExpiry ? ` (${data.orExpiry})` : ""}</Pill>}
-        {data.deal ? <Link href={`/deals/${data.deal.id}`} className="text-sm underline underline-offset-2">AR {data.deal.dealNo} · {data.deal.buyerName}{data.deal.hasReceipt ? "" : " (no AR yet)"}</Link> : <span className="text-sm text-muted-foreground">No AR for this car yet</span>}
+        {data.deal ? (data.dealLinks ? <Link href={`/deals/${data.deal.id}`} className="text-sm underline underline-offset-2">AR {data.deal.dealNo} · {data.deal.buyerName}{data.deal.hasReceipt ? "" : " (no AR yet)"}</Link> : <span className="text-sm">AR {data.deal.dealNo} · {data.deal.buyerName}{data.deal.hasReceipt ? "" : " (no AR yet)"}</span>) : <span className="text-sm text-muted-foreground">No AR for this car yet</span>}
         {!readOnly && <div className="ml-auto flex flex-wrap gap-2">
           <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/documents/${data.plate}/transmittal`} />}><FileText /> Transmittal receipt</Button>
           {data.folderUrl && <Button variant="outline" size="sm" nativeButton={false} render={<a href={data.folderUrl} target="_blank" rel="noreferrer" />}><ExternalLink /> Open the folder</Button>}

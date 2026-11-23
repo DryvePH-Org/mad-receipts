@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
 import { requireModule, requireAdmin, requireAnyModule } from "@/lib/auth";
+import { isAdmin } from "@/lib/roles";
 import { removeFile, resetFile, editReading, reviewFlag, chooseFolder, defaultDocsDeps, docsErrorText, linkFolder, previewCarFolder, type FolderPreview, moveToSold, readPending, refreshFolders, scanFolder, setCase, setFileTypes, type MoveResult, type ReadProgress } from "@/lib/docs/service";
 import { CASES, CHOOSABLE, type CaseType, type DocType } from "@/lib/docs/types";
 import { readerMode, scheduleScan } from "@/lib/docs/bot-scan";
@@ -216,7 +217,7 @@ export async function moveToSoldAction(plate: string, confirmIncomplete: boolean
   if (!p.success) return { ok: false, error: "Bad plate." };
   return guard<MoveResult>(async () => {
     const rule = (await rulesFor(p.data)).moveToSold;
-    if (!allowed(rule, user.role === "admin")) return { ok: false as const, error: rule.reason ?? "This car cannot be moved yet." };
+    if (!allowed(rule, isAdmin(user.role))) return { ok: false as const, error: rule.reason ?? "This car cannot be moved yet." };
     // an Admin going past a rule must say so: the confirmation lists what is open (the page asks for it)
     if (!rule.allowed && !confirmIncomplete) return { ok: false as const, needsConfirm: true as const, missing: [rule.reason ?? "Not ready"] };
     const r = await moveToSold(p.data, user.id, confirmIncomplete);

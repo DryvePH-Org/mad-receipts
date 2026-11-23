@@ -15,7 +15,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type Role = "sales" | "admin" | "approver" | "documentation";
+import type { Role } from "@/lib/roles";
+export { ROLE_LABELS, type Role } from "@/lib/roles";
 
 export type ModuleId = "dashboard" | "cars" | "register" | "new" | "deals" | "reminders" | "documents" | "repairs" | "upload" | "activity" | "settings" | "users" | "sync";
 
@@ -32,24 +33,25 @@ export interface NavItem {
   badge?: "reminders";
 }
 
-const ALL: Role[] = ["sales", "admin", "approver", "documentation"];
-const MONEY: Role[] = ["sales", "admin", "approver"];
+const ALL: Role[] = ["super_admin", "admin", "buying", "marketing", "sales"];
+const ADMINS: Role[] = ["super_admin", "admin"];
+const SUPER: Role[] = ["super_admin"];
 
 // Menus are data, not markup: the sidebar, the phone tab bar and its "More" sheet all read this.
 export const NAV_ITEMS: NavItem[] = [
-  { id: "dashboard", href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, group: "Overview", roles: ["admin", "approver"] },
-  { id: "new", href: "/new", label: "New receipt", icon: Receipt, group: "Receipts", roles: MONEY },
-  { id: "deals", href: "/deals", label: "Transactions", icon: Car, group: "Receipts", roles: ALL },
-  { id: "reminders", href: "/reminders", label: "Reminders", icon: Bell, group: "Receipts", roles: MONEY, badge: "reminders" },
+  { id: "dashboard", href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, group: "Overview", roles: ADMINS },
+  { id: "activity", href: "/activity", label: "Activity log", icon: History, group: "Overview", roles: ADMINS },
+  { id: "new", href: "/new", label: "New receipt", icon: Receipt, group: "Receipts", roles: SUPER },
+  { id: "deals", href: "/deals", label: "Transactions", icon: Car, group: "Receipts", roles: SUPER },
+  { id: "reminders", href: "/reminders", label: "Reminders", icon: Bell, group: "Receipts", roles: ["super_admin", "admin", "sales"], badge: "reminders" },
   { id: "cars", href: "/cars", label: "Car status", icon: CarFront, group: "Cars", roles: ALL },
-  { id: "documents", href: "/documents", label: "Car documents (act)", icon: FolderCheck, group: "Cars", roles: ["admin", "documentation"], menu: false }, // scan, approve, move, hand off: the menu entry is "register" below
+  { id: "documents", href: "/documents", label: "Car documents (act)", icon: FolderCheck, group: "Cars", roles: ["super_admin", "admin", "buying", "sales"], menu: false }, // scan, approve, move, hand off: the menu entry is "register" below
   { id: "register", href: "/documents", label: "Car documents", icon: BookOpenCheck, group: "Cars", roles: ALL },
   { id: "repairs", href: "/repairs", label: "Repairs", icon: Wrench, group: "Cars", roles: ALL },
-  { id: "upload", href: "/upload-documents", label: "Sold papers (add)", icon: Upload, group: "Cars", roles: ["sales", "admin", "approver"], menu: false }, // the module that lets someone add the sold papers on a car page of Car documents
-  { id: "activity", href: "/activity", label: "Activity log", icon: History, group: "Administration", roles: ["admin", "approver"] },
-  { id: "settings", href: "/settings", label: "Settings", icon: Settings, group: "Administration", roles: ["admin"] },
-  { id: "users", href: "/admin/users", label: "Users", icon: Users, group: "Administration", roles: ["admin"] },
-  { id: "sync", href: "/admin/sync", label: "Sync jobs", icon: RefreshCw, group: "Administration", roles: ["admin"] },
+  { id: "upload", href: "/upload-documents", label: "Sold papers (add)", icon: Upload, group: "Cars", roles: ["super_admin", "admin", "sales"], menu: false }, // the module that lets someone add the sold papers on a car page of Car documents
+  { id: "settings", href: "/settings", label: "Settings", icon: Settings, group: "Administration", roles: SUPER },
+  { id: "users", href: "/admin/users", label: "Users", icon: Users, group: "Administration", roles: SUPER },
+  { id: "sync", href: "/admin/sync", label: "Sync jobs", icon: RefreshCw, group: "Administration", roles: SUPER },
 ];
 
 /**
@@ -57,7 +59,7 @@ export const NAV_ITEMS: NavItem[] = [
  * Three of them carry real power: Settings, Users and Sync jobs. Giving those asks for an extra typed confirmation.
  */
 export const SENSITIVE: ModuleId[] = ["settings", "users", "sync"];
-/** An Admin can never lose these two, so someone always stays in charge. */
+/** A Super Admin can never lose these two, so someone always stays in charge. */
 export const ADMIN_FLOOR: ModuleId[] = ["users", "settings"];
 
 export const ALL_MODULE_IDS = NAV_ITEMS.map((i) => i.id);
@@ -71,11 +73,10 @@ export const roleModules = (role: Role): ModuleId[] => NAV_ITEMS.filter((i) => i
 export function effectiveModules(role: Role, grants: readonly string[] = [], denies: readonly string[] = []): ModuleId[] {
   const set = new Set<ModuleId>(roleModules(role));
   for (const g of grants) if (isModuleId(g) && GRANTABLE.includes(g)) set.add(g);
-  for (const d of denies) if (isModuleId(d) && !(role === "admin" && ADMIN_FLOOR.includes(d))) set.delete(d);
+  for (const d of denies) if (isModuleId(d) && !(role === "super_admin" && ADMIN_FLOOR.includes(d))) set.delete(d);
   return NAV_ITEMS.map((i) => i.id).filter((id) => set.has(id));
 }
 
-export const ROLE_LABELS: Record<Role, string> = { sales: "Sales", admin: "Admin", approver: "Approver", documentation: "Documentation" };
 
 /** The menu items this role may see. (The pages and the database enforce access too.) */
 export const navFor = (role: Role, modules: readonly ModuleId[] = roleModules(role)): NavItem[] => NAV_ITEMS.filter((item) => item.menu !== false && modules.includes(item.id));

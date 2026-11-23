@@ -17,7 +17,7 @@ const input = z.object({
 });
 
 export async function saveTransferAction(id: string, raw: z.input<typeof input>): Promise<TransferResult> {
-  const user = await requireRole("admin", "approver", "documentation");
+  const user = await requireRole("super_admin", "admin", "buying", "sales");
   const p = input.safeParse(raw);
   if (!z.string().uuid().safeParse(id).success || !p.success) return { ok: false, error: p.success ? "That transfer was not found." : p.error.issues[0]?.message ?? "Some values are not valid." };
   const error = await saveTransfer(id, p.data, user.id);
@@ -27,7 +27,7 @@ export async function saveTransferAction(id: string, raw: z.input<typeof input>)
 }
 
 export async function markCheckedAction(id: string): Promise<TransferResult> {
-  const user = await requireRole("admin", "approver", "documentation");
+  const user = await requireRole("super_admin", "admin", "buying", "sales");
   if (!z.string().uuid().safeParse(id).success) return { ok: false, error: "That transfer was not found." };
   const error = await markChecked(id, user.id);
   if (error) return { ok: false, error: `Could not save: ${error}` };
@@ -36,7 +36,7 @@ export async function markCheckedAction(id: string): Promise<TransferResult> {
 }
 
 export async function addTransferAction(plateRaw: string, raw: z.input<typeof input>): Promise<TransferResult> {
-  const user = await requireRole("admin", "approver", "documentation");
+  const user = await requireRole("super_admin", "admin", "buying", "sales");
   const plate = normalizePlate(plateRaw);
   const p = input.safeParse(raw);
   if (!plate) return { ok: false, error: "Type the plate number." };

@@ -4,6 +4,7 @@ import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
+import { isSuper, roleFromDb } from "@/lib/roles";
 import { botToken, webhookInfo } from "@/lib/notify/bot";
 import { categoriesForRole } from "@/lib/notify/categories";
 import { allLinks, getLink, mutedCategories, notifyDb } from "@/lib/notify/store";
@@ -19,13 +20,13 @@ async function Content() {
   const [link, muted] = await Promise.all([getLink(user.id).catch(() => null), mutedCategories(user.id).catch(() => new Set<string>())]);
   const mine = categoriesForRole(user.role);
   const configured = !!botToken();
-  const hook = user.role === "admin" && configured ? await webhookInfo().catch(() => null) : null;
+  const hook = isSuper(user.role) && configured ? await webhookInfo().catch(() => null) : null;
 
   let people: { name: string; role: string; connected: boolean; problem: string | null }[] = [];
-  if (user.role === "admin") {
+  if (isSuper(user.role)) {
     const [links, { data: profiles }] = await Promise.all([allLinks().catch(() => []), notifyDb().from("profiles").select("id, full_name, role").order("full_name")]);
     const byUser = new Map(links.map((l) => [l.userId, l]));
-    people = (profiles ?? []).map((p) => ({ name: (p.full_name as string | null) ?? "(no name)", role: ROLE_LABELS[p.role as keyof typeof ROLE_LABELS] ?? String(p.role), connected: byUser.has(String(p.id)), problem: byUser.get(String(p.id))?.lastError ?? null }));
+    people = (profiles ?? []).map((p) => ({ name: (p.full_name as string | null) ?? "(no name)", role: ROLE_LABELS[roleFromDb(p.role)], connected: byUser.has(String(p.id)), problem: byUser.get(String(p.id))?.lastError ?? null }));
   }
 
   return (
@@ -53,7 +54,7 @@ async function Content() {
           </CardContent>
         </Card>
 
-        {user.role === "admin" && (
+        {isSuper(user.role) && (
           <>
             <Card>
               <CardHeader><CardTitle>Admin: the bot</CardTitle></CardHeader>

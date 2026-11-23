@@ -74,12 +74,12 @@ export function Overview({ data, facts, sale, steps, approval, canSale, detailsM
               <Line k="Agreed price" v={sale.agreedPrice ? formatPeso(Math.round(sale.agreedPrice * 100)) : <span className="text-muted-foreground">not recorded</span>} />
               <Line k="Sold on" v={sale.soldOn ? day(sale.soldOn) : <span className="text-muted-foreground">not recorded</span>} />
               <Line k="Sales" v={sale.sales ?? <span className="text-muted-foreground">not recorded</span>} />
-              {sale.dealId && <Line k="Deal" v={<Link href={`/deals/${sale.dealId}`} className="underline underline-offset-2">{sale.dealNo ?? "open the deal"}</Link>} />}
+              {sale.dealId && <Line k="Deal" v={data.dealLinks ? <Link href={`/deals/${sale.dealId}`} className="underline underline-offset-2">{sale.dealNo ?? "open the deal"}</Link> : (sale.dealNo ?? "")} />}
             </> : <p className="text-muted-foreground">No sale is recorded for this car.</p>}
           </Block>
         ) : data.deal && (
           <Block title="Sale" plate={data.plate} tab="documents" link="Sold papers">
-            <Line k="Buyer" v={data.deal.buyerName} /><Line k="Deal" v={<Link href={`/deals/${data.deal.id}`} className="underline underline-offset-2">{data.deal.dealNo}</Link>} />
+            <Line k="Buyer" v={data.deal.buyerName} /><Line k="Deal" v={data.dealLinks ? <Link href={`/deals/${data.deal.id}`} className="underline underline-offset-2">{data.deal.dealNo}</Link> : data.deal.dealNo} />
           </Block>
         )}
 

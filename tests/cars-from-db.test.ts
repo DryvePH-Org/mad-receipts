@@ -30,13 +30,14 @@ describe("a Car status row from the database", () => {
     expect(carRowOf(stock(), car({ spare_key: "N/A" }), "2026-11-19", "yes").spareKey).toBe("N/A");
     expect(carRowOf(stock(), car({ spare_key: null }), "2026-11-19", "yes").spareKey).toBe("W/SPAREKEY");
   });
-  it("keeps a note that is not a status, and gives the edit screen only to Admin and Approver", () => {
+  it("keeps a note that is not a status, and gives the edit screen only to the roles that edit the price list", () => {
     expect(noteOf("RESERVED - DAVID 11/2 | battery on order")).toBe("battery on order");
     const c = carRowOf(stock({ remarks: "FOR REPAIR - 48V BATTERY" }), car(), "2026-11-19");
-    expect(forRole(c, "approver").raw).toMatchObject({ listPrice: 238000, reprice: 228000 });
-    expect(forRole(c, "sales").raw).toBeUndefined();
-    expect(forRole(c, "documentation").raw).toBeUndefined();
-    expect(forRole(c, "sales").target).toBeNull();
+    expect(forRole(c, "admin").raw).toMatchObject({ listPrice: 238000, reprice: 228000 });
+    expect(forRole(c, "sales").raw).toMatchObject({ listPrice: 238000 });
+    expect(forRole(c, "buying").raw).toBeUndefined();
+    expect(forRole(c, "marketing").raw).toBeUndefined();
+    expect(forRole(c, "marketing").target).toBeNull();
   });
 });
 

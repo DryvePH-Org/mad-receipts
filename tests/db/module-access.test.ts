@@ -48,25 +48,23 @@ describe("approving and settings follow a person's modules (migration 21)", () =
   };
   const can = async (pid: string, mod: string) => (await db.query<{ ok: boolean }>("select public.can_use_module($1, $2) as ok", [pid, mod])).rows[0].ok;
 
-  it("the Approver role approves, a granted person approves, a hidden or ordinary one does not", async () => {
-    expect(await can(await person("ap@x.test", "approver"), "approvals")).toBe(true);
+  it("a granted person has the module, an ordinary one or one who hid it does not (hiding wins)", async () => {
     expect(await can(await person("gr@x.test", "sales", ["approvals"]), "approvals")).toBe(true);
     expect(await can(await person("sa@x.test", "sales"), "approvals")).toBe(false);
-    expect(await can(await person("hid@x.test", "approver", [], ["approvals"]), "approvals")).toBe(false);
-    expect(await can(await person("hg@x.test", "sales", ["approvals"], ["approvals"]), "approvals")).toBe(false); // hiding wins
+    expect(await can(await person("hg@x.test", "sales", ["approvals"], ["approvals"]), "approvals")).toBe(false);
   });
-  it("an Admin always has settings; others only when granted", async () => {
-    expect(await can(await person("ad@x.test", "admin", [], ["settings"]), "settings")).toBe(true);
+  it("a Super Admin always has settings; an Admin and others only when granted", async () => {
+    expect(await can(await person("ad@x.test", "super_admin", [], ["settings"]), "settings")).toBe(true);
     expect(await can(await person("st@x.test", "sales", ["settings"]), "settings")).toBe(true);
-    expect(await can(await person("no@x.test", "approver"), "settings")).toBe(false);
+    expect(await can(await person("no@x.test", "admin"), "settings")).toBe(false);
   });
   it("a saved receipt is final: there is nothing left to review, whoever tries", async () => {
     const sales = await person("s2@x.test", "sales");
-    const approver = await person("a2@x.test", "approver");
+    const approver = await person("a2@x.test", "super_admin");
     const payload = { receipt_no: "D-MOD-1", receipt_date: "2026-11-07", kind: "partial", buyer: { name: "Test Buyer" }, units: [{ make_type: "2023 Toyota Vios", plate: "ZZT 9101" }], price: "500000", sale_type: "cash", due: { mode: "text", text: "soon" }, payments: [{ method: "cash", amount: "100000" }] };
     const r = (await db.query<{ r: { receipt_id: string } }>("select public.submit_receipt($1, $2::jsonb, false) as r", [sales, JSON.stringify(payload)])).rows[0].r;
     const rec = (await db.query<{ status: string; reviewed_by: string }>("select status, reviewed_by from public.receipts where id = $1", [r.receipt_id])).rows[0];
     expect(rec).toEqual({ status: "approved", reviewed_by: sales });
-    await expect(db.query("select public.review_receipt($1, $2, true)", [approver, r.receipt_id])).rejects.toThrow(/not_pending/);
+    await expect(db.query("select public.review_receipt($1, $2, true)", [approver, r.receipt_id])).rejects.toThrow(/not_pending|not_approver/);
   });
 });

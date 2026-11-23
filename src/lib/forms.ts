@@ -22,7 +22,7 @@ export const createUserSchema = z.object({
   email: z.email("Enter a valid email.").max(254),
   password: passwordSchema,
   confirm: z.string().min(1, "Type the password again."),
-  role: z.enum(["sales", "approver", "documentation", "admin"]),
+  role: z.enum(["sales", "buying", "marketing", "admin", "super_admin"]),
 }).refine(sameAs, SAME);
 
 export const resetPasswordSchema = z.object({ password: passwordSchema, confirm: z.string().min(1, "Type the password again.") }).refine(sameAs, SAME);

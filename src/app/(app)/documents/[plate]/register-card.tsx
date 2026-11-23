@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
-import { canEditColumn, COLUMNS, GRID_CLASSIFICATIONS, SALE_STATUSES, STOCK_STATE_VALUES, VEHICLE_STATUSES, type Col, type GridRow, type Role } from "@/lib/docsbible/grid";
+import { canEditColumn, COLUMNS, GRID_CLASSIFICATIONS, SALE_STATUSES, STOCK_STATE_VALUES, VEHICLE_STATUSES, type Col, type GridRow } from "@/lib/docsbible/grid";
+import { editsPapers, isAdmin, type Role } from "@/lib/roles";
 import { PAPER_VALUES } from "@/lib/docsbible/normalize";
 import { saveCellAction } from "../../docs-bible/actions";
 import { updateRegisterAction } from "../actions";
@@ -64,7 +65,7 @@ export function RegisterCard({ plate, row, role, canAct, confirmEdits = false }:
         {busy && <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Saving" />}
         <span className="ml-auto text-xs font-normal text-muted-foreground group-open:hidden">Show</span></summary>
       <CardContent className="pb-4 space-y-5">
-        <p className="text-sm text-muted-foreground">{role === "admin" ? "Change any box." : role === "documentation" ? "Change the notes. The car's details are changed by an Admin. The papers are on the Papers card." : "You can look at this row. Documentation and Admin change it."} Every change is saved at once and kept in the history.</p>
+        <p className="text-sm text-muted-foreground">{isAdmin(role) ? "Change any box." : editsPapers(role) ? "Change the notes. The car's details are changed by an Admin. The papers are on the Papers card." : "You can look at this row; you cannot change it."} Every change is saved at once and kept in the history.</p>
         {GROUPS.map((g) => <div key={g.title} className="space-y-3"><p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{g.title}</p><div className="grid gap-3 sm:grid-cols-2">{g.keys.map((k) => COLUMNS.find((c) => c.key === k)).filter((c): c is Col => !!c).map(field)}</div></div>)}
         {canAct && <div className="space-y-1 border-t pt-4"><Button variant="outline" disabled={busy} onClick={() => start(async () => { const r = await updateRegisterAction(plate); if (r.ok) { toast.success(r.message); router.refresh(); } else toast.error(r.message); })}><RefreshCw /> Fill the papers from this scan</Button><p className="text-xs text-muted-foreground">Sets each paper to what is in the folder and adds the dated scan note. It overwrites those boxes.</p></div>}
       </CardContent>

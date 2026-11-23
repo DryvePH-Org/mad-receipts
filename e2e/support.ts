@@ -4,9 +4,11 @@ import { createClient } from "@supabase/supabase-js";
 
 export const credentials = {
   sales: { email: "zzt-e2e-sales@example.test", password: `Zz1-${"e2e-sales-pass"}`, role: "sales" },
-  approver: { email: "zzt-e2e-approver@example.test", password: `Zz1-${"e2e-approver-pass"}`, role: "approver" },
-  admin: { email: "zzt-e2e-admin@example.test", password: `Zz1-${"e2e-admin-pass"}`, role: "admin" },
-  docs: { email: "zzt-e2e-docs@example.test", password: `Zz1-${"e2e-docs-pass"}`, role: "documentation" },
+  // the keys keep their old names: `admin` is the Super Admin (the administration tools and the receipts), `approver` the Admin who oversees, `docs` Buying
+  approver: { email: "zzt-e2e-approver@example.test", password: `Zz1-${"e2e-approver-pass"}`, role: "admin" },
+  admin: { email: "zzt-e2e-admin@example.test", password: `Zz1-${"e2e-admin-pass"}`, role: "super_admin" },
+  docs: { email: "zzt-e2e-docs@example.test", password: `Zz1-${"e2e-docs-pass"}`, role: "buying" },
+  marketing: { email: "zzt-e2e-marketing@example.test", password: `Zz1-${"e2e-marketing-pass"}`, role: "marketing" },
 } as const;
 
 export const RECEIPT_PREFIX = "ZZT-E2E";

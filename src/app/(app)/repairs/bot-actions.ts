@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth";
+import { requireSuper } from "@/lib/auth";
 import { deleteRepairsWebhook, repairsToken, repairsWebhookInfo, setRepairsCommands, setRepairsWebhook } from "@/lib/repairs/bot/telegram";
 import { tr } from "@/lib/repairs/bot/texts";
 
@@ -10,7 +10,7 @@ const ADDRESS = () => `${(process.env.APP_BASE_URL || "https://mad.dryveph.io").
 
 /** The switch: Telegram now sends the repairs group's messages to the app. "Turn off" undoes this. */
 export async function switchBotAction(confirm: string): Promise<BotResult> {
-  await requireRole("admin");
+  await requireSuper();
   if (!repairsToken()) return { ok: false, error: "The bot token is not set on the server yet." };
   if (confirm.trim().toUpperCase() !== "SWITCH") return { ok: false, error: "Type SWITCH to confirm." };
   try {
@@ -23,7 +23,7 @@ export async function switchBotAction(confirm: string): Promise<BotResult> {
 
 /** Turns the bot off: no webhook, so nobody receives the group's messages until it is switched on again (the old Python bot is gone). */
 export async function goBackAction(): Promise<BotResult> {
-  await requireRole("admin");
+  await requireSuper();
   if (!repairsToken()) return { ok: false, error: "The bot token is not set on the server yet." };
   try { await deleteRepairsWebhook(); } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "Telegram refused." }; }
   revalidatePath("/repairs");
@@ -31,7 +31,7 @@ export async function goBackAction(): Promise<BotResult> {
 }
 
 export async function botStateAction(): Promise<{ url: string; pending: number; error: string | null } | null> {
-  await requireRole("admin");
+  await requireSuper();
   if (!repairsToken()) return null;
   try { const w = await repairsWebhookInfo(); return { url: w.url, pending: w.pending_update_count ?? 0, error: w.last_error_message ?? null }; } catch { return null; }
 }

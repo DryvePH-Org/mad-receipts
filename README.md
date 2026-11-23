@@ -164,9 +164,15 @@ for the screen; `tests/deal-math.test.ts` and `tests/db/manual-entry.test.ts` ch
 - Balance = amount due − earlier payments − paid today + payout. An overpayment cannot be saved.
 - Always: price + fee = trade-in + loan + received − payout + balance.
 
-**Roles:** Sales fills in receipts and sees deals; Approver sees the dashboards, the prices and the activity;
-Admin manages users, Settings (colors, banks, institutions, notes, phrases, required proofs...) and sync, and can
-void, cancel and mark loans released. Settings live in one document (`app_settings`) and change the form at once.
+**Roles** (migration 49; the rules are in `src/lib/roles.ts` and `src/lib/navigation.ts`):
+- **Super Admin** (the owner): everything, including the administration tools: Settings (colors, banks, institutions, notes, phrases, required proofs...), Users, Sync jobs, the bot set-up, wiping test data. Settings live in one document (`app_settings`) and change the form at once.
+- **Admin**: every module (dashboard, activity log, reminders, Car status, Car documents, Repairs), can edit, delete and add anything in them, but has no administration tools.
+- **Buying** (what Documentation was): the car papers, Car status and Repairs to look at.
+- **Online Marketing**: Car status, Car documents and Repairs, view only; no prices behind the quoted one, no sale or transfer records.
+- **Sales**: change the car papers, the price list in Car status and the repairs.
+- **New receipt and Transactions are hidden for now: only the Super Admin sees them.** The dashboard is for the two Admin roles.
+- An old Approver is an Admin, an old Documentation is Buying (migration 49 converts them; until it is applied the app reads the old names the same way). The migration makes one account Super Admin, by the email written at the top of the file.
+- A person's modules can still be added or hidden one by one on the Users page (Super Admin only).
 
 **Pages:** Transactions (`/deals`), New receipt, Reminders, Activity, Settings, Users, Sync.
 `/print/<receipt id>` prints 3 copies by default.

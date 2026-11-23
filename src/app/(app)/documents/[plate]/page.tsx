@@ -7,6 +7,7 @@ import { Pill } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { requireModule } from "@/lib/auth";
+import { isAdmin, seesSales, type Role } from "@/lib/roles";
 import { getSettings } from "@/lib/data";
 import { isScanning, readerMode } from "@/lib/docs/bot-scan";
 import { readingNotes, reviewedOf, rotationOf, detectionsOf, wasEdited } from "@/lib/docs/car";
@@ -62,7 +63,7 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
   const canUpload = canAct || user.modules.includes("upload"); // Sales add the sold papers here; they have no other button
   const { plate } = await params;
   const detail = await getCarDetail(plate);
-  if (!detail) return <RegisterOnly plate={plate} role={user.role} canAct={canAct} canUpload={canUpload} wanted={wanted} />;
+  if (!detail) return <RegisterOnly plate={plate} role={user.role} modules={user.modules} canAct={canAct} canUpload={canUpload} wanted={wanted} />;
   const { car, deal } = detail;
   const key = car.folder.plate_no;
   const admin = createAdminClient();
@@ -76,7 +77,7 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
   const stage = deriveStage(input ?? { linked, location: car.folder.location as "available" | "sold", filesTotal: car.files.length, pending: car.pending, failed: 0, scanning, flaggedFiles: 0, missingBefore: 0, missingSold: 0, hasDeal: !!deal, approved: !!flow.workflow.approvedAt, caseChosen: car.folder.case_source === "manual", handoffAt: flow.workflow.handoffAt, returnedAt: flow.workflow.handoffReturnedAt, receiver: settings.print.transmittalReceiver || "the receiver" });
   const orRow = await docsDb().from("docs_units_current").select("renewal").eq("plate_no", key).maybeSingle();
   const orDate = orRow.data?.renewal ? parseSheetDate(String(orRow.data.renewal)) : null; // the typed date, read the same way the database reads it
-  const transfers = user.role === "admin" || user.role === "approver" || user.role === "documentation" ? await loadTransfers(key) : null;
+  const transfers = seesSales(user.role) ? await loadTransfers(key) : null;
   const hand = await handoffOf(key).catch(() => null); // the steps of the transfer are kept on the car's sale record
   const [register, receipts] = await Promise.all([loadRegisterRow(key).catch(() => null), canUpload ? listCarReceipts(key).catch(() => []) : Promise.resolve([])]);
 
@@ -100,7 +101,8 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
     lastScan: lastScanRow ? { at: lastScanRow.completed_at ?? lastScanRow.created_at, seconds: lastScanRow.completed_at ? Math.round((Date.parse(lastScanRow.completed_at) - Date.parse(lastScanRow.created_at)) / 1000) : null, photos: Array.isArray((lastScanRow.request as { files?: unknown[] } | null)?.files) ? ((lastScanRow.request as { files: unknown[] }).files.length) : 0, ok: lastScanRow.status === "done", error: lastScanRow.error } : null,
     botWork: botWork.map((w) => ({ label: workLabel(w.action, w.status, w.position), waiting: w.status === "queued" })),
     scanned: !!car.folder.scanned_at, pending: car.pending, failed: car.files.filter((f) => f.read_status === "failed").length, statusLabel: car.status.label, statusKey: car.status.key,
-    isAdmin: user.role === "admin",
+    isAdmin: isAdmin(user.role),
+    dealLinks: user.modules.includes("deals"),
   };
 
   // what is still open when a car is moved to Sold, listed in the confirmation
@@ -142,7 +144,7 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
     ...(canUpload ? [{ key: "receipts" as CarTab, label: "Receipts", badge: receipts.length ? String(receipts.length) : null, tone: "zinc" as Tone2, node: (
       <div className="space-y-6">
         {receipts.length > 0 ? <ReceiptsCard plate={key} receipts={receipts} /> : <Empty>No receipt made in the app belongs to this car yet.</Empty>}
-        {data.deal && <Card><CardContent className="pt-4 text-sm">Deal <b>{data.deal.dealNo}</b> · {data.deal.buyerName}. <Link href={`/deals/${data.deal.id}`} className="underline underline-offset-2">Open the deal</Link> for the money, the receipts and the payments.</CardContent></Card>}
+        {data.deal && <Card><CardContent className="pt-4 text-sm">Deal <b>{data.deal.dealNo}</b> · {data.deal.buyerName}.{data.dealLinks && <> <Link href={`/deals/${data.deal.id}`} className="underline underline-offset-2">Open the deal</Link> for the money, the receipts and the payments.</>}</CardContent></Card>}
       </div>) }] : []),
     { key: "details", label: "Details", badge: detailsMissing ? String(detailsMissing) : null, tone: "amber", node: (
       <div className="space-y-6">
@@ -198,15 +200,15 @@ function RepairsCard({ repairs }: { repairs: CarFacts["repairs"] }) {
 }
 
 /** A car that is in MAD's register but has no folder in Car documents yet: the same page, with what MAD knows (its record, its sale, its repairs) and the way to find its folder. */
-async function RegisterOnly({ plate, role, canAct, canUpload, wanted }: { plate: string; role: "sales" | "admin" | "approver" | "documentation"; canAct: boolean; canUpload: boolean; wanted: string | string[] | undefined }) {
+async function RegisterOnly({ plate, role, modules, canAct, canUpload, wanted }: { plate: string; role: Role; modules: string[]; canAct: boolean; canUpload: boolean; wanted: string | string[] | undefined }) {
   const key = plate.toUpperCase().replace(/[^A-Z0-9]/g, "");
   const register = await loadRegisterRow(key).catch(() => null);
   if (!register) notFound();
-  const [facts, transfers, hand, settings] = await Promise.all([loadCarFacts(key).catch(() => ({ unit: null, repairs: [] } as CarFacts)), role === "admin" || role === "approver" || role === "documentation" ? loadTransfers(key) : Promise.resolve(null), handoffOf(key).catch(() => null), getSettings()]);
+  const [facts, transfers, hand, settings] = await Promise.all([loadCarFacts(key).catch(() => ({ unit: null, repairs: [] } as CarFacts)), seesSales(role) ? loadTransfers(key) : Promise.resolve(null), handoffOf(key).catch(() => null), getSettings()]);
   const recipient = settings.print.transmittalReceiver || "the receiver";
   const data: CarViewData = {
     plate: key, plateDisplay: register.values.plate_display ?? key, name: [register.values.year_model, register.values.make, register.values.model_variant].filter(Boolean).join(" ") || key, location: "available", match: "none", folderUrl: null, candidates: [],
-    caseType: "clean", suggestedCase: "clean", caseReason: "", caseSource: "auto", deal: null, items: [], files: [], botMode: false, scanning: false, lastScan: null, botWork: [], orExpiry: null, orState: { state: "unknown", days: null }, scanned: false, pending: 0, failed: 0, statusLabel: "No folder", statusKey: "unlinked", isAdmin: role === "admin",
+    caseType: "clean", suggestedCase: "clean", caseReason: "", caseSource: "auto", deal: null, items: [], files: [], botMode: false, scanning: false, lastScan: null, botWork: [], orExpiry: null, orState: { state: "unknown", days: null }, scanned: false, pending: 0, failed: 0, statusLabel: "No folder", statusKey: "unlinked", isAdmin: isAdmin(role), dealLinks: modules.includes("deals"),
   };
   const sale = transfers ? saleOf(transfers.transfers) : null;
   const soldCar = facts.unit?.stockState === "Sold";
@@ -217,7 +219,7 @@ async function RegisterOnly({ plate, role, canAct, canUpload, wanted }: { plate:
     { key: "documents", label: "Documents", node: <NoFolder data={data} canAct={canAct} /> },
     ...(transfers ? [{ key: "sale" as CarTab, label: "Sale and transfer", badge: sale ? STAGE_LABEL[sale.stage].split(" (")[0].split(",")[0].replace("In process at LTO", "In process") : null, tone: (sale?.flags.length ? "amber" : "zinc") as Tone2, node: (
       <div className="space-y-6">
-        <HandoffCard isAdmin={role === "admin"} rules={rules} data={handData} />
+        <HandoffCard isAdmin={isAdmin(role)} rules={rules} data={handData} />
         <Card id="transfer"><CardHeader><CardTitle>The sale of this car</CardTitle></CardHeader><CardContent><TransferList transfers={transfers.transfers} cars={Object.fromEntries(transfers.cars)} today={manilaToday()} plate={key} showCar={false} /></CardContent></Card>
       </div>) }] : []),
     { key: "details", label: "Details", node: (

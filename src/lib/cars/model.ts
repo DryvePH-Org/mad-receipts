@@ -1,3 +1,4 @@
+import { editsCars, type Role } from "@/lib/roles";
 import { parseStatus } from "@/lib/inventory/remarks";
 import { fullYear } from "@/lib/inventory/year";
 import { normalizePlate } from "@/lib/rules/plate";
@@ -127,20 +128,19 @@ export function parseInventoryRows(rows: string[][], today: string): CarRow[] {
 
 // ---------------- who sees what ----------------
 
-export type Role = "sales" | "admin" | "approver" | "documentation";
 export type SensitiveField = "target" | "encumbrance" | "orExp" | "docsCode";
 
 /** Everyone sees the car, its quoted price, whether it can be sold, its repair status and where it is. The rest depends on the role. */
 export function hiddenFields(role: Role): ReadonlySet<SensitiveField> {
-  if (role === "admin" || role === "approver") return new Set();
-  if (role === "documentation") return new Set<SensitiveField>(["target"]);
-  return new Set<SensitiveField>(["target", "encumbrance", "orExp", "docsCode"]); // sales
+  if (editsCars(role)) return new Set(); // Super Admin, Admin and Sales change the price list, so they see all of it
+  if (role === "buying") return new Set<SensitiveField>(["target"]);
+  return new Set<SensitiveField>(["target", "encumbrance", "orExp", "docsCode"]); // Online Marketing
 }
 
 /** The car with the fields this role must not see removed, so they never reach the browser. */
 export function forRole(car: CarRow, role: Role): CarRow {
   const hide = hiddenFields(role);
-  const editor = role === "admin" || role === "approver";
+  const editor = editsCars(role);
   return { ...car, raw: editor ? car.raw : undefined, target: hide.has("target") ? null : car.target, encumbrance: hide.has("encumbrance") ? "" : car.encumbrance, orExp: hide.has("orExp") ? null : car.orExp, docsCode: hide.has("docsCode") ? "" : car.docsCode };
 }
 

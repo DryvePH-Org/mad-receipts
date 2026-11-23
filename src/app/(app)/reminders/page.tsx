@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { Button } from "@/components/ui/button";
 import { requireModule } from "@/lib/auth";
+import { isSuper } from "@/lib/roles";
 import { remindersFor } from "@/lib/data";
 import type { Notification } from "@/lib/deal/status";
 import { ROLE_LABELS } from "@/lib/navigation";
@@ -54,7 +55,7 @@ async function Content() {
             <Group title="Coming up" items={list.filter((n) => n.level === "amber" || n.level === "blue")} />
           </>
         )}
-        {user.role === "admin" && <p className="text-sm text-muted-foreground">The Admin sets when reminders go out in <Link href="/settings" className="underline">Settings</Link>.</p>}
+        {isSuper(user.role) && <p className="text-sm text-muted-foreground">The Super Admin sets when reminders go out in <Link href="/settings" className="underline">Settings</Link>.</p>}
       </div>
     </div>
   );

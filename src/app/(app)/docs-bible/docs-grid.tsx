@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { PAPER_VALUES } from "@/lib/docsbible/normalize";
-import { canEditColumn, COLUMNS, EMPTY_GRID_FILTER, filterRows, GRID_CLASSIFICATIONS, SALE_STATUSES, STOCK_STATE_VALUES, VEHICLE_STATUSES, VIEWS, type Col, type GridFilter, type GridRow, type Role, type ViewKey } from "@/lib/docsbible/grid";
+import { canEditColumn, COLUMNS, EMPTY_GRID_FILTER, filterRows, GRID_CLASSIFICATIONS, SALE_STATUSES, STOCK_STATE_VALUES, VEHICLE_STATUSES, VIEWS, type Col, type GridFilter, type GridRow, type ViewKey } from "@/lib/docsbible/grid";
+import { editsPapers, isAdmin, type Role } from "@/lib/roles";
 import type { HistoryRow } from "@/lib/docsbible/grid-server";
 import { historyAction, saveCellAction } from "./actions";
 
@@ -96,7 +97,7 @@ export function DocsGrid({ initial, role }: { initial: GridRow[]; role: Role }) 
         {(Object.keys(VIEWS) as ViewKey[]).map((k) => <Button key={k} role="tab" aria-selected={view === k} size="sm" variant={view === k ? "default" : "outline"} onClick={() => setView(k)}>{VIEWS[k].label}</Button>)}
         <span className="ml-auto flex flex-wrap gap-1.5 text-[11px]">{["Yes", "No", "To follow", "N/A"].map((x) => <span key={x} className={`rounded px-1.5 py-0.5 font-medium ${CHIP[x]}`}>{x}</span>)}</span>
       </div>
-      <p className="text-xs text-muted-foreground">{role === "admin" ? "Click any cell to change it." : role === "documentation" ? "Click a paper cell (classification, the papers, remarks) to change it. The other columns are read only." : "You can look at everything here. Documentation and Admin change it."} Every change is saved at once and kept in the car&apos;s history (click the plate).</p>
+      <p className="text-xs text-muted-foreground">{isAdmin(role) ? "Click any cell to change it." : editsPapers(role) ? "Click a paper cell (classification, the papers, remarks) to change it. The other columns are read only." : "You can look at everything here; you cannot change it."} Every change is saved at once and kept in the car&apos;s history (click the plate).</p>
 
       <div className="max-h-[70svh] overflow-auto rounded-xl ring-1 ring-foreground/10">
         <table className="border-separate border-spacing-0 text-sm" style={{ minWidth: cols.reduce((n, c) => n + c.width, 0) }}>
