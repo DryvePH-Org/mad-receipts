@@ -19,7 +19,7 @@ test("each role sees the messages meant for it, and only the Admin sees the bot 
   await sales.goto("/telegram");
   await expect(sales.getByRole("heading", { name: "My Telegram" })).toBeVisible();
   await expect(sales.getByText("My deals: due, overdue, loan waiting")).toBeVisible();
-  await expect(sales.getByText("A repair report is waiting for my approval")).toHaveCount(0); // that one is for the Approver
+  await expect(sales.getByText("A repair report is waiting for my approval")).toBeVisible(); // Sales decide on repairs too
   await expect(sales.getByText("Admin: the bot")).toHaveCount(0);
   await sales.close();
 
@@ -27,6 +27,7 @@ test("each role sees the messages meant for it, and only the Admin sees the bot 
   await docs.goto("/telegram");
   await expect(docs.getByText("Papers still with the receiver")).toBeVisible();
   await expect(docs.getByText("Who is connected")).toHaveCount(0);
+  await expect(docs.getByText("A repair report is waiting for my approval")).toHaveCount(0); // Buying do not decide on repairs
   await docs.close();
 
   const admin = await as(browser, "admin");

@@ -47,7 +47,7 @@ async function fillFinanced(page: Page, no: string, plate: string) {
 }
 
 test("the whole flow: Sales fills in and saves, it is final at once, the numbers agree", async ({ browser }) => {
-  const sales = await as(browser, "sales");
+  const sales = await as(browser, "admin");
   await fillFinanced(sales, NO(1), "ZZT 1001");
 
   // the money rules, live on the screen
@@ -141,7 +141,7 @@ test("the whole flow: Sales fills in and saves, it is final at once, the numbers
 });
 
 test("continuing a deal fills in at once; earnest money and a full payment work themselves out", async ({ browser }) => {
-  const sales = await as(browser, "sales");
+  const sales = await as(browser, "admin");
   // a car that already has an open deal offers to continue it, and the deal's details are there at once, with no refresh
   await sales.goto("/new");
   await sales.getByLabel("Received from").fill("ZZT E2E Someone Else");
@@ -178,7 +178,7 @@ test("continuing a deal fills in at once; earnest money and a full payment work 
 });
 
 test("nothing is red when the form opens; what is missing shows when you try to move on; in-lieu shows in Payment and Finish", async ({ browser }) => {
-  const sales = await as(browser, "sales");
+  const sales = await as(browser, "admin");
   await sales.goto("/new");
   await expect(sales.getByText("Required", { exact: true })).toHaveCount(0); // calm at the start
   await expect(sales.getByText(/\d+ to fill in/)).toBeVisible();
@@ -204,7 +204,7 @@ test("nothing is red when the form opens; what is missing shows when you try to 
 });
 
 test("the checks refuse a wrong or incomplete receipt", async ({ browser }) => {
-  const sales = await as(browser, "sales");
+  const sales = await as(browser, "admin");
   await sales.goto("/new");
   await next(sales, "Vehicle");
   await next(sales, "Deal");
@@ -239,7 +239,7 @@ test("a color the Admin adds shows up in the form", async ({ browser }) => {
   await admin.getByLabel("New color name").first().fill("ZZT Gold");
   await admin.getByRole("button", { name: "Add" }).first().click();
   await expect(admin.getByText("Saved ✓")).toBeVisible();
-  const sales = await as(browser, "sales");
+  const sales = await as(browser, "admin");
   await sales.goto("/new");
   await next(sales, "Vehicle");
   await expect(sales.getByRole("button", { name: "ZZT Gold" })).toBeVisible();
@@ -250,7 +250,7 @@ test("a color the Admin adds shows up in the form", async ({ browser }) => {
 });
 
 test("voice fills the form and the math follows", async ({ browser }) => {
-  const sales = await as(browser, "sales");
+  const sales = await as(browser, "admin");
   // the voice reader itself is tested with the real Groq API (npm run test:live); here the answer is canned
   await sales.route("**/api/voice", (route) => route.fulfill({ json: { proposal: {
     source: "typed", transcript: "canned note", unsure: ["the contact number"], unclear: [], conflicts: [],

@@ -132,21 +132,25 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   // Sales: the plate leads to the right car, then the papers go in
   const sales = await as(browser, "sales");
   await expect(sales.getByRole("link", { name: "Car documents" }).first()).toBeVisible(); // everyone can look, nobody but Documentation and Admin can act
-  await sales.goto("/documents/ZZT7001/transmittal"); // not part of the Sales role
-  await expect(sales.getByText("You don't have access to this page.")).toBeVisible();
-  await sales.goto("/documents/ZZT7001?tab=documents"); // the car page for Sales: all the information and the photos, no action button
-  await expect(sales.locator("#papers")).toBeVisible();
-  await expect(sales.locator("#papers img").first()).toBeVisible(); // they can see the photos
-  await sales.locator("#papers li", { hasText: "Official receipt (OR)" }).click(); // and open a paper: the photo large and what the bot read, with no button to change it
-  await expect(sales.getByRole("dialog").getByRole("button", { name: /^View .* larger$/ }).first()).toBeVisible();
-  await expect(sales.getByRole("dialog").getByRole("button", { name: "Change what this is" })).toHaveCount(0);
-  await sales.keyboard.press("Escape");
-  await expect(sales.getByRole("button", { name: "Approve: documents are OK" })).toHaveCount(0);
-  await expect(sales.getByRole("button", { name: /^Scan / })).toHaveCount(0);
-  await expect(sales.getByRole("button", { name: "Upload documents" })).toHaveCount(0);
-  await expect(sales.getByRole("button", { name: "Change what this is" })).toHaveCount(0);
-  await expect(sales.getByRole("combobox", { name: "Case" })).toBeDisabled();
-  // the only thing Sales can do here: add the sold papers (the AR's buyer is shown)
+  const viewer = await as(browser, "marketing");
+  await viewer.goto("/documents/ZZT7001/transmittal"); // Online Marketing only look: no transmittal
+  await expect(viewer.getByText("You don't have access to this page.")).toBeVisible();
+  // Online Marketing only look at the car page: the photos and what the bot read, no button to change anything
+  await viewer.goto("/documents/ZZT7001?tab=documents"); // the car page for Online Marketing: all the information and the photos, no action button
+  await expect(viewer.locator("#papers")).toBeVisible();
+  await expect(viewer.locator("#papers img").first()).toBeVisible(); // they can see the photos
+  await viewer.locator("#papers li", { hasText: "Official receipt (OR)" }).click(); // and open a paper: the photo large and what the bot read, with no button to change it
+  await expect(viewer.getByRole("dialog").getByRole("button", { name: /^View .* larger$/ }).first()).toBeVisible();
+  await expect(viewer.getByRole("dialog").getByRole("button", { name: "Change what this is" })).toHaveCount(0);
+  await viewer.keyboard.press("Escape");
+  await expect(viewer.getByRole("button", { name: "Approve: documents are OK" })).toHaveCount(0);
+  await expect(viewer.getByRole("button", { name: /^Scan / })).toHaveCount(0);
+  await expect(viewer.getByRole("button", { name: "Upload documents" })).toHaveCount(0);
+  await expect(viewer.getByRole("button", { name: "Change what this is" })).toHaveCount(0);
+  await expect(viewer.getByRole("combobox", { name: "Case" })).toBeDisabled();
+  await viewer.close();
+  await sales.goto("/documents/ZZT7001?tab=documents");
+  // Sales add the sold papers here (the AR's buyer is shown)
   await expect(sales.locator("#sold-upload")).toContainText(BUYER);
   await expect(sales.getByText("Still needed")).toHaveCount(3); // the signed AR, the buyer's ID and the deed
   // a plate nobody has sold never gets a photo, whatever is sent to the server
@@ -492,8 +496,8 @@ test("Sales and transfers: the stages filter the list, what is flagged waits for
   const saved = (await db.from("car_transfers").select("stage, agreed_price, edited_in_app").eq("plate_no", "ZZT9501").single()).data;
   expect([saved.stage, Number(saved.agreed_price), saved.edited_in_app]).toEqual(["transferred", 650000, true]);
 
-  // Sales have no access to the buyers' details
-  const sales = await as(browser, "sales");
+  // Online Marketing have no access to the buyers' details
+  const sales = await as(browser, "marketing");
   await sales.goto("/documents/transfers");
   await expect(sales.getByText("You don't have access to this page.")).toBeVisible();
   await db.from("car_transfers").delete().like("plate_no", "ZZT95%");

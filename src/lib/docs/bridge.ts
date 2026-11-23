@@ -80,7 +80,7 @@ export function createMockDocsBridge(): DocsBridge {
     async upload(folderId, name, bytes, mimeType) {
       const f = folders.find((x) => x.id === folderId);
       if (!f) throw new Error("That folder is not inside the Available or Sold folder");
-      const id = `mock-file-${++n}`;
+      const id = `mock-file-up-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`; // unique across requests: every request builds its own stand-in Drive
       f.files.push({ id, name, mimeType, size: bytes.length, createdAt: new Date().toISOString(), url: `https://drive.example.test/files/${id}` });
       return { id, url: `https://drive.example.test/files/${id}` };
     },

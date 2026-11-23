@@ -38,7 +38,7 @@ test("no page scrolls sideways at any size", async ({ browser }) => {
 
 test("on a phone the receipt form keeps its steps and buttons compact", async ({ browser }) => {
   const page = await (await browser.newContext({ viewport: { width: 375, height: 812 } })).newPage();
-  await login(page, "sales");
+  await login(page, "admin"); // receipts are for the Super Admin for now
   await page.goto("/new");
   const steps = await page.getByRole("list", { name: "Steps" }).boundingBox();
   expect(steps!.height).toBeLessThan(90); // five small steps in one row, not five tall cards

@@ -15,7 +15,7 @@ async function as(browser: Browser, who: keyof typeof credentials): Promise<Page
 const count = async (page: Page) => Number((await page.getByText(/^Showing \d+ of \d+ cars/).first().innerText()).match(/Showing (\d+) of (\d+)/)![1]);
 
 test("every role can open Car status, search and filter it", async ({ browser }) => {
-  const sales = await as(browser, "sales");
+  const sales = await as(browser, "marketing"); // Online Marketing look only: no target price, no bank
   await expect(sales.getByRole("link", { name: "Car status" }).first()).toBeVisible();
   await sales.goto("/cars");
   await expect(sales.getByRole("heading", { name: "Car status" })).toBeVisible();
@@ -40,7 +40,7 @@ test("every role can open Car status, search and filter it", async ({ browser })
   await expect(sales.getByRole("columnheader", { name: "Plate" })).toBeVisible();
   expect(await sales.locator("tbody tr").count()).toBe(reserved);
 
-  // the details window: Sales never see the target price or the bank
+  // the details window: Online Marketing never see the target price or the bank
   await sales.locator("tbody tr").first().click();
   await expect(sales.getByRole("dialog")).toBeVisible();
   await expect(sales.getByRole("dialog").getByText("Target")).toHaveCount(0);
@@ -55,6 +55,14 @@ test("every role can open Car status, search and filter it", async ({ browser })
   await approver.locator("tbody tr").first().click();
   await expect(approver.getByRole("dialog").getByText("Target")).toBeVisible();
   await expect(approver.getByRole("dialog").getByText("Encumbrance")).toBeVisible();
+  // Sales change the price list, so they see all of it
+  const seller = await as(browser, "sales");
+  await seller.goto("/cars");
+  await expect(seller.getByText(/^Showing \d+ of \d+ cars/)).toBeVisible({ timeout: 40_000 });
+  await seller.getByRole("button", { name: "Table" }).click();
+  await seller.locator("tbody tr").first().click();
+  await expect(seller.getByRole("dialog").getByText("Target")).toBeVisible();
+  await seller.close();
   await sales.close(); await approver.close();
 });
 

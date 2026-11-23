@@ -56,8 +56,8 @@ test("Documentation edits a paper cell with undo and history; the car's identity
   await expect(docs.getByRole("dialog").getByText("CR").first()).toBeVisible();
   await docs.keyboard.press("Escape");
 
-  // Sales can see the table but nothing is editable
-  const sales = await as(browser, "sales");
+  // Online Marketing can see the table but nothing is editable
+  const sales = await as(browser, "marketing");
   await sales.goto("/documents");
   await sales.getByRole("tab", { name: /Table/ }).click();
   await sales.getByLabel("Search").fill(PLATE);
@@ -99,8 +99,8 @@ test("Add a car: a plate that is already in the Docs Bible is not added twice, u
   expect((rows.data as { make: string }[]).map((r) => r.make).sort()).toEqual(["HONDA", "TESTMAKE"]);
   const review = await db().from("docs_review_items").select("kind, status").eq("plate_no", PLATE); // the staff are told, to decide later
   expect(review.data).toEqual([{ kind: "duplicate_plate", status: "open" }]);
-  // Sales cannot add cars
-  const sales = await as(browser, "sales");
+  // Online Marketing cannot add cars
+  const sales = await as(browser, "marketing");
   await sales.goto("/documents/add");
   await expect(sales.getByText("You don't have access to this page.")).toBeVisible();
   await docs.close(); await sales.close();
