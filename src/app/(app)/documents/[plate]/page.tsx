@@ -13,7 +13,7 @@ import { PaymentsPanel } from "./payments-card";
 import { isAdmin, seesPrivateDocs, seesSales, type Role } from "@/lib/roles";
 import { getSettings } from "@/lib/data";
 import { isScanning, readerMode } from "@/lib/docs/bot-scan";
-import { readingNotes, reviewedOf, rotationOf, detectionsOf, wasEdited } from "@/lib/docs/car";
+import { readingNotes, reviewedOf, rotationOf, detectionsOf, wasEdited, type Car } from "@/lib/docs/car";
 import { getCarDetail } from "@/lib/docs/data";
 import { cleanDetails, missingDetails } from "@/lib/docs/details";
 import { deriveStage } from "@/lib/docs/stage";
@@ -120,7 +120,7 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
 
   const facts = await loadCarFacts(key).catch(() => ({ unit: null, repairs: [] } as CarFacts));
   const sale = transfers ? saleOf(transfers.transfers) : null;
-  const archive: ArchiveFile[] = seesSales(user.role) ? car.archive.map((f) => ({ id: f.id, name: f.filename, tag: f.archive_tag ?? "Other", amount: f.archive_amount === null ? null : Number(f.archive_amount), on: f.archive_on, note: f.archive_note, addedAt: f.created_at, mime: f.mime_type ?? "" })) : [];
+  const archive: ArchiveFile[] = seesSales(user.role) ? car.archive.map((f) => ({ id: f.id, name: f.filename, tag: f.archive_tag ?? "Other", amount: f.archive_amount === null ? null : Number(f.archive_amount), on: f.archive_on, note: f.archive_note, addedAt: f.created_at, mime: f.mime_type ?? "" })).concat(arEntries(car.files)) : [];
   const detailsMissing = missingDetails(flow.details).length;
   const soldCar = data.location === "sold" || facts.unit?.stockState === "Sold";
   const handData = { plate: key, location: data.location, soldCar, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, releasedOn: hand?.releasedOn ?? null, deliveredOn: hand?.deliveredOn ?? null, stage: sale?.stage ?? hand?.stage ?? null,
@@ -169,6 +169,14 @@ type Tone2 = "amber" | "emerald" | "zinc";
 interface Panel { key: CarTab; label: string; badge?: string | null; tone?: Tone2; node: React.ReactNode }
 
 /** The latest sale of the car that is not cancelled (the page lists them newest first). */
+/** The signed ARs in the car's papers, shown in the payments as well (what the bot read: who it is for, the amount and the date). */
+function arEntries(files: Car["files"]): ArchiveFile[] {
+  return files.filter((f) => f.doc_types.includes("acknowledgement_receipt")).map((f) => {
+    const d = detectionsOf(f.details)?.find((x) => x.type === "acknowledgement_receipt");
+    return { id: f.id, name: f.filename, tag: "Acknowledgement receipt (AR)", amount: d?.amount ?? null, on: d?.documentDate ?? null, note: d ? [d.buyerName && `Buyer ${d.buyerName}`, d.documentNumber && `AR no. ${d.documentNumber}`].filter(Boolean).join(" · ") || null : null, addedAt: f.created_at, mime: f.mime_type ?? "", ar: true };
+  });
+}
+
 function saleOf(list: Transfer[]): Transfer | null { return list.find((t) => t.stage !== "cancelled") ?? null; }
 
 /** The Documents tab of a car with no single folder in Drive yet: the way to find or make it. */

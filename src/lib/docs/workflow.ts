@@ -120,6 +120,7 @@ export async function approveUnit(plate: string, actor: string, confirmIncomplet
 export async function afterReading(plate: string, deps: WorkflowDeps = defaultWorkflowDeps()): Promise<void> {
   const key = normalizePlate(plate);
   const car = await loadCar(key, deps);
+  if (car) await import("./ar-sale").then((m) => m.saleFromAr(car)).catch(() => undefined); // a car with no sale gets it from the AR Sales uploaded, without waiting for the other photos
   if (!car || car.pending > 0 || !car.files.some((f) => f.read_status === "done")) return;
   await import("@/lib/docsbible/fill-papers").then((m) => m.fillFoundPapers(car)).catch(() => undefined); // empty paper boxes of the car's row say Yes for what the scan found
   const { workflow } = await loadWorkflow(key, deps.admin);

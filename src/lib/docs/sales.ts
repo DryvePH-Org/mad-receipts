@@ -26,13 +26,13 @@ export type LookupResult = { ok: true; view: SalesView } | { ok: false; message:
  * The car for a plate, for Sales to confirm before uploading. Only a car that has an AR, so a photo can
  * never be filed under a plate nobody has sold. If the folder was not linked when the AR was made, it is tried again now.
  */
-export async function lookupForSales(plateInput: string): Promise<LookupResult> {
+export async function lookupForSales(plateInput: string, opts: { allowNoSale?: boolean } = {}): Promise<LookupResult> {
   const plate = normalizePlate(plateInput);
   if (plate.length < 5) return { ok: false, message: "Type the whole plate number, like NKF 4771." };
   const admin = createAdminClient();
   const { data: unit } = await admin.from("deal_units").select("deal_id, plate_display").eq("plate_no", plate).eq("active", true).maybeSingle();
   const sale = unit ? null : await saleOfPlate(admin, plate).catch(() => null); // no AR: a sale recorded on the car's page does as well
-  if (!unit && !sale) return { ok: false, message: `No sale is recorded for ${plateInput.trim().toUpperCase()} yet. Add the sale on the car's page first, then upload its documents.` };
+  if (!unit && !sale && !opts.allowNoSale) return { ok: false, message: `No sale is recorded for ${plateInput.trim().toUpperCase()} yet. Add the sale on the car's page first, then upload its documents.` };
   const { data: deal } = unit ? await admin.from("deals").select("buyer_name, deal_no").eq("id", unit.deal_id).single() : { data: null };
   let car = await loadCar(plate);
   if (unit && (!car || car.folder.match_status !== "linked" || !car.folder.folder_id)) {

@@ -51,7 +51,7 @@ export async function markChecked(id: string, actor: string): Promise<string | n
 export async function addTransfer(plate: string, input: TransferInput, actor: string): Promise<string | null> {
   const db = docsDb();
   const { data: unit } = await db.from("docs_units").select("id").eq("plate_no", plate).is("archived_at", null).order("arrival_date", { ascending: false }).limit(1).maybeSingle();
-  const { error } = await db.from("car_transfers").insert({ ...transferColumns(input), plate_no: plate, unit_id: unit?.id ?? null, source: "app", created_by: actor, updated_by: actor });
+  const { error } = await db.from("car_transfers").insert({ ...transferColumns(input), plate_no: plate, unit_id: unit?.id ?? null, source: "app", created_by: actor || null, updated_by: actor || null });
   return error ? error.message : null;
 }
 

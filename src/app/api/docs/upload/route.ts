@@ -23,7 +23,8 @@ export async function POST(request: Request) {
   if (file.size > MAX_BYTES) return fail("That photo is too large.", 413);
 
   // The plate must belong to a car that has an AR: never file a photo under a plate nobody has sold.
-  const found = await lookupForSales(plate).catch((e) => ({ ok: false as const, message: docsErrorText(e) }));
+  const isAr = form.get("ar") === "1"; // the AR itself: the sale is made from it once it is read, so a car with no sale yet is fine
+  const found = await lookupForSales(plate, { allowNoSale: isAr }).catch((e) => ({ ok: false as const, message: docsErrorText(e) }));
   if (!found.ok) return fail(found.message, 409);
   try {
     const result = await uploadPhoto({ plate: found.view.plate, actor: user.id, bytes: new Uint8Array(await file.arrayBuffer()), mime: file.type, label: String(form.get("label") ?? "").replace(/[^\w-]+/g, "").slice(0, 20) || undefined, deferRead: readerMode() === "grokbot" });

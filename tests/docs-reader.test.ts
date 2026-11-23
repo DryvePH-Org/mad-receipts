@@ -45,6 +45,16 @@ describe("the two kinds of official receipt, the deeds and the new papers", () =
   });
 });
 
+describe("the AR: the money received and its date", () => {
+  it("reads the amount as a plain number and the date as a full date, only on an acknowledgement of payment", async () => {
+    const one = async (doc: Record<string, unknown>) => (await readDocument(image, async () => JSON.stringify({ legible: true, rotation: 0, documents: [{ confidence: 0.9, ...doc }] }))).detections[0];
+    expect(await one({ type: "acknowledgement_receipt", buyer_name: "JUAN DELA CRUZ", amount: "Php 150,000.50", document_date: "2026-11-20" })).toMatchObject({ amount: 150000.5, documentDate: "2026-11-20", buyerName: "JUAN DELA CRUZ" });
+    expect(await one({ type: "acknowledgement_receipt", amount: 50000, document_date: "11/20/2026" })).toMatchObject({ amount: 50000, documentDate: null });
+    expect(await one({ type: "acknowledgement_receipt", amount: "lots" })).toMatchObject({ amount: null });
+    expect(await one({ type: "official_receipt", amount: 5000, document_date: "2026-11-20" })).toMatchObject({ amount: null, documentDate: null });
+  });
+});
+
 describe("rotation, copy and defects", () => {
   it("keeps how far to turn the photo, original or copy, and the problems seen", async () => {
     const r = await readDocument(image, async () => JSON.stringify({ legible: true, rotation: "90", documents: [{ type: "official_receipt", confidence: 0.9, copy: "photocopy", defects: ["torn", " ", 5, "cut off"] }, { type: "government_id", confidence: 0.9, copy: "weird" }] }));

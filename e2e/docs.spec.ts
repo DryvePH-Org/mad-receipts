@@ -610,6 +610,7 @@ test("Payments: the sale is added by hand, the status is set, a payment paper is
   await docs.goto("/documents/ZZT7005?tab=payments");
   await expect(docs.locator("#add-sale")).toBeVisible({ timeout: 30_000 });
   await expect(docs.getByText("The payment status can be set once the sale is added.")).toBeVisible();
+  await docs.getByText("No AR yet? Add the sale by hand").click();
   await docs.getByLabel("Buyer", { exact: true }).fill("ZZT E2E Pay Buyer");
   await docs.getByLabel(/Agreed price/).fill("588,000");
   await docs.getByLabel("Salesperson").fill("ZZT E2E Seller");
@@ -660,4 +661,43 @@ test("Payments: the sale is added by hand, the status is set, a payment paper is
 
   await db.from("car_transfers").delete().like("plate_no", "ZZT7005");
   await db.from("unit_folders").delete().like("plate_no", "ZZT7005");
+});
+
+test("The AR photo makes the sale: the buyer and the date come from it, the AR shows in the payments", async ({ browser }) => {
+  test.setTimeout(150_000);
+  const db = adminClient() as unknown as { from: (t: string) => { upsert: (v: object, o?: object) => Promise<{ error: unknown }>; delete: () => { like: (c: string, v: string) => Promise<unknown> }; select: (c: string) => { eq: (c: string, v: string) => { single: () => Promise<{ data: Record<string, unknown> | null }> } } } };
+  await db.from("unit_folders").delete().like("plate_no", "ZZT7005");
+  await db.from("unit_folders").delete().like("plate_no", "ZZT7006");
+  const seeded = await db.from("unit_folders").upsert({ plate_no: "ZZT7006", plate_display: "ZZT 7006", folder_id: "mock-folder-7", folder_name: "21 Ford Escape (ZZT-7006)", folder_url: "https://drive.example.test/folders/mock-folder-7", location: "sold", match_status: "linked" }, { onConflict: "plate_no" });
+  expect(seeded.error).toBeNull();
+
+  const sales = await as(browser, "sales");
+  await sales.goto("/documents/ZZT7006?tab=payments");
+  await expect(sales.getByText("Start with the AR")).toBeVisible({ timeout: 30_000 });
+  await expect(sales.getByRole("button", { name: "Upload the AR" })).toBeVisible();
+  await expect(sales.getByText("No AR yet? Add the sale by hand")).toBeVisible();
+
+  // an ordinary sold-papers upload is refused while the car has no sale; the AR itself is accepted (the stand-in reader knows the buyer from the file label), and the sale is made from it
+  // without ar=1 the same upload is refused: no sale, no AR
+  const refused = await sales.request.post("/api/docs/upload", { multipart: { plate: "ZZT 7006", label: "ar-Someone", file: { name: "p.jpg", mimeType: "image/jpeg", buffer: JPEG } } });
+  expect(refused.status()).toBe(409);
+  const res = await sales.request.post("/api/docs/upload", { multipart: { plate: "ZZT 7006", ar: "1", label: "ar-ZZT_E2E_AR_Buyer", file: { name: "p.jpg", mimeType: "image/jpeg", buffer: JPEG } } });
+  expect(res.ok()).toBe(true);
+  expect((await res.json()).result.types).toContain("acknowledgement_receipt");
+
+  const sale = await db.from("car_transfers").select("buyer, sold_on, sales, agreed_price").eq("plate_no", "ZZT7006").single();
+  expect(sale.data).toMatchObject({ buyer: "ZZT E2E AR BUYER", sold_on: "2026-11-20", sales: "ZZT E2E SALES", agreed_price: null });
+
+  await sales.goto("/documents/ZZT7006?tab=payments");
+  await expect(sales.getByRole("group", { name: "Payment status" })).toBeVisible({ timeout: 30_000 });
+  await expect(sales.getByText("Start with the AR")).toHaveCount(0);
+  const list = sales.getByRole("list", { name: "Payment papers" });
+  await expect(list).toContainText("Acknowledgement receipt (AR)");
+  await expect(list).toContainText("₱50,000");
+  await expect(list).toContainText("Buyer ZZT E2E AR Buyer");
+  await expect(sales.getByRole("button", { name: "Upload another AR" })).toBeVisible();
+  await sales.close();
+
+  await db.from("car_transfers").delete().like("plate_no", "ZZT7006");
+  await db.from("unit_folders").delete().like("plate_no", "ZZT7006");
 });

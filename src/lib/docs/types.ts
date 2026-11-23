@@ -105,6 +105,9 @@ export interface Detection {
   validUntil?: string | null;
   /** chattel mortgage, its cancellation or the promissory note: the bank or financing company named */
   lender?: string | null;
+  /** acknowledgement of payment: the money received (pesos) and the date written on it (YYYY-MM-DD) */
+  amount?: number | null;
+  documentDate?: string | null;
   /** official receipt: the big registration OR, or the small last (latest payment) OR; either one counts as the OR */
   orKind?: "registration" | "last" | null;
   /** deed of sale: open (buyer line blank) or closed (buyer named and notarized) */

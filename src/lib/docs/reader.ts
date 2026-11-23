@@ -24,6 +24,8 @@ const doc = z.object({
   copy: z.preprocess((v) => (v === "original" || v === "photocopy" ? v : null), z.enum(["original", "photocopy"]).nullable()).default(null),
   defects: z.preprocess((v) => (Array.isArray(v) ? v.filter((x) => typeof x === "string" && x.trim()).map((x: string) => x.trim().slice(0, 80)).slice(0, 5) : []), z.array(z.string())).default([]),
   valid_until: z.preprocess((v) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.trim()) ? v.trim() : null), z.string().nullable()).default(null), lender_name: text,
+  amount: z.preprocess((v) => { const n = typeof v === "number" ? v : Number(String(v ?? "").replace(/[₱,\s]|php/gi, "")); return Number.isFinite(n) && n > 0 && n < 1e9 ? Math.round(n * 100) / 100 : null; }, z.number().nullable()).default(null),
+  document_date: z.preprocess((v) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.trim()) ? v.trim() : null), z.string().nullable()).default(null),
   or_kind: z.preprocess((v) => (v === "registration" || v === "last" ? v : null), z.enum(["registration", "last"]).nullable()).default(null),
   deed_kind: z.preprocess((v) => (v === "open" || v === "closed" ? v : null), z.enum(["open", "closed"]).nullable()).default(null),
   owner_name: text, holder_name: text, seller_name: text, buyer_name: text, secretary_name: text, representative_name: text, id_type: text,
@@ -39,7 +41,7 @@ Return ONLY a JSON object:
   "rotation": 0,
   "documents": [
     { "type": "...", "confidence": 0.0-1.0, "copy": "original", "defects": [], "document_number": null, "plate": null, "motor_no": null, "chassis_no": null,
-      "owner_name": null, "holder_name": null, "seller_name": null, "buyer_name": null, "secretary_name": null, "representative_name": null, "id_type": null, "valid_until": null, "lender_name": null, "or_kind": null, "deed_kind": null }
+      "owner_name": null, "holder_name": null, "seller_name": null, "buyer_name": null, "secretary_name": null, "representative_name": null, "id_type": null, "valid_until": null, "lender_name": null, "or_kind": null, "deed_kind": null, "amount": null, "document_date": null }
   ],
   "notes": "one short sentence if something is unusual, else null"
 }
@@ -53,7 +55,7 @@ Return ONLY a JSON object:
 - "promissory_note": a Promissory Note.
 - "secretary_certificate": a Secretary's Certificate (a company's secretary certifies a board resolution and names who may sign).
 - "board_resolution": a Board Resolution.
-- "acknowledgement_receipt": the dealership's own yellow "ACKNOWLEDGEMENT OF PAYMENT" form (Manila Auto Display), with a red number, "Received from", the sum of pesos and the vehicle described. It is mostly handwritten. Put the buyer on it in "buyer_name" and its red number in "document_number".
+- "acknowledgement_receipt": the dealership's own yellow "ACKNOWLEDGEMENT OF PAYMENT" form (Manila Auto Display), with a red number, "Received from", the sum of pesos and the vehicle described. It is mostly handwritten. Put the buyer on it in "buyer_name", its red number in "document_number", the sum of money received in "amount" and its date in "document_date".
 - "transmittal_receipt": a "Transmittal Receipt" or acknowledgement of the papers handed over with a car, a checklist of documents (CR, OR, deed...).
 - "stencil": a stencil: the chassis number or engine number copied by rubbing or tracing it from the car onto a paper (or a photo of the stamped number on the car). It shows a long number of letters and digits, usually with a car-sized frame or tape marks. Put the number in "chassis_no" or "motor_no" as printed, and the plate if one is written.
 - "spa": a Special Power of Attorney (SPA): a notarized paper in which one person authorises another to sign or sell for them.
@@ -75,6 +77,8 @@ Rules:
 - "document_number": the number that identifies THIS document (the CR number, the OR number, the ID number, the note number). null if none is readable.
 - "owner_name": the registered owner on a certificate of registration or official receipt. "holder_name": the name of the person on an ID. "seller_name" and "buyer_name": the parties on a deed of sale. "secretary_name": who signs a secretary's certificate as the corporate secretary. "representative_name": the person the certificate or resolution authorises to sign or sell for the company. "id_type": for example "Driver's license" or "UMID".
 - "valid_until": ONLY for an official receipt or an LTO payment slip: the date the registration payment is valid until, or the date it is due for renewal, as YYYY-MM-DD (for "02/2027" or "February 2027" give the first day, 2027-02-01). null on every other document or when you cannot read it.
+- "amount": ONLY for an "acknowledgement_receipt": the sum of money received, as a plain number in pesos with no peso sign, commas or words (for "Php 150,000.00" give 150000). null if you cannot read it in full, and null on every other document.
+- "document_date": ONLY for an "acknowledgement_receipt": the date written on it as YYYY-MM-DD. null if you cannot read it in full, and null on every other document.
 - "or_kind": ONLY for an "official_receipt". "registration" for the big Official Receipt of the registration (a full-page or large receipt, with the amounts of the registration fees and the vehicle details). "last" for the last OR: the small receipt (a slip or half page) of the latest renewal payment. null if you cannot tell, and null on every other document.
 - "deed_kind": ONLY for a "deed_of_sale". "open" when the buyer's line is blank (only the seller signed). "closed" when the buyer is named and the deed is notarized (a notary's seal and details are on it). null if you cannot tell, and null on every other document.
 - "lender_name": ONLY for a chattel mortgage, a release or cancellation of chattel mortgage, or a promissory note: the bank or financing company named as mortgagee or lender, as printed (for example "EASTWEST BANK", "JACCS FINANCE PHILIPPINES"). null otherwise.
@@ -126,6 +130,7 @@ export function readingFromReply(raw: unknown): Reading | null {
       type: d.type, confidence: d.confidence, documentNumber: d.document_number, plate: cleanPlate(d.plate), motorNo: d.motor_no, chassisNo: d.chassis_no,
       copy: d.copy, defects: d.defects.length ? d.defects : null, ownerName: d.owner_name, holderName: d.holder_name, sellerName: d.seller_name, buyerName: d.buyer_name,
       secretaryName: d.secretary_name, representativeName: d.representative_name, idType: d.id_type, validUntil: d.valid_until, lender: d.lender_name, orKind: d.type === "official_receipt" ? d.or_kind : null, deedKind: d.type === "deed_of_sale" ? d.deed_kind : null,
+      amount: d.type === "acknowledgement_receipt" ? d.amount : null, documentDate: d.type === "acknowledgement_receipt" ? d.document_date : null,
     }))),
   };
 }
@@ -159,7 +164,7 @@ export function fakeReading(filename: string, plate: string): Reading {
   const buyer = /deed-buyer-([^.]+)/.exec(filename);
   if (buyer) detections.push(d("deed_of_sale", { sellerName: "LIM, MARIA LEONILA", buyerName: buyer[1].replace(/_/g, " ") }));
   const ar = /(^|[^a-z])ar-([^.]+)/.exec(n);
-  if (ar) detections.push(d("acknowledgement_receipt", { buyerName: filename.slice(filename.toLowerCase().indexOf("ar-") + 3).replace(/\.[^.]+$/, "").replace(/_/g, " "), documentNumber: "2516" }));
+  if (ar) detections.push(d("acknowledgement_receipt", { buyerName: filename.slice(filename.toLowerCase().indexOf("ar-") + 3).replace(/\.[^.]+$/, "").replace(/_/g, " "), documentNumber: "2516", amount: 50000, documentDate: "2026-11-20" }));
   if (n.includes("promissory")) detections.push(d("promissory_note"));
   if (n.includes("chattel") || n.includes("rcm")) detections.push(d("chattel_cancellation"));
   if (n.includes("secretary-cert")) detections.push(d("secretary_certificate", { secretaryName: "Ana Reyes", representativeName: "Pedro Santos" }));
