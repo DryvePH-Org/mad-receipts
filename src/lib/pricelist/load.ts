@@ -12,7 +12,7 @@ export async function loadPriceList(): Promise<{ rows: PriceRow[]; details: Deta
   const db = docsDb();
   const cols: string = UNIT_COLS;
   const { data, error } = await db.from("docs_units").select(cols).eq("in_stock", true).is("archived_at", null).order("stock_order").limit(3000);
-  if (error) throw new Error(`Could not read Car status: ${error.message}`);
+  if (error) throw new Error(`Could not read Car Inventory: ${error.message}`);
   const list = (data ?? []) as unknown as (UnitRecord & { plate_no: string; stock_order: number | string; stock_note: string | null })[];
   const ids = list.map((u) => u.id);
   const plates = list.map((u) => u.plate_no);

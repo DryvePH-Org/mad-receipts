@@ -11,7 +11,7 @@ export type PaymentTag = (typeof PAYMENT_TAGS)[number];
 export const isPaymentTag = (v: unknown): v is PaymentTag => typeof v === "string" && (PAYMENT_TAGS as readonly string[]).includes(v);
 
 /** A file of the archive as the page shows it. */
-export interface ArchiveFile { id: string; name: string; tag: string; amount: number | null; on: string | null; note: string | null; addedAt: string; mime: string; /** a signed AR from the Documents papers: shown here, kept there */ ar?: boolean }
+export interface ArchiveFile { id: string; name: string; tag: string; amount: number | null; on: string | null; note: string | null; addedAt: string; /** who added it, when it was added in the app */ by?: string | null; mime: string; /** a signed AR from the Documents papers: shown here, kept there */ ar?: boolean }
 
 /** An amount typed with commas or a peso sign; empty or not a positive number is nothing. */
 export function cleanAmount(v: unknown): number | null {

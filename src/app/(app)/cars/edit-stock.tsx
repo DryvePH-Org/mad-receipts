@@ -20,7 +20,9 @@ const STATES: { key: State; label: string; hint: string }[] = [
   { key: "Not for sale", label: "Not for sale", hint: "Kept, not offered" },
   { key: "Shipped to Cebu", label: "Shipped to Cebu", hint: "On its way or in Cebu" },
 ];
-const asText = (n: number | null | undefined) => (n === null || n === undefined ? "" : String(n));
+const asText = (n: number | null | undefined) => (n === null || n === undefined ? "" : n.toLocaleString("en-PH"));
+/** Prices show with commas as they are typed: 458000 becomes 458,000. */
+const fmt = (v: string) => { const d = v.replace(/\D/g, ""); return d === "" ? "" : Number(d).toLocaleString("en-PH"); };
 const toNum = (v: string): number | null => { const t = v.replace(/[₱,\s]/g, ""); return /^\d+$/.test(t) ? Number(t) : null; };
 
 /** The one place Admin and Approver change a car of the price list. Plain words, one screen; the price history and who changed it are kept. */
@@ -44,7 +46,7 @@ export function EditStock({ car, locations, onClose }: { car: CarRow; locations:
   });
   const takeOff = () => start(async () => { const r = await takeOffStockAction(car.plate); if (r.ok) { toast.success(r.message); router.refresh(); onClose(); } else toast.error(r.error); });
   const money = (k: "listPrice" | "reprice" | "targetPrice" | "retarget", label: string, hint?: string) => (
-    <div className="space-y-1"><Label htmlFor={`e-${k}`}>{label}</Label><Input id={`e-${k}`} inputMode="numeric" value={f[k]} onChange={(e) => set(k, e.target.value)} placeholder="₱" aria-invalid={bad.includes(k)} />{hint && <p className="text-xs text-muted-foreground">{hint}</p>}</div>
+    <div className="space-y-1"><Label htmlFor={`e-${k}`}>{label}</Label><Input id={`e-${k}`} inputMode="numeric" value={f[k]} onChange={(e) => set(k, fmt(e.target.value))} placeholder="₱ 458,000" aria-invalid={bad.includes(k)} />{hint && <p className="text-xs text-muted-foreground">{hint}</p>}</div>
   );
 
   return (
@@ -70,7 +72,7 @@ export function EditStock({ car, locations, onClose }: { car: CarRow; locations:
           {money("listPrice", "Price", "The price we quote")}{money("reprice", "Reprice", "A lower price, if it was repriced")}
           {money("targetPrice", "Target", "The lowest we would take")}{money("retarget", "Re-target", "The new lowest, if repriced")}
         </div>
-        {bad.length > 0 && <p className="text-xs text-destructive">Type prices as plain numbers, like 458000.</p>}
+        {bad.length > 0 && <p className="text-xs text-destructive">Type prices as whole pesos, like 458,000.</p>}
       </fieldset>
 
       <fieldset className="space-y-2">
@@ -79,7 +81,7 @@ export function EditStock({ car, locations, onClose }: { car: CarRow; locations:
           <div className="space-y-1"><Label htmlFor="e-location">Location</Label><Input id="e-location" list="e-locations" value={f.location} onChange={(e) => set("location", e.target.value.toUpperCase())} /><datalist id="e-locations">{locations.map((l) => <option key={l} value={l} />)}</datalist></div>
           <div className="space-y-1"><Label htmlFor="e-tools">Tools</Label><Input id="e-tools" value={f.tools} onChange={(e) => set("tools", e.target.value)} /></div>
         </div>
-        <p className="text-xs text-muted-foreground">The car&apos;s make, model, color, spare key, OR date and where its papers are (papers with) are changed in Car documents, so they stay the same everywhere.</p>
+        <p className="text-xs text-muted-foreground">The car&apos;s details (year, make, model, color, mileage...) are changed with Edit details by an Admin. Its papers and OR date are in Car documents.</p>
       </fieldset>
 
       <div className="flex flex-wrap items-center gap-2">

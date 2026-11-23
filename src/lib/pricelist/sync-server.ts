@@ -39,11 +39,11 @@ export async function settleSyncItem(id: string, choice: Choice, actor: string, 
   let unitId = item.unit_id as string | null;
   if (plan.addUnit || plan.linkPlate) {
     const payload = item.payload as { stock?: StockInput; raw?: unknown } | null;
-    if (!payload?.stock) return { ok: false, error: "This item no longer has its Car status row. Add the car with Add a car, then run the import again." };
+    if (!payload?.stock) return { ok: false, error: "This item no longer has its Car Inventory row. Add the car with Add a car, then run the import again." };
     const stock = payload.stock;
     if (plan.addUnit) {
       const made = newUnitFromList(stock, manilaToday());
-      if ("missing" in made) return { ok: false, error: `The Car status row has no ${made.missing.join(", ")}. Add the car with Add a car instead.` };
+      if ("missing" in made) return { ok: false, error: `The Car Inventory row has no ${made.missing.join(", ")}. Add the car with Add a car instead.` };
       const exists = await db.from("docs_units").select("id").eq("plate_no", stock.plate).limit(1);
       if (exists.data?.length) return { ok: false, error: `${stock.plateDisplay} is already in MAD.` };
       const ins = await db.from("docs_units").insert({ ...made.fields, arrival_raw: made.fields.arrival_date, source: "app", last_change_source: "pricelist", created_by: actor, updated_by: actor }).select("id").single();
@@ -51,15 +51,15 @@ export async function settleSyncItem(id: string, choice: Choice, actor: string, 
       unitId = ins.data.id as string;
       const unit = { year_model: made.fields.year_model, make: made.fields.make, model_variant: made.fields.model_variant, color: made.fields.color, trans: made.fields.trans, fuel: made.fields.fuel, spare_key: made.fields.spare_key, mileage: made.fields.mileage, encumbrance: made.fields.encumbrance, arrival_date: made.fields.arrival_date };
       const st = await db.from("docs_units").update({ ...stockPatch(stock, identityOverrides(stock, unit)), updated_by: actor }).eq("id", unitId);
-      if (st.error) { await db.from("docs_units").delete().eq("id", unitId); return { ok: false, error: `Could not save the Car status row: ${st.error.message}` }; }
+      if (st.error) { await db.from("docs_units").delete().eq("id", unitId); return { ok: false, error: `Could not save the Car Inventory row: ${st.error.message}` }; }
     } else {
       const { data: unit } = await db.from("docs_units_current").select("id, plate_no, year_model, make, model_variant, color, trans, fuel, spare_key, mileage, encumbrance, arrival_date").eq("plate_no", plan.linkPlate!).maybeSingle();
       if (!unit) return { ok: false, error: `${plan.linkPlate} is not in MAD. Add the car first, or choose "Add this car".` };
       const taken = await db.from("docs_units").select("id").eq("id", unit.id).eq("in_stock", true).maybeSingle();
-      if (taken.data) return { ok: false, error: `${plan.linkPlate} is already in Car status.` };
+      if (taken.data) return { ok: false, error: `${plan.linkPlate} is already in Car Inventory.` };
       const linked: StockInput = { ...stock, plate: unit.plate_no as string };
       const st = await db.from("docs_units").update({ ...stockPatch(linked, identityOverrides(linked, unit)), updated_by: actor }).eq("id", unit.id as string);
-      if (st.error) return { ok: false, error: `Could not save the Car status row: ${st.error.message}` };
+      if (st.error) return { ok: false, error: `Could not save the Car Inventory row: ${st.error.message}` };
       unitId = unit.id as string;
     }
   }

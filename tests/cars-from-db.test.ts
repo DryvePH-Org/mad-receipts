@@ -5,7 +5,7 @@ import { forRole } from "@/lib/cars/model";
 const stock = (o: Partial<StockFacts> = {}): StockFacts => ({ plate_no: "NBU4875", body_group: "HATCHBACK", list_price: 238000, target_price: 225000, reprice: 228000, retarget: 215000, or_expiry: null, papers_with: "C", tools: null, location: "ROSE MARY", repair_status: null, remarks: null, list_model: null, list_color: null, list_mileage: null, list_fuel: null, list_arrived_on: null, list_encumbrance: null, ...o });
 const car = (o: Partial<CarFacts> = {}): CarFacts => ({ plate_display: "NBU4875", arrival_date: "2026-09-11", year_model: "17", make: "TOYOTA", model_variant: "WIGO 1.0G E MT", color: "RED", mileage: "108T KMS", trans: "MT", fuel: "GAS", encumbrance: "N/A", spare_key: null, body_type: null, or_expiry: "2027-05-15", ...o });
 
-describe("a Car status row from the database", () => {
+describe("a Car Inventory row from the database", () => {
   it("quotes the repriced price and knows it was repriced", () => {
     const c = carRowOf(stock(), car(), "2026-11-19");
     expect(c).toMatchObject({ plate: "NBU4875", year: "2017", brand: "TOYOTA", make: "WIGO 1.0G E MT", price: 228000, originalPrice: 238000, repriced: true, target: 215000, bodyType: "HATCHBACK", orExp: "2027-05-15", docsCode: "C", availability: "available", sellable: true });
@@ -41,7 +41,7 @@ describe("a Car status row from the database", () => {
   });
 });
 
-describe("Car status with the one status", () => {
+describe("Car Inventory with the one status", () => {
   const withState = (state: NonNullable<CarFacts["stock_state"]>, who: string | null = null, on: string | null = null) => car({ stock_state: state, state_for: who, state_on: on });
   it("reads the state, not the old note", () => {
     const c = carRowOf(stock({ remarks: "RESERVED - OLD 1/1 | keep this note" }), withState("Reserved", "DAVID", "2026-11-02"), "2026-11-19");

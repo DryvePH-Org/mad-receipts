@@ -52,16 +52,16 @@ async function database(): Promise<Check[]> {
   return out;
 }
 
-/** Car status reads the app's own stock list: the stock rows, their cars, and anything waiting for a decision on the data check. */
+/** Car Inventory reads the app's own stock list: the stock rows, their cars, and anything waiting for a decision on the data check. */
 async function priceListDatabase(): Promise<Check[]> {
-  const A = "Car status (database)", db = createAdminClient() as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const A = "Car Inventory (database)", db = createAdminClient() as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
   const stock = await db.from("docs_units").select("id", { count: "exact", head: true }).eq("in_stock", true);
-  if (stock.error) return [fail(A, "Car status columns", "not there yet", "Apply migrations 35 to 40.")];
-  const out: Check[] = [stock.count ? ok(A, "Cars in Car status", `${stock.count}`) : fail(A, "Cars in Car status", "none: the stock list was not moved yet", "Apply migration 40.")];
+  if (stock.error) return [fail(A, "Car Inventory columns", "not there yet", "Apply migrations 35 to 40.")];
+  const out: Check[] = [stock.count ? ok(A, "Cars in Car Inventory", `${stock.count}`) : fail(A, "Cars in Car Inventory", "none: the stock list was not moved yet", "Apply migration 40.")];
   const open = await db.from("car_sync_items").select("id", { count: "exact", head: true }).eq("status", "open");
-  out.push((open.count ?? 0) === 0 ? ok(A, "Data check", "Car status and Car documents agree") : warn(A, "Data check", `${open.count} item${open.count === 1 ? "" : "s"} still to settle`, "Car status → Data check."));
+  out.push((open.count ?? 0) === 0 ? ok(A, "Data check", "Car Inventory and Car documents agree") : warn(A, "Data check", `${open.count} item${open.count === 1 ? "" : "s"} still to settle`, "Car Inventory → Data check."));
   const noPrice = await db.from("docs_units").select("id", { count: "exact", head: true }).eq("in_stock", true).is("list_price", null);
-  if (noPrice.count) out.push(warn(A, "Cars without a price", `${noPrice.count}`, "Open the car in Car status and type its price."));
+  if (noPrice.count) out.push(warn(A, "Cars without a price", `${noPrice.count}`, "Open the car in Car Inventory and type its price."));
   return out;
 }
 
@@ -155,7 +155,7 @@ async function drive(): Promise<Check[]> {
 
 export async function runGoLiveChecks(): Promise<Check[]> {
   const parts = await Promise.all([
-    Promise.resolve(settings()), safe("Database", "Database", database), safe("Car status (database)", "Car status", priceListDatabase), safe("Repairs bot", "Repairs bot", repairsBot),
+    Promise.resolve(settings()), safe("Database", "Database", database), safe("Car Inventory (database)", "Car Inventory", priceListDatabase), safe("Repairs bot", "Repairs bot", repairsBot),
     safe("Car documents (database)", "Car documents", docsBibleDatabase), safe("Cut-over", "Old sheet", oldSheetChanges), safe("Drive folders", "Drive", drive),
   ]);
   return parts.flat();

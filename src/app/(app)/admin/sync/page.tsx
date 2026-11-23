@@ -21,7 +21,7 @@ const TARGET_LABEL: Record<string, string> = {
   drive: "Drive audit copy",
   sheets: "Google Sheets (no longer used)",
   telegram: "Telegram",
-  inventory: "Car status",
+  inventory: "Car Inventory",
   docs: "Car folder link",
 };
 const EVENT_LABEL: Record<string, string> = {

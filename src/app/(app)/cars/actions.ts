@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireRole } from "@/lib/auth";
+import { requireAdmin, requireRole } from "@/lib/auth";
+import { DETAIL_FIELDS, FIELD_BY_KEY, type DetailKey as FieldKey } from "@/lib/cars/standards";
+import { LIST_COPY } from "@/lib/cars/tidy";
 import { docsDb } from "@/lib/docsbible/review-server";
 import { manilaToday } from "@/lib/dates";
 
@@ -49,4 +51,69 @@ export async function takeOffStockAction(plateRaw: string): Promise<StockResult>
   if (error) return { ok: false, error: `Could not take it off: ${error.message}` };
   revalidatePath("/cars");
   return { ok: true, message: "Taken off the stock list." };
+}
+
+// ---------------- the car's details: one format for every car ----------------
+
+export type DetailsResult = { ok: true; message: string } | { ok: false; error: string; fields?: Partial<Record<FieldKey, string>> };
+
+/** The values of the details form, tidied and checked against the standard of each field. Empty is allowed (the detail is cleared). */
+function checkDetails(raw: Partial<Record<FieldKey, string>>): { values: Partial<Record<FieldKey, string | null>>; errors: Partial<Record<FieldKey, string>> } {
+  const values: Partial<Record<FieldKey, string | null>> = {}, errors: Partial<Record<FieldKey, string>> = {};
+  for (const key of DETAIL_FIELDS) {
+    if (!(key in raw)) continue;
+    const c = FIELD_BY_KEY.get(key)!.check(String(raw[key] ?? "").slice(0, 200));
+    if (c.ok) values[key] = c.value; else errors[key] = c.error;
+  }
+  return { values, errors };
+}
+
+/** What is written for a detail: the car record's field, and the price list's own copy of it is cleared, so there is one value everywhere. */
+function patchOf(values: Partial<Record<FieldKey, string | null>>): Record<string, string | null> {
+  const patch: Record<string, string | null> = {};
+  for (const [k, v] of Object.entries(values) as [FieldKey, string | null][]) {
+    patch[k] = v;
+    const copy = LIST_COPY[k];
+    if (copy) patch[copy] = null;
+  }
+  return patch;
+}
+
+/** The Admins change the details of a car (year, make, model, color, body type, transmission, fuel, mileage, spare key). Each value follows its standard format. */
+export async function updateCarDetailsAction(plateRaw: string, raw: Partial<Record<FieldKey, string>>): Promise<DetailsResult> {
+  const user = await requireAdmin();
+  const plate = plateRaw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (plate.length < 5) return { ok: false, error: "That car was not found." };
+  const { values, errors } = checkDetails(raw);
+  if (Object.keys(errors).length) return { ok: false, error: Object.values(errors)[0]!, fields: errors };
+  if (!Object.keys(values).length) return { ok: false, error: "Nothing to change." };
+  const { error } = await docsDb().from("docs_units").update({ ...patchOf(values), updated_by: user.id, last_change_source: "app" }).eq("plate_no", plate).eq("in_stock", true).is("archived_at", null);
+  if (error) return { ok: false, error: `Could not save: ${error.message}` };
+  revalidatePath("/cars"); revalidatePath(`/documents/${plate}`); revalidatePath("/documents");
+  return { ok: true, message: "The details are saved." };
+}
+
+const tidyItem = z.object({ unitId: z.string().uuid(), field: z.string(), value: z.string().max(200) });
+
+/** The Admins approve the fixes of the Tidy up list: each value is checked again, then written to the car record (and the price list's copy is cleared). */
+export async function applyTidyAction(raw: { unitId: string; field: string; value: string }[]): Promise<DetailsResult> {
+  const user = await requireAdmin();
+  const items = z.array(tidyItem).max(500).safeParse(raw);
+  if (!items.success || !items.data.length) return { ok: false, error: "Nothing was chosen." };
+  const byUnit = new Map<string, Partial<Record<FieldKey, string>>>();
+  for (const it of items.data) {
+    if (!(DETAIL_FIELDS as string[]).includes(it.field)) return { ok: false, error: "That field cannot be changed here." };
+    byUnit.set(it.unitId, { ...(byUnit.get(it.unitId) ?? {}), [it.field]: it.value });
+  }
+  const db = docsDb();
+  let done = 0;
+  for (const [unitId, fields] of byUnit) {
+    const { values, errors } = checkDetails(fields);
+    if (Object.keys(errors).length) return { ok: false, error: Object.values(errors)[0]!, fields: errors };
+    const { error } = await db.from("docs_units").update({ ...patchOf(values), updated_by: user.id, last_change_source: "app" }).eq("id", unitId);
+    if (error) return { ok: false, error: `Could not save: ${error.message}` };
+    done += Object.keys(values).length;
+  }
+  revalidatePath("/cars"); revalidatePath("/cars/tidy"); revalidatePath("/documents");
+  return { ok: true, message: `${done} ${done === 1 ? "value was" : "values were"} tidied.` };
 }

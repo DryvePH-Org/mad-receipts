@@ -119,7 +119,7 @@ async function Content({ params }: { params: PageProps<"/deals/[id]">["params"] 
           )}
 
           <Card size="sm">
-            <CardHeader><CardTitle>Car status</CardTitle><p className="text-sm text-muted-foreground">What Car status shows for the car</p></CardHeader>
+            <CardHeader><CardTitle>Car Inventory</CardTitle><p className="text-sm text-muted-foreground">What Car Inventory shows for the car</p></CardHeader>
             <CardContent className="space-y-2">
               {deal.units.map((u) => <div key={u.plate_no} className="flex items-center justify-between gap-3 text-sm"><span><b className="font-medium">{u.make_type}</b><br /><span className="font-mono text-xs text-muted-foreground">{u.plate}</span></span><Pill tone={invStatus === "Sold" ? "zinc" : invStatus === "Reserved" ? "amber" : "emerald"}>{invStatus}</Pill></div>)}
               <p className="text-xs text-muted-foreground">Reserved while anything is unpaid. It becomes Sold only when the buyer&apos;s part is paid{deal.saleType === "financing" ? " and the loan is released" : ""}. A cancelled deal frees the car again.</p>

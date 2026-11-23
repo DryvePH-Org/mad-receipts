@@ -76,7 +76,7 @@ export function ground(d: DraftData, cars: CarLite[]): DraftData {
     if (d.vehicle && mine.label && !key(mine.label).includes(key(d.vehicle).slice(0, 4)) && !key(d.vehicle).includes(key(mine.label).slice(0, 4))) warnings.push(`MAD has ${mine.display} as ${mine.label}, not ${d.vehicle}.`);
     // "found in MAD" only says the plate is in the car records: say when the car is sold or not on the sale list
     if (mine.state === "Sold") warnings.push(`${mine.display} is marked Sold in MAD.`);
-    else if (mine.inStock === false) warnings.push(`${mine.display} is not on the sale list (Car status).`);
+    else if (mine.inStock === false) warnings.push(`${mine.display} is not on the sale list (Car Inventory).`);
     return { ...d, plate: mine.display, vehicle: d.vehicle || mine.label, inventory_found: true, warnings };
   }
   const near = nearPlates(d.plate, cars);

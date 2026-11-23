@@ -7,12 +7,12 @@ import { cn } from "@/lib/utils";
 import { ReviewBoard } from "../docs-bible/review/review-board";
 import { SyncBoard } from "../cars/sync/sync-board";
 
-/** One place for everything that needs a person: the cars where Car status and Car documents disagree, and what the move off the old sheets could not decide. */
+/** One place for everything that needs a person: the cars where Car Inventory and Car documents disagree, and what the move off the old sheets could not decide. */
 export function DataCheckBoard({ review, differences, canEdit, seesDifferences, initial }: { review: ReviewRow[]; differences: SyncRow[]; canEdit: boolean; seesDifferences: boolean; initial?: "move" | "differences" }) {
   const openReview = review.filter((i) => i.status === "open").length, openDiff = differences.filter((i) => i.status === "open").length;
   const [tab, setTab] = useState<"move" | "differences">(initial ?? (seesDifferences && openDiff > 0 ? "differences" : openReview > 0 || !seesDifferences ? "move" : "differences"));
   const tabs = [
-    ...(seesDifferences ? [{ key: "differences" as const, label: "Car status and Car documents differ", count: openDiff }] : []),
+    ...(seesDifferences ? [{ key: "differences" as const, label: "Car Inventory and Car documents differ", count: openDiff }] : []),
     { key: "move" as const, label: "From the move to MAD", count: openReview },
   ];
   return (
@@ -25,7 +25,7 @@ export function DataCheckBoard({ review, differences, canEdit, seesDifferences, 
         ))}
       </div>
       {tab === "differences" && seesDifferences ? (
-        differences.length === 0 && openDiff === 0 ? <p className="text-sm text-muted-foreground">Car status and Car documents say the same about every car.</p> : <SyncBoard items={differences} />
+        differences.length === 0 && openDiff === 0 ? <p className="text-sm text-muted-foreground">Car Inventory and Car documents say the same about every car.</p> : <SyncBoard items={differences} />
       ) : <ReviewBoard items={review} canEdit={canEdit} />}
     </div>
   );

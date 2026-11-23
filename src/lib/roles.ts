@@ -2,8 +2,8 @@
 //   Super Admin: everything, including the administration tools (Settings, Users, Sync jobs).
 //   Admin: everything in the modules, edit, delete and add, but not the administration tools.
 //   Buying: the IN documents of a car (what Documentation was): they upload, scan, check and approve the papers the car came with.
-//   Marketing: look at Car status, Car documents and Repairs, change nothing.
-//   Sales: read the IN documents, upload the OUT documents after a sale (the AR, the buyer's ID, the deed, the payment papers), and change Car status and Repairs.
+//   Marketing: look at Car Inventory, Car documents and Repairs, change nothing.
+//   Sales: read the IN documents, upload the OUT documents after a sale (the AR, the buyer's ID, the deed, the payment papers), and change Car Inventory and Repairs.
 
 export type Role = "super_admin" | "admin" | "buying" | "marketing" | "sales";
 
@@ -22,7 +22,7 @@ export const isAdmin = (r: Role): boolean => r === "super_admin" || r === "admin
 export const editsPapers = (r: Role): boolean => r === "super_admin" || r === "admin" || r === "buying";
 /** Adds the OUT documents after a sale: the AR, the buyer's ID, the deed and the payment papers. */
 export const editsOut = (r: Role): boolean => r !== "marketing";
-/** Changes prices and states in Car status, and decides on repairs. */
+/** Changes prices and states in Car Inventory, and decides on repairs. */
 export const editsCars = (r: Role): boolean => r === "super_admin" || r === "admin" || r === "sales";
 /** Sees the papers that are kept private from Sales and Online Marketing (the notarized closed deed of sale). */
 export const seesPrivateDocs = (r: Role): boolean => r === "super_admin" || r === "admin" || r === "buying";

@@ -6,20 +6,21 @@ import { cn } from "@/lib/utils";
 /**
  * How big a dialog is. On a phone every dialog is a bottom sheet (sm, md) or fills the screen (lg, xl); from 640 px up it is centred.
  *   sm: a question or a confirmation (28 rem)   md: a form (36 rem, the default)
- *   lg: a form with a preview beside it (56 rem)   xl: a wide viewer (72 rem)   full: the whole window, for looking at a document with its controls beside it
+ *   half: a record to read and edit, about half the window (36 to 58 rem)   lg: a form with a preview beside it (56 rem)   xl: a wide viewer (72 rem)   full: the whole window, for looking at a document with its controls beside it
  */
-export type DialogSize = "sm" | "md" | "lg" | "xl" | "full";
+export type DialogSize = "sm" | "md" | "half" | "lg" | "xl" | "full";
 
-const WIDTH: Record<DialogSize, string> = { sm: "sm:max-w-md", md: "sm:max-w-xl", lg: "sm:max-w-4xl", xl: "sm:max-w-[min(72rem,calc(100vw-3rem))]", full: "sm:top-0 sm:left-0 sm:h-dvh sm:max-h-dvh sm:w-screen sm:max-w-none sm:translate-x-0 sm:translate-y-0 sm:rounded-none" };
+const WIDTH: Record<DialogSize, string> = { sm: "sm:max-w-md", md: "sm:max-w-xl", half: "sm:max-w-[clamp(36rem,52vw,58rem)]", lg: "sm:max-w-4xl", xl: "sm:max-w-[min(72rem,calc(100vw-3rem))]", full: "sm:top-0 sm:left-0 sm:h-dvh sm:max-h-dvh sm:w-screen sm:max-w-none sm:translate-x-0 sm:translate-y-0 sm:rounded-none" };
 // the two big sizes take the whole screen on a phone, so a picture and its panel have room; the small ones stay a sheet from the bottom
 const PHONE: Record<DialogSize, string> = {
   sm: "max-sm:max-h-[90dvh] max-sm:rounded-t-2xl",
   md: "max-sm:max-h-[92dvh] max-sm:rounded-t-2xl",
+  half: "max-sm:h-dvh max-sm:max-h-dvh max-sm:rounded-none",
   lg: "max-sm:h-dvh max-sm:max-h-dvh max-sm:rounded-none",
   xl: "max-sm:h-dvh max-sm:max-h-dvh max-sm:rounded-none",
   full: "max-sm:h-dvh max-sm:max-h-dvh max-sm:rounded-none",
 };
-const TALL: Record<DialogSize, string> = { sm: "", md: "", lg: "sm:h-[min(48rem,92dvh)]", xl: "sm:h-[min(52rem,94dvh)]", full: "" };
+const TALL: Record<DialogSize, string> = { sm: "", md: "", half: "sm:h-[min(54rem,92dvh)]", lg: "sm:h-[min(48rem,92dvh)]", xl: "sm:h-[min(52rem,94dvh)]", full: "" };
 
 /**
  * A modal with a fixed title, a body that scrolls on its own, and an optional bar of actions that stays in view (so Save is never below the fold).
@@ -47,7 +48,7 @@ export function ResponsiveDialog({
   className?: string;
   bodyClassName?: string;
 }) {
-  const big = size === "lg" || size === "xl" || size === "full";
+  const big = size === "half" || size === "lg" || size === "xl" || size === "full";
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent

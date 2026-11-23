@@ -30,10 +30,10 @@ describe("navigation", () => {
 
   it("the phone tab bar shows four items and puts the rest in More", () => {
     expect(tabBarItems("marketing")).toMatchObject({ more: [] });
-    expect(tabBarItems("sales").tabs.map((i) => i.label)).toEqual(["Car status", "Car documents", "Repairs"]);
+    expect(tabBarItems("sales").tabs.map((i) => i.label)).toEqual(["Car Inventory", "Car documents", "Repairs"]);
     const admin = tabBarItems("super_admin");
     expect(admin.tabs.map((i) => i.label)).toEqual(["Dashboard", "Activity log", "New receipt", "Transactions"]);
-    expect(admin.more.map((i) => i.label)).toEqual(["Reminders", "Car status", "Car documents", "Repairs", "Settings", "Users", "Sync jobs"]);
+    expect(admin.more.map((i) => i.label)).toEqual(["Reminders", "Car Inventory", "Car documents", "Repairs", "Settings", "Users", "Sync jobs"]);
   });
 
   it("marks the current page", () => {

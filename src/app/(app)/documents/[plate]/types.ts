@@ -4,6 +4,8 @@ import type { Rules, StageModel } from "@/lib/docs/stage";
 
 export interface FileView {
   id: string; rotation: number; name: string; url: string | null; source: string; readStatus: string; readError: string | null;
+  /** who added the photo (a person of the app) and when it came into the folder; null name: it was already in the Drive folder */
+  uploadedBy: string | null; addedAt: string;
   types: string[]; manual: boolean; edited: boolean; reviewed: string[]; flags: string[]; duplicateOf: string | null; confidence: number | null;
   /** what the bot saw on this photo, shown under "What the bot saw" */
   seen: { detections: Detection[]; notes: string | null };

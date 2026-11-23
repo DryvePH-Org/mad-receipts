@@ -144,6 +144,7 @@ function Row({ f, isAdmin }: { f: ArchiveFile; isAdmin: boolean }) {
       <div className="min-w-0 flex-1 space-y-0.5 text-sm">
         <p className="flex flex-wrap items-center gap-2"><Pill tone="blue">{f.tag}</Pill>{f.amount !== null && <b>{formatPeso(Math.round(f.amount * 100))}</b>}{f.on && <span className="text-muted-foreground">{day(f.on)}</span>}</p>
         {f.note && <p>{f.note}</p>}
+        <p className="text-xs text-muted-foreground">{f.by ? `Added by ${f.by}` : "Added"}{f.addedAt ? ` · ${new Date(f.addedAt).toLocaleString("en-PH", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Manila" })}` : ""}</p>
         <p className="truncate text-xs text-muted-foreground">{f.name}</p>
       </div>
       <a href={`/api/docs/file/${f.id}?download=1`} download className="inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-sm hover:bg-muted"><Download className="size-4" aria-hidden /> Download</a>

@@ -1,30 +1,28 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { Key, LayoutGrid, MapPin, Rows3, Search, SlidersHorizontal, Wrench, X } from "lucide-react";
-import { ResponsiveDialog } from "@/components/shared/responsive-dialog";
 import { Pill, type Tone } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { AVAILABILITY_LABEL, EMPTY_FILTER, filterCars, sortCars, spareKeyState, summarize, type Availability, type CarFilter, type CarRow, type SortKey } from "@/lib/cars/model";
-import { EditStock } from "./edit-stock";
+import { CarRecord } from "./car-record";
 
 const TONE: Record<Availability, Tone> = { available: "emerald", asis: "amber", reserved: "blue", sold: "zinc", repair: "red", notforsale: "zinc" };
 const peso = (n: number | null) => (n === null ? "No price" : `₱${n.toLocaleString("en-PH")}`);
 const unique = (cars: CarRow[], pick: (c: CarRow) => string) => [...new Set(cars.map(pick).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-const nice = (iso: string | null) => (iso ? new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }) : "—");
 const title = (c: CarRow) => [c.year, c.brand, c.make].filter(Boolean).join(" ");
 
-export function CarsBoard({ cars, role, canEdit, canOpenDocs, docs }: { cars: CarRow[]; role: string; canEdit: boolean; canOpenDocs: boolean; docs: Record<string, { label: string; tone: Tone; case: string | null }> }) {
+export function CarsBoard({ cars, role, canEdit, canEditDetails, canOpenDocs, docs }: { cars: CarRow[]; role: string; canEdit: boolean; canEditDetails: boolean; canOpenDocs: boolean; docs: Record<string, { label: string; tone: Tone; case: string | null }> }) {
   const [f, setF] = useState<CarFilter>(EMPTY_FILTER);
   const [sort, setSort] = useState<SortKey>("newest");
   const [view, setView] = useState<"cards" | "table">("cards");
   const [more, setMore] = useState(false);
   const [open, setOpen] = useState<CarRow | null>(null);
-  const [editing, setEditing] = useState(false);
   const locations = useMemo(() => unique(cars, (c) => c.location), [cars]);
+  // the spellings already in use, offered while typing so every car is written the same way
+  const suggestions = useMemo(() => ({ make: unique(cars, (c) => c.record?.make ?? ""), model_variant: unique(cars, (c) => c.record?.model_variant ?? ""), color: unique(cars, (c) => c.record?.color ?? "") }), [cars]);
   const set = (patch: Partial<CarFilter>) => setF((x) => ({ ...x, ...patch }));
 
   const summary = useMemo(() => summarize(cars), [cars]);
@@ -147,28 +145,7 @@ export function CarsBoard({ cars, role, canEdit, canOpenDocs, docs }: { cars: Ca
         </div>
       )}
 
-      <ResponsiveDialog open={!!open} onOpenChange={(o) => { if (!o) { setOpen(null); setEditing(false); } }} title={open ? title(open) : ""} description={open ? `Plate ${open.plateDisplay}` : undefined}>
-        {open && editing && open.raw && <EditStock car={open} locations={locations} onClose={() => { setEditing(false); setOpen(null); }} />}
-        {open && !editing && (
-          <div className="space-y-4 text-sm">
-            <div className="flex flex-wrap items-center gap-2"><Pill tone={TONE[open.availability]}>{AVAILABILITY_LABEL[open.availability]}</Pill>{open.repairStatus && <Pill tone="red">{open.repairStatus}</Pill>}{open.toCebu && <Pill tone="purple">Manila unit to Cebu</Pill>}</div>
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
-              {([
-                ["Price", peso(open.price)], ...(open.repriced ? [["Original price", peso(open.originalPrice)] as [string, string]] : []), ...(showTarget && role !== "marketing" ? [["Target", peso(open.target)] as [string, string]] : []),
-                ["Body type", open.bodyType || "—"], ["Color", open.color || "—"], ["Mileage", open.mileage || "—"], ["Transmission", open.trans || "—"], ["Fuel", open.fuel || "—"],
-                ["Documents", docs[open.plate] ? docs[open.plate].label : "Not started"],
-                ["Arrived", nice(open.arrived)], ["Days in stock", open.daysInStock !== null ? String(open.daysInStock) : "—"], ["Location", open.location || "—"],
-                ["Spare key", spareKeyState(open.spareKey) === "yes" ? "Yes" : spareKeyState(open.spareKey) === "no" ? "No" : open.spareKey || "—"],
-                ...(open.encumbrance || role !== "marketing" ? [["Encumbrance", open.encumbrance || "None"] as [string, string]] : []),
-                ...(open.orExp ? [["OR expires", nice(open.orExp)] as [string, string]] : []), ...(open.docsCode ? [["Documents", open.docsCode] as [string, string]] : []),
-              ] as [string, string][]).map(([k, v]) => <div key={k}><dt className="text-xs text-muted-foreground">{k}</dt><dd className="font-medium">{v}</dd></div>)}
-            </dl>
-            {open.remarks && <div><p className="text-xs text-muted-foreground">Notes</p><p className="rounded-lg bg-muted p-2">{open.remarks}</p></div>}
-            {canEdit && open.raw && <Button onClick={() => setEditing(true)}>Change price or state</Button>}
-            {canOpenDocs && <Button variant="outline" nativeButton={false} render={<Link href={`/documents/${open.plate}`} />}>Open the car&apos;s page</Button>}
-          </div>
-        )}
-      </ResponsiveDialog>
+      {open && <CarRecord key={open.plate} car={open} onClose={() => setOpen(null)} canEditStatus={canEdit} canEditDetails={canEditDetails} canOpenDocs={canOpenDocs} showTarget={showTarget} role={role} docs={docs[open.plate]} locations={locations} suggestions={suggestions} />}
     </div>
   );
 }

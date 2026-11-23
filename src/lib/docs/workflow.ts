@@ -62,7 +62,7 @@ async function withDocsSpareKey(plate: string, details: UnitDetails): Promise<Un
   } catch { return details; }
 }
 
-/** Answering "spare key" on the car page writes the same fact into the car's record, so Car status, the Table and the Excel all show it. */
+/** Answering "spare key" on the car page writes the same fact into the car's record, so Car Inventory, the Table and the Excel all show it. */
 async function writeSpareKeyToRecord(plate: string, answer: "yes" | "no" | "", actor: string): Promise<void> {
   if (!answer) return;
   try {

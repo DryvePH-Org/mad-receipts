@@ -88,6 +88,10 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
   const [register, receipts, activity] = await Promise.all([loadRegisterRow(key).catch(() => null), canUpload ? listCarReceipts(key).catch(() => []) : Promise.resolve([]), loadCarActivity(key).catch(() => [] as ActivityEntry[])]);
 
   const recipient = settings.print.transmittalReceiver || "the receiver";
+  // who uploaded each photo: the names of the people of the app (a photo that was already in the Drive folder has no uploader)
+  const uploaderIds = [...new Set([...car.files, ...car.archive].map((f) => f.uploaded_by).filter((x): x is string => !!x))];
+  const { data: uploaders } = uploaderIds.length ? await admin.from("profiles").select("id, full_name").in("id", uploaderIds) : { data: [] };
+  const uploaderName = new Map((uploaders ?? []).map((p) => [p.id as string, (p.full_name as string | null) ?? "Someone"]));
   const seesPrivate = seesPrivateDocs(user.role); // the notarized closed deed is kept from Sales and Online Marketing: not on the checklist, no photo, no download
   const isPrivate = (types: string[]) => types.some((t) => (PRIVATE_DOCS as string[]).includes(t));
   const items = car.checklist.items.filter((i) => seesPrivate || !(PRIVATE_DOCS as string[]).includes(i.type)).map((i) => ({ key: i.key, label: i.label, stage: i.stage, present: i.present, fileIds: i.fileIds, optional: !!i.optional }));
@@ -100,7 +104,7 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
     files: car.files.filter((f) => seesPrivate || !isPrivate(f.doc_types)).map((f) => {
       const r = car.analysis.files.find((x) => x.id === f.id);
       return {
-        id: f.id, rotation: rotationOf(f.details), name: f.filename, url: f.drive_url, source: f.source, readStatus: f.read_status, readError: f.read_error, types: f.doc_types, manual: f.doc_types_source === "manual", edited: wasEdited(f.details), reviewed: reviewedOf(f.details),
+        id: f.id, uploadedBy: f.uploaded_by ? uploaderName.get(f.uploaded_by) ?? "Someone" : null, addedAt: f.created_at, rotation: rotationOf(f.details), name: f.filename, url: f.drive_url, source: f.source, readStatus: f.read_status, readError: f.read_error, types: f.doc_types, manual: f.doc_types_source === "manual", edited: wasEdited(f.details), reviewed: reviewedOf(f.details),
         flags: f.flags, duplicateOf: r?.duplicateOf ? car.files.find((x) => x.id === r.duplicateOf)?.filename ?? null : null, confidence: f.confidence,
         seen: { detections: detectionsOf(f.details) ?? [], notes: readingNotes(f.details).notes },
       };
@@ -123,7 +127,7 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
 
   const facts = await loadCarFacts(key).catch(() => ({ unit: null, repairs: [] } as CarFacts));
   const sale = transfers ? saleOf(transfers.transfers) : null;
-  const archive: ArchiveFile[] = seesSales(user.role) ? car.archive.map((f) => ({ id: f.id, name: f.filename, tag: f.archive_tag ?? "Other", amount: f.archive_amount === null ? null : Number(f.archive_amount), on: f.archive_on, note: f.archive_note, addedAt: f.created_at, mime: f.mime_type ?? "" })) : [];
+  const archive: ArchiveFile[] = seesSales(user.role) ? car.archive.map((f) => ({ id: f.id, name: f.filename, tag: f.archive_tag ?? "Other", amount: f.archive_amount === null ? null : Number(f.archive_amount), on: f.archive_on, note: f.archive_note, addedAt: f.created_at, by: f.uploaded_by ? uploaderName.get(f.uploaded_by) ?? "Someone" : null, mime: f.mime_type ?? "" })) : [];
   const detailsMissing = missingDetails(flow.details).length;
   const soldCar = data.location === "sold" || facts.unit?.stockState === "Sold";
   const handData = { plate: key, location: data.location, soldCar, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, releasedOn: hand?.releasedOn ?? null, deliveredOn: hand?.deliveredOn ?? null, stage: sale?.stage ?? hand?.stage ?? null,
@@ -135,7 +139,7 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
     key: i.key, label: i.key === "ack" ? "Signed AR (every AR that is uploaded)" : i.label, present: i.present,
     files: (i.key === "ack" ? car.files.filter((f) => f.doc_types.includes("acknowledgement_receipt")).map((f) => f.id) : i.fileIds).map((id) => fileOf.get(id)).filter((f): f is NonNullable<typeof f> => !!f).map((f) => {
       const d = detectionsOf(f.details)?.find((x) => x.type === "acknowledgement_receipt");
-      return { id: f.id, name: f.filename, note: d ? [d.buyerName && `Buyer ${d.buyerName}`, d.documentNumber && `AR no. ${d.documentNumber}`, d.amount != null && `₱${d.amount.toLocaleString("en-PH")}`, d.documentDate && dayOf(d.documentDate)].filter(Boolean).join(" · ") || f.filename : f.filename };
+      return { id: f.id, name: f.filename, by: f.uploaded_by ? uploaderName.get(f.uploaded_by) ?? "Someone" : null, at: f.created_at, note: d ? [d.buyerName && `Buyer ${d.buyerName}`, d.documentNumber && `AR no. ${d.documentNumber}`, d.amount != null && `₱${d.amount.toLocaleString("en-PH")}`, d.documentDate && dayOf(d.documentDate)].filter(Boolean).join(" · ") || f.filename : f.filename };
     }),
   }));
   const outHave = outItems.filter((i) => i.present).length;

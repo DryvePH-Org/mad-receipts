@@ -3,7 +3,7 @@ import { parseStatus } from "@/lib/inventory/remarks";
 import { fullYear } from "@/lib/inventory/year";
 import { normalizePlate } from "@/lib/rules/plate";
 
-// The Car status dashboard's data: one row per unit of the INVENTORY 2026 tab, tidied up, with what staff want to see at a glance
+// The Car Inventory dashboard's data: one row per unit of the INVENTORY 2026 tab, tidied up, with what staff want to see at a glance
 // (can it be sold? is it being repaired? how long has it been here?). Pure code: no sheet access here.
 
 export type Availability = "available" | "asis" | "reserved" | "sold" | "repair" | "notforsale";
@@ -19,6 +19,9 @@ export interface CarRow {
   encumbrance: string; location: string; repairStatus: string; spareKey: string; orExp: string | null; docsCode: string;
   availability: Availability; sellable: boolean; toCebu: boolean;
   /** the stock row's own values, for the edit screen (Admin and Approver only; removed for everyone else) */
+  /** the car record's own values of its details, as stored (the form edits these) */
+  unitId?: string;
+  record?: Record<"year_model" | "make" | "model_variant" | "color" | "body_type" | "trans" | "fuel" | "mileage" | "spare_key" | "buying_source", string | null>;
   raw?: { listPrice: number | null; targetPrice: number | null; reprice: number | null; retarget: number | null; tools: string; papersWith: string; note: string; state: string | null };
 }
 

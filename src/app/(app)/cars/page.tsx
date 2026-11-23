@@ -6,18 +6,19 @@ import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { Button } from "@/components/ui/button";
 import { requireModule } from "@/lib/auth";
 import { pageNote } from "@/lib/page-notes";
-import { editsCars, editsPapers } from "@/lib/roles";
+import { editsCars, editsPapers, isAdmin } from "@/lib/roles";
 import { docsDb } from "@/lib/docsbible/review-server";
 import { countOpenSyncItems } from "@/lib/pricelist/sync-server";
 import { forRole } from "@/lib/cars/model";
 import { loadCars, orcrSheetUrl, type CarsData } from "@/lib/cars/read";
+import { loadTidy } from "@/lib/cars/tidy-server";
 import { loadDocsSummaries } from "@/lib/docs/summary";
 import { CarsBoard } from "./cars-board";
 
 export default function CarsPage() {
   return (
     <div className="space-y-6">
-      <PageHeader title="Car status" description="Every car in stock: can it be sold, is it being repaired, how long has it been here. This is the app’s own list." />
+      <PageHeader title="Car Inventory" description="Every car in stock: can it be sold, is it being repaired, how long has it been here. This is the app’s own list." />
       <Suspense fallback={<PageSkeleton />}><Content /></Suspense>
     </div>
   );
@@ -32,7 +33,7 @@ async function Content() {
     return (
       <div role="alert" className="flex gap-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100">
         <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-        <p>{e instanceof Error ? e.message : "Car status could not be read."} Try again in a moment.</p>
+        <p>{e instanceof Error ? e.message : "Car Inventory could not be read."} Try again in a moment.</p>
       </div>
     );
   }
@@ -43,6 +44,7 @@ async function Content() {
   const canCheck = editsPapers(user.role);
   const openChecks = canCheck ? await countOpenSyncItems() : 0;
   const orcr = orcrSheetUrl();
+  const tidyCount = isAdmin(user.role) ? await loadTidy().then((t) => t.length, () => 0) : 0; // details written in different ways, for the Admins to tidy
   return (
     <>
       <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">{pageNote("cars", user.role)}</p>
@@ -51,9 +53,15 @@ async function Content() {
         {canCheck && <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/documents/transfers" />}>Open Transfers</Button>}
         {orcr && <Button size="sm" variant="ghost" nativeButton={false} render={<a href={orcr} target="_blank" rel="noreferrer" />}><ExternalLink /> Old sheet</Button>}
       </div>
+      {tidyCount > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100">
+          <p className="min-w-0 flex-1">{tidyCount} car {tidyCount === 1 ? "detail is" : "details are"} not written the standard way (mileage, fuel, color...). Tidy them so every car reads the same.</p>
+          <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/cars/tidy" />}>Tidy up</Button>
+        </div>
+      )}
       {(openChecks > 0 || (canCheck && inApp > 0)) && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100">
-          <p className="min-w-0 flex-1">{openChecks > 0 ? `${openChecks} places where Car status and Car documents do not say the same thing.` : "Car status and Car documents agree."}</p>
+          <p className="min-w-0 flex-1">{openChecks > 0 ? `${openChecks} places where Car Inventory and Car documents do not say the same thing.` : "Car Inventory and Car documents agree."}</p>
           <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/data-check?tab=differences" />}>Open the data check</Button>
         </div>
       )}
@@ -62,7 +70,7 @@ async function Content() {
           <Button variant="outline" size="sm" nativeButton={false} render={<a href="/api/cars/export" download />}><Download /> Download Excel</Button>
         </div>
       )}
-      <CarsBoard cars={data.cars.map((c) => forRole(c, user.role))} role={user.role} docs={docs} canEdit={canOpenSheet} canOpenDocs={user.modules.includes("register")} />
+      <CarsBoard cars={data.cars.map((c) => forRole(c, user.role))} role={user.role} docs={docs} canEdit={canOpenSheet} canEditDetails={isAdmin(user.role)} canOpenDocs={user.modules.includes("register")} />
     </>
   );
 }

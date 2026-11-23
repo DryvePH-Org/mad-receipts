@@ -84,7 +84,7 @@ export function PaperViewer({ open, onOpenChange, title, description, files, int
                 </div>
               )}
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                <span className="min-w-0 flex-1 truncate text-muted-foreground">{active.name}</span>
+                <span className="min-w-0 flex-1 text-muted-foreground"><span className="block truncate">{active.name}</span><span className="block text-xs">{active.uploadedBy ? <>Uploaded by <b className="font-medium text-foreground">{active.uploadedBy}</b></> : "From the Drive folder"} · {new Date(active.addedAt).toLocaleString("en-PH", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Manila" })}</span></span>
                 <a href={`/api/docs/file/${active.id}?download=1`} download className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline"><Download className="size-4" aria-hidden /> Download</a>
                 {active.url && <a href={active.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline"><ExternalLink className="size-4" aria-hidden /> Open in Drive</a>}
               </div>

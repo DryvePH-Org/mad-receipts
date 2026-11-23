@@ -43,10 +43,11 @@ test("Documentation edits a paper cell with undo and history; the car's identity
   await docs.getByRole("button", { name: "Undo" }).click();
   await expect.poll(async () => (await db().from("docs_units").select("cr").eq("plate_no", PLATE).single()).data?.cr).toBe("No");
 
-  // Documentation has the whole car record, but not the two status columns (Admin only for now)
+  // Buying edits the papers, the classification, the spare key and the dates; the details of the car (make, model, color...) and the status columns are the Admins'
   await docs.getByRole("tab", { name: "Everything" }).click();
   await expect(docs.getByRole("columnheader", { name: "MAKE" })).toBeVisible();
-  await expect(docs.getByRole("button", { name: `MAKE of ${PLATE}` })).toBeVisible();
+  await expect(docs.getByRole("button", { name: `MAKE of ${PLATE}` })).toHaveCount(0);
+  await expect(docs.getByRole("button", { name: `SPARE KEY of ${PLATE}` })).toBeVisible();
   await expect(docs.getByRole("button", { name: `VEHICLE STATUS of ${PLATE}` })).toHaveCount(0);
   await expect(docs.getByRole("button", { name: `CLASSIFICATION of ${PLATE}` })).toBeVisible();
 

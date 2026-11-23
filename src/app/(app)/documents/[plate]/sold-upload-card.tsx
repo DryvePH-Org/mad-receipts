@@ -11,7 +11,7 @@ import { DOC_LABELS, type DocType } from "@/lib/docs/types";
 
 interface PhotoResult { name: string; state: "sending" | "done" | "error"; types: string[]; flags: string[]; message?: string }
 /** One line of the after-sale checklist. The signed AR can have several files: every AR that was uploaded is listed under it. */
-export interface OutItem { key: string; label: string; present: boolean; files: { id: string; name: string; note: string | null }[] }
+export interface OutItem { key: string; label: string; present: boolean; files: { id: string; name: string; note: string | null; by?: string | null; at?: string }[] }
 
 /**
  * The OUT documents, after the sale: one place to upload them (photos of the signed AR, the buyer's ID and the deed, in any order) and the checklist of
@@ -74,7 +74,7 @@ export function SoldUploadCard({ plate, items, buyer, canUpload = true }: { plat
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={`/api/docs/file/${f.id}`} alt="" loading="lazy" className="size-9 object-cover" />
                       </a>
-                      <span className="min-w-0 flex-1 truncate">{f.note ?? f.name}</span>
+                      <span className="min-w-0 flex-1"><span className="block truncate">{f.note ?? f.name}</span><span className="block text-muted-foreground">{f.by ? `Added by ${f.by}` : "In the folder"}{f.at ? ` · ${new Date(f.at).toLocaleString("en-PH", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Manila" })}` : ""}</span></span>
                       <a href={`/api/docs/file/${f.id}?download=1`} download className="inline-flex items-center gap-1 text-muted-foreground underline-offset-2 hover:underline"><Download className="size-3.5" aria-hidden /> Download</a>
                     </li>
                   ))}

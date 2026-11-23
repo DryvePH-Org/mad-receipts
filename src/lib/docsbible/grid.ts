@@ -1,11 +1,12 @@
 // The Docs Bible table: its columns (same names and order as the sheet), who may edit which, and the checking of an edit. Pure.
+import { FIELD_BY_KEY, type FieldKey } from "@/lib/cars/standards";
 import { editsPapers, isAdmin, type Role } from "@/lib/roles";
 import { dateOf, PAPER_VALUES, plateKey, text } from "./normalize";
 
 export type ColKind = "plate" | "text" | "paper" | "classification" | "date" | "sale_status" | "vehicle_status" | "stock_state" | "complete" | "remarks";
 export interface Col {
   key: string; label: string; letter: string; kind: ColKind; width: number;
-  /** "papers": Documentation and Admin; "admin": Admin only; null: computed, nobody types it */
+  /** "papers": Buying and the Admins; "admin": the Admins only; null: computed, nobody types it */
   edit: "papers" | "admin" | null;
 }
 
@@ -13,14 +14,14 @@ export interface Col {
 export const COLUMNS: Col[] = [
   { key: "plate_display", label: "PLATE NO.", letter: "L", kind: "plate", width: 110, edit: null },
   { key: "category", label: "CATEGORY", letter: "C", kind: "text", width: 110, edit: "papers" },
-  { key: "body_type", label: "BODY TYPE", letter: "D", kind: "text", width: 100, edit: "papers" },
-  { key: "year_model", label: "YM", letter: "E", kind: "text", width: 56, edit: "papers" },
-  { key: "make", label: "MAKE", letter: "F", kind: "text", width: 110, edit: "papers" },
-  { key: "model_variant", label: "MODEL VARIANT", letter: "G", kind: "text", width: 190, edit: "papers" },
-  { key: "color", label: "COLOR", letter: "H", kind: "text", width: 110, edit: "papers" },
-  { key: "mileage", label: "MILEAGE", letter: "I", kind: "text", width: 90, edit: "papers" },
-  { key: "trans", label: "TRANS", letter: "J", kind: "text", width: 60, edit: "papers" },
-  { key: "fuel", label: "FUEL", letter: "K", kind: "text", width: 90, edit: "papers" },
+  { key: "body_type", label: "BODY TYPE", letter: "D", kind: "text", width: 100, edit: "admin" },
+  { key: "year_model", label: "YM", letter: "E", kind: "text", width: 56, edit: "admin" },
+  { key: "make", label: "MAKE", letter: "F", kind: "text", width: 110, edit: "admin" },
+  { key: "model_variant", label: "MODEL VARIANT", letter: "G", kind: "text", width: 190, edit: "admin" },
+  { key: "color", label: "COLOR", letter: "H", kind: "text", width: 110, edit: "admin" },
+  { key: "mileage", label: "MILEAGE", letter: "I", kind: "text", width: 90, edit: "admin" },
+  { key: "trans", label: "TRANS", letter: "J", kind: "text", width: 60, edit: "admin" },
+  { key: "fuel", label: "FUEL", letter: "K", kind: "text", width: 90, edit: "admin" },
   { key: "cs_no", label: "CS NO", letter: "M", kind: "text", width: 90, edit: "papers" },
   { key: "sale_status", label: "STATUS", letter: "N", kind: "sale_status", width: 110, edit: null },
   { key: "arrival_date", label: "DATE ARRIVAL", letter: "O", kind: "date", width: 110, edit: "papers" },
@@ -71,7 +72,7 @@ export const VEHICLE_STATUSES = ["SOLD", "AVAILABLE", "SHIPPED TO CEB", "NOT FOR
 export const GRID_CLASSIFICATIONS = ["Clean", "Repo (bank)", "Encumbered (Indiv)"] as const;
 
 export type { Role };
-/** The owner's rule: Documentation has full control of the car's documents record (who the car is, its papers, OR date, spare key, arrival); the one STATE is Admin's here (Admin and Approver also change it in Car status); the two old status columns are worked out from it and nobody types them. Sales and Approver only read (the Approver changes prices in Car status). */
+/** The owner's rule: Documentation has full control of the car's documents record (who the car is, its papers, OR date, spare key, arrival); the one STATE is Admin's here (Admin and Approver also change it in Car Inventory); the two old status columns are worked out from it and nobody types them. Sales and Approver only read (the Approver changes prices in Car Inventory). */
 export const canEditColumn = (role: Role, col: Col): boolean => col.edit === "admin" ? isAdmin(role) : col.edit === "papers" ? editsPapers(role) : false;
 
 /** What the cell becomes, or why the typing is refused. An empty cell is allowed (null) except where the database needs a value. */
@@ -85,7 +86,10 @@ export function checkEdit(col: Col, raw: string): { ok: true; value: string | nu
     case "vehicle_status": return v === "" ? { ok: true, value: null } : (VEHICLE_STATUSES as readonly string[]).includes(v) ? { ok: true, value: v } : { ok: false, error: "Choose one of the vehicle statuses." };
     case "date": { if (v === "") return { ok: true, value: null }; const d = dateOf(v); return d.value ? { ok: true, value: d.value } : { ok: false, error: "Type a real date, like 2026-07-10." }; }
     case "remarks": return v.length > 4000 ? { ok: false, error: "That is too long (4000 letters at most)." } : { ok: true, value: raw.trim() === "" ? null : raw.replace(/\r\n/g, "\n").trim() };
-    case "text": { const t = text(v); return t !== null && t.length > 300 ? { ok: false, error: "That is too long (300 letters at most)." } : { ok: true, value: t }; }
+    case "text": {
+      const std = FIELD_BY_KEY.get(col.key as FieldKey); // a detail of the car has one standard format
+      if (std) { const c = std.check(raw); return c.ok ? { ok: true, value: c.value } : { ok: false, error: c.error }; }
+      const t = text(v); return t !== null && t.length > 300 ? { ok: false, error: "That is too long (300 letters at most)." } : { ok: true, value: t }; }
     default: return { ok: false, error: "This column cannot be typed in." };
   }
 }

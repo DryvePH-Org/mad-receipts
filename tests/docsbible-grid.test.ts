@@ -5,11 +5,11 @@ const col = (k: string) => COLUMN_BY_KEY.get(k)!;
 const row = (id: string, values: Record<string, string | null>, complete: string | null = null, decisions = 0): GridRow => ({ id, values, complete, decisions });
 
 describe("who edits which column", () => {
-  it("Buying edits the whole car record (papers, identity, OR date, spare key, arrival), Admin also the one state, nobody the two old status columns (worked out from the state), Sales and Online Marketing only look", () => {
+  it("Buying edits the papers, the OR date, the spare key and the arrival; the car's details (make, model, color...) are the Admins', Admin also the one state, nobody the two old status columns (worked out from the state), Sales and Online Marketing only look", () => {
     expect(canEditColumn("buying", col("cr"))).toBe(true);
     expect(canEditColumn("buying", col("classification"))).toBe(true);
     expect(canEditColumn("buying", col("remarks_1"))).toBe(true);
-    expect(canEditColumn("buying", col("make"))).toBe(true);
+    expect(canEditColumn("buying", col("make"))).toBe(false); // the details of the car are the Admins'; Buying fills in About the car
     expect(canEditColumn("buying", col("spare_key"))).toBe(true);
     expect(canEditColumn("buying", col("renewal"))).toBe(true);
     expect(canEditColumn("buying", col("arrival_date"))).toBe(true);
@@ -46,8 +46,9 @@ describe("checking an edit", () => {
     expect(checkEdit(col("arrival_date"), "7/102/2026").ok).toBe(false);
   });
   it("trims text and limits its length", () => {
-    expect(checkEdit(col("color"), "  white  ")).toEqual({ ok: true, value: "white" });
-    expect(checkEdit(col("color"), "x".repeat(301)).ok).toBe(false);
+    expect(checkEdit(col("cs_no"), "  ab 12  ")).toEqual({ ok: true, value: "ab 12" });
+    expect(checkEdit(col("cs_no"), "x".repeat(301)).ok).toBe(false);
+    expect(checkEdit(col("color"), "  white  ")).toEqual({ ok: true, value: "WHITE" }); // a detail of the car follows its standard format
     expect(checkEdit(col("remarks_1"), "a\r\nb")).toEqual({ ok: true, value: "a\nb" });
   });
 });
