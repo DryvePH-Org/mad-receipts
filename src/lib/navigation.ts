@@ -24,7 +24,7 @@ export interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
-  group: "Operations" | "Administration";
+  group: "Overview" | "Receipts" | "Cars" | "Administration";
   roles: Role[];
   /** false: the module exists (it can be given or hidden, and its pages check it) but has no menu entry of its own */
   menu?: false;
@@ -37,16 +37,16 @@ const MONEY: Role[] = ["sales", "admin", "approver"];
 
 // Menus are data, not markup: the sidebar, the phone tab bar and its "More" sheet all read this.
 export const NAV_ITEMS: NavItem[] = [
-  { id: "dashboard", href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, group: "Operations", roles: ["admin", "approver"] },
-  { id: "new", href: "/new", label: "New receipt", icon: Receipt, group: "Operations", roles: MONEY },
-  { id: "deals", href: "/deals", label: "Transactions", icon: Car, group: "Operations", roles: ALL },
-  { id: "cars", href: "/cars", label: "Car status", icon: CarFront, group: "Operations", roles: ALL },
-  { id: "repairs", href: "/repairs", label: "Repairs", icon: Wrench, group: "Operations", roles: ALL },
-  { id: "reminders", href: "/reminders", label: "Reminders", icon: Bell, group: "Operations", roles: MONEY, badge: "reminders" },
-  { id: "documents", href: "/documents", label: "Car documents (act)", icon: FolderCheck, group: "Operations", roles: ["admin", "documentation"], menu: false }, // scan, approve, move, hand off: the menu entry is "register" below
-  { id: "register", href: "/documents", label: "Car documents", icon: BookOpenCheck, group: "Operations", roles: ALL },
-  { id: "upload", href: "/upload-documents", label: "Sold papers (add)", icon: Upload, group: "Operations", roles: ["sales", "admin", "approver"], menu: false }, // the module that lets someone add the sold papers on a car page of Car documents
-  { id: "activity", href: "/activity", label: "Activity log", icon: History, group: "Operations", roles: ["admin", "approver"] },
+  { id: "dashboard", href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, group: "Overview", roles: ["admin", "approver"] },
+  { id: "new", href: "/new", label: "New receipt", icon: Receipt, group: "Receipts", roles: MONEY },
+  { id: "deals", href: "/deals", label: "Transactions", icon: Car, group: "Receipts", roles: ALL },
+  { id: "reminders", href: "/reminders", label: "Reminders", icon: Bell, group: "Receipts", roles: MONEY, badge: "reminders" },
+  { id: "cars", href: "/cars", label: "Car status", icon: CarFront, group: "Cars", roles: ALL },
+  { id: "documents", href: "/documents", label: "Car documents (act)", icon: FolderCheck, group: "Cars", roles: ["admin", "documentation"], menu: false }, // scan, approve, move, hand off: the menu entry is "register" below
+  { id: "register", href: "/documents", label: "Car documents", icon: BookOpenCheck, group: "Cars", roles: ALL },
+  { id: "repairs", href: "/repairs", label: "Repairs", icon: Wrench, group: "Cars", roles: ALL },
+  { id: "upload", href: "/upload-documents", label: "Sold papers (add)", icon: Upload, group: "Cars", roles: ["sales", "admin", "approver"], menu: false }, // the module that lets someone add the sold papers on a car page of Car documents
+  { id: "activity", href: "/activity", label: "Activity log", icon: History, group: "Administration", roles: ["admin", "approver"] },
   { id: "settings", href: "/settings", label: "Settings", icon: Settings, group: "Administration", roles: ["admin"] },
   { id: "users", href: "/admin/users", label: "Users", icon: Users, group: "Administration", roles: ["admin"] },
   { id: "sync", href: "/admin/sync", label: "Sync jobs", icon: RefreshCw, group: "Administration", roles: ["admin"] },
@@ -83,7 +83,7 @@ export const navFor = (role: Role, modules: readonly ModuleId[] = roleModules(ro
 /** The nav groups for the sidebar, in order, each with its items. */
 export function navGroups(role: Role, modules?: readonly ModuleId[]): { label: NavItem["group"]; items: NavItem[] }[] {
   const items = navFor(role, modules);
-  return (["Operations", "Administration"] as const)
+  return (["Overview", "Receipts", "Cars", "Administration"] as const)
     .map((label) => ({ label, items: items.filter((i) => i.group === label) }))
     .filter((group) => group.items.length > 0);
 }

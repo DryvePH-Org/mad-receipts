@@ -165,7 +165,7 @@ export function CarsBoard({ cars, role, canEdit, canOpenDocs, docs }: { cars: Ca
             </dl>
             {open.remarks && <div><p className="text-xs text-muted-foreground">Notes</p><p className="rounded-lg bg-muted p-2">{open.remarks}</p></div>}
             {canEdit && open.raw && <Button onClick={() => setEditing(true)}>Change price or state</Button>}
-            {canOpenDocs && <Button variant="outline" nativeButton={false} render={<Link href={`/documents/${open.plate}`} />}>Open the car&apos;s documents</Button>}
+            {canOpenDocs && <Button variant="outline" nativeButton={false} render={<Link href={`/documents/${open.plate}`} />}>Open the car&apos;s page</Button>}
           </div>
         )}
       </ResponsiveDialog>

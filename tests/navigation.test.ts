@@ -3,28 +3,28 @@ import { NAV_ITEMS, effectiveModules, isActivePath, navFor, navGroups, roleModul
 
 describe("navigation", () => {
   it("each role sees its own pages", () => {
-    expect(navFor("sales").map((i) => i.href)).toEqual(["/new", "/deals", "/cars", "/repairs", "/reminders", "/documents"]);
-    expect(navFor("documentation").map((i) => i.href)).toEqual(["/deals", "/cars", "/repairs", "/documents"]); // no receipts, no money pages
-    expect(navFor("approver").map((i) => i.href)).toEqual(["/dashboard", "/new", "/deals", "/cars", "/repairs", "/reminders", "/documents", "/activity"]);
-    expect(navFor("admin").map((i) => i.href)).toEqual(["/dashboard", "/new", "/deals", "/cars", "/repairs", "/reminders", "/documents", "/activity", "/settings", "/admin/users", "/admin/sync"]);
+    expect(navFor("sales").map((i) => i.href)).toEqual(["/new", "/deals", "/reminders", "/cars", "/documents", "/repairs"]);
+    expect(navFor("documentation").map((i) => i.href)).toEqual(["/deals", "/cars", "/documents", "/repairs"]); // no receipts, no money pages
+    expect(navFor("approver").map((i) => i.href)).toEqual(["/dashboard", "/new", "/deals", "/reminders", "/cars", "/documents", "/repairs", "/activity"]);
+    expect(navFor("admin").map((i) => i.href)).toEqual(["/dashboard", "/new", "/deals", "/reminders", "/cars", "/documents", "/repairs", "/activity", "/settings", "/admin/users", "/admin/sync"]);
   });
 
   it("settings, users and sync jobs are for the Admin only", () => {
     for (const item of NAV_ITEMS.filter((i) => ["/settings", "/admin/users", "/admin/sync"].includes(i.href))) expect(item.roles).toEqual(["admin"]);
   });
 
-  it("groups the sidebar into Operations and Administration (Sales have no Administration)", () => {
-    expect(navGroups("admin").map((g) => [g.label, g.items.length])).toEqual([["Operations", 8], ["Administration", 3]]);
-    expect(navGroups("sales").map((g) => g.label)).toEqual(["Operations"]);
+  it("groups the sidebar into Overview, Receipts, Cars and Administration (Sales have only Receipts and Cars)", () => {
+    expect(navGroups("admin").map((g) => [g.label, g.items.length])).toEqual([["Overview", 1], ["Receipts", 3], ["Cars", 3], ["Administration", 4]]);
+    expect(navGroups("sales").map((g) => g.label)).toEqual(["Receipts", "Cars"]);
   });
 
   it("the phone tab bar shows four items and puts the rest in More", () => {
-    expect(tabBarItems("sales").tabs.map((i) => i.label)).toEqual(["New receipt", "Transactions", "Car status", "Repairs"]);
-    expect(tabBarItems("sales").more.map((i) => i.label)).toEqual(["Reminders", "Car documents"]);
+    expect(tabBarItems("sales").tabs.map((i) => i.label)).toEqual(["New receipt", "Transactions", "Reminders", "Car status"]);
+    expect(tabBarItems("sales").more.map((i) => i.label)).toEqual(["Car documents", "Repairs"]);
     expect(tabBarItems("documentation")).toMatchObject({ more: [] }); // four items fit
     const admin = tabBarItems("admin");
-    expect(admin.tabs.map((i) => i.label)).toEqual(["Dashboard", "New receipt", "Transactions", "Car status"]);
-    expect(admin.more.map((i) => i.label)).toEqual(["Repairs", "Reminders", "Car documents", "Activity log", "Settings", "Users", "Sync jobs"]);
+    expect(admin.tabs.map((i) => i.label)).toEqual(["Dashboard", "New receipt", "Transactions", "Reminders"]);
+    expect(admin.more.map((i) => i.label)).toEqual(["Car status", "Car documents", "Repairs", "Activity log", "Settings", "Users", "Sync jobs"]);
   });
 
   it("marks the current page", () => {
@@ -54,7 +54,7 @@ describe("navigation", () => {
 
   it("the menu follows the modules a person has", () => {
     const mods = effectiveModules("sales", ["dashboard"], ["reminders"]);
-    expect(navFor("sales", mods).map((i) => i.href)).toEqual(["/dashboard", "/new", "/deals", "/cars", "/repairs", "/documents"]);
+    expect(navFor("sales", mods).map((i) => i.href)).toEqual(["/dashboard", "/new", "/deals", "/cars", "/documents", "/repairs"]);
     expect(tabBarItems("sales", mods).tabs.map((i) => i.label)).toEqual(["Dashboard", "New receipt", "Transactions", "Car status"]);
   });
 });
