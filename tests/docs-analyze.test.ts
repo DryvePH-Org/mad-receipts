@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { analyze, checklist, folderStatus, type FileInput } from "@/lib/docs/analyze";
 import { normName, sameName } from "@/lib/docs/names";
-import type { Detection } from "@/lib/docs/types";
+import { PRIVATE_DOCS, type Detection } from "@/lib/docs/types";
 
 let n = 0;
 const det = (type: Detection["type"], over: Partial<Detection> = {}): Detection => ({ type, confidence: 0.95, ...over });
@@ -163,6 +163,38 @@ describe("the checklist", () => {
     const item = checklist("clean", a.files, deal).items.find((i) => i.key === "certificate_of_registration")!;
     expect(item.present).toBe(true);
     expect(item.fileIds).toEqual([a.files[0].id]);
+  });
+});
+
+describe("the new papers and the two kinds of deed", () => {
+  it("a notarized deed to the dealership is the closed deed; a blank buyer or an unmarked one stays the open deed", () => {
+    const a = analyze([
+      file([det("deed_of_sale", { sellerName: OWNER, buyerName: "Manila Auto Display", deedKind: "closed" })]),
+      file([det("deed_of_sale", { sellerName: OWNER, buyerName: "Manila Auto Display", deedKind: "open" })]),
+      file([det("deed_of_sale", { sellerName: OWNER })]),
+      file([det("deed_of_sale", { sellerName: OWNER, buyerName: "Manila Auto Display" })]), // read before open and closed were told apart
+    ], folder, deal);
+    expect([0, 1, 2, 3].map((i) => types(a, i)[0])).toEqual(["deed_closed", "deed_owner_to_dealer", "deed_owner_to_dealer", "deed_owner_to_dealer"]);
+    expect(PRIVATE_DOCS).toEqual(["deed_closed"]);
+  });
+  it("a closed deed signed with the buyer is still the buyer's deed", () => {
+    const a = analyze([file([det("deed_of_sale", { sellerName: OWNER, buyerName: "DELA CRUZ, JUAN", deedKind: "closed" })])], folder, deal);
+    expect(types(a, 0)).toEqual(["deed_to_buyer"]);
+  });
+  it("extra papers show on the checklist only when one is in the folder, and are never missing", () => {
+    const none = checklist("clean", analyze([file([det("official_receipt")])], folder, deal).files, deal);
+    expect(none.items.some((i) => i.key === "spa")).toBe(false);
+    const a = analyze([file([det("spa")]), file([det("ex_oficio_sheriff")]), file([det("sec_document")]), file([det("deed_of_sale", { sellerName: OWNER, buyerName: "Manila Auto Display", deedKind: "closed" })])], folder, deal);
+    const list = checklist("clean", a.files, deal);
+    for (const key of ["spa", "ex_oficio_sheriff", "sec_document", "deed_closed"]) expect(list.items.find((i) => i.key === key)).toMatchObject({ present: true, optional: true });
+    expect(list.missing.map((i) => i.key)).not.toContain("spa");
+    expect(types(a, 0)).toEqual(["spa"]);
+  });
+  it("both kinds of encumbered case need the cancellation and the promissory note", () => {
+    for (const c of ["encumbered", "encumbered_bank", "encumbered_financing"] as const) {
+      const keys = checklist(c, [], deal).missing.map((i) => i.key);
+      expect(keys).toEqual(expect.arrayContaining(["chattel_cancellation", "promissory_note"]));
+    }
   });
 });
 

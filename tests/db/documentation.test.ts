@@ -35,6 +35,21 @@ describe("the five roles", () => {
   });
 });
 
+describe("the cases and repairs of migration 50", () => {
+  it("both kinds of encumbered case are valid next to the old one, an unknown case is not", async () => {
+    for (const [i, c] of ["clean", "encumbered", "encumbered_bank", "encumbered_financing", "repo_bank", "company"].entries()) {
+      await db.query("insert into public.unit_folders (plate_no, plate_display, case_type) values ($1, $1, $2)", [`ZCASE${i}`, c]);
+    }
+    await expect(db.query("insert into public.unit_folders (plate_no, plate_display, case_type) values ('ZCASEBAD', 'ZCASEBAD', 'encumbered_other')")).rejects.toThrow();
+    await db.query("delete from public.unit_folders where plate_no like 'ZCASE%'");
+  });
+  it("an existing repair cannot be displayed until someone says it can", async () => {
+    await db.query("insert into public.car_repairs (plate_no, problem, status) values ('ZZR1', 'Engine', 'IN PROGRESS')");
+    expect((await db.query<{ can_display: boolean }>("select can_display from public.car_repairs where plate_no = 'ZZR1'")).rows[0].can_display).toBe(false);
+    await db.query("delete from public.car_repairs where plate_no = 'ZZR1'");
+  });
+});
+
 describe("linking a car folder when an AR is created", () => {
   it("queues one docs job for the first receipt of a deal (and, since a receipt is final when saved, the Drive copy, Telegram and the car status)", async () => {
     const r = await submit(newDeal("AAX 3622"));

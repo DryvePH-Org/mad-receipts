@@ -7,7 +7,8 @@ import { Pill } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { requireModule } from "@/lib/auth";
-import { isAdmin, seesSales, type Role } from "@/lib/roles";
+import { PRIVATE_DOCS } from "@/lib/docs/types";
+import { isAdmin, seesPrivateDocs, seesSales, type Role } from "@/lib/roles";
 import { getSettings } from "@/lib/data";
 import { isScanning, readerMode } from "@/lib/docs/bot-scan";
 import { readingNotes, reviewedOf, rotationOf, detectionsOf, wasEdited } from "@/lib/docs/car";
@@ -82,14 +83,16 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
   const [register, receipts] = await Promise.all([loadRegisterRow(key).catch(() => null), canUpload ? listCarReceipts(key).catch(() => []) : Promise.resolve([])]);
 
   const recipient = settings.print.transmittalReceiver || "the receiver";
-  const items = car.checklist.items.map((i) => ({ key: i.key, label: i.label, stage: i.stage, present: i.present, fileIds: i.fileIds, optional: !!i.optional }));
+  const seesPrivate = seesPrivateDocs(user.role); // the notarized closed deed is kept from Sales and Online Marketing: not on the checklist, no photo, no download
+  const isPrivate = (types: string[]) => types.some((t) => (PRIVATE_DOCS as string[]).includes(t));
+  const items = car.checklist.items.filter((i) => seesPrivate || !(PRIVATE_DOCS as string[]).includes(i.type)).map((i) => ({ key: i.key, label: i.label, stage: i.stage, present: i.present, fileIds: i.fileIds, optional: !!i.optional }));
   const data: CarViewData = {
     plate: key, plateDisplay: car.folder.plate_display, name: car.folder.folder_name ?? car.folder.plate_display, location: car.folder.location as "available" | "sold",
     match: car.folder.match_status as "linked" | "none" | "several", folderUrl: car.folder.folder_url, candidates: (car.folder.candidates ?? []) as unknown as { id: string; name: string; url: string; root: string }[],
     caseType: car.caseType, suggestedCase: car.suggestedCase, caseReason: car.caseReason, caseSource: car.folder.case_source as "auto" | "manual",
     deal: deal ? { id: deal.id, dealNo: deal.dealNo, buyerName: deal.buyerName, hasReceipt: deal.hasReceipt } : null,
     items,
-    files: car.files.map((f) => {
+    files: car.files.filter((f) => seesPrivate || !isPrivate(f.doc_types)).map((f) => {
       const r = car.analysis.files.find((x) => x.id === f.id);
       return {
         id: f.id, rotation: rotationOf(f.details), name: f.filename, url: f.drive_url, source: f.source, readStatus: f.read_status, readError: f.read_error, types: f.doc_types, manual: f.doc_types_source === "manual", edited: wasEdited(f.details), reviewed: reviewedOf(f.details),
@@ -191,7 +194,7 @@ function RepairsCard({ repairs }: { repairs: CarFacts["repairs"] }) {
       <CardHeader><CardTitle>Repairs of this car</CardTitle></CardHeader>
       <CardContent className="text-sm">
         {!repairs.length ? <p className="text-muted-foreground">No repair is recorded for this car.</p> : (
-          <ul className="divide-y rounded-lg ring-1 ring-foreground/10">{repairs.map((r) => <li key={r.id} className="flex flex-wrap items-center gap-2 px-3 py-2.5"><span className="min-w-0 flex-1">{r.problem ?? "A repair"}{r.company ? <span className="text-muted-foreground"> · {r.company}</span> : null}</span>{r.approval !== "approved" && <Pill tone="purple">{r.approval}</Pill>}<Pill tone={/IN PROGRESS|FOR REPAIR|OPEN|ONGOING/i.test(r.status ?? "") ? "amber" : "zinc"}>{r.status ?? "No status"}</Pill>{r.dueOn && <span className="text-xs text-muted-foreground">due {r.dueOn}</span>}</li>)}</ul>
+          <ul className="divide-y rounded-lg ring-1 ring-foreground/10">{repairs.map((r) => <li key={r.id} className="flex flex-wrap items-center gap-2 px-3 py-2.5"><span className="min-w-0 flex-1">{r.problem ?? "A repair"}{r.company ? <span className="text-muted-foreground"> · {r.company}</span> : null}</span>{r.approval !== "approved" && <Pill tone="purple">{r.approval}</Pill>}{r.approval === "approved" && <Pill tone={r.canDisplay ? "emerald" : "amber"}>{r.canDisplay ? "Can be displayed" : "Cannot be displayed"}</Pill>}<Pill tone={/IN PROGRESS|FOR REPAIR|OPEN|ONGOING/i.test(r.status ?? "") ? "amber" : "zinc"}>{r.status ?? "No status"}</Pill>{r.dueOn && <span className="text-xs text-muted-foreground">due {r.dueOn}</span>}</li>)}</ul>
         )}
         <p className="mt-3 text-xs text-muted-foreground"><Link href="/repairs" className="underline underline-offset-2">Open Repairs</Link> to report or update a job.</p>
       </CardContent>

@@ -17,10 +17,10 @@ const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-
 function Job({ r, today, canDecide }: { r: Repair; today: string; canDecide: boolean }) {
   const [busy, start] = useTransition();
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({ status: r.status ?? "", estTimeline: r.estTimeline ?? "", supplier: r.supplier ?? "", note: "" });
+  const [f, setF] = useState({ status: r.status ?? "", estTimeline: r.estTimeline ?? "", supplier: r.supplier ?? "", note: "", display: r.canDisplay ? "yes" : "no" });
   const late = isOverdue(r, today);
   const save = () => start(async () => {
-    const res = await updateRepairAction(r.id, { status: f.status !== r.status ? f.status : undefined, estTimeline: f.estTimeline !== (r.estTimeline ?? "") ? f.estTimeline : undefined, supplier: f.supplier !== (r.supplier ?? "") ? f.supplier : undefined, note: f.note || undefined });
+    const res = await updateRepairAction(r.id, { canDisplay: (f.display === "yes") !== r.canDisplay ? f.display === "yes" : undefined, status: f.status !== r.status ? f.status : undefined, estTimeline: f.estTimeline !== (r.estTimeline ?? "") ? f.estTimeline : undefined, supplier: f.supplier !== (r.supplier ?? "") ? f.supplier : undefined, note: f.note || undefined });
     if (res.ok) { toast.success(res.message); setOpen(false); } else toast.error(res.error);
   });
   return (
@@ -28,6 +28,7 @@ function Job({ r, today, canDecide }: { r: Repair; today: string; canDecide: boo
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="font-medium">{r.problem ?? "(no problem written)"}</span>
         {r.status && <Pill tone={stageOf(r) === "open" ? "amber" : stageOf(r) === "pending" ? "zinc" : stageOf(r) === "rejected" ? "red" : "emerald"}>{r.status}</Pill>}
+        {r.approval === "approved" && <Pill tone={r.canDisplay ? "emerald" : "amber"}>{r.canDisplay ? "Can be displayed" : "Cannot be displayed"}</Pill>}
         {late && <Pill tone="red">Late</Pill>}
         <span className="ml-auto text-muted-foreground">{r.supplier ? `${r.supplier}${r.company ? ` · ${r.company}` : ""}` : r.company ?? ""}{r.estTimeline ? ` · due ${/^\d{4}-/.test(r.estTimeline) ? day(r.estTimeline) : r.estTimeline}` : ""}</span>
       </div>
@@ -35,14 +36,17 @@ function Job({ r, today, canDecide }: { r: Repair; today: string; canDecide: boo
       {r.rejectReason && <p className="mt-1 text-red-700">Rejected: {r.rejectReason}</p>}
       {canDecide && r.approval === "approved" && (
         open ? (
-          <div className="mt-3 grid gap-2 sm:grid-cols-4">
+          <div className="mt-3 grid gap-2 sm:grid-cols-5">
+            <select className="h-9 rounded-md border bg-background px-2" aria-label="Display" value={f.display} onChange={(e) => setF({ ...f, display: e.target.value })}>
+              <option value="no">Cannot be displayed</option><option value="yes">Can be displayed</option>
+            </select>
             <select className="h-9 rounded-md border bg-background px-2" aria-label="Status" value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })}>
               {[...OPEN_STATUSES, ...CLOSED_STATUSES].map((s) => <option key={s}>{s}</option>)}
             </select>
             <Input aria-label="Due date or words" placeholder="Due (2026-11-25)" value={f.estTimeline} onChange={(e) => setF({ ...f, estTimeline: e.target.value })} />
             <Input aria-label="Who does it" placeholder="Supplier / person" value={f.supplier} onChange={(e) => setF({ ...f, supplier: e.target.value })} />
             <Input aria-label="Note" placeholder="Add a note" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} />
-            <div className="flex gap-2 sm:col-span-4"><Button size="sm" disabled={busy} onClick={save}>{busy ? <Loader2 className="animate-spin" /> : null}Save</Button><Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button></div>
+            <div className="flex gap-2 sm:col-span-5"><Button size="sm" disabled={busy} onClick={save}>{busy ? <Loader2 className="animate-spin" /> : null}Save</Button><Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button></div>
           </div>
         ) : <button className="mt-2 text-xs underline underline-offset-2" onClick={() => setOpen(true)}>Update this job</button>
       )}
@@ -56,8 +60,8 @@ function Report({ plate, jobs, today, canDecide, pending }: { plate: string; job
   const [reason, setReason] = useState("");
   const ids = jobs.map((j) => j.id);
   const first = jobs[0];
-  const decide = (approve: boolean) => start(async () => {
-    const res = approve ? await approveRepairsAction(ids) : await rejectRepairsAction(ids, reason);
+  const decide = (approve: boolean, canDisplay = false) => start(async () => {
+    const res = approve ? await approveRepairsAction(ids, canDisplay) : await rejectRepairsAction(ids, reason);
     if (res.ok) toast.success(res.message); else toast.error(res.error);
   });
   const car = [first.ym, first.vehicle ?? first.brand].filter(Boolean).join(" ");
@@ -78,7 +82,8 @@ function Report({ plate, jobs, today, canDecide, pending }: { plate: string; job
               </>
             ) : (
               <>
-                <Button size="sm" disabled={busy} onClick={() => decide(true)}>{busy ? <Loader2 className="animate-spin" /> : <Check />}Approve</Button>
+                <Button size="sm" disabled={busy} onClick={() => decide(true, false)}>{busy ? <Loader2 className="animate-spin" /> : <Check />}Approve: cannot be displayed</Button>
+                <Button size="sm" variant="secondary" disabled={busy} onClick={() => decide(true, true)}><Check />Approve: can be displayed</Button>
                 <Button size="sm" variant="outline" disabled={busy} onClick={() => setRejecting(true)}>Reject</Button>
               </>
             )}

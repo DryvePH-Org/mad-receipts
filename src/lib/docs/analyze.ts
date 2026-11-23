@@ -1,6 +1,6 @@
 import { editDistance } from "@/lib/rules/words";
 import { looksLikeBank, looksLikeCompany, normName, sameName } from "./names";
-import { ACK_LABEL, CASE_LABELS, DOC_LABELS, OPTIONAL_DOCS, REQUIRED_BY_CASE, SOLD_EXTRAS, type CaseType, type Detection, type DocType } from "./types";
+import { ACK_LABEL, CASE_LABELS, DOC_LABELS, EXTRA_DOCS, OPTIONAL_DOCS, REQUIRED_BY_CASE, SOLD_EXTRAS, type CaseType, type Detection, type DocType } from "./types";
 
 /*
  * Turns what the reader saw on each photo into what each document is FOR, and says what is wrong.
@@ -93,7 +93,7 @@ export function analyze(files: FileInput[], folder: FolderContext, deal: DealCon
     return "id_unmatched";
   };
   const resolveDeed = (d: Detection): DocType => {
-    if (isDealer(d.buyerName)) return "deed_owner_to_dealer";
+    if (isDealer(d.buyerName)) return d.deedKind === "closed" ? "deed_closed" : "deed_owner_to_dealer"; // a notarized deed with the dealership named is the closed one, kept private
     if (!d.buyerName) return "deed_owner_to_dealer"; // an open deed: the owner signed it and the buyer's line is blank, as dealers usually receive it
     if (deal.buyerName ? sameName(deal.buyerName, d.buyerName) : !!d.buyerName) return "deed_to_buyer"; // no AR: any deed to a person is the buyer's
     return "deed_unmatched";
@@ -165,6 +165,7 @@ export interface Checklist { items: ChecklistItem[]; missing: ChecklistItem[]; c
 export function checklist(caseType: CaseType, results: FileResult[], deal: DealContext): Checklist {
   const items: ChecklistItem[] = [
     ...REQUIRED_BY_CASE[caseType].map((type) => ({ key: type, type, label: DOC_LABELS[type], stage: "available" as const, ...presence(type, results) })),
+    ...EXTRA_DOCS.filter((type) => presence(type, results).present).map((type) => ({ key: type, type, label: DOC_LABELS[type], stage: "available" as const, optional: true, ...presence(type, results) })),
     ...OPTIONAL_DOCS.map((type) => ({ key: type, type, label: type === "stencil" ? "Stencil (if the car has one)" : DOC_LABELS[type], stage: "available" as const, optional: true, ...presence(type, results) })),
     // the AR is a file Sales uploads (the signed paper), like the buyer's ID and the deed; the app's own receipt is not filed in the folder
     ...(deal.linked === false ? [] : [{ key: "ack", type: "ack" as const, label: ACK_LABEL, stage: "sold" as const, ...presence("acknowledgement_receipt", results) }]),

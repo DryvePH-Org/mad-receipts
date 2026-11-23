@@ -121,6 +121,7 @@ export async function afterReading(plate: string, deps: WorkflowDeps = defaultWo
   const key = normalizePlate(plate);
   const car = await loadCar(key, deps);
   if (!car || car.pending > 0 || !car.files.some((f) => f.read_status === "done")) return;
+  await import("@/lib/docsbible/fill-papers").then((m) => m.fillFoundPapers(car)).catch(() => undefined); // empty paper boxes of the car's row say Yes for what the scan found
   const { workflow } = await loadWorkflow(key, deps.admin);
   if (!workflow.scanNotifiedAt) {
     const flagged = car.analysis.files.filter((r) => r.flags.length).length, missing = car.checklist.items.filter((i) => i.stage === "available" && !i.present && !i.optional).length;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanDetails, EMPTY_DETAILS, missingDetails } from "@/lib/docs/details";
+import { cleanDetails, EMPTY_DETAILS, missingDetails, ownerLabel } from "@/lib/docs/details";
 import { buildHandoffReminder } from "@/lib/docs/workflow";
 
 describe("the details checklist", () => {
@@ -7,16 +7,24 @@ describe("the details checklist", () => {
     expect(cleanDetails({ spareKey: "maybe", casaMaintained: "yes", casaWhen: "  March  ", hacker: 1, isEv: "yes" })).toEqual({ ...EMPTY_DETAILS, casaMaintained: "yes", casaWhen: "March" });
     expect(cleanDetails(null)).toEqual(EMPTY_DETAILS);
   });
-  it("EV answers only count for an EV", () => {
-    expect(cleanDetails({ isEv: false, evCharger: "yes", evCard: "yes" })).toMatchObject({ evCharger: "", evCard: "" });
-    expect(cleanDetails({ isEv: true, evCharger: "yes" })).toMatchObject({ isEv: true, evCharger: "yes" });
+  it("EV answers only count for an EV or a PH EV; an older electric car stays an EV", () => {
+    expect(cleanDetails({ evType: "", wallCharger: "yes", keyCard: "yes" })).toMatchObject({ wallCharger: "", keyCard: "", isEv: false });
+    expect(cleanDetails({ evType: "phev", wallCharger: "yes", portableCharger: "no", keyCard: "yes", chargingCard: "no" })).toMatchObject({ isEv: true, evType: "phev", wallCharger: "yes", portableCharger: "no", keyCard: "yes", chargingCard: "no" });
+    expect(cleanDetails({ isEv: true, evCharger: "yes" })).toMatchObject({ isEv: true, evType: "ev", evCharger: "yes" });
+  });
+  it("the owner number is a whole number from 1, said in words", () => {
+    expect(cleanDetails({ ownerNo: "2" }).ownerNo).toBe("2");
+    expect(cleanDetails({ ownerNo: 3 }).ownerNo).toBe("3");
+    for (const bad of ["0", "-1", "1.5", "abc", "31", ""]) expect(cleanDetails({ ownerNo: bad }).ownerNo).toBe("");
+    expect([1, 2, 3, 11, 12, 13, 21, 22].map((n) => ownerLabel(String(n)))).toEqual(["First owner", "Second owner", "Third owner", "11th owner", "12th owner", "13th owner", "21st owner", "22nd owner"]);
+    expect(ownerLabel("")).toBe("");
   });
   it("says what is still blank", () => {
-    expect(missingDetails(EMPTY_DETAILS)).toHaveLength(4);
-    const full = { ...EMPTY_DETAILS, spareKey: "yes" as const, casaMaintained: "yes" as const, casaWhen: "2026", casaWhere: "Toyota", batteryWhen: "2026", boughtFrom: "Auction" };
+    expect(missingDetails(EMPTY_DETAILS)).toHaveLength(5);
+    const full = { ...EMPTY_DETAILS, spareKey: "yes" as const, casaMaintained: "yes" as const, casaWhen: "2026", casaWhere: "Toyota", batteryWhen: "2026", boughtFrom: "Auction", ownerNo: "1" };
     expect(missingDetails(full)).toEqual([]);
     expect(missingDetails({ ...full, casaWhere: "" })).toEqual(["Casa maintenance: when and where"]);
-    expect(missingDetails({ ...full, isEv: true })).toEqual(["EV charger: yes or no", "EV charging card: yes or no"]);
+    expect(missingDetails({ ...full, isEv: true, evType: "ev" })).toEqual(["Wall charger: yes or no", "Portable charger: yes or no", "Key card: yes or no", "Charging card: yes or no"]);
   });
 });
 

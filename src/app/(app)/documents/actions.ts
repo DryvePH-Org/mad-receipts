@@ -121,7 +121,7 @@ const patchSchema = z.object({
   documentNumber: z.string().max(120).optional(), plate: z.string().max(120).optional(), motorNo: z.string().max(120).optional(), chassisNo: z.string().max(120).optional(),
   ownerName: z.string().max(120).optional(), holderName: z.string().max(120).optional(), sellerName: z.string().max(120).optional(), buyerName: z.string().max(120).optional(),
   secretaryName: z.string().max(120).optional(), representativeName: z.string().max(120).optional(), idType: z.string().max(120).optional(), validUntil: z.string().max(10).optional(), lender: z.string().max(120).optional(),
-  copy: z.enum(["original", "photocopy"]).nullable().optional(), noDamage: z.boolean().optional(),
+  copy: z.enum(["original", "photocopy"]).nullable().optional(), orKind: z.enum(["registration", "last"]).nullable().optional(), deedKind: z.enum(["open", "closed"]).nullable().optional(), noDamage: z.boolean().optional(),
 }).strict();
 
 /** The staff correct what the bot read on one document of a photo. */

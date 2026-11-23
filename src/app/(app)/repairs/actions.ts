@@ -10,11 +10,11 @@ export type RepairResult = { ok: true; message: string } | { ok: false; error: s
 const ids = z.array(z.string().uuid()).min(1).max(20);
 
 // Anyone signed in can SEE the repairs; only Sales and the Admins decide and update.
-export async function approveRepairsAction(raw: string[]): Promise<RepairResult> {
+export async function approveRepairsAction(raw: string[], canDisplay = false): Promise<RepairResult> {
   const user = await requireRole("super_admin", "admin", "sales");
   const p = ids.safeParse(raw);
   if (!p.success) return { ok: false, error: "Nothing was chosen." };
-  const r = await decideRepairs(p.data, true, "", { name: user.fullName ?? "Approver", userId: user.id });
+  const r = await decideRepairs(p.data, true, "", { name: user.fullName ?? "Approver", userId: user.id }, canDisplay === true);
   if (!r.ok) return r;
   await announceWebDecision(p.data, true, "", user.fullName ?? "Approver");
   revalidatePath("/repairs"); revalidatePath("/cars");
@@ -32,7 +32,7 @@ export async function rejectRepairsAction(raw: string[], reason: string): Promis
   return { ok: true, message: `Rejected ${r.changed} ${r.changed === 1 ? "job" : "jobs"}.` };
 }
 
-const update = z.object({ status: z.string().max(20).optional(), estTimeline: z.string().max(40).optional(), supplier: z.string().max(100).optional(), company: z.string().max(100).optional(), note: z.string().max(200).optional() });
+const update = z.object({ canDisplay: z.boolean().optional(), status: z.string().max(20).optional(), estTimeline: z.string().max(40).optional(), supplier: z.string().max(100).optional(), company: z.string().max(100).optional(), note: z.string().max(200).optional() });
 export async function updateRepairAction(id: string, raw: z.input<typeof update>): Promise<RepairResult> {
   const user = await requireRole("super_admin", "admin", "sales");
   const p = update.safeParse(raw);

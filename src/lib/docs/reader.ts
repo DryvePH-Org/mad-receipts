@@ -24,6 +24,8 @@ const doc = z.object({
   copy: z.preprocess((v) => (v === "original" || v === "photocopy" ? v : null), z.enum(["original", "photocopy"]).nullable()).default(null),
   defects: z.preprocess((v) => (Array.isArray(v) ? v.filter((x) => typeof x === "string" && x.trim()).map((x: string) => x.trim().slice(0, 80)).slice(0, 5) : []), z.array(z.string())).default([]),
   valid_until: z.preprocess((v) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.trim()) ? v.trim() : null), z.string().nullable()).default(null), lender_name: text,
+  or_kind: z.preprocess((v) => (v === "registration" || v === "last" ? v : null), z.enum(["registration", "last"]).nullable()).default(null),
+  deed_kind: z.preprocess((v) => (v === "open" || v === "closed" ? v : null), z.enum(["open", "closed"]).nullable()).default(null),
   owner_name: text, holder_name: text, seller_name: text, buyer_name: text, secretary_name: text, representative_name: text, id_type: text,
 });
 const rotation = z.preprocess((v) => { const n = Number(v); return [0, 90, 180, 270].includes(n) ? n : 0; }, z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)])).default(0);
@@ -37,16 +39,16 @@ Return ONLY a JSON object:
   "rotation": 0,
   "documents": [
     { "type": "...", "confidence": 0.0-1.0, "copy": "original", "defects": [], "document_number": null, "plate": null, "motor_no": null, "chassis_no": null,
-      "owner_name": null, "holder_name": null, "seller_name": null, "buyer_name": null, "secretary_name": null, "representative_name": null, "id_type": null, "valid_until": null, "lender_name": null }
+      "owner_name": null, "holder_name": null, "seller_name": null, "buyer_name": null, "secretary_name": null, "representative_name": null, "id_type": null, "valid_until": null, "lender_name": null, "or_kind": null, "deed_kind": null }
   ],
   "notes": "one short sentence if something is unusual, else null"
 }
 
 "type" is exactly one of:
-- "official_receipt": the LTO (Land Transportation Office) "Official Receipt", a receipt of payment for registration. It has a payor, an amount, a barcode or QR code.
+- "official_receipt": the LTO (Land Transportation Office) "Official Receipt", a receipt of payment for registration. It has a payor, an amount, a barcode or QR code. Both kinds are "official_receipt": tell them apart in "or_kind".
 - "certificate_of_registration": the LTO "Certificate of Registration" (CR): file number, plate number, engine/motor number, chassis number, make, body type, year model, registered owner.
 - "government_id": a driver's license, passport, UMID, PhilID, SSS, voter's ID, PRC, postal ID, company ID or any ID card with a photo.
-- "deed_of_sale": a Deed of Sale or Deed of Absolute Sale of a motor vehicle, between a seller and a buyer.
+- "deed_of_sale": a Deed of Sale or Deed of Absolute Sale of a motor vehicle, between a seller and a buyer. Tell open from closed in "deed_kind".
 - "chattel_cancellation": a Release or Cancellation of Chattel Mortgage, or a Release of Mortgage, usually from a bank or financing company.
 - "promissory_note": a Promissory Note.
 - "secretary_certificate": a Secretary's Certificate (a company's secretary certifies a board resolution and names who may sign).
@@ -54,6 +56,12 @@ Return ONLY a JSON object:
 - "acknowledgement_receipt": the dealership's own yellow "ACKNOWLEDGEMENT OF PAYMENT" form (Manila Auto Display), with a red number, "Received from", the sum of pesos and the vehicle described. It is mostly handwritten. Put the buyer on it in "buyer_name" and its red number in "document_number".
 - "transmittal_receipt": a "Transmittal Receipt" or acknowledgement of the papers handed over with a car, a checklist of documents (CR, OR, deed...).
 - "stencil": a stencil: the chassis number or engine number copied by rubbing or tracing it from the car onto a paper (or a photo of the stamped number on the car). It shows a long number of letters and digits, usually with a car-sized frame or tape marks. Put the number in "chassis_no" or "motor_no" as printed, and the plate if one is written.
+- "spa": a Special Power of Attorney (SPA): a notarized paper in which one person authorises another to sign or sell for them.
+- "ex_oficio_sheriff": a document of the Ex-Oficio Sheriff (a sheriff's certificate or deed of a foreclosure or auction sale of the car).
+- "voluntary_documents": a voluntary surrender or voluntary documents paper (the owner voluntarily hands the car and papers to the bank or financing company).
+- "secretary_certificate_jfp": a Secretary's Certificate of JFP together with its Amended Articles of Incorporation (company papers naming JFP).
+- "notarized_undertaking": a notarized Undertaking to change the name (the registration will be changed to a new owner's name).
+- "sec_document": a document from the Securities and Exchange Commission (SEC): a registration or certificate of incorporation, or SEC-stamped articles.
 - "other": anything else, or a picture that is not a document.
 
 Rules:
@@ -67,6 +75,8 @@ Rules:
 - "document_number": the number that identifies THIS document (the CR number, the OR number, the ID number, the note number). null if none is readable.
 - "owner_name": the registered owner on a certificate of registration or official receipt. "holder_name": the name of the person on an ID. "seller_name" and "buyer_name": the parties on a deed of sale. "secretary_name": who signs a secretary's certificate as the corporate secretary. "representative_name": the person the certificate or resolution authorises to sign or sell for the company. "id_type": for example "Driver's license" or "UMID".
 - "valid_until": ONLY for an official receipt or an LTO payment slip: the date the registration payment is valid until, or the date it is due for renewal, as YYYY-MM-DD (for "02/2027" or "February 2027" give the first day, 2027-02-01). null on every other document or when you cannot read it.
+- "or_kind": ONLY for an "official_receipt". "registration" for the big Official Receipt of the registration (a full-page or large receipt, with the amounts of the registration fees and the vehicle details). "last" for the last OR: the small receipt (a slip or half page) of the latest renewal payment. null if you cannot tell, and null on every other document.
+- "deed_kind": ONLY for a "deed_of_sale". "open" when the buyer's line is blank (only the seller signed). "closed" when the buyer is named and the deed is notarized (a notary's seal and details are on it). null if you cannot tell, and null on every other document.
 - "lender_name": ONLY for a chattel mortgage, a release or cancellation of chattel mortgage, or a promissory note: the bank or financing company named as mortgagee or lender, as printed (for example "EASTWEST BANK", "JACCS FINANCE PHILIPPINES"). null otherwise.
 - Copy names as printed (any order, any capitals). Do not complete or correct them.
 - "confidence" is how sure you are about the TYPE: 0.9 or more when the title is clearly readable, lower when you are inferring it from the layout.
@@ -115,7 +125,7 @@ export function readingFromReply(raw: unknown): Reading | null {
     detections: mergeRepeats(r.documents.map((d) => ({
       type: d.type, confidence: d.confidence, documentNumber: d.document_number, plate: cleanPlate(d.plate), motorNo: d.motor_no, chassisNo: d.chassis_no,
       copy: d.copy, defects: d.defects.length ? d.defects : null, ownerName: d.owner_name, holderName: d.holder_name, sellerName: d.seller_name, buyerName: d.buyer_name,
-      secretaryName: d.secretary_name, representativeName: d.representative_name, idType: d.id_type, validUntil: d.valid_until, lender: d.lender_name,
+      secretaryName: d.secretary_name, representativeName: d.representative_name, idType: d.id_type, validUntil: d.valid_until, lender: d.lender_name, orKind: d.type === "official_receipt" ? d.or_kind : null, deedKind: d.type === "deed_of_sale" ? d.deed_kind : null,
     }))),
   };
 }

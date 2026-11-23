@@ -21,6 +21,11 @@ describe("what the checklist says for each column", () => {
     const d = desiredValues({ caseType: "encumbered", present: present(...CLEAN_PAPERS, "chattel_cancellation", "promissory_note"), current: {} });
     expect(d).toMatchObject({ classification: "Encumbered (Indiv)", encumbered: "Yes", chattel: "Yes", promissory: "Yes", sec_cert: "N/A" });
   });
+  it("both new encumbered cases are filed like the old one: Encumbered (Indiv) with the chattel and promissory note", () => {
+    for (const caseType of ["encumbered_bank", "encumbered_financing"] as const) {
+      expect(desiredValues({ caseType, present: present(...CLEAN_PAPERS, "chattel_cancellation", "promissory_note"), current: {} })).toMatchObject({ classification: "Encumbered (Indiv)", encumbered: "Yes", chattel: "Yes", promissory: "Yes" });
+    }
+  });
   it("a repo car also needs the secretary papers", () => {
     const d = desiredValues({ caseType: "repo_bank", present: present(...CLEAN_PAPERS, "chattel_cancellation", "promissory_note", "secretary_certificate"), current: {} });
     expect(d).toMatchObject({ classification: "Repo (bank)", sec_cert: "Yes", chattel: "Yes" });

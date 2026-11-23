@@ -22,5 +22,7 @@ export const isAdmin = (r: Role): boolean => r === "super_admin" || r === "admin
 export const editsPapers = (r: Role): boolean => r !== "marketing";
 /** Changes prices and states in Car status, and decides on repairs. */
 export const editsCars = (r: Role): boolean => r === "super_admin" || r === "admin" || r === "sales";
+/** Sees the papers that are kept private from Sales and Online Marketing (the notarized closed deed of sale). */
+export const seesPrivateDocs = (r: Role): boolean => r === "super_admin" || r === "admin" || r === "buying";
 /** Sees the sale and transfer records of cars (buyer names, agreed prices). */
 export const seesSales = (r: Role): boolean => r !== "marketing";

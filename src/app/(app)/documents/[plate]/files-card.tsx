@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, ChevronRight, CircleAlert, Loader2, Minus, RefreshCw, ScanText, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, CircleAlert, Download, Loader2, Minus, RefreshCw, ScanText, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { ResponsiveDialog } from "@/components/shared/responsive-dialog";
 import { ImageViewer } from "@/components/shared/image-viewer";
@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import type { Rules } from "@/lib/docs/stage";
-import { CASE_LABELS, CASES, CHOOSABLE, DOC_LABELS, type Detection, type DocType } from "@/lib/docs/types";
+import { CASE_LABELS, CHOOSABLE, CHOOSABLE_CASES, DOC_LABELS, type Detection, type DocType } from "@/lib/docs/types";
 import { saveCellAction } from "../../docs-bible/actions";
 import { UploadButton } from "./upload-button";
 import { useEditConfirm } from "./edit-confirm";
@@ -20,6 +20,10 @@ import { removeFileAction, rescanFileAction, editReadingAction, readNextAction, 
 import type { CarViewData, FileView } from "./types";
 
 const typeLabel = (t: string) => DOC_LABELS[t as DocType] ?? t;
+/** The two kinds of official receipt, and open or closed deeds, as the bot tells them apart. Either kind of OR counts as the OR. */
+const OR_KIND: Record<string, string> = { registration: "Registration OR (big)", last: "Last OR (small)" };
+const DEED_KIND: Record<string, string> = { open: "Open deed", closed: "Closed deed (notarized)" };
+const kindsOf = (dets: Detection[]) => dets.flatMap((d) => [d.orKind ? OR_KIND[d.orKind] : null, d.deedKind ? DEED_KIND[d.deedKind] : null]).filter((x): x is string => !!x);
 
 const SLOT_COLUMN: Record<string, string> = { official_receipt: "or_receipt", certificate_of_registration: "cr", deed_owner_to_dealer: "deed", owner_id: "sellers_id", representative_id: "sellers_id", chattel_cancellation: "chattel", promissory_note: "promissory", secretary_certificate: "sec_cert", secretary_id: "sec_ids", board_resolution: "boards_reso", stencil: "stencil" };
 const REG_CHOICES = ["Yes", "No", "To follow", "N/A"] as const;
@@ -104,11 +108,14 @@ export function PapersCard({ data, rules, readOnly = false, confirmEdits = false
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center gap-3">Papers
           <span className="text-sm font-normal text-muted-foreground">{!data.scanned ? "Looking at the folder…" : unchecked ? "Not final until every photo is scanned" : `${inFolder} of ${needed} in the folder`}</span>
-          {!readOnly && <span className="ml-auto flex flex-wrap gap-2">
+          <span className="ml-auto flex flex-wrap gap-2">
+          {data.files.length > 0 && <DownloadAll files={data.files.map((f) => ({ id: f.id }))} />}
+          {!readOnly && <>
             <UploadButton plate={data.plate} botScans={data.botMode} />
             <Button size="sm" variant="outline" disabled={busy || !!reading || data.scanning} onClick={() => run(() => rescanAction(data.plate))}><RefreshCw /> Look for new files</Button>
             <Button size="sm" disabled={busy || !!reading || !rules.scan.allowed} onClick={() => scan(data.pending === 0)}>{reading || data.scanning ? <Loader2 className="animate-spin" /> : <ScanText />}{label}</Button>
-          </span>}
+          </>}
+          </span>
         </CardTitle>
         {data.lastScan && !data.scanning && <p className="text-xs text-muted-foreground" role="status">Last scan: {new Date(data.lastScan.at).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Manila" })} · {data.lastScan.photos} {data.lastScan.photos === 1 ? "photo" : "photos"} · {data.lastScan.ok ? `finished${data.lastScan.seconds !== null ? ` in ${data.lastScan.seconds >= 60 ? `${Math.floor(data.lastScan.seconds / 60)} min ${data.lastScan.seconds % 60} s` : `${data.lastScan.seconds} s`}` : ""}` : `failed${data.lastScan.error ? `: ${data.lastScan.error}` : ""}`}</p>}
         {!readOnly && !rules.scan.allowed && rules.scan.reason && data.files.length > 0 && <p className="text-xs text-muted-foreground">{rules.scan.reason}</p>}
@@ -118,7 +125,7 @@ export function PapersCard({ data, rules, readOnly = false, confirmEdits = false
           <label className="flex items-center gap-2 font-medium">Case
             <NativeSelect aria-label="Case" className="w-full sm:w-44" value={chosen ? data.caseType : ""} disabled={busy || readOnly} onChange={(e) => choose(e.target.value)}>
               {!chosen && <option value="" disabled>Choose the case…</option>}
-              {CASES.map((c) => <option key={c} value={c}>{CASE_LABELS[c]}</option>)}
+              {(chosen && !CHOOSABLE_CASES.includes(data.caseType) ? [data.caseType, ...CHOOSABLE_CASES] : CHOOSABLE_CASES).map((c) => <option key={c} value={c}>{CASE_LABELS[c]}</option>)}
             </NativeSelect></label>
           <p className="min-w-0 text-xs sm:flex-1">{data.scanned && data.pending === 0 ? <>The bot suggests <b>{CASE_LABELS[data.suggestedCase]}</b>: {data.caseReason}</> : "The bot suggests a case after the scan."}{!chosen && " A person chooses the case before approving."}</p>
           {!readOnly && data.scanned && data.pending === 0 && (!chosen || data.caseType !== data.suggestedCase) && <Button size="sm" variant="outline" disabled={busy} onClick={() => choose(data.suggestedCase)}>Use {CASE_LABELS[data.suggestedCase]}</Button>}
@@ -178,10 +185,12 @@ function FileRow({ f, busy, onSave, run, runNow, readOnly }: { f: FileView; busy
     <li className="space-y-3 py-4">
       <div className="flex flex-wrap items-center gap-2">
         {f.url ? <a href={f.url} target="_blank" rel="noreferrer" className="min-w-0 font-medium break-all underline-offset-2 hover:underline">{f.name}</a> : <b className="min-w-0 font-medium break-all">{f.name}</b>}
+        <a href={`/api/docs/file/${f.id}?download=1`} download aria-label={`Download ${f.name}`} title="Download this photo" className="text-muted-foreground hover:text-foreground"><Download className="size-4" aria-hidden /></a>
         {f.source === "upload" && <Pill tone="teal">From Sales</Pill>}
         <span className="ml-auto flex flex-wrap items-center gap-1.5">
           {unread ? <Pill tone="blue">Not read yet</Pill> : f.readStatus === "failed" ? <Pill tone="red">Could not read</Pill> : f.readStatus === "unreadable" ? <Pill tone="red">Too unclear</Pill>
             : f.types.length === 0 ? <Pill tone="zinc">Nothing recognised</Pill> : f.types.map((t) => <Pill key={t} tone={t === "other" || t.endsWith("unmatched") ? "amber" : "emerald"}>{typeLabel(t)}</Pill>)}
+          {kindsOf(f.seen.detections).map((k) => <Pill key={k} tone="blue">{k}</Pill>)}
           {f.manual && <Pill tone="purple">Set by a person</Pill>}
           {f.edited && <Pill tone="purple">Corrected by a person</Pill>}
         </span>
@@ -241,6 +250,8 @@ function Seen({ f, busy, run, readOnly }: { f: FileView; busy: boolean; run: (fn
           <div key={i} className="space-y-1.5">
             <p className="flex flex-wrap items-center gap-2 font-medium">{typeLabel(d.type)}
               <span className="text-xs font-normal text-muted-foreground">{Math.round(d.confidence * 100)}% sure of the type</span>
+              {d.orKind && <Pill tone="blue">{OR_KIND[d.orKind]}</Pill>}
+              {d.deedKind && <Pill tone="blue">{DEED_KIND[d.deedKind]}</Pill>}
               {d.copy && <Pill tone={d.copy === "original" ? "emerald" : "amber"}>{d.copy === "original" ? "Original" : "Photocopy"}</Pill>}
               {d.defects?.length ? d.defects.map((x) => <Pill key={x} tone="red">{x}</Pill>) : <span className="text-xs font-normal text-emerald-800 dark:text-emerald-300">No damage seen</span>}
             </p>
@@ -262,6 +273,8 @@ function Seen({ f, busy, run, readOnly }: { f: FileView; busy: boolean; run: (fn
 function EditReading({ d, busy, onSave, onCancel }: { d: Detection; busy: boolean; onSave: (patch: Record<string, unknown>) => void; onCancel: () => void }) {
   const [v, setV] = useState<Record<string, string>>(() => Object.fromEntries(DETAIL_ROWS.map(([k]) => [k, String(d[k] ?? "")])));
   const [copy, setCopy] = useState<string>(d.copy ?? "");
+  const [orKind, setOrKind] = useState<string>(d.orKind ?? "");
+  const [deedKind, setDeedKind] = useState<string>(d.deedKind ?? "");
   const [noDamage, setNoDamage] = useState(false);
   const show = DETAIL_ROWS.filter(([k]) => k !== "validUntil" || d.type === "official_receipt");
   return (
@@ -269,12 +282,16 @@ function EditReading({ d, busy, onSave, onCancel }: { d: Detection; busy: boolea
       <p className="text-xs text-muted-foreground">Type what the paper really says. Leave a box empty if it cannot be read.</p>
       <div className="grid gap-3 sm:grid-cols-2">
         {show.map(([k, name]) => <label key={k} className="space-y-1 text-xs">{name}{k === "validUntil" ? " (2027-03-31)" : ""}<Input value={v[k]} maxLength={k === "validUntil" ? 10 : 120} onChange={(e) => setV({ ...v, [k]: e.target.value })} /></label>)}
+        {d.type === "official_receipt" && <label className="space-y-1 text-xs">Which official receipt
+          <NativeSelect value={orKind} onChange={(e) => setOrKind(e.target.value)}><option value="">Not sure</option><option value="registration">{OR_KIND.registration}</option><option value="last">{OR_KIND.last}</option></NativeSelect></label>}
+        {d.type === "deed_of_sale" && <label className="space-y-1 text-xs">Open or closed deed
+          <NativeSelect value={deedKind} onChange={(e) => setDeedKind(e.target.value)}><option value="">Not sure</option><option value="open">{DEED_KIND.open}</option><option value="closed">{DEED_KIND.closed}</option></NativeSelect></label>}
         <label className="space-y-1 text-xs">Original or photocopy
           <NativeSelect value={copy} onChange={(e) => setCopy(e.target.value)}><option value="">Not sure</option><option value="original">Original</option><option value="photocopy">Photocopy</option></NativeSelect></label>
       </div>
       {d.defects?.length ? <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={noDamage} onChange={(e) => setNoDamage(e.target.checked)} /> No damage: clear “{d.defects.join(", ")}”</label> : null}
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" disabled={busy} onClick={() => onSave({ ...Object.fromEntries(show.map(([k]) => [k, v[k]])), copy: copy || null, ...(noDamage ? { noDamage: true } : {}) })}>Save the correction</Button>
+        <Button size="sm" disabled={busy} onClick={() => onSave({ ...Object.fromEntries(show.map(([k]) => [k, v[k]])), copy: copy || null, ...(d.type === "official_receipt" ? { orKind: orKind || null } : {}), ...(d.type === "deed_of_sale" ? { deedKind: deedKind || null } : {}), ...(noDamage ? { noDamage: true } : {}) })}>Save the correction</Button>
         <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>
       </div>
     </div>
@@ -295,4 +312,19 @@ function Thumb({ id, name, rotation }: { id: string; name: string; rotation: num
       <ImageViewer open={open} onOpenChange={setOpen} src={src} name={name} rotation={rotation} description={rotation ? `Turned ${rotation}° to read upright here. The file in Drive is not changed.` : undefined} />
     </>
   );
+}
+
+/** Saves every photo of the car, one after the other (the browser may ask once to allow several downloads). */
+function DownloadAll({ files }: { files: { id: string }[] }) {
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    for (const f of files) {
+      const a = document.createElement("a");
+      a.href = `/api/docs/file/${f.id}?download=1`; a.download = ""; document.body.appendChild(a); a.click(); a.remove();
+      await new Promise((r) => setTimeout(r, 600));
+    }
+    setBusy(false);
+  };
+  return <Button size="sm" variant="outline" disabled={busy} onClick={() => void run()}>{busy ? <Loader2 className="animate-spin" /> : <Download />} Download photos ({files.length})</Button>;
 }

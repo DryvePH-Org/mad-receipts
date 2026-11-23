@@ -40,7 +40,7 @@ export function composeRow(s: StockRecord, u: UnitRecord, aboutRaw: unknown, com
     detail: {
       plate, car: [u.year_model, u.make, u.model_variant, u.color].filter(Boolean).join(" "), classification: u.classification, papersComplete: complete, spareKey,
       casaMaintained: d?.casaMaintained || null, casaWhen: d?.casaWhen || null, casaWhere: d?.casaWhere || null, batteryWhen: d?.batteryWhen || null, boughtFrom: d?.boughtFrom || null,
-      isEv: !!d?.isEv, evCharger: d?.evCharger || null, evCard: d?.evCard || null, note: d?.note || null,
+      isEv: !!d?.isEv, evCharger: (d?.wallCharger === "yes" || d?.portableCharger === "yes" ? "yes" : d?.wallCharger === "no" && d?.portableCharger === "no" ? "no" : d?.evCharger) || null, evCard: (d?.chargingCard === "yes" || d?.keyCard === "yes" ? "yes" : d?.chargingCard === "no" && d?.keyCard === "no" ? "no" : d?.evCard) || null, note: d?.note || null,
     },
   };
 }

@@ -93,7 +93,16 @@ If *Anyone* isn't offered in step 3, the Workspace admin has restricted it; ask 
 3. Share the inventory sheet, the receipts log sheet and the Drive folder with that email as **Editor**.
    The Drive folder must be in a Shared drive (service accounts have no storage of their own).
 
-## Car documents (the Documentation role)
+## Car documents (the Documentation role, now Buying)
+
+**Papers, cases and details (migration 50, 23 Nov 2026).**
+- The scanner tells the two official receipts apart (`or_kind`: the big registration OR, the small last OR; either one counts as the OR) and open from closed deeds (`deed_kind`). It also knows the SPA, Ex-Oficio Sheriff, voluntary documents, Secretary's certificate of JFP and amended articles, the notarized undertaking to change name, and SEC documents: these show on the checklist only when one is in the folder and are never missing. **The text in `Docs/GROKBOT_SCANNER_ROUTINE.md` must be pasted into the Grokbot's saved instructions again** for the bot to use the new fields.
+- The required deed is the **open deed of sale** (seller to dealership). A notarized **closed deed** (dealership named, `deed_kind` closed) is kept private: Sales and Online Marketing do not see it on the checklist, cannot open its photo or download it (`/api/docs/file/[id]` answers 404).
+- Cases: **Encumbered to Bank** and **Encumbered to Financing** (same papers as before). A car that already has plain **Encumbered** keeps it until Buying picks one; the register still files all three as "Encumbered (Indiv)".
+- About the car: which owner (1 = first, 2 = second...), the dealership it was bought from, EV or PH EV, and for those the wall charger, portable charger, key card and charging card.
+- Repairs: an approver approves a job as **can be displayed** (the car stays sellable) or **cannot be displayed** (the car is For repair, as before); it can be changed later on the job. Existing jobs are "cannot be displayed".
+- Photos: a download button on each photo and **Download photos** for all of a car's photos.
+- When a scan finishes, the empty paper boxes of the car's register row say **Yes** for the papers found (typed values are never changed).
 
 A fourth role, **Documentation**, watches each car's papers. Every car has a Drive folder named like
 `14 Toyota Vios (AAX-3622)` in **Available units**; when the car is sold the folder moves to **Sold units**.

@@ -340,7 +340,7 @@ export async function setFileTypes(fileId: string, types: DocType[] | null, acto
 }
 
 const EDITABLE = ["documentNumber", "plate", "motorNo", "chassisNo", "ownerName", "holderName", "sellerName", "buyerName", "secretaryName", "representativeName", "idType", "validUntil", "lender"] as const;
-export type ReadingPatch = Partial<Record<(typeof EDITABLE)[number], string>> & { copy?: "original" | "photocopy" | null; noDamage?: boolean };
+export type ReadingPatch = Partial<Record<(typeof EDITABLE)[number], string>> & { copy?: "original" | "photocopy" | null; orKind?: "registration" | "last" | null; deedKind?: "open" | "closed" | null; noDamage?: boolean };
 
 /** A person corrects what the bot read on one document of a photo. Only known fields, trimmed and limited; the original reading is kept in `original`. */
 export async function editReading(fileId: string, index: number, patch: ReadingPatch, actor: string, deps: DocsDeps = defaultDocsDeps()): Promise<void> {
@@ -356,6 +356,8 @@ export async function editReading(fileId: string, index: number, patch: ReadingP
     next[k] = v || null;
   }
   if ("copy" in patch) next.copy = patch.copy === "original" || patch.copy === "photocopy" ? patch.copy : null;
+  if ("orKind" in patch) next.orKind = patch.orKind === "registration" || patch.orKind === "last" ? patch.orKind : null;
+  if ("deedKind" in patch) next.deedKind = patch.deedKind === "open" || patch.deedKind === "closed" ? patch.deedKind : null;
   if (patch.noDamage) next.defects = null;
   dets[index] = next;
   const original = details.original ?? details.detections;

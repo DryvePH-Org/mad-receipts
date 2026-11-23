@@ -127,6 +127,17 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await expect(docs.locator(".paper.tm")).toHaveCount(2);
   await expect(docs.locator(".paper.tm").first()).toContainText("ACKNOWLEDGEMENT/TRANSMITTAL RECEIPT");
   if (!notReady) await expect(docs.locator(".paper.tm").first()).toContainText("ZZT E2E Receiver");
+  // the details about the car: which owner, the dealership it was bought from, and the EV extras (nothing is saved here)
+  await docs.goto("/documents/ZZT7001?tab=details");
+  await docs.getByText("About the car").first().click();
+  await expect(docs.getByLabel(/Which owner is this/)).toBeVisible();
+  await expect(docs.getByLabel("Dealership the car was bought from")).toBeVisible();
+  await docs.getByLabel(/Which owner is this/).fill("2");
+  await expect(docs.getByText("Second owner", { exact: true })).toBeVisible();
+  await expect(docs.getByLabel("Wall charger")).toHaveCount(0); // only for an electric car
+  await docs.getByLabel("Electric car?").selectOption("phev");
+  for (const name of ["Wall charger", "Portable charger", "Key card", "Charging card"]) await expect(docs.getByLabel(name)).toBeVisible();
+  await expect(docs.getByLabel("Electric car?").locator("option")).toHaveText(["No", "EV", "PH EV"]);
   await docs.goto("/documents/ZZT7001?tab=documents");
 
   // Sales: the plate leads to the right car, then the papers go in

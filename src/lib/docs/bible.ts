@@ -1,5 +1,5 @@
-import type { UnitDetails } from "./details";
-import type { CaseType } from "./types";
+import { ownerLabel, type UnitDetails } from "./details";
+import { isEncumbered, type CaseType } from "./types";
 
 // How the app's documents checklist is written into MAD workbook (tab "DOCS 2026" and the monthly tabs).
 // Pure rules, no network: the grokbot does the writing, this decides WHAT to write. See Docs/sheets-study.md.
@@ -23,7 +23,7 @@ export const DOCS_FIELDS = {
 export type DocsField = keyof typeof DOCS_FIELDS;
 
 /** The sheet only knows three classifications. A company car is filed as a normal car (usually Clean) with the three secretary columns Yes. */
-export const SHEET_CLASS: Record<CaseType, string> = { clean: "Clean", encumbered: "Encumbered (Indiv)", repo_bank: "Repo (bank)", company: "Clean" };
+export const SHEET_CLASS: Record<CaseType, string> = { clean: "Clean", encumbered: "Encumbered (Indiv)", encumbered_bank: "Encumbered (Indiv)", encumbered_financing: "Encumbered (Indiv)", repo_bank: "Repo (bank)", company: "Clean" };
 
 export interface Change { field: DocsField; before: string; after: string; mode: "set" | "append" }
 
@@ -52,9 +52,9 @@ export function desiredValues(i: BibleInput): Partial<Record<Exclude<DocsField, 
     sec_cert: want(has(i, "secretary_certificate"), secretary),
     sec_ids: want(has(i, "secretary_id"), secretary),
     boards_reso: want(has(i, "board_resolution"), c === "company"),
-    encumbered: c === "encumbered" || c === "repo_bank" ? "Yes" : "N/A",
-    chattel: want(has(i, "chattel_cancellation"), c === "encumbered" || c === "repo_bank"),
-    promissory: want(has(i, "promissory_note"), c === "encumbered" || c === "repo_bank"),
+    encumbered: isEncumbered(c) || c === "repo_bank" ? "Yes" : "N/A",
+    chattel: want(has(i, "chattel_cancellation"), isEncumbered(c) || c === "repo_bank"),
+    promissory: want(has(i, "promissory_note"), isEncumbered(c) || c === "repo_bank"),
     stencil: has(i, "stencil") ? "Yes" : null, // a stencil is optional: it is marked Yes when one is in the folder, and otherwise left as the staff typed it
   };
   return Object.fromEntries(Object.entries(out).filter(([, v]) => v !== null)) as Partial<Record<Exclude<DocsField, "remarks_1">, string>>;
@@ -97,10 +97,11 @@ export function scanNote(n: NoteInput): string {
   const d = n.details;
   if (d) {
     const bits = [
+      d.ownerNo ? ownerLabel(d.ownerNo) : "",
       d.spareKey ? `Spare key: ${d.spareKey === "yes" ? "yes" : "no"}` : "",
       d.casaMaintained ? `Casa: ${d.casaMaintained === "yes" ? `yes${d.casaWhen || d.casaWhere ? ` (${[d.casaWhen, d.casaWhere].filter(Boolean).join(", ")})` : ""}` : "no"}` : "",
-      d.batteryWhen ? `Battery: ${d.batteryWhen}` : "", d.boughtFrom ? `Bought: ${d.boughtFrom}` : "",
-      d.isEv ? `EV charger: ${d.evCharger || "?"}, card: ${d.evCard || "?"}` : "", d.note ? d.note : "",
+      d.batteryWhen ? `Battery: ${d.batteryWhen}` : "", d.boughtFrom ? `Bought from: ${d.boughtFrom}` : "",
+      d.isEv ? `${d.evType === "phev" ? "PH EV" : "EV"}: wall charger ${d.wallCharger || "?"}, portable charger ${d.portableCharger || "?"}, key card ${d.keyCard || "?"}, charging card ${d.chargingCard || "?"}` : "", d.note ? d.note : "",
     ].filter(Boolean);
     if (bits.length) lines.push(bits.join(" | "));
   }

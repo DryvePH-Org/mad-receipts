@@ -11,6 +11,8 @@ export interface Repair {
   id: string; key: string | null; unitId: string | null; plate: string; ym: string | null; brand: string | null; vehicle: string | null; problem: string | null; happenedOn: string | null; happenedRaw: string | null;
   solution: string | null; supplier: string | null; company: string | null; estTimeline: string | null; dueOn: string | null; status: string | null; approval: Approval;
   approvedBy: string | null; approvedAt: string | null; rejectReason: string | null; reportedBy: string | null; createdAt: string;
+  /** a job the car can be shown with: it stays on sale while the job is open. false: the car cannot be displayed until it is done. */
+  canDisplay: boolean;
 }
 
 const norm = (s: string | null | undefined) => (s ?? "").replace(/\s+/g, " ").trim().toUpperCase();

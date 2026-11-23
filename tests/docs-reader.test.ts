@@ -28,6 +28,23 @@ describe("dates and lenders for the pricelist", () => {
   });
 });
 
+describe("the two kinds of official receipt, the deeds and the new papers", () => {
+  it("keeps which official receipt it is (big registration OR or small last OR) only on an OR, and open or closed only on a deed", async () => {
+    const one = async (doc: Record<string, unknown>) => (await readDocument(image, async () => JSON.stringify({ legible: true, rotation: 0, documents: [{ confidence: 0.9, ...doc }] }))).detections[0];
+    expect(await one({ type: "official_receipt", or_kind: "registration" })).toMatchObject({ orKind: "registration", deedKind: null });
+    expect(await one({ type: "official_receipt", or_kind: "last" })).toMatchObject({ orKind: "last" });
+    expect(await one({ type: "official_receipt", or_kind: "something else" })).toMatchObject({ orKind: null });
+    expect(await one({ type: "certificate_of_registration", or_kind: "last" })).toMatchObject({ orKind: null });
+    expect(await one({ type: "deed_of_sale", deed_kind: "closed", or_kind: "last" })).toMatchObject({ deedKind: "closed", orKind: null });
+    expect(await one({ type: "deed_of_sale", deed_kind: "nonsense" })).toMatchObject({ deedKind: null });
+  });
+  it("knows the SPA and the other new papers", async () => {
+    const read = async (types: string[]) => (await readDocument(image, async () => JSON.stringify({ legible: true, rotation: 0, documents: types.map((type) => ({ type, confidence: 0.9 })) }))).detections.map((d) => d.type);
+    expect(await read(["spa", "ex_oficio_sheriff", "voluntary_documents"])).toEqual(["spa", "ex_oficio_sheriff", "voluntary_documents"]);
+    expect(await read(["secretary_certificate_jfp", "notarized_undertaking", "sec_document"])).toEqual(["secretary_certificate_jfp", "notarized_undertaking", "sec_document"]);
+  });
+});
+
 describe("rotation, copy and defects", () => {
   it("keeps how far to turn the photo, original or copy, and the problems seen", async () => {
     const r = await readDocument(image, async () => JSON.stringify({ legible: true, rotation: "90", documents: [{ type: "official_receipt", confidence: 0.9, copy: "photocopy", defects: ["torn", " ", 5, "cut off"] }, { type: "government_id", confidence: 0.9, copy: "weird" }] }));
