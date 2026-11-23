@@ -75,12 +75,14 @@ export function PapersCard({ data, rules, readOnly = false, confirmEdits = false
   const inFolder = data.items.filter((i) => i.stage === "available" && !i.optional && i.present).length, needed = data.items.filter((i) => i.stage === "available" && !i.optional).length;
   const unchecked = !data.scanned || data.pending > 0 || data.scanning;
   const label = data.scanning ? "The bot is scanning…" : reading ?? (data.pending ? `${data.botMode ? "Scan" : "Read"} ${data.pending} photo${data.pending === 1 ? "" : "s"}` : data.failed ? `Scan ${data.failed} again` : "All scanned");
-  const groups = [["Before the sale", data.items.filter((i) => i.stage === "available")], ["After the sale", data.items.filter((i) => i.stage === "sold")]] as const;
+  const flagCount = (ids: string[]) => ids.reduce((n, id) => n + (byId.get(id)?.flags.length ?? 0), 0);
+  // the IN documents only: the after-sale papers are on the OUT documents tab (one with a warning still shows here, so Buying can settle it)
+  const outWarned = data.items.filter((i) => i.stage === "sold" && flagCount(i.fileIds) > 0);
+  const groups = [["Papers the car came with", data.items.filter((i) => i.stage === "available")], ...(outWarned.length ? [["OUT documents with a warning", outWarned] as const] : [])] as const;
   const selectedItem = open && !open.startsWith("file:") ? data.items.find((i) => i.key === open) ?? null : null;
   const selectedFiles = selectedItem ? selectedItem.fileIds.map((id) => byId.get(id)).filter((f): f is FileView => !!f) : open?.startsWith("file:") ? [byId.get(open.slice(5))].filter((f): f is FileView => !!f) : [];
   const col = selectedItem ? SLOT_COLUMN[selectedItem.key] : undefined;
   const regValue = col && register ? register.values[col] ?? null : null;
-  const flagCount = (ids: string[]) => ids.reduce((n, id) => n + (byId.get(id)?.flags.length ?? 0), 0);
 
   const row = (key: string, title: string, present: boolean | null, fileIds: string[], state: string) => {
     const warn = flagCount(fileIds);
@@ -106,7 +108,7 @@ export function PapersCard({ data, rules, readOnly = false, confirmEdits = false
   return (
     <Card id="papers">
       <CardHeader>
-        <CardTitle className="flex flex-wrap items-center gap-3">Papers
+        <CardTitle className="flex flex-wrap items-center gap-3">IN documents
           <span className="text-sm font-normal text-muted-foreground">{!data.scanned ? "Looking at the folder…" : unchecked ? "Not final until every photo is scanned" : `${inFolder} of ${needed} in the folder`}</span>
           <span className="ml-auto flex flex-wrap gap-2">
           {data.files.length > 0 && <DownloadAll files={data.files.map((f) => ({ id: f.id }))} />}

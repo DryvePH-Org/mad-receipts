@@ -5,7 +5,7 @@ const col = (k: string) => COLUMN_BY_KEY.get(k)!;
 const row = (id: string, values: Record<string, string | null>, complete: string | null = null, decisions = 0): GridRow => ({ id, values, complete, decisions });
 
 describe("who edits which column", () => {
-  it("Buying and Sales edit the whole car record (papers, identity, OR date, spare key, arrival), Admin also the one state, nobody the two old status columns (worked out from the state), Online Marketing nothing", () => {
+  it("Buying edits the whole car record (papers, identity, OR date, spare key, arrival), Admin also the one state, nobody the two old status columns (worked out from the state), Sales and Online Marketing only look", () => {
     expect(canEditColumn("buying", col("cr"))).toBe(true);
     expect(canEditColumn("buying", col("classification"))).toBe(true);
     expect(canEditColumn("buying", col("remarks_1"))).toBe(true);
@@ -18,7 +18,7 @@ describe("who edits which column", () => {
     expect(canEditColumn("admin", col("vehicle_status"))).toBe(false); // derived from the state
     expect(canEditColumn("admin", col("sale_status"))).toBe(false);
     expect(canEditColumn("admin", col("make"))).toBe(true);
-    expect(canEditColumn("sales", col("cr"))).toBe(true);
+    expect(canEditColumn("sales", col("cr"))).toBe(false); // the IN documents are for Buying and the Admins; Sales read them
     expect(canEditColumn("sales", col("stock_state"))).toBe(false);
     expect(canEditColumn("super_admin", col("stock_state"))).toBe(true);
     expect(canEditColumn("marketing", col("cr"))).toBe(false);

@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import imageCompression from "browser-image-compression";
 import { toast } from "sonner";
-import { Camera, Download, FileText, Loader2, Plus, Trash2, Upload } from "lucide-react";
+import { Download, FileText, Loader2, Plus, Trash2, Upload } from "lucide-react";
 import { AskDialog } from "@/components/shared/ask-dialog";
 import { Pill } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
@@ -80,45 +80,6 @@ export function AddSaleForm({ plate, bare = false }: { plate: string; bare?: boo
         {fields}
       </CardContent>
     </Card>
-  );
-}
-
-/** The signed AR: a photo is enough. The bot reads it and the sale (buyer, date) fills in from it. */
-export function ArUpload({ plate, hasSale }: { plate: string; hasSale: boolean }) {
-  const router = useRouter();
-  const input = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
-  const [lines, setLines] = useState<{ name: string; text: string; ok: boolean }[]>([]);
-  const send = async (list: FileList | null) => {
-    if (!list?.length) return;
-    setBusy(true);
-    for (const original of Array.from(list)) {
-      const say = (text: string, ok: boolean) => setLines((l) => [{ name: original.name, text, ok }, ...l]);
-      try {
-        const heic = isHeic(original);
-        if (!heic && !original.type.startsWith("image/")) throw new Error("Send a photo (JPEG or PNG) of the AR.");
-        const file = await imageCompression(heic ? await toJpeg(original) : original, { maxWidthOrHeight: 2400, initialQuality: 0.85, maxSizeMB: 3, fileType: "image/jpeg", useWebWorker: true });
-        const body = new FormData();
-        body.set("plate", plate); body.set("ar", "1"); body.set("label", "ar"); body.set("file", file, "photo.jpg");
-        const res = await fetch("/api/docs/upload", { method: "POST", body });
-        const json = (await res.json().catch(() => ({}))) as { result?: { types: string[]; readStatus: string }; error?: string };
-        if (!res.ok || !json.result) throw new Error(json.error ?? "The upload failed. Try again.");
-        const r = json.result;
-        if (r.readStatus === "pending") say("Saved. The bot is reading it; the sale fills in by itself in a minute.", true);
-        else if (r.readStatus === "failed") say("Saved in the folder, but it could not be read. Add the sale by hand below.", false);
-        else if (r.types.includes("acknowledgement_receipt")) say(hasSale ? "Saved: it is an AR." : "Saved: it is an AR. The sale is filled in from it.", true);
-        else say("Saved in the folder, but it does not look like an AR. Take the photo again, flat and well lit.", false);
-      } catch (e) { say(e instanceof Error ? e.message : "The upload failed.", false); }
-    }
-    setBusy(false);
-    router.refresh();
-  };
-  return (
-    <div className="space-y-3">
-      <input ref={input} type="file" accept="image/*" multiple capture="environment" className="sr-only" id="ar-photos" aria-label="Photos of the AR" onChange={(e) => { void send(e.target.files); e.target.value = ""; }} />
-      <Button type="button" size="lg" disabled={busy} onClick={() => input.current?.click()}>{busy ? <Loader2 className="animate-spin" /> : <Camera />} {hasSale ? "Upload another AR" : "Upload the AR"}</Button>
-      {lines.length > 0 && <ul className="space-y-1 text-sm" aria-live="polite">{lines.map((l, i) => <li key={`${l.name}-${i}`} className={l.ok ? "text-emerald-800 dark:text-emerald-300" : "text-amber-800 dark:text-amber-300"}>{l.name}: {l.text}</li>)}</ul>}
-    </div>
   );
 }
 
@@ -199,14 +160,9 @@ export function PaymentsPanel({ plate, hasSale, status, files, canEdit, isAdmin,
   return (
     <div className="space-y-6">
       {!hasSale && canEdit && (
-        <Card id="add-sale">
-          <CardHeader><CardTitle>Start with the AR</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">This car has no sale recorded yet. Take a photo of the signed AR: the buyer and the date are filled in from it, and the AR is kept with the car&apos;s papers.</p>
-            {folderLinked ? <ArUpload plate={plate} hasSale={false} /> : <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">This car has no document folder in Drive yet. Link its folder in Documents first, or add the sale by hand.</p>}
-            <details className="rounded-lg border p-3"><summary className="cursor-pointer text-sm font-medium">No AR yet? Add the sale by hand</summary><div className="mt-3"><AddSaleForm plate={plate} bare /></div></details>
-          </CardContent>
-        </Card>
+        <Card id="add-sale"><CardContent className="pt-4">
+          <details><summary className="cursor-pointer text-sm font-medium">No AR to upload? Add the sale by hand</summary><div className="mt-3"><AddSaleForm plate={plate} bare /></div></details>
+        </CardContent></Card>
       )}
       <Card id="payments">
         <CardHeader><CardTitle className="flex flex-wrap items-center gap-3">Payments
@@ -215,7 +171,6 @@ export function PaymentsPanel({ plate, hasSale, status, files, canEdit, isAdmin,
         </CardTitle></CardHeader>
         <CardContent className="space-y-5">
           {hasSale ? <PaymentStatusBar plate={plate} status={status} canEdit={canEdit} /> : <p className="text-sm text-muted-foreground">The payment status can be set once the sale is added.</p>}
-          {canEdit && hasSale && folderLinked && <ArUpload plate={plate} hasSale />}
           {canEdit && <ArchiveUpload plate={plate} folderLinked={folderLinked} />}
           {files.length === 0 ? <p className="text-sm text-muted-foreground">No payment paper has been added yet. Deposit slips, proofs of payment, the acknowledgement receipt and loan releases all go here.</p>
             : <ul className="divide-y rounded-lg ring-1 ring-foreground/10" aria-label="Payment papers">{files.map((f) => <Row key={f.id} f={f} isAdmin={isAdmin} />)}</ul>}

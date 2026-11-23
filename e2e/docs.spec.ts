@@ -74,7 +74,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
 
   // several folders: choose one
   await docs.getByRole("link", { name: /ZZT-7002|ZZT 7002/ }).first().click();
-  await openTab(docs, "Documents");
+  await openTab(docs, "IN documents");
   await expect(docs.getByText("More than one folder matches this plate")).toBeVisible();
   await docs.getByRole("button", { name: "Use this one" }).first().click();
   await expect(docs.locator("#papers")).toBeVisible();
@@ -87,7 +87,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await expect(docs.getByText("Official receipt (OR)").first()).toBeVisible();
   await expect(docs.getByText("ID of the registered owner").first()).toBeVisible();
   const missingBefore = docs.locator("#papers li", { hasText: "Missing" });
-  await expect(missingBefore).toHaveCount(3); // the buyer's ID and the signed deed: Sales provides them
+  await expect(missingBefore).toHaveCount(0); // every IN paper is in; the buyer's ID, the signed deed and the AR are OUT documents, on their own tab
 
   // a correction by one person shows in the Papers part at once, and for another person without reloading
   const other = await as(browser, "docs");
@@ -129,7 +129,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   if (!notReady) await expect(docs.locator(".paper.tm").first()).toContainText("ZZT E2E Receiver");
   // the details about the car: which owner, the dealership it was bought from, and the EV extras (nothing is saved here)
   await docs.goto("/documents/ZZT7001?tab=details");
-  await docs.getByText("About the car").first().click();
+  await docs.locator("#about summary").click();
   await expect(docs.getByLabel(/Which owner is this/)).toBeVisible();
   await expect(docs.getByLabel("Dealership the car was bought from")).toBeVisible();
   await docs.getByLabel(/Which owner is this/).fill("2");
@@ -159,9 +159,11 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await expect(viewer.getByRole("button", { name: "Upload documents" })).toHaveCount(0);
   await expect(viewer.getByRole("button", { name: "Change what this is" })).toHaveCount(0);
   await expect(viewer.getByRole("combobox", { name: "Case" })).toBeDisabled();
+  await expect(viewer.getByText("Activity on this car")).toBeVisible(); // the history is there for everyone to read
+  await expect(viewer.getByRole("tab", { name: /^OUT documents/ })).toHaveCount(0); // money and the after-sale papers are not for Online Marketing
   await viewer.close();
-  await sales.goto("/documents/ZZT7001?tab=documents");
-  // Sales add the sold papers here (the AR's buyer is shown)
+  await sales.goto("/documents/ZZT7001?tab=payments");
+  // Sales add the OUT documents here (the AR's buyer is shown)
   await expect(sales.locator("#sold-upload")).toContainText(BUYER);
   await expect(sales.getByText("Still needed")).toHaveCount(3); // the signed AR, the buyer's ID and the deed
   // a plate nobody has sold never gets a photo, whatever is sent to the server
@@ -172,7 +174,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await sales.goto("/upload-documents");
   await expect(sales.getByRole("heading", { name: "Car documents" })).toBeVisible();
   await expect(sales.getByRole("link", { name: "Upload documents" })).toHaveCount(0);
-  await sales.goto("/documents/ZZT7001?tab=documents");
+  await sales.goto("/documents/ZZT7001?tab=payments");
 
   // a photo through the screen (the stand-in reader cannot tell what it is) ...
   await sales.waitForTimeout(2500); // the page must be ready (hydrated) before a file is given to it; the car page keeps polling, so "network idle" never comes
@@ -189,7 +191,17 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   // Documentation sees it complete, and moving asks first
   await docs.reload();
   await expect(docs.locator("#papers")).toContainText("4 of 4 in the folder");
-  await expect(docs.locator("#papers li", { hasText: "Buyer's ID" })).toContainText("In the folder"); // the papers Sales added
+  await expect(docs.locator("#papers li", { hasText: "Buyer's ID" })).toHaveCount(0); // the OUT documents are not in the IN list ...
+  await docs.getByRole("tab", { name: /^OUT documents/ }).click();
+  const outList = docs.getByRole("list", { name: "After-sale documents" });
+  await expect(outList).toContainText("Buyer's ID"); // ... they are on the OUT documents tab, with every AR that was uploaded under the signed AR
+  await expect(outList).toContainText("Signed AR");
+  await expect(outList.getByText("In the folder").first()).toBeVisible();
+  await docs.goto("/documents/ZZT7001?tab=documents");
+  // the activity history on the approval card: who did what, with the date and time
+  const activity = docs.getByRole("list", { name: "Activity on this car" });
+  await expect(activity).toContainText("Uploaded a photo");
+  await expect(activity.locator("time").first()).toBeVisible();
 
   // the buttons follow the workflow: the folder cannot move before the documents are approved
   await expect(docs.getByRole("button", { name: "Move to Sold" })).toBeDisabled();
@@ -222,7 +234,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   const admin = await as(browser, "admin");
   await admin.goto("/documents/ZZT7001?tab=details");
   // a change to the car's information asks first: Cancel keeps it as it was, the second time it goes through
-  await admin.getByText("About the car").first().click();
+  await admin.locator("#about summary").click();
   await admin.locator("#ud-note").fill("Corrected by the Admin");
   await admin.getByRole("button", { name: "Save the details" }).click();
   await expect(admin.getByRole("heading", { name: "Change a car that is already sold?" })).toBeVisible();
@@ -241,7 +253,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await admin.getByRole("dialog").getByRole("button", { name: "Yes, undo it" }).click();
   await expect(admin.getByText("Not handed off").first()).toBeVisible({ timeout: 20_000 });
   // and the approval can be withdrawn, so it can be approved again
-  await openTab(admin, "Documents");
+  await openTab(admin, "IN documents");
   await admin.getByRole("button", { name: "Withdraw the approval (Admin)" }).click();
   await admin.getByRole("dialog").getByRole("button", { name: "Yes, withdraw it" }).click();
   await expect(admin.getByText("Not approved yet").first()).toBeVisible({ timeout: 20_000 });
@@ -400,7 +412,7 @@ test("Sales and Documentation put a saved receipt in the car's folder with a but
   await docs.getByRole("button", { name: /^Save 1 receipt in the car's folder \(unsigned\)$/ }).click();
   await expect(docs.locator("#receipts")).toContainText("Unsigned copy in the folder", { timeout: 30_000 });
   // the copy shows with the car's files, but it is not read as a car document
-  await openTab(docs, "Documents");
+  await openTab(docs, "IN documents");
   await expect(docs.locator("#papers")).toContainText("RECEIPT-", { timeout: 30_000 });
   await expect(docs.getByRole("button", { name: /^Save .* in the car's folder \(unsigned\)$/ })).toHaveCount(0);
 
@@ -412,14 +424,14 @@ test("Sales and Documentation put a saved receipt in the car's folder with a but
   await expect(docs).toHaveURL(/tab=sale/);
   await expect(docs.getByText("Handoff to").first()).toBeVisible();
   await docs.goto("/documents/ZZT7003#papers"); // an old link to a part of the page
-  await expect(docs.getByRole("tab", { name: /^Documents/ })).toHaveAttribute("aria-selected", "true", { timeout: 20_000 });
+  await expect(docs.getByRole("tab", { name: /^IN documents/ })).toHaveAttribute("aria-selected", "true", { timeout: 20_000 });
   await expect(docs.locator("#papers")).toBeVisible();
 
   // Sales have the same button on the car's page
   const sales = await as(browser, "sales");
   await sales.goto("/documents/ZZT7003?tab=receipts");
   await expect(sales.locator("#receipts")).toContainText("Unsigned copy in the folder");
-  for (const t of ["Overview", "Documents", "Payments", "Sale and transfer", "Receipts", "Details"]) await expect(sales.getByRole("tab", { name: new RegExp(`^${t}`) })).toBeVisible();
+  for (const t of ["Overview", "IN documents", "OUT documents", "Sale and transfer", "Receipts", "Details"]) await expect(sales.getByRole("tab", { name: new RegExp(`^${t}`) })).toBeVisible();
   await docs.close(); await sales.close();
 });
 
@@ -610,7 +622,7 @@ test("Payments: the sale is added by hand, the status is set, a payment paper is
   await docs.goto("/documents/ZZT7005?tab=payments");
   await expect(docs.locator("#add-sale")).toBeVisible({ timeout: 30_000 });
   await expect(docs.getByText("The payment status can be set once the sale is added.")).toBeVisible();
-  await docs.getByText("No AR yet? Add the sale by hand").click();
+  await docs.getByText("No AR to upload? Add the sale by hand").click();
   await docs.getByLabel("Buyer", { exact: true }).fill("ZZT E2E Pay Buyer");
   await docs.getByLabel(/Agreed price/).fill("588,000");
   await docs.getByLabel("Salesperson").fill("ZZT E2E Seller");
@@ -622,7 +634,7 @@ test("Payments: the sale is added by hand, the status is set, a payment paper is
   const partly = docs.getByRole("button", { name: "Partly paid", exact: true });
   await partly.click();
   await expect(partly).toHaveAttribute("aria-pressed", "true", { timeout: 30_000 });
-  await expect(docs.getByRole("tab", { name: /^Payments/ })).toContainText("Partly paid");
+  await expect(docs.getByRole("tab", { name: /^OUT documents/ })).toBeVisible();
 
   // a payment paper: what it is, the amount, the date; it appears in the list with a download
   await docs.waitForTimeout(2000); // the page must be ready before a file is given to it
@@ -637,7 +649,7 @@ test("Payments: the sale is added by hand, the status is set, a payment paper is
   await expect(list).toContainText("BDO deposit slip");
   await expect(list.getByRole("link", { name: /Download/ })).toBeVisible();
   // it is kept apart from the papers: not on the Papers checklist and not counted as a photo
-  await openTab(docs, "Documents");
+  await openTab(docs, "IN documents");
   await expect(docs.locator("#papers").getByText(/PAY_/)).toHaveCount(0);
   await docs.close();
 
@@ -653,7 +665,7 @@ test("Payments: the sale is added by hand, the status is set, a payment paper is
   const viewer = await as(browser, "marketing");
   await viewer.goto("/documents/ZZT7005");
   await expect(viewer.getByRole("tab", { name: /^Overview/ })).toBeVisible({ timeout: 30_000 });
-  await expect(viewer.getByRole("tab", { name: /^Payments/ })).toHaveCount(0);
+  await expect(viewer.getByRole("tab", { name: /^OUT documents/ })).toHaveCount(0);
   expect((await viewer.request.get(`/api/docs/file/${file.id}`)).status()).toBe(404);
   await viewer.goto("/documents");
   await expect(viewer.getByRole("tab", { name: /^Partly paid/ })).toHaveCount(0);
@@ -673,9 +685,9 @@ test("The AR photo makes the sale: the buyer and the date come from it, the AR s
 
   const sales = await as(browser, "sales");
   await sales.goto("/documents/ZZT7006?tab=payments");
-  await expect(sales.getByText("Start with the AR")).toBeVisible({ timeout: 30_000 });
-  await expect(sales.getByRole("button", { name: "Upload the AR" })).toBeVisible();
-  await expect(sales.getByText("No AR yet? Add the sale by hand")).toBeVisible();
+  await expect(sales.locator("#sold-upload")).toContainText("No sale is recorded yet", { timeout: 30_000 });
+  await expect(sales.getByRole("button", { name: "Take or choose photos" })).toBeVisible();
+  await expect(sales.getByText("No AR to upload? Add the sale by hand")).toBeVisible();
 
   // an ordinary sold-papers upload is refused while the car has no sale; the AR itself is accepted (the stand-in reader knows the buyer from the file label), and the sale is made from it
   // without ar=1 the same upload is refused: no sale, no AR
@@ -690,12 +702,19 @@ test("The AR photo makes the sale: the buyer and the date come from it, the AR s
 
   await sales.goto("/documents/ZZT7006?tab=payments");
   await expect(sales.getByRole("group", { name: "Payment status" })).toBeVisible({ timeout: 30_000 });
-  await expect(sales.getByText("Start with the AR")).toHaveCount(0);
-  const list = sales.getByRole("list", { name: "Payment papers" });
-  await expect(list).toContainText("Acknowledgement receipt (AR)");
-  await expect(list).toContainText("₱50,000");
-  await expect(list).toContainText("Buyer ZZT E2E AR Buyer");
-  await expect(sales.getByRole("button", { name: "Upload another AR" })).toBeVisible();
+  await expect(sales.locator("#sold-upload")).not.toContainText("No sale is recorded yet");
+  // every AR that is uploaded falls under the signed AR of the after-sale list, with what the bot read on it
+  const out = sales.getByRole("list", { name: "After-sale documents" });
+  await expect(out).toContainText("Signed AR");
+  await expect(out).toContainText("Buyer ZZT E2E AR Buyer");
+  await expect(out).toContainText("₱50,000");
+  await expect(out.getByRole("link", { name: /^Open / })).toHaveCount(1);
+  // a second AR (another payment) falls into the same line: all the ARs are listed
+  const second = await sales.request.post("/api/docs/upload", { multipart: { plate: "ZZT 7006", ar: "1", label: "ar-ZZT_E2E_AR_Buyer", file: { name: "p.jpg", mimeType: "image/jpeg", buffer: JPEG } } });
+  expect(second.ok()).toBe(true);
+  await sales.reload();
+  await expect(sales.getByRole("list", { name: "After-sale documents" }).getByRole("link", { name: /^Open / })).toHaveCount(2);
+  await expect(sales.getByRole("list", { name: "After-sale documents" })).toContainText("2 in the folder");
   await sales.close();
 
   await db.from("car_transfers").delete().like("plate_no", "ZZT7006");

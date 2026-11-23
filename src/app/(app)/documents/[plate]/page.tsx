@@ -10,6 +10,9 @@ import { requireModule } from "@/lib/auth";
 import { PRIVATE_DOCS } from "@/lib/docs/types";
 import { archiveTotal, PAYMENT_LABEL, type ArchiveFile } from "@/lib/docs/payments";
 import { PaymentsPanel } from "./payments-card";
+import { ActivityList } from "./activity-list";
+import { loadCarActivity } from "@/lib/docs/activity";
+import type { ActivityEntry } from "@/lib/docs/activity-text";
 import { isAdmin, seesPrivateDocs, seesSales, type Role } from "@/lib/roles";
 import { getSettings } from "@/lib/data";
 import { isScanning, readerMode } from "@/lib/docs/bot-scan";
@@ -41,12 +44,12 @@ import { loadCarFacts, type CarFacts } from "@/lib/cars/car-file";
 import { STAGE_LABEL, type Transfer } from "@/lib/transfers/model";
 import { Overview } from "./overview";
 import { TabBar } from "./tab-bar";
-import { hrefOfAnchor, isTab, type CarTab } from "./tabs";
+import { hrefOfAnchor, isTab, tabHint, type CarTab } from "./tabs";
 import { TransferList } from "../transfers/transfer-list";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listCarReceipts } from "@/lib/docs/receipts-drive";
 import { ReceiptsCard } from "./receipts-card";
-import { SoldUploadCard } from "./sold-upload-card";
+import { SoldUploadCard, type OutItem } from "./sold-upload-card";
 import { RegisterCard } from "./register-card";
 import { RemoveCarCard } from "./remove-car-card";
 import { SoldCard } from "./sold-card";
@@ -82,7 +85,7 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
   const orDate = orRow.data?.renewal ? parseSheetDate(String(orRow.data.renewal)) : null; // the typed date, read the same way the database reads it
   const transfers = seesSales(user.role) ? await loadTransfers(key) : null;
   const hand = await handoffOf(key).catch(() => null); // the steps of the transfer are kept on the car's sale record
-  const [register, receipts] = await Promise.all([loadRegisterRow(key).catch(() => null), canUpload ? listCarReceipts(key).catch(() => []) : Promise.resolve([])]);
+  const [register, receipts, activity] = await Promise.all([loadRegisterRow(key).catch(() => null), canUpload ? listCarReceipts(key).catch(() => []) : Promise.resolve([]), loadCarActivity(key).catch(() => [] as ActivityEntry[])]);
 
   const recipient = settings.print.transmittalReceiver || "the receiver";
   const seesPrivate = seesPrivateDocs(user.role); // the notarized closed deed is kept from Sales and Online Marketing: not on the checklist, no photo, no download
@@ -120,36 +123,56 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
 
   const facts = await loadCarFacts(key).catch(() => ({ unit: null, repairs: [] } as CarFacts));
   const sale = transfers ? saleOf(transfers.transfers) : null;
-  const archive: ArchiveFile[] = seesSales(user.role) ? car.archive.map((f) => ({ id: f.id, name: f.filename, tag: f.archive_tag ?? "Other", amount: f.archive_amount === null ? null : Number(f.archive_amount), on: f.archive_on, note: f.archive_note, addedAt: f.created_at, mime: f.mime_type ?? "" })).concat(arEntries(car.files)) : [];
+  const archive: ArchiveFile[] = seesSales(user.role) ? car.archive.map((f) => ({ id: f.id, name: f.filename, tag: f.archive_tag ?? "Other", amount: f.archive_amount === null ? null : Number(f.archive_amount), on: f.archive_on, note: f.archive_note, addedAt: f.created_at, mime: f.mime_type ?? "" })) : [];
   const detailsMissing = missingDetails(flow.details).length;
   const soldCar = data.location === "sold" || facts.unit?.stockState === "Sold";
   const handData = { plate: key, location: data.location, soldCar, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, releasedOn: hand?.releasedOn ?? null, deliveredOn: hand?.deliveredOn ?? null, stage: sale?.stage ?? hand?.stage ?? null,
     items: [...items, ...arCopy].map((i) => ({ key: i.key, label: i.label, present: i.present, optional: i.optional })) };
   const before = items.filter((i) => i.stage === "available" && !i.optional);
+  // the after-sale checklist: the signed AR (every AR that was uploaded is listed under it), the buyer's ID and the deed
+  const fileOf = new Map(car.files.map((f) => [f.id, f]));
+  const outItems: OutItem[] = items.filter((i) => i.stage === "sold").map((i) => ({
+    key: i.key, label: i.key === "ack" ? "Signed AR (every AR that is uploaded)" : i.label, present: i.present,
+    files: (i.key === "ack" ? car.files.filter((f) => f.doc_types.includes("acknowledgement_receipt")).map((f) => f.id) : i.fileIds).map((id) => fileOf.get(id)).filter((f): f is NonNullable<typeof f> => !!f).map((f) => {
+      const d = detectionsOf(f.details)?.find((x) => x.type === "acknowledgement_receipt");
+      return { id: f.id, name: f.filename, note: d ? [d.buyerName && `Buyer ${d.buyerName}`, d.documentNumber && `AR no. ${d.documentNumber}`, d.amount != null && `₱${d.amount.toLocaleString("en-PH")}`, d.documentDate && dayOf(d.documentDate)].filter(Boolean).join(" · ") || f.filename : f.filename };
+    }),
+  }));
+  const outHave = outItems.filter((i) => i.present).length;
+  const buyerName = data.deal?.buyerName ?? sale?.buyer ?? null;
+  // what each person does next on this car
+  const inNext = linked ? { anchor: stage.next.anchor, title: stage.next.title } : { anchor: "folder", title: "Add the car's documents" };
+  const outNext = linked && transfers ? (!sale ? { anchor: "sold-upload", title: "Upload the AR" } : outHave < outItems.length ? { anchor: "sold-upload", title: `Upload the OUT documents (${outItems.length - outHave} to go)` } : null) : null;
+  const next = canAct ? inNext : canUpload ? outNext : null;
+  const who = { editsIn: canAct, editsOut: canUpload, seesSales: !!transfers };
   const panels: Panel[] = [
     { key: "overview", label: "Overview", node: (
       <div className="space-y-4">
-        {linked && <StageCard stage={stage} plate={key} />}
+        {linked && canAct && <StageCard stage={stage} plate={key} />}
+        {!canAct && <YourPart hint={tabHint("overview", who)} next={next} plate={key} />}
         <Overview data={data} facts={facts} sale={sale} steps={hand ? { ...hand, stage: sale?.stage ?? hand.stage } : sale ? { handedOffAt: null, backAt: null, releasedOn: null, deliveredOn: null, stage: sale.stage } : null} approval={{ at: flow.workflow.approvedAt, by: flow.workflow.approvedByName }} payments={seesSales(user.role) ? { count: archive.length, total: archiveTotal(archive) } : null} canSale={!!transfers} detailsMissing={detailsMissing} carDescription={null} />
       </div>) },
-    { key: "documents", label: "Documents", badge: linked ? `${before.filter((i) => i.present).length}/${before.length}` : null, tone: linked && before.some((i) => !i.present) ? "amber" : "emerald", node: linked ? (
+    { key: "documents", label: "IN documents", badge: linked ? `${before.filter((i) => i.present).length}/${before.length}` : null, tone: linked && before.some((i) => !i.present) ? "amber" : "emerald", node: linked ? (
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start">
         <PapersCard data={data} rules={stage.rules} readOnly={!canAct} confirmEdits={data.isAdmin && data.location === "sold"} register={register ? { id: register.id, values: register.values } : null} canEditRegister={canAct} differs={register && car.folder.case_source === "manual" ? registerDiff(car, register.values) : null} />
         <aside className="space-y-6">
-          {canAct && <ApprovalCard isAdmin={data.isAdmin} plate={key} approvedAt={flow.workflow.approvedAt} approvedBy={flow.workflow.approvedByName} marketingNotifiedAt={flow.workflow.marketingNotifiedAt} rule={stage.rules.approve} />}
-          {canUpload && <SoldUploadCard plate={key} items={soldItems} deal={data.deal ? { dealNo: data.deal.dealNo, buyerName: data.deal.buyerName } : sale ? { dealNo: "", buyerName: sale.buyer ?? "the buyer" } : null} />}
+          {canAct ? <ApprovalCard isAdmin={data.isAdmin} plate={key} approvedAt={flow.workflow.approvedAt} approvedBy={flow.workflow.approvedByName} marketingNotifiedAt={flow.workflow.marketingNotifiedAt} rule={stage.rules.approve} activity={activity} />
+            : <Card id="approval"><CardHeader><CardTitle className="flex flex-wrap items-center gap-3">Approval{flow.workflow.approvedAt ? <Pill tone="emerald">Approved</Pill> : <Pill tone="zinc">Not approved yet</Pill>}</CardTitle></CardHeader><CardContent className="space-y-3 text-sm">{flow.workflow.approvedAt && <p className="font-medium">Approved by {flow.workflow.approvedByName ?? "someone"}.</p>}<div className="space-y-1 border-t pt-3"><p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Activity on this car</p><ActivityList entries={activity} /></div></CardContent></Card>}
           {canAct && <SoldCard plate={key} location={data.location} items={[...arCopy.map(({ key: k, label, present }) => ({ key: k, label, present })), ...soldItems]} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />}
           {canAct && <ChecksHelp />}
         </aside>
       </div>) : <NoFolder data={data} canAct={canAct} /> },
-    ...(transfers && linked ? [{ key: "payments" as CarTab, label: "Payments", badge: sale?.paymentStatus ? PAYMENT_LABEL[sale.paymentStatus] : sale ? null : "Add the sale", tone: (!sale || sale.paymentStatus === "unpaid" ? "amber" : sale.paymentStatus === "partial" ? "amber" : sale.paymentStatus ? "emerald" : "zinc") as Tone2, node: (
-      <PaymentsPanel plate={key} hasSale={!!sale} status={sale?.paymentStatus ?? null} files={archive} canEdit={canUpload} isAdmin={data.isAdmin} folderLinked={linked} />) }] : []),
+    ...(transfers && linked ? [{ key: "payments" as CarTab, label: "OUT documents", badge: `${outHave}/${outItems.length}`, tone: (outHave < outItems.length || !sale ? "amber" : "emerald") as Tone2, node: (
+      <div className="space-y-6">
+        <SoldUploadCard plate={key} items={outItems} buyer={buyerName} canUpload={canUpload} />
+        <PaymentsPanel plate={key} hasSale={!!sale} status={sale?.paymentStatus ?? null} files={archive} canEdit={canUpload} isAdmin={data.isAdmin} folderLinked={linked} />
+      </div>) }] : []),
     ...(transfers ? [{ key: "sale" as CarTab, label: "Sale and transfer", badge: sale ? STAGE_LABEL[sale.stage].split(" (")[0].split(",")[0].replace("In process at LTO", "In process") : null, tone: (sale?.flags.length ? "amber" : "zinc") as Tone2, node: (
       <div className="space-y-6">
         <HandoffCard isAdmin={data.isAdmin} rules={stage.rules} data={handData} />
         <Card id="transfer"><CardHeader><CardTitle>The sale of this car</CardTitle></CardHeader><CardContent><TransferList transfers={transfers.transfers} cars={Object.fromEntries(transfers.cars)} today={manilaToday()} plate={key} showCar={false} /></CardContent></Card>
       </div>) }] : []),
-    ...(canUpload ? [{ key: "receipts" as CarTab, label: "Receipts", badge: receipts.length ? String(receipts.length) : null, tone: "zinc" as Tone2, node: (
+    ...(canUpload && (receipts.length > 0 || data.deal) ? [{ key: "receipts" as CarTab, label: "Receipts", badge: receipts.length ? String(receipts.length) : null, tone: "zinc" as Tone2, node: (
       <div className="space-y-6">
         {receipts.length > 0 ? <ReceiptsCard plate={key} receipts={receipts} /> : <Empty>No receipt made in the app belongs to this car yet.</Empty>}
         {data.deal && <Card><CardContent className="pt-4 text-sm">Deal <b>{data.deal.dealNo}</b> · {data.deal.buyerName}.{data.dealLinks && <> <Link href={`/deals/${data.deal.id}`} className="underline underline-offset-2">Open the deal</Link> for the money, the receipts and the payments.</>}</CardContent></Card>}
@@ -162,7 +185,7 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
         {data.isAdmin && <RemoveCarCard plate={key} name={data.name} />}
       </div>) },
   ];
-  return <Shell data={data} canAct={canAct} linked={linked} busy={busy} nextAnchor={linked ? stage.next.anchor : "folder"} nextTitle={linked ? stage.next.title : "Add the car's documents"} panels={panels} wanted={wanted} />;
+  return <Shell data={data} who={who} linked={linked} busy={busy} canSync={canAct} next={next} panels={panels} wanted={wanted} />;
 }
 
 type Tone2 = "amber" | "emerald" | "zinc";
@@ -186,16 +209,30 @@ function NoFolder({ data, canAct }: { data: CarViewData; canAct: boolean }) {
 
 const Empty = ({ children }: { children: React.ReactNode }) => <Card><CardContent className="pt-4 text-sm text-muted-foreground">{children}</CardContent></Card>;
 
+type Who = { editsIn: boolean; editsOut: boolean; seesSales: boolean };
+const dayOf = (iso: string) => new Date(`${iso}T00:00:00+08:00`).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Manila" });
+
+/** For the people who do not act on the IN documents: what this page is for them, and their next step (if there is one). */
+function YourPart({ hint, next, plate }: { hint: string; next: { anchor: string | null; title: string } | null; plate: string }) {
+  return (
+    <Card size="sm"><CardContent className="flex flex-wrap items-center gap-3 text-sm">
+      <p className="min-w-0 flex-1 text-muted-foreground">{hint}</p>
+      {next && <Button size="sm" nativeButton={false} render={<Link href={hrefOfAnchor(plate, next.anchor)} />}><ArrowRight /> {next.title}</Button>}
+    </CardContent></Card>
+  );
+}
+
 /** One page for the car: its name and status, what to do next, and the tabs (only the open tab is built, and the address says which). */
-function Shell({ data, canAct, linked, busy, nextAnchor, nextTitle, panels, wanted }: { data: CarViewData; canAct: boolean; linked: boolean; busy: boolean; nextAnchor: string | null; nextTitle: string; panels: Panel[]; wanted: string | string[] | undefined }) {
+function Shell({ data, who, linked, busy, canSync, next, panels, wanted }: { data: CarViewData; who: Who; linked: boolean; busy: boolean; canSync: boolean; next: { anchor: string | null; title: string } | null; panels: Panel[]; wanted: string | string[] | undefined }) {
   const active = (isTab(wanted) && panels.some((p) => p.key === wanted) ? wanted : "overview") as CarTab;
   const panel = panels.find((p) => p.key === active)!;
   return (
     <div className="space-y-4">
-      <PageHeader title={data.name} description={`Plate ${data.plateDisplay}`} actions={canAct ? <Button nativeButton={false} render={<Link href={hrefOfAnchor(data.plate, nextAnchor)} />}><ArrowRight /> Next: {nextTitle}</Button> : undefined} />
-      <CarLive plate={data.plate} linked={linked} scanned={data.scanned} busy={busy} canSync={canAct} />
-      <CarTop data={data} readOnly={!canAct} folderBox={false} />
+      <PageHeader title={data.name} description={`Plate ${data.plateDisplay}`} actions={next ? <Button nativeButton={false} render={<Link href={hrefOfAnchor(data.plate, next.anchor)} />}><ArrowRight /> Next: {next.title}</Button> : undefined} />
+      <CarLive plate={data.plate} linked={linked} scanned={data.scanned} busy={busy} canSync={canSync} />
+      <CarTop data={data} readOnly={!who.editsIn} folderBox={false} />
       <TabBar active={active} tabs={panels.map((p) => ({ key: p.key, label: p.label, badge: p.badge, tone: p.tone }))} />
+      {active !== "overview" && <p className="text-sm text-muted-foreground">{tabHint(active, who)}</p>}
       <div id={`tab-${active}`} role="tabpanel" className="pt-2">{panel.node}</div>
     </div>
   );
@@ -233,8 +270,8 @@ async function RegisterOnly({ plate, role, modules, canAct, canUpload, wanted }:
   const handData = { plate: key, location: "available" as const, soldCar, recipient, at: hand?.handedOffAt ?? null, note: hand?.note ?? null, checked: hand?.checked ?? [], returnedAt: hand?.backAt ?? null, releasedOn: hand?.releasedOn ?? null, deliveredOn: hand?.deliveredOn ?? null, stage: sale?.stage ?? hand?.stage ?? null, items: [] };
   const panels: Panel[] = [
     { key: "overview", label: "Overview", node: <Overview data={data} facts={facts} sale={sale} steps={hand ? { ...hand, stage: sale?.stage ?? hand.stage } : sale ? { handedOffAt: null, backAt: null, releasedOn: null, deliveredOn: null, stage: sale.stage } : null} approval={{ at: null, by: null }} payments={seesSales(role) ? { count: archive.length, total: archiveTotal(archive) } : null} canSale={!!transfers} detailsMissing={0} carDescription={[register.values.year_model, register.values.make, register.values.model_variant, register.values.color].filter(Boolean).join(" ") || null} /> },
-    { key: "documents", label: "Documents", node: <NoFolder data={data} canAct={canAct} /> },
-    ...(transfers ? [{ key: "payments" as CarTab, label: "Payments", badge: sale?.paymentStatus ? PAYMENT_LABEL[sale.paymentStatus] : sale ? null : "Add the sale", tone: (!sale || sale.paymentStatus === "unpaid" || sale.paymentStatus === "partial" ? "amber" : sale.paymentStatus ? "emerald" : "zinc") as Tone2, node: (
+    { key: "documents", label: "IN documents", node: <NoFolder data={data} canAct={canAct} /> },
+    ...(transfers ? [{ key: "payments" as CarTab, label: "OUT documents", badge: sale?.paymentStatus ? PAYMENT_LABEL[sale.paymentStatus] : sale ? null : "Add the sale", tone: (!sale || sale.paymentStatus === "unpaid" || sale.paymentStatus === "partial" ? "amber" : sale.paymentStatus ? "emerald" : "zinc") as Tone2, node: (
       <PaymentsPanel plate={key} hasSale={!!sale} status={sale?.paymentStatus ?? null} files={[]} canEdit={canUpload} isAdmin={data.isAdmin} folderLinked={false} />) }] : []),
     ...(transfers ? [{ key: "sale" as CarTab, label: "Sale and transfer", badge: sale ? STAGE_LABEL[sale.stage].split(" (")[0].split(",")[0].replace("In process at LTO", "In process") : null, tone: (sale?.flags.length ? "amber" : "zinc") as Tone2, node: (
       <div className="space-y-6">
@@ -249,5 +286,5 @@ async function RegisterOnly({ plate, role, modules, canAct, canUpload, wanted }:
       </div>) },
   ];
   void canUpload;
-  return <Shell data={data} canAct={canAct} linked={false} busy={false} nextAnchor="folder" nextTitle="Add the car's documents" panels={panels} wanted={wanted} />;
+  return <Shell data={data} who={{ editsIn: canAct, editsOut: canUpload, seesSales: !!transfers }} linked={false} busy={false} canSync={canAct} next={canAct ? { anchor: "folder", title: "Add the car's documents" } : null} panels={panels} wanted={wanted} />;
 }

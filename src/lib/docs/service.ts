@@ -462,6 +462,7 @@ export async function uploadPhoto(input: { plate: string; actor: string; bytes: 
   } catch (err) {
     await deps.admin.from("folder_files").update({ read_status: "failed", read_error: docsErrorText(err) }).eq("id", row.id);
   }
+  await Promise.resolve(log(deps.admin, input.actor, "docs.upload", key, { file: filename })).catch(() => undefined);
   const car = await recompute(key, deps);
   await deps.after?.(key).catch(() => undefined);
   const after = car?.files.find((f) => f.id === row.id);

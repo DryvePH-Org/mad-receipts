@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { Button } from "@/components/ui/button";
 import { requireModule } from "@/lib/auth";
+import { pageNote } from "@/lib/page-notes";
 import { editsCars, editsPapers } from "@/lib/roles";
 import { docsDb } from "@/lib/docsbible/review-server";
 import { countOpenSyncItems } from "@/lib/pricelist/sync-server";
@@ -16,7 +17,7 @@ import { CarsBoard } from "./cars-board";
 export default function CarsPage() {
   return (
     <div className="space-y-6">
-      <PageHeader title="Car status" description="Every car in stock: can it be sold, is it being repaired, how long has it been here. This is the app’s own list: Admin and Approver change prices and status here." />
+      <PageHeader title="Car status" description="Every car in stock: can it be sold, is it being repaired, how long has it been here. This is the app’s own list." />
       <Suspense fallback={<PageSkeleton />}><Content /></Suspense>
     </div>
   );
@@ -44,6 +45,7 @@ async function Content() {
   const orcr = orcrSheetUrl();
   return (
     <>
+      <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">{pageNote("cars", user.role)}</p>
       <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted p-3 text-sm">
         <p className="min-w-0 flex-1">ORCR transfers to buyers are kept in MAD now, linked to the car: Car documents, then Transfers.</p>
         {canCheck && <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/documents/transfers" />}>Open Transfers</Button>}

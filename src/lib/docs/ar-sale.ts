@@ -22,6 +22,7 @@ export async function saleFromAr(car: Car): Promise<{ buyer: string } | null> {
     const soldOn = ar.documentDate ?? new Date(f.created_at).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
     const error = await addTransfer(key, { particular: "", financing: "", buyer: ar.buyerName!.trim(), address: "", contact: "", crDate: "", transactionDate: "", liaison: "", sales: seller, balance: "", note: "Added from the uploaded AR.", doneOn: "", soldOn, agreedPrice: "", route: "unknown", stage: "in_process", originalsAt: "", nextStep: "" }, f.uploaded_by ?? "");
     if (error) throw new Error(`The sale could not be added from the AR: ${error}`);
+    await admin.from("audit_logs").insert({ actor_id: f.uploaded_by, action: "docs.sale_from_ar", entity: "unit_folder", entity_id: null, after: { plate: key, buyer: ar.buyerName!.trim() } });
     return { buyer: ar.buyerName!.trim() };
   }
   return null;

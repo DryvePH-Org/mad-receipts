@@ -4,7 +4,9 @@ import { BadgeCheck, Loader2 } from "lucide-react";
 import { Pill } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ActivityEntry } from "@/lib/docs/activity-text";
 import type { Rule } from "@/lib/docs/stage";
+import { ActivityList } from "./activity-list";
 import { approveUnitAction } from "../actions";
 import { AdminFixButton } from "./admin-fix";
 import { useStep } from "./use-step";
@@ -12,7 +14,7 @@ import { useStep } from "./use-step";
 const stamp = (iso: string) => new Date(iso).toLocaleString("en-PH", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", timeZone: "Asia/Manila" });
 
 /** Step 4: the staff approve the documents. The button works only when the scan is finished; open flags and blank details ask to be confirmed. */
-export function ApprovalCard({ plate, approvedAt, approvedBy, marketingNotifiedAt, rule, isAdmin = false }: { isAdmin?: boolean; plate: string; approvedAt: string | null; approvedBy: string | null; marketingNotifiedAt: string | null; rule: Rule }) {
+export function ApprovalCard({ plate, approvedAt, approvedBy, marketingNotifiedAt, rule, isAdmin = false, activity = [] }: { isAdmin?: boolean; activity?: ActivityEntry[]; plate: string; approvedAt: string | null; approvedBy: string | null; marketingNotifiedAt: string | null; rule: Rule }) {
   const { busy, step, dialog } = useStep();
   return (
     <Card id="approval">
@@ -30,6 +32,7 @@ export function ApprovalCard({ plate, approvedAt, approvedBy, marketingNotifiedA
           </>
         )}
         {dialog}
+        <div className="space-y-1 border-t pt-3"><p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Activity on this car</p><ActivityList entries={activity} /></div>
       </CardContent>
     </Card>
   );

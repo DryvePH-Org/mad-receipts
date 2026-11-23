@@ -465,11 +465,11 @@ export async function setPaymentStatusAction(plate: string, status: string): Pro
 
 /** An Admin removes a payment paper from the archive. */
 export async function deleteArchiveFileAction(fileId: string): Promise<Done> {
-  await requireAdmin();
+  const user = await requireAdmin();
   const id = z.uuid().safeParse(fileId);
   if (!id.success) return { ok: false, message: "Bad request." };
   return guard<Done>(async () => {
-    const r = await deleteArchiveFile(id.data);
+    const r = await deleteArchiveFile(id.data, user.id);
     if (!r.ok) return r;
     revalidatePath("/documents", "layout");
     return { ok: true as const, message: "Removed. It stays in the Drive trash for 30 days." };
@@ -490,6 +490,7 @@ export async function addSaleAction(plate: string, raw: z.input<typeof saleSchem
     if (await saleOfPlate(createAdminClient(), key)) return { ok: false as const, message: "This car already has a sale recorded. Change it under Sale and transfer." };
     const error = await addTransfer(key, { particular: "", financing: "", buyer: v.data.buyer, address: "", contact: "", crDate: "", transactionDate: "", liaison: "", sales: v.data.sales, balance: "", note: "", doneOn: "", soldOn: v.data.soldOn, agreedPrice: v.data.agreedPrice, route: "unknown", stage: "in_process", originalsAt: "", nextStep: "" }, user.id);
     if (error) return { ok: false as const, message: `Could not add the sale: ${error}` };
+    await createAdminClient().from("audit_logs").insert({ actor_id: user.id, action: "docs.sale_add", entity: "unit_folder", entity_id: null, after: { plate: key, buyer: v.data.buyer.toUpperCase() } });
     if (v.data.payment) await setPaymentStatus(key, v.data.payment, user.id);
     revalidatePath("/documents", "layout"); revalidatePath("/documents/transfers");
     return { ok: true as const, message: "The sale is added." };

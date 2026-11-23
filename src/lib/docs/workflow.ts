@@ -90,6 +90,7 @@ export async function saveDetails(plate: string, data: unknown, actor: string, d
   const { error } = await deps.admin.from("unit_details").upsert({ plate_no: key, data: clean as unknown as Json, updated_by: actor }, { onConflict: "plate_no" });
   if (error) throw new Error(/unit_details/.test(error.message) ? "Saving needs the latest database update (migration 24)." : "Could not save. Try again.");
   await writeSpareKeyToRecord(key, clean.spareKey, actor);
+  await Promise.resolve(log(deps.admin, actor, "docs.save_details", key, {})).catch(() => undefined);
 }
 
 export type StepResult = { ok: true; notified?: boolean } | { ok: false; needsConfirm: true; missing: string[] } | { ok: false; error: string };

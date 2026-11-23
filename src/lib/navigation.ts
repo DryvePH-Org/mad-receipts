@@ -45,7 +45,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "deals", href: "/deals", label: "Transactions", icon: Car, group: "Receipts", roles: SUPER },
   { id: "reminders", href: "/reminders", label: "Reminders", icon: Bell, group: "Receipts", roles: SUPER, badge: "reminders" },
   { id: "cars", href: "/cars", label: "Car status", icon: CarFront, group: "Cars", roles: ALL },
-  { id: "documents", href: "/documents", label: "Car documents (act)", icon: FolderCheck, group: "Cars", roles: ["super_admin", "admin", "buying", "sales"], menu: false }, // scan, approve, move, hand off: the menu entry is "register" below
+  { id: "documents", href: "/documents", label: "Car documents (act)", icon: FolderCheck, group: "Cars", roles: ["super_admin", "admin", "buying"], menu: false }, // scan, approve, move, hand off: the menu entry is "register" below
   { id: "register", href: "/documents", label: "Car documents", icon: BookOpenCheck, group: "Cars", roles: ALL },
   { id: "repairs", href: "/repairs", label: "Repairs", icon: Wrench, group: "Cars", roles: ALL },
   { id: "upload", href: "/upload-documents", label: "Sold papers (add)", icon: Upload, group: "Cars", roles: ["super_admin", "admin", "sales"], menu: false }, // the module that lets someone add the sold papers on a car page of Car documents
