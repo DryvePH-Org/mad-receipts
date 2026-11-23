@@ -170,6 +170,7 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
       <div className="space-y-6">
         <SoldUploadCard plate={key} items={outItems} buyer={buyerName} canUpload={canUpload} />
         <PaymentsPanel plate={key} hasSale={!!sale} status={sale?.paymentStatus ?? null} files={archive} canEdit={canUpload} isAdmin={data.isAdmin} folderLinked={linked} />
+        <Card id="out-activity"><CardHeader><CardTitle>Activity on the OUT documents</CardTitle></CardHeader><CardContent><ActivityList entries={activity.filter((a) => a.area === "out")} /></CardContent></Card>
       </div>) }] : []),
     ...(transfers ? [{ key: "sale" as CarTab, label: "Sale and transfer", badge: sale ? STAGE_LABEL[sale.stage].split(" (")[0].split(",")[0].replace("In process at LTO", "In process") : null, tone: (sale?.flags.length ? "amber" : "zinc") as Tone2, node: (
       <div className="space-y-6">

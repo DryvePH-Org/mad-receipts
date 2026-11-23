@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import imageCompression from "browser-image-compression";
 import { toast } from "sonner";
 import { Download, FileText, Loader2, Plus, Trash2, Upload } from "lucide-react";
 import { AskDialog } from "@/components/shared/ask-dialog";
@@ -15,7 +14,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { archiveTotal, PAYMENT_LABEL, PAYMENT_STATUSES, PAYMENT_TAGS, type ArchiveFile, type PaymentStatus } from "@/lib/docs/payments";
 import { formatPeso } from "@/lib/rules/money";
 import { addSaleAction, deleteArchiveFileAction, setPaymentStatusAction } from "../actions";
-import { isHeic, toJpeg } from "../upload-photos";
+import { prepareImage } from "../upload-photos";
 
 const TONE: Record<PaymentStatus, "red" | "amber" | "emerald" | "teal"> = { unpaid: "red", partial: "amber", paid: "emerald", loan_released: "teal" };
 const day = (iso: string | null) => (iso ? new Date(`${iso}T00:00:00+08:00`).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Manila" }) : "");
@@ -83,51 +82,62 @@ export function AddSaleForm({ plate, bare = false }: { plate: string; bare?: boo
   );
 }
 
-/** One payment paper at a time: choose what it is, add the amount and date if known, and send it. */
+/** Payment papers: choose what they are, then add one or many (photos or PDFs). The amount is kept when one paper is added at a time. */
 function ArchiveUpload({ plate, folderLinked }: { plate: string; folderLinked: boolean }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
   const [f, setF] = useState({ tag: "Proof of payment", amount: "", on: today(), note: "" });
-  const [file, setFile] = useState<File | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [lines, setLines] = useState<{ name: string; ok: boolean; text: string }[]>([]);
+  const [busy, setBusy] = useState(false);
+  const choose = (list: FileList | null) => { if (!list?.length) return; const picked = Array.from(list); setFiles((x) => [...x, ...picked].slice(0, 40)); }; // copied at once: the box is emptied right after
   const send = async () => {
-    if (!file) return;
-    setBusy(true); setError(null);
-    try {
-      let out: File = file;
-      if (isHeic(file)) out = await toJpeg(file);
-      if (out.type.startsWith("image/")) out = await imageCompression(out, { maxWidthOrHeight: 2400, initialQuality: 0.85, maxSizeMB: 3, fileType: "image/jpeg", useWebWorker: true });
-      const body = new FormData();
-      body.set("plate", plate); body.set("file", out, file.name); body.set("tag", f.tag); body.set("amount", f.amount); body.set("on", f.on); body.set("note", f.note);
-      const res = await fetch("/api/docs/archive", { method: "POST", body });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!res.ok || !json.ok) throw new Error(json.error ?? "The upload failed. Try again.");
-      toast.success("Added to the payments.");
-      setFile(null); setF({ ...f, amount: "", note: "" });
-      if (input.current) input.current.value = "";
-      router.refresh();
-    } catch (e) { setError(e instanceof Error ? e.message : "The upload failed."); }
+    if (!files.length) return;
+    setBusy(true); setLines([]);
+    let saved = 0;
+    const failed: File[] = [];
+    for (const original of files) {
+      try {
+        const out = await prepareImage(original);
+        const body = new FormData();
+        body.set("plate", plate); body.set("file", out, original.name); body.set("tag", f.tag); body.set("on", f.on); body.set("note", f.note);
+        if (files.length === 1) body.set("amount", f.amount);
+        const res = await fetch("/api/docs/archive", { method: "POST", body });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!res.ok || !json.ok) throw new Error(json.error ?? "The upload failed. Try again.");
+        saved++;
+        setLines((l) => [...l, { name: original.name, ok: true, text: "Saved ✓" }]);
+      } catch (e) { failed.push(original); setLines((l) => [...l, { name: original.name, ok: false, text: e instanceof Error ? e.message : "The upload failed." }]); }
+    }
     setBusy(false);
+    setFiles(failed); // only the ones that did not go through stay chosen, to send again
+    if (saved) { toast.success(`${saved} payment ${saved === 1 ? "paper" : "papers"} added.`); setF({ ...f, amount: "", note: "" }); }
+    if (input.current) input.current.value = "";
+    router.refresh();
   };
   if (!folderLinked) return <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">This car has no document folder in Drive yet. Link its folder in Documents first; the payment papers are kept in it.</p>;
   return (
     <div className="space-y-3 rounded-lg border p-3">
-      <p className="text-sm font-medium">Add a payment paper</p>
+      <p className="text-sm font-medium">Add payment papers</p>
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5"><Label htmlFor="pay-tag">What is it</Label>
+        <div className="space-y-1.5"><Label htmlFor="pay-tag">What are they</Label>
           <NativeSelect id="pay-tag" value={f.tag} onChange={(e) => setF({ ...f, tag: e.target.value })}>{PAYMENT_TAGS.map((t) => <option key={t}>{t}</option>)}</NativeSelect></div>
-        <div className="space-y-1.5"><Label htmlFor="pay-amount">Amount, if it shows one (₱)</Label><Input id="pay-amount" inputMode="decimal" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value.replace(/[^\d.,]/g, "") })} /></div>
+        <div className="space-y-1.5"><Label htmlFor="pay-amount">Amount, if it shows one (₱)</Label><Input id="pay-amount" inputMode="decimal" value={f.amount} disabled={files.length > 1} placeholder={files.length > 1 ? "kept when one paper is added" : undefined} onChange={(e) => setF({ ...f, amount: e.target.value.replace(/[^\d.,]/g, "") })} /></div>
         <div className="space-y-1.5"><Label htmlFor="pay-date">Date of the payment</Label><Input id="pay-date" type="date" value={f.on} onChange={(e) => setF({ ...f, on: e.target.value })} /></div>
         <div className="space-y-1.5"><Label htmlFor="pay-note">Note (optional)</Label><Input id="pay-note" value={f.note} maxLength={300} placeholder="e.g. BDO deposit slip" onChange={(e) => setF({ ...f, note: e.target.value })} /></div>
       </div>
-      <input ref={input} id="pay-file" aria-label="Payment paper" type="file" accept="image/*,application/pdf" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="outline" disabled={busy} onClick={() => input.current?.click()}><FileText /> {file ? "Choose another" : "Choose a photo or PDF"}</Button>
-        {file && <span className="min-w-0 truncate text-sm text-muted-foreground">{file.name}</span>}
-        <Button type="button" disabled={busy || !file} onClick={() => void send()}>{busy ? <Loader2 className="animate-spin" /> : <Upload />} Add to the payments</Button>
+      <input ref={input} id="pay-file" aria-label="Payment papers" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.pdf" multiple className="sr-only" onChange={(e) => { choose(e.target.files); e.target.value = ""; }} />
+      <div onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); choose(e.dataTransfer.files); }} className="space-y-2 rounded-lg border-2 border-dashed border-muted-foreground/30 p-3 text-center">
+        <p className="text-sm text-muted-foreground">Drop the files here, or</p>
+        <Button type="button" variant="outline" disabled={busy} onClick={() => input.current?.click()}><FileText /> Choose photos or PDFs</Button>
       </div>
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {files.length > 0 && (
+        <ul className="space-y-1 text-sm" aria-label="Chosen files">
+          {files.map((x, i) => <li key={`${x.name}-${i}`} className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate">{x.name}</span>{!busy && <button type="button" className="text-xs text-muted-foreground underline underline-offset-2" onClick={() => setFiles(files.filter((_, j) => j !== i))}>Remove</button>}</li>)}
+        </ul>
+      )}
+      {lines.length > 0 && <ul className="space-y-1 text-sm" aria-live="polite">{lines.map((l, i) => <li key={`${l.name}-${i}`} className={l.ok ? "text-emerald-800 dark:text-emerald-300" : "text-destructive"}>{l.name}: {l.text}</li>)}</ul>}
+      <Button type="button" disabled={busy || files.length === 0} onClick={() => void send()}>{busy ? <Loader2 className="animate-spin" /> : <Upload />} {files.length > 1 ? `Add ${files.length} papers to the payments` : "Add to the payments"}</Button>
     </div>
   );
 }

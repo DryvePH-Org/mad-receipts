@@ -200,7 +200,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await docs.goto("/documents/ZZT7001?tab=documents");
   // the activity history on the approval card: who did what, with the date and time
   const activity = docs.getByRole("list", { name: "Activity on this car" });
-  await expect(activity).toContainText("Uploaded a photo");
+  await expect(activity).toContainText("Uploaded an OUT document, read as"); // what Sales added, and what it was read as
   await expect(activity.locator("time").first()).toBeVisible();
 
   // the buttons follow the workflow: the folder cannot move before the documents are approved
@@ -329,7 +329,7 @@ test("Documentation adds photos by typing only the plate: the folder is made, th
   await expect(docs.getByText(/The team has been told/)).toBeVisible({ timeout: 30_000 });
   // an iPhone photo (HEIC): the page turns it into a JPEG itself
   await docs.locator("#add-photos").setInputFiles("e2e/fixtures/sample.heic");
-  await expect(docs.getByText("sample.heic").locator("..").getByText("Saved ✓")).toBeVisible({ timeout: 60_000 });
+  await expect(docs.getByRole("listitem").filter({ hasText: "sample.heic" }).getByText("Saved ✓")).toBeVisible({ timeout: 60_000 });
   // and one the stand-in reader knows by its name
   const res = await docs.request.post("/api/docs/add", { multipart: { plate: "ZZT 7010", label: "cr-or", file: { name: "p.jpg", mimeType: "image/jpeg", buffer: JPEG } } });
   expect(res.ok()).toBe(true);
@@ -638,7 +638,7 @@ test("Payments: the sale is added by hand, the status is set, a payment paper is
 
   // a payment paper: what it is, the amount, the date; it appears in the list with a download
   await docs.waitForTimeout(2000); // the page must be ready before a file is given to it
-  await docs.getByLabel("What is it").selectOption("Down payment");
+  await docs.getByLabel("What are they").selectOption("Down payment");
   await docs.getByLabel(/Amount, if it shows one/).fill("50,000");
   await docs.getByLabel("Note (optional)").fill("BDO deposit slip");
   await docs.locator("#pay-file").setInputFiles({ name: "slip.jpg", mimeType: "image/jpeg", buffer: JPEG });
@@ -648,6 +648,9 @@ test("Payments: the sale is added by hand, the status is set, a payment paper is
   await expect(list).toContainText("₱50,000");
   await expect(list).toContainText("BDO deposit slip");
   await expect(list.getByRole("link", { name: /Download/ })).toBeVisible();
+  // the OUT tab has its own history: the sale and the payment paper, with who did it
+  await expect(docs.locator("#out-activity")).toContainText("Added the sale for ZZT E2E PAY BUYER");
+  await expect(docs.locator("#out-activity")).toContainText("Added a payment paper: Down payment");
   // it is kept apart from the papers: not on the Papers checklist and not counted as a photo
   await openTab(docs, "IN documents");
   await expect(docs.locator("#papers").getByText(/PAY_/)).toHaveCount(0);
@@ -686,7 +689,7 @@ test("The AR photo makes the sale: the buyer and the date come from it, the AR s
   const sales = await as(browser, "sales");
   await sales.goto("/documents/ZZT7006?tab=payments");
   await expect(sales.locator("#sold-upload")).toContainText("No sale is recorded yet", { timeout: 30_000 });
-  await expect(sales.getByRole("button", { name: "Take or choose photos" })).toBeVisible();
+  await expect(sales.getByRole("button", { name: "Choose files" })).toBeVisible();
   await expect(sales.getByText("No AR to upload? Add the sale by hand")).toBeVisible();
 
   // an ordinary sold-papers upload is refused while the car has no sale; the AR itself is accepted (the stand-in reader knows the buyer from the file label), and the sale is made from it
@@ -709,6 +712,21 @@ test("The AR photo makes the sale: the buyer and the date come from it, the AR s
   await expect(out).toContainText("Buyer ZZT E2E AR Buyer");
   await expect(out).toContainText("₱50,000");
   await expect(out.getByRole("link", { name: /^Open / })).toHaveCount(1);
+  // the OUT tab history lists the upload and the sale made from the AR
+  await expect(sales.locator("#out-activity")).toContainText("The sale was made from the uploaded AR");
+  await expect(sales.locator("#out-activity")).toContainText("Uploaded an OUT document");
+  // many files at once: each goes in turn and says how it went; a file that is not a photo says so and can be tried again
+  await sales.waitForTimeout(2500);
+  await sales.locator("#doc-photos").setInputFiles([
+    { name: "b1.jpg", mimeType: "image/jpeg", buffer: JPEG }, { name: "b2.jpg", mimeType: "image/jpeg", buffer: JPEG }, { name: "b3.jpg", mimeType: "image/jpeg", buffer: JPEG },
+    { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("not a photo") },
+  ]);
+  await expect(sales.getByText("Saved ✓")).toHaveCount(3, { timeout: 60_000 });
+  await expect(sales.getByRole("progressbar", { name: "Upload progress" })).toBeVisible();
+  await expect(sales.getByText("3 saved, 1 did not go through")).toBeVisible();
+  await expect(sales.getByRole("button", { name: "Try again" })).toBeVisible();
+  await sales.getByRole("button", { name: "Clear the saved ones" }).click();
+  await expect(sales.getByText("Saved ✓")).toHaveCount(0);
   // a second AR (another payment) falls into the same line: all the ARs are listed
   const second = await sales.request.post("/api/docs/upload", { multipart: { plate: "ZZT 7006", ar: "1", label: "ar-ZZT_E2E_AR_Buyer", file: { name: "p.jpg", mimeType: "image/jpeg", buffer: JPEG } } });
   expect(second.ok()).toBe(true);

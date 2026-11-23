@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   try {
     let folder = await ensureCarFolder(plate, deps, unitForFolder);
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const send = (f: typeof folder) => uploadPhoto({ plate: f.plate, actor: user.id, bytes, mime: file.type, label: String(form.get("label") ?? "").replace(/[^\w-]/g, "").slice(0, 40) || "doc", deferRead: readerMode() === "grokbot" }, deps);
+    const send = (f: typeof folder) => uploadPhoto({ area: "in", plate: f.plate, actor: user.id, bytes, mime: file.type, label: String(form.get("label") ?? "").replace(/[^\w-]/g, "").slice(0, 40) || "doc", deferRead: readerMode() === "grokbot" }, deps);
     let result;
     try { result = await send(folder); } catch (err) {
       // the car's saved folder is gone (left over from an earlier Drive): drop the link, find or make the folder again, and try once more

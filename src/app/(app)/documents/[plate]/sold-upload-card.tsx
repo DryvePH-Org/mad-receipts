@@ -1,15 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import imageCompression from "browser-image-compression";
-import { isHeic, toJpeg } from "../upload-photos";
-import { Camera, Check, Download, Loader2, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Check, Download, X } from "lucide-react";
+import { prepareImage } from "../upload-photos";
+import { UploadDropzone, useUploadQueue } from "./bulk-upload";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DOC_LABELS, type DocType } from "@/lib/docs/types";
 
-interface PhotoResult { name: string; state: "sending" | "done" | "error"; types: string[]; flags: string[]; message?: string }
 /** One line of the after-sale checklist. The signed AR can have several files: every AR that was uploaded is listed under it. */
 export interface OutItem { key: string; label: string; present: boolean; files: { id: string; name: string; note: string | null; by?: string | null; at?: string }[] }
 
@@ -19,37 +16,22 @@ export interface OutItem { key: string; label: string; present: boolean; files: 
  */
 export function SoldUploadCard({ plate, items, buyer, canUpload = true }: { plate: string; items: OutItem[]; buyer: string | null; canUpload?: boolean }) {
   const router = useRouter();
-  const [photos, setPhotos] = useState<PhotoResult[]>([]);
-  const [sending, setSending] = useState(false);
-  const input = useRef<HTMLInputElement>(null);
-
-  async function send(list: FileList | null) {
-    if (!list?.length) return;
-    const files = Array.from(list);
-    setSending(true);
-    setPhotos((p) => [...files.map((f) => ({ name: f.name, state: "sending" as const, types: [], flags: [] })), ...p]);
-    for (const original of files) {
-      const update = (patch: Partial<PhotoResult>) => setPhotos((p) => p.map((x) => (x.name === original.name && x.state === "sending" ? { ...x, ...patch } : x)));
-      try {
-        const heic = isHeic(original);
-        if (!heic && !original.type.startsWith("image/")) throw new Error("Send a photo (JPEG or PNG).");
-        const file = await imageCompression(heic ? await toJpeg(original) : original, { maxWidthOrHeight: 2400, initialQuality: 0.85, maxSizeMB: 3, fileType: "image/jpeg", useWebWorker: true });
-        const body = new FormData();
-        body.set("plate", plate);
-        body.set("ar", "1"); // the first AR of a car with no sale makes the sale
-        body.set("file", file, "photo.jpg");
-        const res = await fetch("/api/docs/upload", { method: "POST", body });
-        const json = (await res.json().catch(() => ({}))) as { result?: { types: string[]; flags: string[]; readStatus: string }; error?: string };
-        if (!res.ok || !json.result) throw new Error(json.error ?? "The upload failed. Try again.");
-        update({ state: "done", types: json.result.types, flags: json.result.flags, message: json.result.readStatus === "pending" ? "Saved. The bot is reading it; it appears in the list in a minute." : json.result.readStatus === "failed" ? "Saved in the folder. It could not be read, so Buying will check it." : undefined });
-      } catch (e) {
-        update({ state: "error", message: e instanceof Error ? e.message : "The upload failed." });
-      }
-    }
-    if (input.current) input.current.value = "";
-    setSending(false);
-    router.refresh();
-  }
+  // any number of photos: each is prepared, sent and read in turn, and falls into the list below
+  const queue = useUploadQueue({
+    concurrency: 2,
+    process: async (original) => {
+      const file = await prepareImage(original);
+      const body = new FormData();
+      body.set("plate", plate);
+      body.set("ar", "1"); // the first AR of a car with no sale makes the sale
+      body.set("file", file, "photo.jpg");
+      const res = await fetch("/api/docs/upload", { method: "POST", body });
+      const json = (await res.json().catch(() => ({}))) as { result?: { types: string[]; flags: string[]; readStatus: string }; error?: string };
+      if (!res.ok || !json.result) throw new Error(json.error ?? "The upload failed. Try again.");
+      return { types: json.result.types, flags: json.result.flags, message: json.result.readStatus === "pending" ? "The bot is reading it; it appears in the list in a minute." : json.result.readStatus === "failed" ? "Saved in the folder. It could not be read, so Buying will check it." : undefined };
+    },
+    onFinished: () => router.refresh(),
+  });
 
   const have = items.filter((i) => i.present).length;
   return (
@@ -83,25 +65,13 @@ export function SoldUploadCard({ plate, items, buyer, canUpload = true }: { plat
             </li>
           ))}
         </ul>
-        {canUpload ? (
+        {canUpload && (
           <>
-            <input ref={input} type="file" accept="image/*" multiple capture="environment" className="sr-only" id="doc-photos" aria-label="Photos of the after-sale documents" onChange={(e) => void send(e.target.files)} />
-            <Button type="button" size="lg" disabled={sending} onClick={() => input.current?.click()}>{sending ? <Loader2 className="animate-spin" /> : <Camera />} Take or choose photos</Button>
+            <UploadDropzone queue={queue} label="photos of the documents" inputId="doc-photos" lines={(i) => (
+              <p className="text-muted-foreground">{i.types?.some((t) => t !== "other") ? `Recognised as: ${i.types.filter((t) => t !== "other").map((t) => DOC_LABELS[t as DocType] ?? t).join(" and ")}` : "Not recognised. It is in the folder; Buying will check what it is."}</p>
+            )} />
             <p className="text-xs text-muted-foreground">One photo for each document, in any order. Keep the whole page in the picture, flat and well lit, so it can be read.</p>
           </>
-        ) : null}
-        {photos.length > 0 && (
-          <ul className="space-y-2" aria-live="polite">
-            {photos.map((p, i) => (
-              <li key={`${p.name}-${i}`} className="space-y-1 rounded-lg border p-3">
-                <div className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate">{p.name}</span>
-                  {p.state === "sending" ? <span className="flex items-center gap-1.5 text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Filing and reading…</span> : p.state === "error" ? <span className="text-destructive">Not saved</span> : <span className="text-emerald-800 dark:text-emerald-300">Saved ✓</span>}</div>
-                {p.state === "done" && <p className="text-muted-foreground">{p.types.some((t) => t !== "other") ? `Recognised as: ${p.types.filter((t) => t !== "other").map((t) => DOC_LABELS[t as DocType] ?? t).join(" and ")}` : "Not recognised. It is in the folder; Buying will check what it is."}</p>}
-                {p.flags.map((f) => <p key={f} className="text-amber-800 dark:text-amber-300">{f}</p>)}
-                {p.message && <p className={p.state === "error" ? "text-destructive" : "text-muted-foreground"}>{p.message}</p>}
-              </li>
-            ))}
-          </ul>
         )}
       </CardContent>
     </Card>

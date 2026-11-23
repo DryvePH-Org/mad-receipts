@@ -443,7 +443,7 @@ export async function moveToSold(plate: string, actor: string, confirmIncomplete
 export interface UploadResult { fileId: string; filename: string; types: DocType[]; flags: string[]; readStatus: string }
 
 /** One photo from Sales: into the car's Drive folder, then read, and the checklist updates. */
-export async function uploadPhoto(input: { plate: string; actor: string; bytes: Uint8Array; mime: string; label?: string; /** leave the photo waiting: the grokbot scans the car's photos together later */ deferRead?: boolean }, deps: DocsDeps = defaultDocsDeps()): Promise<UploadResult> {
+export async function uploadPhoto(input: { plate: string; actor: string; bytes: Uint8Array; mime: string; label?: string; /** leave the photo waiting: the grokbot scans the car's photos together later */ deferRead?: boolean; /** IN: the papers the car came with; OUT: after the sale. Kept in the car's activity history. */ area?: "in" | "out" }, deps: DocsDeps = defaultDocsDeps()): Promise<UploadResult> {
   const key = normalizePlate(input.plate);
   const { data: folder } = await deps.admin.from("unit_folders").select("folder_id, match_status").eq("plate_no", key).maybeSingle();
   if (!folder?.folder_id || folder.match_status !== "linked") throw new Error("This car has no document folder linked yet. Ask Documentation to check it.");
@@ -462,10 +462,10 @@ export async function uploadPhoto(input: { plate: string; actor: string; bytes: 
   } catch (err) {
     await deps.admin.from("folder_files").update({ read_status: "failed", read_error: docsErrorText(err) }).eq("id", row.id);
   }
-  await Promise.resolve(log(deps.admin, input.actor, "docs.upload", key, { file: filename })).catch(() => undefined);
   const car = await recompute(key, deps);
-  await deps.after?.(key).catch(() => undefined);
   const after = car?.files.find((f) => f.id === row.id);
+  await Promise.resolve(log(deps.admin, input.actor, "docs.upload", key, { file: filename, area: input.area ?? null, types: (after?.doc_types ?? []).filter((t) => t !== "other") })).catch(() => undefined);
+  await deps.after?.(key).catch(() => undefined);
   return { fileId: row.id, filename, types: (after?.doc_types ?? []) as DocType[], flags: after?.flags ?? [], readStatus: after?.read_status ?? "pending" };
 }
 

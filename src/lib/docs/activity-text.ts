@@ -1,4 +1,4 @@
-import { CASE_LABELS, type CaseType } from "./types";
+import { CASE_LABELS, DOC_LABELS, type CaseType, type DocType } from "./types";
 
 // What the car's activity history says for each thing a person did (the audit log keeps the action and a few facts). Pure, so it can be tested.
 
@@ -10,7 +10,7 @@ export function describeActivity(action: string, afterRaw: unknown): string {
   const a = asObj(afterRaw), file = str(a.file);
   const f = file ? ` (${file})` : "";
   switch (action) {
-    case "docs.upload": return `Uploaded a photo${f}`;
+    case "docs.upload": { const kinds = list(a.types).map((t) => DOC_LABELS[t as DocType] ?? t); return `Uploaded ${a.area === "out" ? "an OUT document" : a.area === "in" ? "an IN document" : "a photo"}${kinds.length ? `, read as ${kinds.join(" and ")}` : ""}${f}`; }
     case "docs.archive_add": return `Added a payment paper: ${str(a.tag) || "payment"}${f}`;
     case "docs.archive_remove": return `Removed a payment paper${f}`;
     case "docs.sale_add": return `Added the sale${str(a.buyer) ? ` for ${str(a.buyer)}` : ""}`;
@@ -41,4 +41,13 @@ export function describeActivity(action: string, afterRaw: unknown): string {
   }
 }
 
-export interface ActivityEntry { id: string; at: string; who: string; text: string }
+/** `area`: IN documents, OUT documents (after the sale), or both/neither (the car as a whole). */
+export interface ActivityEntry { id: string; at: string; who: string; text: string; area: "in" | "out" | null }
+
+const OUT_ACTIONS = new Set(["docs.archive_add", "docs.archive_remove", "docs.sale_add", "docs.sale_from_ar", "docs.payment_status", "docs.transfer_released", "docs.transfer_delivered"]);
+/** Which part of the car's documents an entry belongs to, so the OUT tab can show its own history. */
+export function areaOf(action: string, afterRaw: unknown): "in" | "out" | null {
+  if (OUT_ACTIONS.has(action)) return "out";
+  const area = asObj(afterRaw).area;
+  return area === "in" || area === "out" ? area : null;
+}
