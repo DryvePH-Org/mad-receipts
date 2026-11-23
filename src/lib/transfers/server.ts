@@ -2,7 +2,7 @@ import "server-only";
 import { docsDb } from "@/lib/docsbible/review-server";
 import { transferColumns, type Route, type Transfer, type TransferInput, type TransferStage } from "./model";
 
-const COLS = "id, unit_id, plate_no, car_text, particular, financing, buyer, address, contact, cr_date, transaction_date, liaison, sales, balance, note, done_on, sold_on, agreed_price, route, stage, liaison_status, originals_at, next_step, chassis_no, engine_no, is_reference, flags, plate_original, deal_id";
+const COLS = "id, unit_id, plate_no, car_text, particular, financing, buyer, address, contact, cr_date, transaction_date, liaison, sales, balance, note, done_on, sold_on, agreed_price, route, stage, liaison_status, originals_at, next_step, chassis_no, engine_no, is_reference, flags, plate_original, deal_id, payment_status";
 
 const rowOf = (r: Record<string, unknown>): Transfer => ({
   id: r.id as string, unitId: (r.unit_id as string | null) ?? null, plate: r.plate_no as string, carText: (r.car_text as string | null) ?? null, particular: (r.particular as string | null) ?? null,
@@ -14,6 +14,7 @@ const rowOf = (r: Record<string, unknown>): Transfer => ({
   nextStep: (r.next_step as string | null) ?? null, chassisNo: (r.chassis_no as string | null) ?? null, engineNo: (r.engine_no as string | null) ?? null,
   isReference: !!r.is_reference, flags: (r.flags as string[] | null) ?? [], plateOriginal: (r.plate_original as string | null) ?? null,
   dealId: (r.deal_id as string | null) ?? null, dealNo: null,
+  paymentStatus: ((r.payment_status as Transfer["paymentStatus"]) ?? null),
 });
 
 /** Every transfer (newest sale first), with the car's description where the car has a record. Empty when migration 41 is not applied yet. */

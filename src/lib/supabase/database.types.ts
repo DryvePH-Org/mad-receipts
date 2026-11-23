@@ -482,6 +482,11 @@ export type Database = {
           drive_url: string | null
           source: string
           uploaded_by: string | null
+          archive: string | null
+          archive_tag: string | null
+          archive_amount: number | null
+          archive_on: string | null
+          archive_note: string | null
           read_status: string
           read_error: string | null
           read_at: string | null
@@ -504,6 +509,11 @@ export type Database = {
           drive_url?: string | null
           source?: string
           uploaded_by?: string | null
+          archive?: string | null
+          archive_tag?: string | null
+          archive_amount?: number | null
+          archive_on?: string | null
+          archive_note?: string | null
           read_status?: string
           read_error?: string | null
           read_at?: string | null
@@ -526,6 +536,11 @@ export type Database = {
           drive_url?: string | null
           source?: string
           uploaded_by?: string | null
+          archive?: string | null
+          archive_tag?: string | null
+          archive_amount?: number | null
+          archive_on?: string | null
+          archive_note?: string | null
           read_status?: string
           read_error?: string | null
           read_at?: string | null

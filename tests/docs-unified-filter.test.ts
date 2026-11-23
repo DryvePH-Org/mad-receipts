@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { filterUnified, type UnifiedRow } from "@/lib/docsbible/unified";
 
 const row = (plate: string, folder: UnifiedRow["folder"], stage: UnifiedRow["stage"] = "review"): UnifiedRow => ({
+  payment: null,
   unitId: plate, plate, plateDisplay: plate, car: `car ${plate}`, caseLabel: "Clean", stage, papers: null, flagged: false, decisions: 0, files: 1,
   location: folder === "none" ? null : folder, folder, or: { state: "unknown", days: null }, buyer: null, complete: null, searchText: plate.toLowerCase(),
 });

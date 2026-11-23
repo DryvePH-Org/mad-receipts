@@ -58,16 +58,20 @@ export interface Car {
   checklist: Checklist;
   status: FolderStatus;
   pending: number;
+  /** the payment papers kept for this car (never read, never on the checklist) */
+  archive: FileRow[];
 }
 
 /** Everything about one car, worked out from its folder row, its files and its deal. */
-export function buildCar(folder: FolderRow, files: FileRow[], deal: DealContext): Car {
+export function buildCar(folder: FolderRow, allFiles: FileRow[], deal: DealContext): Car {
+  const archive = allFiles.filter((f) => !!f.archive);
+  const files = allFiles.filter((f) => !f.archive); // the payment archive is not part of the papers
   const inputs = files.map(toInput);
-  deal = { ...deal, linked: !!folder.deal_id };
+  deal = { ...deal, linked: !!folder.deal_id || deal.linked === true }; // a sale recorded by hand counts like an AR
   const analysis = analyze(inputs, { plate: folder.plate_no, caseType: (CASES as readonly string[]).includes(folder.case_type ?? "") ? (folder.case_type as CaseType) : null }, deal);
   const chosen = folder.case_source === "manual" && folder.case_type && (CASES as readonly string[]).includes(folder.case_type) ? (folder.case_type as CaseType) : null;
   const caseType = chosen ?? analysis.suggestedCase;
   const list = checklist(caseType, analysis.files, deal);
   const pending = files.filter((f) => f.read_status === "pending").length;
-  return { folder, files, analysis, caseType, suggestedCase: analysis.suggestedCase, caseReason: analysis.caseReason, checklist: list, status: folderStatus(list, analysis.files, pending, folder.match_status === "linked" && !!folder.folder_id), pending };
+  return { folder, files, analysis, caseType, suggestedCase: analysis.suggestedCase, caseReason: analysis.caseReason, checklist: list, archive, status: folderStatus(list, analysis.files, pending, folder.match_status === "linked" && !!folder.folder_id), pending };
 }

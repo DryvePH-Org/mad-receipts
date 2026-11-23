@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
 import { requireModule, requireAdmin, requireAnyModule } from "@/lib/auth";
-import { isAdmin } from "@/lib/roles";
+import { isAdmin, seesSales } from "@/lib/roles";
+import { deleteArchiveFile, setPaymentStatus } from "@/lib/docs/archive";
+import { isPaymentStatus } from "@/lib/docs/payments";
+import { addTransfer } from "@/lib/transfers/server";
 import { removeFile, resetFile, editReading, reviewFlag, chooseFolder, defaultDocsDeps, docsErrorText, linkFolder, previewCarFolder, type FolderPreview, moveToSold, readPending, refreshFolders, scanFolder, setCase, setFileTypes, type MoveResult, type ReadProgress } from "@/lib/docs/service";
 import { CASES, CHOOSABLE, type CaseType, type DocType } from "@/lib/docs/types";
 import { readerMode, scheduleScan } from "@/lib/docs/bot-scan";
@@ -442,5 +445,53 @@ export async function deliverTransferAction(plate: string, on: string): Promise<
     await deliverTransfer(p.data, d.data, user.id);
     revalidatePath("/documents", "layout");
     return { ok: true as const, message: "Marked as delivered. The transfer is finished." };
+  }, (message) => ({ ok: false as const, message }));
+}
+
+// ---------------- payments and the sale of a car ----------------
+
+/** Sales, Buying and the Admins say how the sale is being paid. */
+export async function setPaymentStatusAction(plate: string, status: string): Promise<Done> {
+  const user = await requireAnyModule("documents", "upload");
+  const p = plateSchema.safeParse(plate);
+  if (!p.success || !seesSales(user.role) || !(status === "" || isPaymentStatus(status))) return { ok: false, message: "Bad request." };
+  return guard<Done>(async () => {
+    const r = await setPaymentStatus(p.data, status === "" ? null : (status as never), user.id);
+    if (!r.ok) return r;
+    revalidatePath("/documents", "layout");
+    return { ok: true as const, message: "Payment status saved." };
+  }, (message) => ({ ok: false as const, message }));
+}
+
+/** An Admin removes a payment paper from the archive. */
+export async function deleteArchiveFileAction(fileId: string): Promise<Done> {
+  await requireAdmin();
+  const id = z.uuid().safeParse(fileId);
+  if (!id.success) return { ok: false, message: "Bad request." };
+  return guard<Done>(async () => {
+    const r = await deleteArchiveFile(id.data);
+    if (!r.ok) return r;
+    revalidatePath("/documents", "layout");
+    return { ok: true as const, message: "Removed. It stays in the Drive trash for 30 days." };
+  }, (message) => ({ ok: false as const, message }));
+}
+
+const saleSchema = z.object({ buyer: z.string().trim().min(2, "Type the buyer's name.").max(120), agreedPrice: z.string().max(20), soldOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose the date of the sale."), sales: z.string().trim().max(60), payment: z.enum(["", "unpaid", "partial", "paid", "loan_released"]) });
+
+/** Sales, Buying and the Admins add the sale of a car (no digital receipt makes it any more): buyer, agreed price, date and salesperson. */
+export async function addSaleAction(plate: string, raw: z.input<typeof saleSchema>): Promise<Done> {
+  const user = await requireAnyModule("documents", "upload");
+  const p = plateSchema.safeParse(plate), v = saleSchema.safeParse(raw);
+  if (!p.success || !seesSales(user.role)) return { ok: false, message: "Bad request." };
+  if (!v.success) return { ok: false, message: v.error.issues[0]?.message ?? "Some values are not valid." };
+  return guard<Done>(async () => {
+    const key = normalizePlate(p.data);
+    const { saleOfPlate } = await import("@/lib/docs/service");
+    if (await saleOfPlate(createAdminClient(), key)) return { ok: false as const, message: "This car already has a sale recorded. Change it under Sale and transfer." };
+    const error = await addTransfer(key, { particular: "", financing: "", buyer: v.data.buyer, address: "", contact: "", crDate: "", transactionDate: "", liaison: "", sales: v.data.sales, balance: "", note: "", doneOn: "", soldOn: v.data.soldOn, agreedPrice: v.data.agreedPrice, route: "unknown", stage: "in_process", originalsAt: "", nextStep: "" }, user.id);
+    if (error) return { ok: false as const, message: `Could not add the sale: ${error}` };
+    if (v.data.payment) await setPaymentStatus(key, v.data.payment, user.id);
+    revalidatePath("/documents", "layout"); revalidatePath("/documents/transfers");
+    return { ok: true as const, message: "The sale is added." };
   }, (message) => ({ ok: false as const, message }));
 }

@@ -1,6 +1,7 @@
 import "server-only";
 import { isReceiptFile } from "./receipt-names";
 import { normalizePlate } from "@/lib/rules/plate";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
 import { GroqError } from "@/lib/voice/groq";
@@ -42,8 +43,18 @@ export function docsErrorText(err: unknown): string {
 
 // ---------------- folders ----------------
 
-async function dealInfo(admin: Admin, dealId: string | null): Promise<{ buyerName: string | null; hasReceipt: boolean }> {
-  if (!dealId) return { buyerName: null, hasReceipt: false };
+/** The sale recorded for a plate (by hand or from the sold list), when the car has no AR: its buyer is who the sold papers are for. */
+export async function saleOfPlate(admin: Admin, plate: string): Promise<{ id: string; buyer: string | null } | null> {
+  const { data } = await (admin as unknown as SupabaseClient).from("car_transfers").select("id, buyer").eq("plate_no", plate).neq("stage", "cancelled").eq("is_reference", false).order("sold_on", { ascending: false }).limit(1);
+  const row = (data as { id: string; buyer: string | null }[] | null)?.[0];
+  return row ? { id: row.id, buyer: row.buyer } : null;
+}
+
+async function dealInfo(admin: Admin, dealId: string | null, plate?: string): Promise<{ buyerName: string | null; hasReceipt: boolean; linked?: boolean }> {
+  if (!dealId) {
+    const sale = plate ? await saleOfPlate(admin, plate).catch(() => null) : null;
+    return sale ? { buyerName: sale.buyer, hasReceipt: false, linked: true } : { buyerName: null, hasReceipt: false };
+  }
   const [{ data: deal }, { count }] = await Promise.all([
     admin.from("deals").select("buyer_name").eq("id", dealId).maybeSingle(),
     admin.from("receipts").select("id", { count: "exact", head: true }).eq("deal_id", dealId).in("status", ["pending", "approved"]),
@@ -56,7 +67,7 @@ export async function loadCar(plate: string, deps: Pick<DocsDeps, "admin"> = { a
   const { data: folder } = await deps.admin.from("unit_folders").select("*").eq("plate_no", key).maybeSingle();
   if (!folder) return null;
   const { data: files } = await deps.admin.from("folder_files").select("*").eq("plate_no", key).order("created_at").order("filename");
-  return buildCar(folder, files ?? [], await dealInfo(deps.admin, folder.deal_id));
+  return buildCar(folder, files ?? [], await dealInfo(deps.admin, folder.deal_id, key));
 }
 
 const folderFields = (f: DriveFolder) => ({ folder_id: f.id, folder_name: f.name, folder_url: f.url, location: f.root });

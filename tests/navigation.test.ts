@@ -5,14 +5,14 @@ import { editsCars, editsPapers, isAdmin, isSuper, roleFromDb, seesSales } from 
 describe("navigation", () => {
   it("each role sees its own pages", () => {
     expect(navFor("super_admin").map((i) => i.href)).toEqual(["/dashboard", "/activity", "/new", "/deals", "/reminders", "/cars", "/documents", "/repairs", "/settings", "/admin/users", "/admin/sync"]);
-    expect(navFor("admin").map((i) => i.href)).toEqual(["/dashboard", "/activity", "/reminders", "/cars", "/documents", "/repairs"]); // every module, none of the administration tools; receipts and transactions are hidden for now
+    expect(navFor("admin").map((i) => i.href)).toEqual(["/dashboard", "/activity", "/cars", "/documents", "/repairs"]); // every module, none of the administration tools; receipts, transactions and reminders are hidden for now
     expect(navFor("buying").map((i) => i.href)).toEqual(["/cars", "/documents", "/repairs"]);
     expect(navFor("marketing").map((i) => i.href)).toEqual(["/cars", "/documents", "/repairs"]); // the same pages, looking only
-    expect(navFor("sales").map((i) => i.href)).toEqual(["/reminders", "/cars", "/documents", "/repairs"]);
+    expect(navFor("sales").map((i) => i.href)).toEqual(["/cars", "/documents", "/repairs"]);
   });
 
-  it("new receipt and transactions are for the Super Admin only, the dashboard for the Admins", () => {
-    for (const id of ["new", "deals"]) expect(NAV_ITEMS.find((i) => i.id === id)?.roles).toEqual(["super_admin"]);
+  it("new receipt, transactions and reminders are for the Super Admin only, the dashboard for the Admins", () => {
+    for (const id of ["new", "deals", "reminders"]) expect(NAV_ITEMS.find((i) => i.id === id)?.roles).toEqual(["super_admin"]);
     expect(NAV_ITEMS.find((i) => i.id === "dashboard")?.roles).toEqual(["super_admin", "admin"]);
   });
 
@@ -20,16 +20,16 @@ describe("navigation", () => {
     for (const item of NAV_ITEMS.filter((i) => ["/settings", "/admin/users", "/admin/sync"].includes(i.href))) expect(item.roles).toEqual(["super_admin"]);
   });
 
-  it("groups the sidebar into Overview, Receipts, Cars and Administration", () => {
+  it("groups the sidebar into Overview, Receipts, Cars and Administration (only the Super Admin has Receipts)", () => {
     expect(navGroups("super_admin").map((g) => [g.label, g.items.length])).toEqual([["Overview", 2], ["Receipts", 3], ["Cars", 3], ["Administration", 3]]);
-    expect(navGroups("admin").map((g) => g.label)).toEqual(["Overview", "Receipts", "Cars"]);
-    expect(navGroups("sales").map((g) => g.label)).toEqual(["Receipts", "Cars"]);
+    expect(navGroups("admin").map((g) => g.label)).toEqual(["Overview", "Cars"]);
+    expect(navGroups("sales").map((g) => g.label)).toEqual(["Cars"]);
     expect(navGroups("marketing").map((g) => g.label)).toEqual(["Cars"]);
   });
 
   it("the phone tab bar shows four items and puts the rest in More", () => {
     expect(tabBarItems("marketing")).toMatchObject({ more: [] });
-    expect(tabBarItems("sales").tabs.map((i) => i.label)).toEqual(["Reminders", "Car status", "Car documents", "Repairs"]);
+    expect(tabBarItems("sales").tabs.map((i) => i.label)).toEqual(["Car status", "Car documents", "Repairs"]);
     const admin = tabBarItems("super_admin");
     expect(admin.tabs.map((i) => i.label)).toEqual(["Dashboard", "Activity log", "New receipt", "Transactions"]);
     expect(admin.more.map((i) => i.label)).toEqual(["Reminders", "Car status", "Car documents", "Repairs", "Settings", "Users", "Sync jobs"]);

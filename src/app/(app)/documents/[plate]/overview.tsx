@@ -4,6 +4,7 @@ import { Pill, type Tone } from "@/components/shared/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CarFacts } from "@/lib/cars/car-file";
 import { formatPeso } from "@/lib/rules/money";
+import { PAYMENT_LABEL, type PaymentStatus } from "@/lib/docs/payments";
 import { orLabel } from "@/lib/docsbible/or-expiry";
 import { STAGE_LABEL, type Transfer } from "@/lib/transfers/model";
 import { stepsOf } from "@/lib/transfers/steps";
@@ -27,9 +28,11 @@ const Line = ({ k, v }: { k: string; v: React.ReactNode }) => <p className="flex
  * The first thing on the car's page: where this car stands, in a few lines each, with a way into the tab that has the rest.
  * Status, documents, the sale, the transfer of the originals, repairs, and what needs a person.
  */
-export function Overview({ data, facts, sale, steps, approval, canSale, detailsMissing, carDescription }: {
+export function Overview({ data, facts, sale, steps, approval, canSale, detailsMissing, carDescription, payments }: {
   data: CarViewData; facts: CarFacts; sale: Transfer | null; steps: Parameters<typeof stepsOf>[0] | null; approval: { at: string | null; by: string | null };
   canSale: boolean; detailsMissing: number; carDescription: string | null;
+  /** the payment papers kept for the car: null for the roles that do not see money */
+  payments: { count: number; total: number } | null;
 }) {
   const before = data.items.filter((i) => i.stage === "available" && !i.optional), have = before.filter((i) => i.present).length;
   const soldPapers = data.items.filter((i) => i.stage === "sold"), soldHave = soldPapers.filter((i) => i.present).length;
@@ -80,6 +83,15 @@ export function Overview({ data, facts, sale, steps, approval, canSale, detailsM
         ) : data.deal && (
           <Block title="Sale" plate={data.plate} tab="documents" link="Sold papers">
             <Line k="Buyer" v={data.deal.buyerName} /><Line k="Deal" v={data.dealLinks ? <Link href={`/deals/${data.deal.id}`} className="underline underline-offset-2">{data.deal.dealNo}</Link> : data.deal.dealNo} />
+          </Block>
+        )}
+
+        {canSale && payments && (
+          <Block title="Payments" plate={data.plate} tab="payments" link={sale ? "Papers" : "Add the sale"}>
+            {sale ? <>
+              <p className="flex flex-wrap items-center gap-2">{sale.paymentStatus ? <Pill tone={sale.paymentStatus === "unpaid" ? "red" : sale.paymentStatus === "partial" ? "amber" : sale.paymentStatus === "loan_released" ? "teal" : "emerald"}>{PAYMENT_LABEL[sale.paymentStatus as PaymentStatus]}</Pill> : <Pill tone="zinc">Payment status not set</Pill>}</p>
+              <Line k="Papers" v={payments.count ? `${payments.count} payment ${payments.count === 1 ? "paper" : "papers"}${payments.total > 0 ? ` · ${formatPeso(Math.round(payments.total * 100))} written on them` : ""}` : <span className="text-muted-foreground">none added yet</span>} />
+            </> : <p className="text-muted-foreground">No sale yet. Add the sale to track its payments.</p>}
           </Block>
         )}
 

@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { requireModule } from "@/lib/auth";
 import { PRIVATE_DOCS } from "@/lib/docs/types";
+import { archiveTotal, PAYMENT_LABEL, type ArchiveFile } from "@/lib/docs/payments";
+import { PaymentsPanel } from "./payments-card";
 import { isAdmin, seesPrivateDocs, seesSales, type Role } from "@/lib/roles";
 import { getSettings } from "@/lib/data";
 import { isScanning, readerMode } from "@/lib/docs/bot-scan";
@@ -118,6 +120,7 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
 
   const facts = await loadCarFacts(key).catch(() => ({ unit: null, repairs: [] } as CarFacts));
   const sale = transfers ? saleOf(transfers.transfers) : null;
+  const archive: ArchiveFile[] = seesSales(user.role) ? car.archive.map((f) => ({ id: f.id, name: f.filename, tag: f.archive_tag ?? "Other", amount: f.archive_amount === null ? null : Number(f.archive_amount), on: f.archive_on, note: f.archive_note, addedAt: f.created_at, mime: f.mime_type ?? "" })) : [];
   const detailsMissing = missingDetails(flow.details).length;
   const soldCar = data.location === "sold" || facts.unit?.stockState === "Sold";
   const handData = { plate: key, location: data.location, soldCar, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, releasedOn: hand?.releasedOn ?? null, deliveredOn: hand?.deliveredOn ?? null, stage: sale?.stage ?? hand?.stage ?? null,
@@ -127,18 +130,20 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
     { key: "overview", label: "Overview", node: (
       <div className="space-y-4">
         {linked && <StageCard stage={stage} plate={key} />}
-        <Overview data={data} facts={facts} sale={sale} steps={hand ? { ...hand, stage: sale?.stage ?? hand.stage } : sale ? { handedOffAt: null, backAt: null, releasedOn: null, deliveredOn: null, stage: sale.stage } : null} approval={{ at: flow.workflow.approvedAt, by: flow.workflow.approvedByName }} canSale={!!transfers} detailsMissing={detailsMissing} carDescription={null} />
+        <Overview data={data} facts={facts} sale={sale} steps={hand ? { ...hand, stage: sale?.stage ?? hand.stage } : sale ? { handedOffAt: null, backAt: null, releasedOn: null, deliveredOn: null, stage: sale.stage } : null} approval={{ at: flow.workflow.approvedAt, by: flow.workflow.approvedByName }} payments={seesSales(user.role) ? { count: archive.length, total: archiveTotal(archive) } : null} canSale={!!transfers} detailsMissing={detailsMissing} carDescription={null} />
       </div>) },
     { key: "documents", label: "Documents", badge: linked ? `${before.filter((i) => i.present).length}/${before.length}` : null, tone: linked && before.some((i) => !i.present) ? "amber" : "emerald", node: linked ? (
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start">
         <PapersCard data={data} rules={stage.rules} readOnly={!canAct} confirmEdits={data.isAdmin && data.location === "sold"} register={register ? { id: register.id, values: register.values } : null} canEditRegister={canAct} differs={register && car.folder.case_source === "manual" ? registerDiff(car, register.values) : null} />
         <aside className="space-y-6">
           {canAct && <ApprovalCard isAdmin={data.isAdmin} plate={key} approvedAt={flow.workflow.approvedAt} approvedBy={flow.workflow.approvedByName} marketingNotifiedAt={flow.workflow.marketingNotifiedAt} rule={stage.rules.approve} />}
-          {canUpload && <SoldUploadCard plate={key} items={soldItems} deal={data.deal ? { dealNo: data.deal.dealNo, buyerName: data.deal.buyerName } : null} />}
+          {canUpload && <SoldUploadCard plate={key} items={soldItems} deal={data.deal ? { dealNo: data.deal.dealNo, buyerName: data.deal.buyerName } : sale ? { dealNo: "", buyerName: sale.buyer ?? "the buyer" } : null} />}
           {canAct && <SoldCard plate={key} location={data.location} items={[...arCopy.map(({ key: k, label, present }) => ({ key: k, label, present })), ...soldItems]} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />}
           {canAct && <ChecksHelp />}
         </aside>
       </div>) : <NoFolder data={data} canAct={canAct} /> },
+    ...(transfers && linked ? [{ key: "payments" as CarTab, label: "Payments", badge: sale?.paymentStatus ? PAYMENT_LABEL[sale.paymentStatus] : sale ? null : "Add the sale", tone: (!sale || sale.paymentStatus === "unpaid" ? "amber" : sale.paymentStatus === "partial" ? "amber" : sale.paymentStatus ? "emerald" : "zinc") as Tone2, node: (
+      <PaymentsPanel plate={key} hasSale={!!sale} status={sale?.paymentStatus ?? null} files={archive} canEdit={canUpload} isAdmin={data.isAdmin} folderLinked={linked} />) }] : []),
     ...(transfers ? [{ key: "sale" as CarTab, label: "Sale and transfer", badge: sale ? STAGE_LABEL[sale.stage].split(" (")[0].split(",")[0].replace("In process at LTO", "In process") : null, tone: (sale?.flags.length ? "amber" : "zinc") as Tone2, node: (
       <div className="space-y-6">
         <HandoffCard isAdmin={data.isAdmin} rules={stage.rules} data={handData} />
@@ -214,12 +219,15 @@ async function RegisterOnly({ plate, role, modules, canAct, canUpload, wanted }:
     caseType: "clean", suggestedCase: "clean", caseReason: "", caseSource: "auto", deal: null, items: [], files: [], botMode: false, scanning: false, lastScan: null, botWork: [], orExpiry: null, orState: { state: "unknown", days: null }, scanned: false, pending: 0, failed: 0, statusLabel: "No folder", statusKey: "unlinked", isAdmin: isAdmin(role), dealLinks: modules.includes("deals"),
   };
   const sale = transfers ? saleOf(transfers.transfers) : null;
+  const archive: ArchiveFile[] = [];
   const soldCar = facts.unit?.stockState === "Sold";
   const rules = { handoff: soldCar && !(hand?.handedOffAt && !hand.backAt) ? { allowed: true, reason: null } : { allowed: false, reason: soldCar ? "Already handed off." : "Mark the car as Sold first.", adminOverride: false }, markReturned: hand?.handedOffAt && !hand.backAt ? { allowed: true, reason: null } : { allowed: false, reason: "The papers have not been handed off.", adminOverride: false } };
   const handData = { plate: key, location: "available" as const, soldCar, recipient, at: hand?.handedOffAt ?? null, note: hand?.note ?? null, checked: hand?.checked ?? [], returnedAt: hand?.backAt ?? null, releasedOn: hand?.releasedOn ?? null, deliveredOn: hand?.deliveredOn ?? null, stage: sale?.stage ?? hand?.stage ?? null, items: [] };
   const panels: Panel[] = [
-    { key: "overview", label: "Overview", node: <Overview data={data} facts={facts} sale={sale} steps={hand ? { ...hand, stage: sale?.stage ?? hand.stage } : sale ? { handedOffAt: null, backAt: null, releasedOn: null, deliveredOn: null, stage: sale.stage } : null} approval={{ at: null, by: null }} canSale={!!transfers} detailsMissing={0} carDescription={[register.values.year_model, register.values.make, register.values.model_variant, register.values.color].filter(Boolean).join(" ") || null} /> },
+    { key: "overview", label: "Overview", node: <Overview data={data} facts={facts} sale={sale} steps={hand ? { ...hand, stage: sale?.stage ?? hand.stage } : sale ? { handedOffAt: null, backAt: null, releasedOn: null, deliveredOn: null, stage: sale.stage } : null} approval={{ at: null, by: null }} payments={seesSales(role) ? { count: archive.length, total: archiveTotal(archive) } : null} canSale={!!transfers} detailsMissing={0} carDescription={[register.values.year_model, register.values.make, register.values.model_variant, register.values.color].filter(Boolean).join(" ") || null} /> },
     { key: "documents", label: "Documents", node: <NoFolder data={data} canAct={canAct} /> },
+    ...(transfers ? [{ key: "payments" as CarTab, label: "Payments", badge: sale?.paymentStatus ? PAYMENT_LABEL[sale.paymentStatus] : sale ? null : "Add the sale", tone: (!sale || sale.paymentStatus === "unpaid" || sale.paymentStatus === "partial" ? "amber" : sale.paymentStatus ? "emerald" : "zinc") as Tone2, node: (
+      <PaymentsPanel plate={key} hasSale={!!sale} status={sale?.paymentStatus ?? null} files={[]} canEdit={canUpload} isAdmin={data.isAdmin} folderLinked={false} />) }] : []),
     ...(transfers ? [{ key: "sale" as CarTab, label: "Sale and transfer", badge: sale ? STAGE_LABEL[sale.stage].split(" (")[0].split(",")[0].replace("In process at LTO", "In process") : null, tone: (sale?.flags.length ? "amber" : "zinc") as Tone2, node: (
       <div className="space-y-6">
         <HandoffCard isAdmin={isAdmin(role)} rules={rules} data={handData} />

@@ -1,7 +1,7 @@
 import { getCurrentUser } from "@/lib/auth";
 import { docsBridge } from "@/lib/docs/bridge";
 import { PRIVATE_DOCS } from "@/lib/docs/types";
-import { seesPrivateDocs } from "@/lib/roles";
+import { seesPrivateDocs, seesSales } from "@/lib/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -16,9 +16,10 @@ export async function GET(request: Request, ctx: RouteContext<"/api/docs/file/[i
   if (!user || !user.modules.includes("register")) return new Response("Not allowed", { status: 403 });
   const { id } = await ctx.params;
   if (!UUID.test(id)) return new Response("Not found", { status: 404 });
-  const { data: file } = await createAdminClient().from("folder_files").select("drive_file_id, filename, doc_types").eq("id", id).maybeSingle();
+  const { data: file } = await createAdminClient().from("folder_files").select("drive_file_id, filename, doc_types, archive").eq("id", id).maybeSingle();
   if (!file) return new Response("Not found", { status: 404 });
   if (!seesPrivateDocs(user.role) && ((file.doc_types as string[] | null) ?? []).some((t) => (PRIVATE_DOCS as string[]).includes(t))) return new Response("Not found", { status: 404 });
+  if (file.archive && !seesSales(user.role)) return new Response("Not found", { status: 404 }); // payment papers are money: not for Online Marketing
   const download = new URL(request.url).searchParams.get("download") === "1";
   try {
     const p = await docsBridge().preview(file.drive_file_id, download ? 3000 : 1200);

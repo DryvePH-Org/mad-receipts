@@ -2,7 +2,7 @@ import "server-only";
 import { normalizePlate } from "@/lib/rules/plate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Car } from "./car";
-import { defaultDocsDeps, linkFolder, loadCar } from "./service";
+import { defaultDocsDeps, linkFolder, loadCar, saleOfPlate } from "./service";
 
 /** What Sales is asked for: the buyer's ID, the signed deed and the signed AR. */
 export interface SalesView {
@@ -31,15 +31,16 @@ export async function lookupForSales(plateInput: string): Promise<LookupResult> 
   if (plate.length < 5) return { ok: false, message: "Type the whole plate number, like NKF 4771." };
   const admin = createAdminClient();
   const { data: unit } = await admin.from("deal_units").select("deal_id, plate_display").eq("plate_no", plate).eq("active", true).maybeSingle();
-  if (!unit) return { ok: false, message: `No AR has been made for ${plateInput.trim().toUpperCase()} yet. Make the AR first, then upload its documents.` };
-  const { data: deal } = await admin.from("deals").select("buyer_name, deal_no").eq("id", unit.deal_id).single();
+  const sale = unit ? null : await saleOfPlate(admin, plate).catch(() => null); // no AR: a sale recorded on the car's page does as well
+  if (!unit && !sale) return { ok: false, message: `No sale is recorded for ${plateInput.trim().toUpperCase()} yet. Add the sale on the car's page first, then upload its documents.` };
+  const { data: deal } = unit ? await admin.from("deals").select("buyer_name, deal_no").eq("id", unit.deal_id).single() : { data: null };
   let car = await loadCar(plate);
-  if (!car || car.folder.match_status !== "linked" || !car.folder.folder_id) {
+  if (unit && (!car || car.folder.match_status !== "linked" || !car.folder.folder_id)) {
     await linkFolder(unit.plate_display, unit.deal_id, defaultDocsDeps());
     car = await loadCar(plate);
   }
   if (!car || car.folder.match_status !== "linked" || !car.folder.folder_id) {
     return { ok: false, message: car?.folder.match_status === "several" ? "More than one folder in Drive has this plate. Ask Documentation to choose the right one." : "There is no folder in Drive for this plate yet. Ask Documentation to create it." };
   }
-  return { ok: true, view: salesViewOf(car, deal?.buyer_name ?? "", deal?.deal_no ?? "") };
+  return { ok: true, view: salesViewOf(car, deal?.buyer_name ?? sale?.buyer ?? "", deal?.deal_no ?? "") };
 }

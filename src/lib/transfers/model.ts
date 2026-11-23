@@ -13,6 +13,8 @@ export interface Transfer {
   soldOn: string | null; agreedPrice: number | null; route: Route; stage: TransferStage; liaisonStatus: string | null; originalsAt: string | null; nextStep: string | null;
   chassisNo: string | null; engineNo: string | null; isReference: boolean; flags: string[]; plateOriginal: string | null;
   dealId: string | null; dealNo: string | null;
+  /** how the sale is being paid, set by hand (null: not said) */
+  paymentStatus: "unpaid" | "partial" | "paid" | "loan_released" | null;
 }
 
 export interface TransferInput {

@@ -34,8 +34,8 @@ export async function loadUnified(): Promise<{ rows: UnifiedRow[]; grid: GridRow
     return {
       unitId: g?.id ?? null, plate, plateDisplay: (v.plate_display as string | null) ?? f?.plateDisplay ?? plate, car, caseLabel, stage, papers: g ? paperProgress(v) : null,
       flagged: f?.status.key === "review", decisions: g?.decisions ?? 0, files: f?.files ?? 0, location: f?.location ?? null, folder: f && f.match === "linked" ? f.location : "none",
-      or: /^(sold)$/i.test(String(v.sale_status ?? "")) || v.vehicle_status === "SOLD" ? { state: "unknown", days: null } : orStatus(v.renewal ? parseSheetDate(String(v.renewal)) : null, today), buyer: f?.deal?.buyerName ?? null, complete: g?.complete ?? null,
-      searchText: `${(v.plate_display as string | null) ?? plate} ${car} ${v.reg_owner_name ?? ""} ${f?.deal?.buyerName ?? ""} ${f?.deal?.dealNo ?? ""}`.toLowerCase(),
+      or: /^(sold)$/i.test(String(v.sale_status ?? "")) || v.vehicle_status === "SOLD" ? { state: "unknown", days: null } : orStatus(v.renewal ? parseSheetDate(String(v.renewal)) : null, today), buyer: f?.buyer ?? null, payment: f?.payment ?? null, complete: g?.complete ?? null,
+      searchText: `${(v.plate_display as string | null) ?? plate} ${car} ${v.reg_owner_name ?? ""} ${f?.buyer ?? ""} ${f?.deal?.dealNo ?? ""}`.toLowerCase(),
     };
   };
   for (const g of grid) { const plate = String(g.values.plate_display ?? "").toUpperCase().replace(/[^A-Z0-9]/g, ""); if (!plate || seen.has(plate)) continue; seen.add(plate); out.push(make(plate, g)); }

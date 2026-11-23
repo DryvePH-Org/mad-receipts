@@ -167,7 +167,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   // a plate nobody has sold never gets a photo, whatever is sent to the server
   const refused = await sales.request.post("/api/docs/upload", { multipart: { plate: "ZZT 9999", file: { name: "p.jpg", mimeType: "image/jpeg", buffer: JPEG } } });
   expect(refused.status()).toBe(409);
-  expect((await refused.json()).error).toMatch(/No AR has been made for ZZT 9999/);
+  expect((await refused.json()).error).toMatch(/No sale is recorded for ZZT 9999/);
   // the old page is gone: its address leads to Car documents
   await sales.goto("/upload-documents");
   await expect(sales.getByRole("heading", { name: "Car documents" })).toBeVisible();
@@ -419,8 +419,7 @@ test("Sales and Documentation put a saved receipt in the car's folder with a but
   const sales = await as(browser, "sales");
   await sales.goto("/documents/ZZT7003?tab=receipts");
   await expect(sales.locator("#receipts")).toContainText("Unsigned copy in the folder");
-  await expect(sales.getByRole("tab", { name: /^Sale and transfer/ })).toHaveCount(0); // the buyers' details and the transfer are not for Sales
-  for (const t of ["Overview", "Documents", "Receipts", "Details"]) await expect(sales.getByRole("tab", { name: new RegExp(`^${t}`) })).toBeVisible();
+  for (const t of ["Overview", "Documents", "Payments", "Sale and transfer", "Receipts", "Details"]) await expect(sales.getByRole("tab", { name: new RegExp(`^${t}`) })).toBeVisible();
   await docs.close(); await sales.close();
 });
 
@@ -597,4 +596,68 @@ test("A saved receipt makes the sale record of its car, or joins the one that is
   expect(await recs("ZZT7030")).toHaveLength(0);
   made && (await db.from("car_transfers").delete().like("plate_no", "ZZT703%"));
   await admin.close();
+});
+
+test("Payments: the sale is added by hand, the status is set, a payment paper is kept, and Online Marketing sees none of it", async ({ browser }) => {
+  test.setTimeout(150_000);
+  const db = adminClient() as unknown as { from: (t: string) => { upsert: (v: object, o?: object) => Promise<{ error: unknown }>; delete: () => { like: (c: string, v: string) => Promise<unknown> } } };
+  // a car with a linked folder (the one the stand-in Drive keeps for ZZT-7003) and no sale of its own
+  await db.from("unit_folders").delete().like("plate_no", "ZZT7003"); // a Drive folder belongs to one car: the earlier test is done with it
+  const seeded = await db.from("unit_folders").upsert({ plate_no: "ZZT7005", plate_display: "ZZT 7005", folder_id: "mock-folder-7", folder_name: "21 Ford Escape (ZZT-7005)", folder_url: "https://drive.example.test/folders/mock-folder-7", location: "sold", match_status: "linked" }, { onConflict: "plate_no" });
+  expect(seeded.error).toBeNull();
+
+  const docs = await as(browser, "docs");
+  await docs.goto("/documents/ZZT7005?tab=payments");
+  await expect(docs.locator("#add-sale")).toBeVisible({ timeout: 30_000 });
+  await expect(docs.getByText("The payment status can be set once the sale is added.")).toBeVisible();
+  await docs.getByLabel("Buyer", { exact: true }).fill("ZZT E2E Pay Buyer");
+  await docs.getByLabel(/Agreed price/).fill("588,000");
+  await docs.getByLabel("Salesperson").fill("ZZT E2E Seller");
+  await docs.getByRole("button", { name: "Add the sale" }).click();
+  await expect(docs.getByRole("group", { name: "Payment status" })).toBeVisible({ timeout: 30_000 });
+  await expect(docs.locator("#add-sale")).toHaveCount(0);
+
+  // the status is one tap, and tapping it again clears it
+  const partly = docs.getByRole("button", { name: "Partly paid", exact: true });
+  await partly.click();
+  await expect(partly).toHaveAttribute("aria-pressed", "true", { timeout: 30_000 });
+  await expect(docs.getByRole("tab", { name: /^Payments/ })).toContainText("Partly paid");
+
+  // a payment paper: what it is, the amount, the date; it appears in the list with a download
+  await docs.waitForTimeout(2000); // the page must be ready before a file is given to it
+  await docs.getByLabel("What is it").selectOption("Down payment");
+  await docs.getByLabel(/Amount, if it shows one/).fill("50,000");
+  await docs.getByLabel("Note (optional)").fill("BDO deposit slip");
+  await docs.locator("#pay-file").setInputFiles({ name: "slip.jpg", mimeType: "image/jpeg", buffer: JPEG });
+  await docs.getByRole("button", { name: "Add to the payments" }).click();
+  const list = docs.getByRole("list", { name: "Payment papers" });
+  await expect(list).toContainText("Down payment", { timeout: 30_000 });
+  await expect(list).toContainText("₱50,000");
+  await expect(list).toContainText("BDO deposit slip");
+  await expect(list.getByRole("link", { name: /Download/ })).toBeVisible();
+  // it is kept apart from the papers: not on the Papers checklist and not counted as a photo
+  await openTab(docs, "Documents");
+  await expect(docs.locator("#papers").getByText(/PAY_/)).toHaveCount(0);
+  await docs.close();
+
+  // the Documents list shows and filters by the payment status
+  const list2 = await as(browser, "admin");
+  await list2.goto("/documents");
+  await list2.getByRole("tab", { name: /^Partly paid/ }).click();
+  await expect(list2.getByText("ZZT 7005").first()).toBeVisible();
+  await list2.close();
+
+  // Online Marketing see no payments: no tab, no money on the list, and the paper itself is not found
+  const file = (await adminClient().from("folder_files").select("id").eq("plate_no", "ZZT7005").eq("archive", "payment").single()).data as { id: string };
+  const viewer = await as(browser, "marketing");
+  await viewer.goto("/documents/ZZT7005");
+  await expect(viewer.getByRole("tab", { name: /^Overview/ })).toBeVisible({ timeout: 30_000 });
+  await expect(viewer.getByRole("tab", { name: /^Payments/ })).toHaveCount(0);
+  expect((await viewer.request.get(`/api/docs/file/${file.id}`)).status()).toBe(404);
+  await viewer.goto("/documents");
+  await expect(viewer.getByRole("tab", { name: /^Partly paid/ })).toHaveCount(0);
+  await viewer.close();
+
+  await db.from("car_transfers").delete().like("plate_no", "ZZT7005");
+  await db.from("unit_folders").delete().like("plate_no", "ZZT7005");
 });

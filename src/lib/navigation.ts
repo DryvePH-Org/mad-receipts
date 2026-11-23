@@ -43,7 +43,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "activity", href: "/activity", label: "Activity log", icon: History, group: "Overview", roles: ADMINS },
   { id: "new", href: "/new", label: "New receipt", icon: Receipt, group: "Receipts", roles: SUPER },
   { id: "deals", href: "/deals", label: "Transactions", icon: Car, group: "Receipts", roles: SUPER },
-  { id: "reminders", href: "/reminders", label: "Reminders", icon: Bell, group: "Receipts", roles: ["super_admin", "admin", "sales"], badge: "reminders" },
+  { id: "reminders", href: "/reminders", label: "Reminders", icon: Bell, group: "Receipts", roles: SUPER, badge: "reminders" },
   { id: "cars", href: "/cars", label: "Car status", icon: CarFront, group: "Cars", roles: ALL },
   { id: "documents", href: "/documents", label: "Car documents (act)", icon: FolderCheck, group: "Cars", roles: ["super_admin", "admin", "buying", "sales"], menu: false }, // scan, approve, move, hand off: the menu entry is "register" below
   { id: "register", href: "/documents", label: "Car documents", icon: BookOpenCheck, group: "Cars", roles: ALL },

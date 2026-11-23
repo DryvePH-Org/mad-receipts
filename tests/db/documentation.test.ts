@@ -118,3 +118,16 @@ describe("the car-documents tables", () => {
     expect((await db.query<{ n: number }>("select count(*)::int as n from public.folder_files")).rows[0].n).toBe(0);
   });
 });
+
+describe("the payment archive of migration 51", () => {
+  it("a sale record holds one payment status from a short list, and a file can be marked as a payment paper", async () => {
+    await db.query("insert into public.car_transfers (plate_no, buyer, stage, route, source) values ('ZZPAY1', 'TEST BUYER', 'in_process', 'unknown', 'app')");
+    for (const s of ["unpaid", "partial", "paid", "loan_released"]) await db.query("update public.car_transfers set payment_status = $1 where plate_no = 'ZZPAY1'", [s]);
+    await expect(db.query("update public.car_transfers set payment_status = 'refunded' where plate_no = 'ZZPAY1'")).rejects.toThrow();
+    await db.query("delete from public.car_transfers where plate_no = 'ZZPAY1'");
+    await db.query("insert into public.unit_folders (plate_no, plate_display) values ('ZZPAY2', 'ZZPAY2')");
+    await db.query("insert into public.folder_files (plate_no, drive_file_id, filename, archive, archive_tag, archive_amount, archive_on) values ('ZZPAY2', 'pay-1', 'PAY_1.jpg', 'payment', 'Proof of payment', 150000.50, '2026-11-24')");
+    await expect(db.query("insert into public.folder_files (plate_no, drive_file_id, filename, archive) values ('ZZPAY2', 'pay-2', 'x.jpg', 'receipts')")).rejects.toThrow();
+    await db.query("delete from public.unit_folders where plate_no = 'ZZPAY2'");
+  });
+});

@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { GridRow, Role } from "@/lib/docsbible/grid";
 import { orLabel } from "@/lib/docsbible/or-expiry";
+import { PAYMENT_LABEL, PAYMENT_STATUSES, type PaymentStatus } from "@/lib/docs/payments";
+import { seesSales } from "@/lib/roles";
 import { CHIPS, filterUnified, FOLDER_FILTERS, STAGES, type ChipKey, type FolderFilter, type UnifiedRow } from "@/lib/docsbible/unified";
 import { cn } from "@/lib/utils";
 import { DocsGrid } from "../docs-bible/docs-grid";
@@ -25,10 +27,12 @@ export function DocumentsBoard({ rows, grid, role, canAct, openDecisions }: { ro
   const [attention, setAttention] = useState(false);
   const [folder, setFolder] = useState<FolderFilter>("all");
   const [orDue, setOrDue] = useState(false);
+  const [pay, setPay] = useState<"all" | PaymentStatus>("all");
+  const money = seesSales(role); // payments are money: Online Marketing does not see them
   const [pending, start] = useTransition();
   const count = (k: ChipKey) => filterUnified(rows, k, "", false, folder, orDue).length;
   const inFolder = (k: FolderFilter) => filterUnified(rows, "all", "", false, k).length;
-  const shown = useMemo(() => filterUnified(rows, chip, q, attention, folder, orDue), [rows, chip, q, attention, folder, orDue]);
+  const shown = useMemo(() => filterUnified(rows, chip, q, attention, folder, orDue).filter((r) => pay === "all" || r.payment === pay), [rows, chip, q, attention, folder, orDue, pay]);
   const orCount = rows.filter((r) => r.or.state === "overdue" || r.or.state === "soon").length;
 
   return (
@@ -68,6 +72,12 @@ export function DocumentsBoard({ rows, grid, role, canAct, openDecisions }: { ro
               ))}
             </div>
           </div>
+          {money && <div role="tablist" aria-label="Payment" className="-mx-4 flex items-center gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+            <span className="mr-1 text-sm text-muted-foreground">Payment</span>
+            {(["all", ...PAYMENT_STATUSES] as const).map((k) => (
+              <button key={k} type="button" role="tab" aria-selected={pay === k} onClick={() => setPay(k)} className={cn("shrink-0 rounded-full border px-3 py-1 text-sm", pay === k ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted")}>{k === "all" ? "All" : `${PAYMENT_LABEL[k]} (${rows.filter((r) => r.payment === k).length})`}</button>
+            ))}
+          </div>}
           <p className="text-sm text-muted-foreground">{shown.length} of {rows.length} cars. Click a car to see its photos, what is in and what is missing.</p>
           {shown.length === 0 ? (
             <EmptyState icon={FolderSync} title="Nothing here" description="Try another stage or another search." />
@@ -77,7 +87,7 @@ export function DocumentsBoard({ rows, grid, role, canAct, openDecisions }: { ro
                 <li key={r.plate}>
                   <Link href={`/documents/${r.plate}`} className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 px-4 py-3 hover:bg-muted/50 sm:grid-cols-[7rem_minmax(0,1fr)_9rem_11rem_5rem]">
                     <b className="font-mono text-sm font-medium">{r.plateDisplay}</b>
-                    <span className="order-last col-span-2 min-w-0 sm:order-none sm:col-span-1"><span className="block truncate text-sm">{r.car}</span><span className="block truncate text-xs text-muted-foreground">{r.buyer ? `Buyer ${r.buyer} · ` : ""}{r.papers ? <span className="sm:hidden">{r.papers.have}/{r.papers.need} papers{r.flagged || r.decisions > 0 ? " ⚠ " : " · "}</span> : null}{r.files} {r.files === 1 ? "photo" : "photos"}{r.location === "sold" ? " · folder in Sold" : ""}{r.or.state === "overdue" || r.or.state === "soon" ? <span className={r.or.state === "overdue" ? "font-medium text-red-700 dark:text-red-400" : "font-medium text-amber-700 dark:text-amber-400"}> · {orLabel(r.or)}</span> : null}</span></span>
+                    <span className="order-last col-span-2 min-w-0 sm:order-none sm:col-span-1"><span className="block truncate text-sm">{r.car}</span><span className="block truncate text-xs text-muted-foreground">{r.buyer ? `Buyer ${r.buyer} · ` : ""}{money && r.payment ? `${PAYMENT_LABEL[r.payment as PaymentStatus]} · ` : ""}{r.papers ? <span className="sm:hidden">{r.papers.have}/{r.papers.need} papers{r.flagged || r.decisions > 0 ? " ⚠ " : " · "}</span> : null}{r.files} {r.files === 1 ? "photo" : "photos"}{r.location === "sold" ? " · folder in Sold" : ""}{r.or.state === "overdue" || r.or.state === "soon" ? <span className={r.or.state === "overdue" ? "font-medium text-red-700 dark:text-red-400" : "font-medium text-amber-700 dark:text-amber-400"}> · {orLabel(r.or)}</span> : null}</span></span>
                     <span className="hidden text-sm sm:block">{r.caseLabel}</span>
                     <span><Pill tone={STAGES[r.stage].tone}>{STAGES[r.stage].label}</Pill></span>
                     <span className="hidden items-center justify-end gap-1.5 text-sm tabular-nums sm:flex">{r.papers ? `${r.papers.have}/${r.papers.need}` : "—"}{(r.flagged || r.decisions > 0) && <TriangleAlert className="size-4 text-amber-600" aria-label="Needs attention" />}</span>

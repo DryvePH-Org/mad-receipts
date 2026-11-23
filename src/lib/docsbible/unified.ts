@@ -53,6 +53,8 @@ export interface UnifiedRow {
   /** the OR renewal flag: overdue, due within 30 days, fine, or no date; days left (negative = late). A sold car is never flagged. */
   or: { state: OrState; days: number | null };
   buyer: string | null; complete: string | null; searchText: string;
+  /** how the sale is paid, as set on the sale record (null: no sale or not said) */
+  payment: string | null;
 }
 
 export type FolderKey = "available" | "sold" | "none";
