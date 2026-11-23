@@ -151,7 +151,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await expect(viewer.locator("#papers")).toBeVisible();
   await expect(viewer.locator("#papers img").first()).toBeVisible(); // they can see the photos
   await viewer.locator("#papers li", { hasText: "Official receipt (OR)" }).click(); // and open a paper: the photo large and what the bot read, with no button to change it
-  await expect(viewer.getByRole("dialog").getByRole("button", { name: /^View .* larger$/ }).first()).toBeVisible();
+  await expect(viewer.getByRole("dialog").getByRole("button", { name: "Zoom in" })).toBeVisible(); // the photo is large, with its zoom controls
   await expect(viewer.getByRole("dialog").getByRole("button", { name: "Change what this is" })).toHaveCount(0);
   await viewer.keyboard.press("Escape");
   await expect(viewer.getByRole("button", { name: "Approve: documents are OK" })).toHaveCount(0);
@@ -342,13 +342,13 @@ test("Documentation adds photos by typing only the plate: the folder is made, th
   // a photo opens in the zoom viewer (+, −, Fit), and Documentation can remove it from the folder (after a question)
   await docs.locator("#papers li", { hasText: "Official receipt (OR)" }).click();
   const dialog = docs.getByRole("dialog");
-  await dialog.getByRole("button", { name: /^View .* larger$/ }).first().click();
+  await expect(dialog.getByRole("region", { name: "Preview" })).toBeVisible(); // the viewer fills the window: the photo, with its controls and details beside it
+  await expect(dialog.getByRole("complementary", { name: "Details and controls" })).toBeVisible();
   await expect(docs.getByRole("button", { name: "Zoom in" })).toBeVisible();
   await docs.getByRole("button", { name: "Zoom in" }).click();
   await expect(docs.getByText("150%")).toBeVisible();
   await docs.getByRole("button", { name: "Fit" }).click();
   await expect(docs.getByText("100%")).toBeVisible();
-  await docs.keyboard.press("Escape");
   await dialog.getByRole("button", { name: "Remove this photo" }).first().click();
   await expect(dialog.getByText(/goes to the Drive trash for 30 days/)).toBeVisible();
   await dialog.getByRole("button", { name: "Keep it" }).click();

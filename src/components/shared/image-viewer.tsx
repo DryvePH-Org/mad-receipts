@@ -14,13 +14,14 @@ const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n
  */
 export function ImageViewer({ open, onOpenChange, src, name, rotation = 0, description }: { open: boolean; onOpenChange: (open: boolean) => void; src: string; name: string; rotation?: number; description?: string }) {
   return (
-    <ResponsiveDialog open={open} onOpenChange={onOpenChange} title={name} description={description} className="sm:max-w-4xl">
-      {open && <Stage src={src} name={name} rotation={rotation} />}
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange} title={name} description={description} size="lg">
+      {open && <ImageStage src={src} name={name} rotation={rotation} />}
     </ResponsiveDialog>
   );
 }
 
-function Stage({ src, name, rotation }: { src: string; name: string; rotation: number }) {
+/** The zoomable picture with its controls. `fill` makes it take all the height its parent gives (a viewer that fills the window); otherwise it is 65% of the screen high. */
+export function ImageStage({ src, name, rotation = 0, fill = false }: { src: string; name: string; rotation?: number; fill?: boolean }) {
   const [view, setView] = useState({ z: 1, x: 0, y: 0 });
   const [touching, setTouching] = useState(false);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -58,10 +59,10 @@ function Stage({ src, name, rotation }: { src: string; name: string; rotation: n
   const up = (e: React.PointerEvent) => { pointers.current.delete(e.pointerId); if (pointers.current.size < 2) pinch.current = null; if (pointers.current.size === 0) setTouching(false); };
 
   return (
-    <div className="space-y-2">
+    <div className={fill ? "flex h-full min-h-0 flex-col gap-2" : "space-y-2"}>
       <div
         ref={box}
-        className={`relative h-[65svh] touch-none overflow-hidden rounded-lg bg-muted select-none ${view.z > 1 ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"}`}
+        className={`relative ${fill ? "min-h-0 flex-1" : "h-[65svh]"} touch-none overflow-hidden rounded-lg bg-muted select-none ${view.z > 1 ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"}`}
         onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
         onWheel={(e) => zoomTo(view.z * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY)}
         onDoubleClick={(e) => (view.z > 1 ? zoomTo(1) : zoomTo(2.5, e.clientX, e.clientY))}

@@ -2,28 +2,21 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, ChevronRight, CircleAlert, Download, Loader2, Minus, RefreshCw, ScanText, Trash2, X } from "lucide-react";
+import { Check, ChevronRight, Download, Loader2, Minus, RefreshCw, ScanText, X } from "lucide-react";
 import { toast } from "sonner";
-import { ResponsiveDialog } from "@/components/shared/responsive-dialog";
-import { ImageViewer } from "@/components/shared/image-viewer";
 import { Pill } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import type { Rules } from "@/lib/docs/stage";
-import { CASE_LABELS, CHOOSABLE, CHOOSABLE_CASES, DOC_LABELS, type Detection, type DocType } from "@/lib/docs/types";
+import { CASE_LABELS, CHOOSABLE_CASES } from "@/lib/docs/types";
 import { saveCellAction } from "../../docs-bible/actions";
+import { PaperViewer, typeLabel } from "./paper-viewer";
 import { UploadButton } from "./upload-button";
 import { useEditConfirm } from "./edit-confirm";
-import { removeFileAction, rescanFileAction, editReadingAction, readNextAction, reviewFlagAction, rescanAction, setCaseAction, setFileTypesAction, updateRegisterAction } from "../actions";
+import { readNextAction, rescanAction, setCaseAction, setFileTypesAction, updateRegisterAction } from "../actions";
 import type { CarViewData, FileView } from "./types";
 
-const typeLabel = (t: string) => DOC_LABELS[t as DocType] ?? t;
-/** The two kinds of official receipt, and open or closed deeds, as the bot tells them apart. Either kind of OR counts as the OR. */
-const OR_KIND: Record<string, string> = { registration: "Registration OR (big)", last: "Last OR (small)" };
-const DEED_KIND: Record<string, string> = { open: "Open deed", closed: "Closed deed (notarized)" };
-const kindsOf = (dets: Detection[]) => dets.flatMap((d) => [d.orKind ? OR_KIND[d.orKind] : null, d.deedKind ? DEED_KIND[d.deedKind] : null]).filter((x): x is string => !!x);
 
 const SLOT_COLUMN: Record<string, string> = { official_receipt: "or_receipt", certificate_of_registration: "cr", deed_owner_to_dealer: "deed", owner_id: "sellers_id", representative_id: "sellers_id", chattel_cancellation: "chattel", promissory_note: "promissory", secretary_certificate: "sec_cert", secretary_id: "sec_ids", board_resolution: "boards_reso", stencil: "stencil" };
 const REG_CHOICES = ["Yes", "No", "To follow", "N/A"] as const;
@@ -157,162 +150,28 @@ export function PapersCard({ data, rules, readOnly = false, confirmEdits = false
         )}
       </CardContent>
 
-      <ResponsiveDialog open={open !== null && (selectedItem !== null || selectedFiles.length > 0)} onOpenChange={(o) => !o && setOpen(null)} title={selectedItem ? selectedItem.label : selectedFiles[0]?.name ?? ""} description={selectedItem ? (selectedItem.present ? "The photos that show this paper, what the bot read, and what you can correct." : "This paper is not in the folder yet.") : "What the bot read from this photo."}>
-        <div className="max-h-[75svh] space-y-4 overflow-auto pr-1">
-          {selectedItem && !selectedItem.present && !readOnly && <p className="text-sm text-muted-foreground">Add a photo of it with <b>Upload documents</b> at the top of this card, or, if it is in the folder under another type, change that photo&apos;s type from the list <b>Other photos</b>.</p>}
+      <PaperViewer
+        open={open !== null && (selectedItem !== null || selectedFiles.length > 0)} onOpenChange={(o) => !o && setOpen(null)}
+        title={selectedItem ? selectedItem.label : selectedFiles[0]?.name ?? ""}
+        description={selectedItem ? (selectedItem.present ? "The photo of this paper, what the bot read, and what you can change." : "This paper is not in the folder yet.") : "The photo and what the bot read."}
+        files={selectedFiles} busy={busy || data.scanning} readOnly={readOnly} run={run} runNow={runNow}
+        onSetTypes={(id, types) => run(() => setFileTypesAction(id, types))}
+        intro={<>
+          {selectedItem && !selectedItem.present && !readOnly && <p className="text-sm text-muted-foreground">Add a photo of it with <b>Upload documents</b> at the top of the Papers card, or, if it is in the folder under another type, change that photo&apos;s type from the list <b>Other photos</b>.</p>}
           {register && col && (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted p-3 text-sm">
-              <span className="font-medium">Car documents says</span>
+            <div className="space-y-2 rounded-lg bg-muted p-3 text-sm">
+              <p className="font-medium">Car documents says</p>
               {canEditRegister
-                ? <NativeSelect aria-label={`Car record: ${selectedItem?.label}`} className="w-36" value={regValue ?? ""} disabled={busy} onChange={(e) => run(async () => { const r = await saveCellAction(register.id, col, e.target.value, regValue); return { ok: r.ok, message: r.ok ? "Saved in MAD." : r.message ?? "Could not save." }; })}><option value="">(empty)</option>{REG_CHOICES.map((c) => <option key={c} value={c}>{c}</option>)}</NativeSelect>
+                ? <NativeSelect aria-label={`Car record: ${selectedItem?.label}`} value={regValue ?? ""} disabled={busy} onChange={(e) => run(async () => { const r = await saveCellAction(register.id, col, e.target.value, regValue); return { ok: r.ok, message: r.ok ? "Saved in MAD." : r.message ?? "Could not save." }; })}><option value="">(empty)</option>{REG_CHOICES.map((c) => <option key={c} value={c}>{c}</option>)}</NativeSelect>
                 : <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${regValue ? REG_CHIP[regValue] : ""}`}>{regValue ?? "(empty)"}</span>}
-              <span className="text-xs text-muted-foreground">{canEditRegister ? "Use To follow or N/A when the paper is not coming or not needed." : ""}</span>
+              {canEditRegister && <p className="text-xs text-muted-foreground">Use To follow or N/A when the paper is not coming or not needed.</p>}
             </div>
           )}
           {selectedFiles.length === 0 && selectedItem?.present && <p className="text-sm text-muted-foreground">No photo is attached to this paper.</p>}
-          <ul className="divide-y">{selectedFiles.map((f) => <FileRow key={f.id} f={f} busy={busy || data.scanning} onSave={(types) => run(() => setFileTypesAction(f.id, types))} run={run} runNow={runNow} readOnly={readOnly} />)}</ul>
-        </div>
-      </ResponsiveDialog>
+        </>}
+      />
       {confirmDialog}
     </Card>
-  );
-}
-
-function FileRow({ f, busy, onSave, run, runNow, readOnly }: { f: FileView; busy: boolean; onSave: (types: string[] | null) => void; run: (fn: () => Promise<{ ok: boolean; message: string }>) => void; runNow: (fn: () => Promise<{ ok: boolean; message: string }>) => void; readOnly: boolean }) {
-  const [editing, setEditing] = useState(false);
-  const [picked, setPicked] = useState<string[]>(f.types);
-  const [confirmRemove, setConfirmRemove] = useState(false);
-  const unread = f.readStatus === "pending";
-  return (
-    <li className="space-y-3 py-4">
-      <div className="flex flex-wrap items-center gap-2">
-        {f.url ? <a href={f.url} target="_blank" rel="noreferrer" className="min-w-0 font-medium break-all underline-offset-2 hover:underline">{f.name}</a> : <b className="min-w-0 font-medium break-all">{f.name}</b>}
-        <a href={`/api/docs/file/${f.id}?download=1`} download aria-label={`Download ${f.name}`} title="Download this photo" className="text-muted-foreground hover:text-foreground"><Download className="size-4" aria-hidden /></a>
-        {f.source === "upload" && <Pill tone="teal">From Sales</Pill>}
-        <span className="ml-auto flex flex-wrap items-center gap-1.5">
-          {unread ? <Pill tone="blue">Not read yet</Pill> : f.readStatus === "failed" ? <Pill tone="red">Could not read</Pill> : f.readStatus === "unreadable" ? <Pill tone="red">Too unclear</Pill>
-            : f.types.length === 0 ? <Pill tone="zinc">Nothing recognised</Pill> : f.types.map((t) => <Pill key={t} tone={t === "other" || t.endsWith("unmatched") ? "amber" : "emerald"}>{typeLabel(t)}</Pill>)}
-          {kindsOf(f.seen.detections).map((k) => <Pill key={k} tone="blue">{k}</Pill>)}
-          {f.manual && <Pill tone="purple">Set by a person</Pill>}
-          {f.edited && <Pill tone="purple">Corrected by a person</Pill>}
-        </span>
-      </div>
-      <div className="flex flex-wrap items-start gap-3">
-        {f.readStatus === "done" && <Thumb id={f.id} name={f.name} rotation={f.rotation} />}
-        <div className="min-w-0 flex-1 space-y-2">
-          {f.flags.map((x) => (
-            <div key={x} className="flex flex-wrap items-start gap-2 rounded-lg bg-amber-50 p-2.5 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
-              <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden /><span className="min-w-0 flex-1">{x}</span>
-              {!readOnly && <Button size="xs" variant="outline" disabled={busy} onClick={() => run(() => reviewFlagAction(f.id, x, true))}>Checked, it is fine</Button>}
-            </div>
-          ))}
-          {f.reviewed.length > 0 && <p className="text-xs text-muted-foreground">{f.reviewed.length} warning{f.reviewed.length === 1 ? "" : "s"} checked by a person. {!readOnly && <button type="button" className="underline underline-offset-2" disabled={busy} onClick={() => run(async () => { let last = { ok: true, message: "The warnings are back." }; for (const x of f.reviewed) last = await reviewFlagAction(f.id, x, false); return last; })}>Show again</button>}</p>}
-          {f.readError && f.readStatus === "failed" && <p className="text-xs text-muted-foreground">{f.readError}</p>}
-          {f.readStatus === "done" && <Seen f={f} busy={busy} run={run} readOnly={readOnly} />}
-        </div>
-      </div>
-      {readOnly ? null : editing ? (
-        <div className="space-y-2 rounded-lg border p-3">
-          <p className="text-sm font-medium">What is in this photo? (tick more than one if it shows two documents)</p>
-          <div className="grid gap-1.5 sm:grid-cols-2">
-            {CHOOSABLE.map((t) => <label key={t} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={picked.includes(t)} onChange={(e) => setPicked(e.target.checked ? [...picked, t] : picked.filter((x) => x !== t))} />{DOC_LABELS[t]}</label>)}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" disabled={busy || picked.length === 0} onClick={() => { onSave(picked); setEditing(false); }}>Save</Button>
-            {f.manual && <Button size="sm" variant="outline" disabled={busy} onClick={() => { onSave(null); setEditing(false); }}>Go back to what was read</Button>}
-            <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
-          </div>
-        </div>
-      ) : <div className="flex flex-wrap gap-3"><button type="button" className="text-xs underline underline-offset-2 disabled:opacity-50" disabled={busy} onClick={() => { setPicked(f.types.filter((t) => (CHOOSABLE as string[]).includes(t))); setEditing(true); }}>Change what this is</button>
-        {f.readStatus !== "pending" && <button type="button" className="text-xs underline underline-offset-2 disabled:opacity-50" disabled={busy} onClick={() => run(() => rescanFileAction(f.id))}>Scan this photo again</button>}
-        {confirmRemove
-          ? <span className="flex flex-wrap items-center gap-2 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs text-red-900 dark:bg-red-500/10 dark:text-red-200">
-            Take this photo out of the car&apos;s folder? It goes to the Drive trash for 30 days.
-            <Button size="xs" variant="destructive" disabled={busy} onClick={() => { setConfirmRemove(false); runNow(() => removeFileAction(f.id)); }}>Yes, remove it</Button>
-            <Button size="xs" variant="ghost" onClick={() => setConfirmRemove(false)}>Keep it</Button></span>
-          : <button type="button" className="ml-auto flex items-center gap-1 text-xs text-red-700 underline underline-offset-2 disabled:opacity-50 dark:text-red-300" disabled={busy} onClick={() => setConfirmRemove(true)}><Trash2 className="size-3" aria-hidden /> Remove this photo</button>}</div>}
-    </li>
-  );
-}
-
-const DETAIL_ROWS: [keyof Detection, string][] = [
-  ["documentNumber", "Document number"], ["plate", "Plate"], ["motorNo", "Motor / engine no."], ["chassisNo", "Chassis no."], ["ownerName", "Registered owner"], ["holderName", "Name on the ID"], ["idType", "ID type"],
-  ["sellerName", "Seller"], ["buyerName", "Buyer"], ["secretaryName", "Secretary"], ["representativeName", "Representative"], ["validUntil", "OR valid until"], ["lender", "Bank / lender"],
-];
-
-/** "What the bot saw": every document the bot found on this photo with what it read, how sure it was, and what it saw wrong with it. */
-function Seen({ f, busy, run, readOnly }: { f: FileView; busy: boolean; run: (fn: () => Promise<{ ok: boolean; message: string }>) => void; readOnly: boolean }) {
-  const [editing, setEditing] = useState<number | null>(null);
-  const dets = f.seen.detections;
-  return (
-    <details className="group rounded-lg border">
-      <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2 text-xs font-medium"><ChevronDown className="size-3.5 transition group-open:rotate-180" aria-hidden /> What the bot saw{f.rotation ? ` · turned ${f.rotation}°` : ""}</summary>
-      <div className="space-y-3 border-t p-3 text-sm">
-        {dets.length === 0 ? <p className="text-muted-foreground">The bot did not recognise a document on this photo.</p> : dets.map((d, i) => (
-          <div key={i} className="space-y-1.5">
-            <p className="flex flex-wrap items-center gap-2 font-medium">{typeLabel(d.type)}
-              <span className="text-xs font-normal text-muted-foreground">{Math.round(d.confidence * 100)}% sure of the type</span>
-              {d.orKind && <Pill tone="blue">{OR_KIND[d.orKind]}</Pill>}
-              {d.deedKind && <Pill tone="blue">{DEED_KIND[d.deedKind]}</Pill>}
-              {d.copy && <Pill tone={d.copy === "original" ? "emerald" : "amber"}>{d.copy === "original" ? "Original" : "Photocopy"}</Pill>}
-              {d.defects?.length ? d.defects.map((x) => <Pill key={x} tone="red">{x}</Pill>) : <span className="text-xs font-normal text-emerald-800 dark:text-emerald-300">No damage seen</span>}
-            </p>
-            <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
-              {DETAIL_ROWS.filter(([k]) => d[k]).map(([k, name]) => <div key={k} className="flex flex-col gap-0.5 sm:flex-row sm:gap-2"><dt className="text-xs text-muted-foreground sm:w-36 sm:shrink-0">{name}</dt><dd className="min-w-0 break-words">{String(d[k])}</dd></div>)}
-            </dl>
-            {readOnly ? null : editing === i ? <EditReading d={d} busy={busy} onCancel={() => setEditing(null)} onSave={(patch) => { run(() => editReadingAction(f.id, i, patch)); setEditing(null); }} />
-              : <button type="button" className="text-xs underline underline-offset-2 disabled:opacity-50" disabled={busy} onClick={() => setEditing(i)}>Correct what the bot read</button>}
-          </div>
-        ))}
-        {f.seen.notes && <p className="text-xs text-muted-foreground">Bot&apos;s note: {f.seen.notes}</p>}
-        <p className="text-xs text-muted-foreground">A number or name the bot could not read in full is left blank, never guessed.</p>
-      </div>
-    </details>
-  );
-}
-
-/** Fix a wrong or missing reading by hand. A blank box clears the field; the bot's first reading is kept in the record. */
-function EditReading({ d, busy, onSave, onCancel }: { d: Detection; busy: boolean; onSave: (patch: Record<string, unknown>) => void; onCancel: () => void }) {
-  const [v, setV] = useState<Record<string, string>>(() => Object.fromEntries(DETAIL_ROWS.map(([k]) => [k, String(d[k] ?? "")])));
-  const [copy, setCopy] = useState<string>(d.copy ?? "");
-  const [orKind, setOrKind] = useState<string>(d.orKind ?? "");
-  const [deedKind, setDeedKind] = useState<string>(d.deedKind ?? "");
-  const [noDamage, setNoDamage] = useState(false);
-  const show = DETAIL_ROWS.filter(([k]) => k !== "validUntil" || d.type === "official_receipt");
-  return (
-    <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
-      <p className="text-xs text-muted-foreground">Type what the paper really says. Leave a box empty if it cannot be read.</p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {show.map(([k, name]) => <label key={k} className="space-y-1 text-xs">{name}{k === "validUntil" ? " (2027-03-31)" : ""}<Input value={v[k]} maxLength={k === "validUntil" ? 10 : 120} onChange={(e) => setV({ ...v, [k]: e.target.value })} /></label>)}
-        {d.type === "official_receipt" && <label className="space-y-1 text-xs">Which official receipt
-          <NativeSelect value={orKind} onChange={(e) => setOrKind(e.target.value)}><option value="">Not sure</option><option value="registration">{OR_KIND.registration}</option><option value="last">{OR_KIND.last}</option></NativeSelect></label>}
-        {d.type === "deed_of_sale" && <label className="space-y-1 text-xs">Open or closed deed
-          <NativeSelect value={deedKind} onChange={(e) => setDeedKind(e.target.value)}><option value="">Not sure</option><option value="open">{DEED_KIND.open}</option><option value="closed">{DEED_KIND.closed}</option></NativeSelect></label>}
-        <label className="space-y-1 text-xs">Original or photocopy
-          <NativeSelect value={copy} onChange={(e) => setCopy(e.target.value)}><option value="">Not sure</option><option value="original">Original</option><option value="photocopy">Photocopy</option></NativeSelect></label>
-      </div>
-      {d.defects?.length ? <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={noDamage} onChange={(e) => setNoDamage(e.target.checked)} /> No damage: clear “{d.defects.join(", ")}”</label> : null}
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" disabled={busy} onClick={() => onSave({ ...Object.fromEntries(show.map(([k]) => [k, v[k]])), copy: copy || null, ...(d.type === "official_receipt" ? { orKind: orKind || null } : {}), ...(d.type === "deed_of_sale" ? { deedKind: deedKind || null } : {}), ...(noDamage ? { noDamage: true } : {}) })}>Save the correction</Button>
-        <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>
-      </div>
-    </div>
-  );
-}
-
-/** The photo shown upright, however it was taken. Only the view is turned; the file in Drive is never changed. Click to see it larger. */
-function Thumb({ id, name, rotation }: { id: string; name: string; rotation: number }) {
-  const [open, setOpen] = useState(false);
-  const src = `/api/docs/file/${id}`;
-  const turn = rotation ? { transform: `rotate(${rotation}deg)` } : undefined;
-  return (
-    <>
-      <button type="button" onClick={() => setOpen(true)} className="grid size-24 shrink-0 place-items-center overflow-hidden rounded-lg border bg-muted" aria-label={`View ${name} larger`}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={name} loading="lazy" className="max-h-24 max-w-24 object-contain" style={turn} />
-      </button>
-      <ImageViewer open={open} onOpenChange={setOpen} src={src} name={name} rotation={rotation} description={rotation ? `Turned ${rotation}° to read upright here. The file in Drive is not changed.` : undefined} />
-    </>
   );
 }
 
