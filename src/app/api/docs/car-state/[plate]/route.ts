@@ -20,7 +20,7 @@ export async function GET(_request: Request, ctx: { params: Promise<{ plate: str
     db.from("unit_details").select("data").eq("plate_no", key).maybeSingle(),
     db.from("docs_units_current").select("*").eq("plate_no", key).maybeSingle(),
     db.from("grokbot_jobs").select("id, status").eq("plate_no", key).in("status", ["queued", "sent"]).order("id"),
-    db.from("car_transfers").select("id, stage, handed_off_at, back_at, released_on, delivered_on, updated_at").eq("plate_no", key).order("id"),
+    db.from("car_sales").select("id, stage, handed_off_at, back_at, released_on, delivered_on, updated_at").eq("plate_no", key).order("id"),
   ]);
   const version = createHash("sha1").update(JSON.stringify([files.data, folder.data, flow.data, details.data, unit.data, jobs.data, transfers.data])).digest("hex").slice(0, 16);
   return Response.json({ version }, { headers: { "Cache-Control": "no-store" } });

@@ -34,14 +34,14 @@ async function main() {
   console.log(`Without a buyer name: ${noBuyer.length ? noBuyer.join(", ") : "none"} | without a CR date: ${rows.filter((r) => !r.cr_date).length}`);
   console.log(`Waiting plates: ${waiting.map((w) => w.plate_no).join(", ")}`);
   if (!apply) { console.log("\nNothing was written. Add --apply after migration 41."); return; }
-  const probe = await db.from("car_transfers").select("id", { head: true, count: "exact" });
+  const probe = await db.from("car_sales").select("id", { head: true, count: "exact" });
   if (probe.error) throw new Error(`Migration 41 is not applied yet (${probe.error.message}).`);
   // replace only imported rows nobody edited (updated_by is set by every edit in the app)
-  const del = await db.from("car_transfers").delete().eq("source", "import").is("updated_by", null).select("id");
+  const del = await db.from("car_sales").delete().eq("source", "import").is("updated_by", null).select("id");
   console.log(`Earlier imported rows replaced: ${del.data?.length ?? 0}`);
-  const edited = new Set(((await db.from("car_transfers").select("sheet_row").eq("source", "import")).data ?? []).map((x) => x.sheet_row as number));
+  const edited = new Set(((await db.from("car_sales").select("sheet_row").eq("source", "import")).data ?? []).map((x) => x.sheet_row as number));
   const todo = rows.filter((r) => !edited.has(r.sheet_row));
-  for (let i = 0; i < todo.length; i += 100) { const { error } = await db.from("car_transfers").insert(todo.slice(i, i + 100)); if (error) throw new Error(error.message); }
+  for (let i = 0; i < todo.length; i += 100) { const { error } = await db.from("car_sales").insert(todo.slice(i, i + 100)); if (error) throw new Error(error.message); }
   console.log(`Done: ${todo.length} transfers saved (${todo.filter((r) => r.unit_id).length} linked to a car).`);
 }
 main().catch((e) => { console.error(e instanceof Error ? e.message : e); process.exit(1); });

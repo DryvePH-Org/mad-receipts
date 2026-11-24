@@ -44,7 +44,7 @@ export async function listCarRows(): Promise<CarRow[]> {
   const byPlate = new Map<string, FileRow[]>();
   for (const f of files ?? []) byPlate.set(f.plate_no, [...(byPlate.get(f.plate_no) ?? []), f]);
   const deals = await dealsById([...new Set((folders ?? []).map((f) => f.deal_id).filter((x): x is string => !!x))]);
-  const { data: sold } = await (admin as unknown as SupabaseClient).from("car_transfers").select("plate_no, buyer, payment_status").neq("stage", "cancelled").eq("is_reference", false).limit(6000);
+  const { data: sold } = await (admin as unknown as SupabaseClient).from("car_sales").select("plate_no, buyer, payment_status").neq("stage", "cancelled").eq("is_reference", false).limit(6000);
   const saleBy = new Map(((sold ?? []) as { plate_no: string; buyer: string | null; payment_status: string | null }[]).map((s) => [s.plate_no, s]));
   return (folders ?? []).map((folder: FolderRow) => {
     const deal = folder.deal_id ? deals.get(folder.deal_id) ?? null : null;

@@ -25,3 +25,20 @@ describe("the 24 Nov clean-up files, applied in the owner's order on a database 
     expect((await db.query("select 1 from information_schema.tables where table_name = 'car_stock'")).rows).toHaveLength(0);
   }, 90_000);
 });
+
+describe("the sale record rename (migrations 60 and 61), in the owner's order", () => {
+  it("keeps the rows, keeps the old name working until the view is removed, and links a waiting sale to a new car", async () => {
+    const db = await createDb({ upTo: "20261124000059_zzz" });
+    await db.query("insert into public.car_transfers (plate_no, buyer, sold_on, stage) values ('SAL1111', 'JUAN', '2026-05-05', 'in_process')");
+    await db.exec(readFileSync("supabase/migrations/20261124000060_car_sales.sql", "utf8"));
+    expect((await db.query("select buyer from public.car_sales where plate_no = 'SAL1111'")).rows).toEqual([{ buyer: "JUAN" }]);
+    await db.query("insert into public.car_transfers (plate_no, buyer) values ('SAL2222', 'OLD CODE')"); // the code that is still running says the old name
+    expect((await db.query("select buyer from public.car_sales where plate_no = 'SAL2222'")).rows).toEqual([{ buyer: "OLD CODE" }]);
+    await db.query("insert into public.docs_units (plate_no, plate_display) values ('SAL1111', 'SAL 1111')");
+    expect((await db.query<{ unit_id: string | null }>("select unit_id from public.car_sales where plate_no = 'SAL1111'")).rows[0].unit_id).not.toBeNull();
+    const names = (await db.query<{ n: string }>("select conname as n from pg_constraint where conrelid = 'public.car_sales'::regclass and conname like 'car\\_transfers%'")).rows;
+    expect(names).toEqual([]);
+    await db.exec(readFileSync("supabase/migrations/20261124000061_drop_car_transfers_view.sql", "utf8"));
+    expect((await db.query("select 1 from information_schema.views where table_name = 'car_transfers'")).rows).toHaveLength(0);
+  }, 90_000);
+});

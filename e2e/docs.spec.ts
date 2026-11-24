@@ -265,7 +265,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await docs.getByRole("button", { name: /^Handed off to/ }).click();
   await docs.getByRole("dialog").getByRole("button", { name: "Go on anyway" }).click();
   await expect(docs.getByText(/^Handed off on/).first()).toBeVisible({ timeout: 20_000 });
-  const rec = async () => (await adminClient().from("car_transfers").select("stage, handed_off_at, back_at, released_on, delivered_on, done_on, originals_at, next_step").eq("plate_no", "ZZT7001").neq("stage", "cancelled")).data ?? [];
+  const rec = async () => (await adminClient().from("car_sales").select("stage, handed_off_at, back_at, released_on, delivered_on, done_on, originals_at, next_step").eq("plate_no", "ZZT7001").neq("stage", "cancelled")).data ?? [];
   expect((await rec()).length).toBe(1);
   expect((await rec())[0]).toMatchObject({ stage: "in_process", back_at: null });
   const list = await as(browser, "docs"); // the list of documents that are out comes from the same record
@@ -497,8 +497,8 @@ test("Sales and transfers: the stages filter the list, what is flagged waits for
   test.setTimeout(120_000);
   const db = adminClient() as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
   const row = (plate: string, over: Record<string, unknown>) => ({ plate_no: plate, buyer: "ZZT E2E BUYER", sales: "DAVID", source: "import", sold_on: "2026-03-10", agreed_price: 500000, route: "unknown", stage: "in_process", is_reference: false, flags: [], liaison: null, originals_at: null, ...over }); // every row names the same columns: a bulk insert sends null for a missing one
-  await db.from("car_transfers").delete().like("plate_no", "ZZT95%");
-  const ins = await db.from("car_transfers").insert([
+  await db.from("car_sales").delete().like("plate_no", "ZZT95%");
+  const ins = await db.from("car_sales").insert([
     row("ZZT9501", { stage: "in_process", route: "mad", liaison: "JEP", originals_at: "with Jep" }),
     row("ZZT9502", { stage: "delivered", route: "mad" }),
     row("ZZT9503", { stage: "unknown", is_reference: true, flags: ["the transfer status is not known (this tab is old): a person checks it"] }),
@@ -528,7 +528,7 @@ test("Sales and transfers: the stages filter the list, what is flagged waits for
   await expect(flagged.getByText("no agreed price").first()).toBeVisible();
   await flagged.getByRole("button", { name: "Checked, it is fine" }).click();
   await expect(docs.getByText("ZZT9504")).toHaveCount(0, { timeout: 20_000 }); // it left "To check"
-  const checked = (await db.from("car_transfers").select("flags, edited_in_app").eq("plate_no", "ZZT9504").single()).data;
+  const checked = (await db.from("car_sales").select("flags, edited_in_app").eq("plate_no", "ZZT9504").single()).data;
   expect(checked).toEqual({ flags: [], edited_in_app: true });
 
   // change the stage and the price of the first one
@@ -539,14 +539,14 @@ test("Sales and transfers: the stages filter the list, what is flagged waits for
   await first.getByLabel("Agreed price (₱)").fill("₱ 650,000");
   await first.getByRole("button", { name: "Save", exact: true }).click();
   await expect(first.getByText("Saved.")).toBeVisible({ timeout: 20_000 });
-  const saved = (await db.from("car_transfers").select("stage, agreed_price, edited_in_app").eq("plate_no", "ZZT9501").single()).data;
+  const saved = (await db.from("car_sales").select("stage, agreed_price, edited_in_app").eq("plate_no", "ZZT9501").single()).data;
   expect([saved.stage, Number(saved.agreed_price), saved.edited_in_app]).toEqual(["transferred", 650000, true]);
 
   // Online Marketing have no access to the buyers' details
   const sales = await as(browser, "marketing");
   await sales.goto("/documents/transfers");
   await expect(sales.getByText("You don't have access to this page.")).toBeVisible();
-  await db.from("car_transfers").delete().like("plate_no", "ZZT95%");
+  await db.from("car_sales").delete().like("plate_no", "ZZT95%");
   await docs.close(); await sales.close();
 });
 
@@ -554,7 +554,7 @@ test("A sold list row without a plate waits in the Data check; typing the plate 
   test.setTimeout(120_000);
   const db = adminClient() as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
   await db.from("docs_review_items").delete().eq("payload->>rowKey", "sold|ZZT|1");
-  await db.from("car_transfers").delete().like("plate_no", "ZZT96%");
+  await db.from("car_sales").delete().like("plate_no", "ZZT96%");
   const payload = {
     rowKey: "sold|ZZT|1", keyParts: { tab: "transfer tab", date: "2026-04-01", buyer: "ZZTE2EBUYER" }, fillUnit: {},
     fields: { buyer: "ZZT E2E BUYER", sales: "DAVID", sold_on: "2026-04-01", agreed_price: 700000, route: "mad", stage: "released", is_reference: false, flags: ["plate: a date was typed where the plate goes."], car_text: "2025 BYD SHARK 6", source: "import" },
@@ -569,31 +569,31 @@ test("A sold list row without a plate waits in the Data check; typing the plate 
   await expect(item).toContainText("Sold row without a plate");
   await item.getByLabel("Plate number of the sale").fill("zzt 9601");
   await item.getByRole("button", { name: "Record the sale" }).click();
-  await expect.poll(async () => (await db.from("car_transfers").select("plate_no, buyer, stage, source_key, flags").eq("plate_no", "ZZT9601")).data?.length, { timeout: 20_000 }).toBe(1);
-  const t = (await db.from("car_transfers").select("plate_no, buyer, stage, agreed_price, source_key, flags, unit_id").eq("plate_no", "ZZT9601").single()).data;
+  await expect.poll(async () => (await db.from("car_sales").select("plate_no, buyer, stage, source_key, flags").eq("plate_no", "ZZT9601")).data?.length, { timeout: 20_000 }).toBe(1);
+  const t = (await db.from("car_sales").select("plate_no, buyer, stage, agreed_price, source_key, flags, unit_id").eq("plate_no", "ZZT9601").single()).data;
   expect([t.buyer, t.stage, Number(t.agreed_price), t.unit_id]).toEqual(["ZZT E2E BUYER", "released", 700000, null]); // MAD has no such car: the sale keeps the car as the sheet described it
   expect(t.source_key).toBe("ft|ZZT9601|2026-04-01|ZZTE2EBUYER");
   expect(t.flags.join(" ")).toContain("typed by a person");
   expect(t.flags.join(" ")).not.toContain("a date was typed");
   expect((await db.from("docs_review_items").select("status").eq("payload->>rowKey", "sold|ZZT|1").single()).data.status).toBe("resolved");
   await db.from("docs_review_items").delete().eq("payload->>rowKey", "sold|ZZT|1");
-  await db.from("car_transfers").delete().like("plate_no", "ZZT96%");
+  await db.from("car_sales").delete().like("plate_no", "ZZT96%");
   await docs.close();
 });
 
 test("A saved receipt makes the sale record of its car, or joins the one that is already there", async ({ browser, playwright, baseURL }) => {
   test.setTimeout(180_000);
   const db = adminClient() as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
-  await db.from("car_transfers").delete().like("plate_no", "ZZT703%");
+  await db.from("car_sales").delete().like("plate_no", "ZZT703%");
   // an older record of the sold list, with the same buyer (will be joined), and one of another buyer on another car (a new record is made)
-  await db.from("car_transfers").insert([
+  await db.from("car_sales").insert([
     { plate_no: "ZZT7031", buyer: "ZZT E2E DOCS BUYER", source: "import", sold_on: null, agreed_price: null, stage: "released", route: "mad", is_reference: false, flags: [], sales: null },
     { plate_no: "ZZT7032", buyer: "SOMEONE ELSE ENTIRELY", source: "import", sold_on: "2026-02-02", agreed_price: 100000, stage: "delivered", route: "mad", is_reference: false, flags: [], sales: "ELLA" },
   ]);
   const a = await makeAr("ZZT 7030"), b = await makeAr("ZZT 7031"), c = await makeAr("ZZT 7032");
   const cron = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { "x-cron-secret": cronSecret() } });
   expect((await cron.post("/api/sync/run")).ok()).toBe(true);
-  const recs = async (plate: string) => (await db.from("car_transfers").select("buyer, agreed_price, sold_on, sales, stage, deal_id, source, source_key").eq("plate_no", plate)).data as Record<string, unknown>[];
+  const recs = async (plate: string) => (await db.from("car_sales").select("buyer, agreed_price, sold_on, sales, stage, deal_id, source, source_key").eq("plate_no", plate)).data as Record<string, unknown>[];
 
   // a new car: a new record, from the deal, ready for its transfer
   await expect.poll(async () => (await recs("ZZT7030")).length, { timeout: 30_000 }).toBe(1);
@@ -630,7 +630,7 @@ test("A saved receipt makes the sale record of its car, or joins the one that is
   await admin.getByRole("dialog").getByRole("button", { name: "Yes, delete it" }).click();
   await admin.waitForURL("**/deals", { timeout: 30_000 });
   expect(await recs("ZZT7030")).toHaveLength(0);
-  if (made) await db.from("car_transfers").delete().like("plate_no", "ZZT703%");
+  if (made) await db.from("car_sales").delete().like("plate_no", "ZZT703%");
   await admin.close();
 });
 
@@ -700,7 +700,7 @@ test("Payments: the sale is added by hand, the status is set, a payment paper is
   await expect(viewer.getByLabel("Payment")).toHaveCount(0);
   await viewer.close();
 
-  await db.from("car_transfers").delete().like("plate_no", "ZZT7005");
+  await db.from("car_sales").delete().like("plate_no", "ZZT7005");
   await db.from("unit_folders").delete().like("plate_no", "ZZT7005");
 });
 
@@ -726,7 +726,7 @@ test("The AR photo makes the sale: the buyer and the date come from it, the AR s
   expect(res.ok()).toBe(true);
   expect((await res.json()).result.types).toContain("acknowledgement_receipt");
 
-  const sale = await db.from("car_transfers").select("buyer, sold_on, sales, agreed_price").eq("plate_no", "ZZT7006").single();
+  const sale = await db.from("car_sales").select("buyer, sold_on, sales, agreed_price").eq("plate_no", "ZZT7006").single();
   expect(sale.data).toMatchObject({ buyer: "ZZT E2E AR BUYER", sold_on: "2026-11-20", sales: "ZZT E2E SALES", agreed_price: null });
 
   await sales.goto("/documents/ZZT7006?tab=payments");
@@ -761,6 +761,6 @@ test("The AR photo makes the sale: the buyer and the date come from it, the AR s
   await expect(sales.getByRole("list", { name: "After-sale documents" })).toContainText("2 in the folder");
   await sales.close();
 
-  await db.from("car_transfers").delete().like("plate_no", "ZZT7006");
+  await db.from("car_sales").delete().like("plate_no", "ZZT7006");
   await db.from("unit_folders").delete().like("plate_no", "ZZT7006");
 });

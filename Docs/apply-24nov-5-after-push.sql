@@ -1,0 +1,9 @@
+-- 24 Nov 2026, FIFTH file: run this AFTER the step 3 code is deployed (and after file 4). It removes the temporary view with the old name.
+
+begin;
+
+-- Step 3b, second part: the temporary view with the old name is removed. Run this AFTER the code that says car_sales is deployed and migration 60 is applied.
+
+drop view if exists public.car_transfers;
+
+commit;

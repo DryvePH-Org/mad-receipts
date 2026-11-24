@@ -52,7 +52,7 @@ export async function setPaymentStatus(plate: string, status: PaymentStatus | nu
   const sale = await saleOfPlate(deps.admin, key);
   if (!sale) return { ok: false, message: "This car has no sale recorded yet. Add the sale first." };
   const db = deps.admin as unknown as { from: (t: string) => { update: (v: object) => { eq: (c: string, v: string) => Promise<{ error: { message: string } | null }> } } };
-  const { error } = await db.from("car_transfers").update({ payment_status: status, payment_status_at: new Date().toISOString(), updated_by: actor, updated_at: new Date().toISOString() }).eq("id", sale.id);
+  const { error } = await db.from("car_sales").update({ payment_status: status, payment_status_at: new Date().toISOString(), updated_by: actor, updated_at: new Date().toISOString() }).eq("id", sale.id);
   if (!error) await logCar(deps, actor, "docs.payment_status", key, { status: status ? PAYMENT_LABEL[status] : "" });
   return error ? { ok: false, message: error.message } : { ok: true };
 }

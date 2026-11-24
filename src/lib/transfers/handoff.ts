@@ -28,7 +28,7 @@ export async function isSoldCar(plate: string): Promise<boolean> {
 
 /** The record the handoff of this car is on, or the one it would go on; null when the car has no sale record yet. */
 async function currentRow(plate: string): Promise<Row | null> {
-  const { data } = await docsDb().from("car_transfers").select(COLS).eq("plate_no", normalizePlate(plate)).neq("stage", "cancelled");
+  const { data } = await docsDb().from("car_sales").select(COLS).eq("plate_no", normalizePlate(plate)).neq("stage", "cancelled");
   const rows = (data ?? []) as Row[];
   return latestOut(rows) ?? newest(rows) ?? null;
 }
@@ -42,7 +42,7 @@ export async function handoffOf(plate: string): Promise<HandoffInfo | null> {
 export async function handoffMap(): Promise<Map<string, HandoffInfo>> {
   const out = new Map<string, Row>();
   for (let p = 0; ; p++) {
-    const { data, error } = await docsDb().from("car_transfers").select(COLS).not("handed_off_at", "is", null).neq("stage", "cancelled").range(p * 1000, p * 1000 + 999);
+    const { data, error } = await docsDb().from("car_sales").select(COLS).not("handed_off_at", "is", null).neq("stage", "cancelled").range(p * 1000, p * 1000 + 999);
     if (error) throw new Error(`The handoffs could not be read: ${error.message}`);
     for (const r of (data ?? []) as Row[]) { const have = out.get(r.plate_no); if (!have || r.handed_off_at! > have.handed_off_at!) out.set(r.plate_no, r); }
     if ((data ?? []).length < 1000) break;
@@ -57,13 +57,13 @@ async function target(plate: string, actor: string): Promise<Row> {
   if (have) return have;
   const db = docsDb();
   const { data: unit } = await db.from("docs_units").select("id").eq("plate_no", key).is("archived_at", null).order("arrival_date", { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
-  const { data, error } = await db.from("car_transfers").insert({ plate_no: key, unit_id: unit?.id ?? null, source: "app", stage: "in_process", flags: [NO_SALE_DETAILS], created_by: actor, updated_by: actor }).select(COLS).single();
+  const { data, error } = await db.from("car_sales").insert({ plate_no: key, unit_id: unit?.id ?? null, source: "app", stage: "in_process", flags: [NO_SALE_DETAILS], created_by: actor, updated_by: actor }).select(COLS).single();
   if (error || !data) throw new Error(`The transfer record could not be made: ${error?.message ?? "unknown"}`);
   return data as Row;
 }
 
 const save = async (id: string, patch: Record<string, unknown>, actor: string) => {
-  const { error } = await docsDb().from("car_transfers").update({ ...patch, updated_by: actor, updated_at: new Date().toISOString() }).eq("id", id);
+  const { error } = await docsDb().from("car_sales").update({ ...patch, updated_by: actor, updated_at: new Date().toISOString() }).eq("id", id);
   if (error) throw new Error(`Could not save: ${error.message}`);
 };
 const datesOf = (r: Row): StepDates => ({ handedOffAt: r.handed_off_at, backAt: r.back_at, releasedOn: r.released_on, deliveredOn: r.delivered_on });
@@ -119,5 +119,5 @@ export async function carsOut(): Promise<HandoffInfo[]> {
   return [...(await handoffMap()).values()].filter((h) => h.handedOffAt && !h.backAt).sort((a, b) => a.handedOffAt!.localeCompare(b.handedOffAt!));
 }
 export async function stampReminded(transferIds: string[], at: string): Promise<void> {
-  if (transferIds.length) await docsDb().from("car_transfers").update({ last_reminded_at: at }).in("id", transferIds);
+  if (transferIds.length) await docsDb().from("car_sales").update({ last_reminded_at: at }).in("id", transferIds);
 }

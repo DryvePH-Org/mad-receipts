@@ -1,5 +1,6 @@
 "use client";
 
+import { SALE_FIELD_NAME } from "@/lib/sales/sections";
 import { useId, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -24,12 +25,15 @@ const day = (iso: string) => new Date(iso).toLocaleDateString("en-PH", { month: 
 const STAGE_TONE: Record<TransferStage, Tone> = { in_process: "blue", transferred: "amber", released: "purple", delivered: "emerald", unknown: "zinc", cancelled: "red" };
 
 type TextField = { key: Exclude<keyof TransferInput, "route" | "stage">; label: string; type?: "date"; wide?: boolean };
+const N = SALE_FIELD_NAME;
+// the boxes in the order of the shared sale sections (Sale, Payment, Transfer, The originals, Notes)
 const FIELDS: TextField[] = [
-  { key: "buyer", label: "Buyer", wide: true }, { key: "address", label: "Address", wide: true }, { key: "contact", label: "Contact number" },
-  { key: "soldOn", label: "Sold on", type: "date" }, { key: "agreedPrice", label: "Agreed price (₱)" }, { key: "sales", label: "Sales" },
-  { key: "liaison", label: "Liaison" }, { key: "originalsAt", label: "Where the original documents are" }, { key: "nextStep", label: "Next step" },
-  { key: "particular", label: "What is done (ORCR transfer...)" }, { key: "financing", label: "Financing company / encumbrance" }, { key: "crDate", label: "CR date", type: "date" },
-  { key: "transactionDate", label: "Transaction date", type: "date" }, { key: "balance", label: "Balance" }, { key: "doneOn", label: "Finished on", type: "date" }, { key: "note", label: "Note", wide: true },
+  { key: "buyer", label: N.buyer, wide: true }, { key: "address", label: N.address, wide: true }, { key: "contact", label: N.contact },
+  { key: "soldOn", label: N.soldOn, type: "date" }, { key: "agreedPrice", label: `${N.agreedPrice} (₱)` }, { key: "sales", label: N.sales }, { key: "financing", label: N.financing },
+  { key: "balance", label: N.balance },
+  { key: "liaison", label: N.liaison }, { key: "particular", label: N.particular }, { key: "crDate", label: N.crDate, type: "date" },
+  { key: "transactionDate", label: N.transactionDate, type: "date" }, { key: "nextStep", label: N.nextStep },
+  { key: "originalsAt", label: N.originalsAt }, { key: "doneOn", label: N.doneOn, type: "date" }, { key: "note", label: N.note, wide: true },
 ];
 
 function Form({ value, onSave, label }: { value: TransferInput; onSave: (v: TransferInput) => Promise<{ ok: true } | { ok: false; error: string }>; label: string }) {
@@ -41,7 +45,7 @@ function Form({ value, onSave, label }: { value: TransferInput; onSave: (v: Tran
     <form className="grid gap-3 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); setMsg(null); start(async () => { const r = await onSave(v); setMsg(r.ok ? { ok: true, text: "Saved." } : { ok: false, text: r.error }); if (r.ok && label === "Add") setV(blank); }); }}>
       <div className="space-y-1.5"><Label htmlFor={`${uid}-stage`}>Stage</Label>
         <NativeSelect id={`${uid}-stage`} value={v.stage} onChange={(e) => setV({ ...v, stage: e.target.value as TransferStage })}>{STAGES.map((s) => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}</NativeSelect></div>
-      <div className="space-y-1.5"><Label htmlFor={`${uid}-route`}>Who does the transfer</Label>
+      <div className="space-y-1.5"><Label htmlFor={`${uid}-route`}>{N.route}</Label>
         <NativeSelect id={`${uid}-route`} value={v.route} onChange={(e) => setV({ ...v, route: e.target.value as Route })}>{(Object.keys(ROUTE_LABEL) as Route[]).map((r) => <option key={r} value={r}>{ROUTE_LABEL[r]}</option>)}</NativeSelect></div>
       {FIELDS.map((f) => (
         <div key={f.key} className={`space-y-1.5 ${f.wide ? "sm:col-span-2" : ""}`}>

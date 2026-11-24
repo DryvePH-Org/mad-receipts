@@ -10,7 +10,7 @@ export const FIELD_NAME: Record<string, string> = {
   reg_owner_name: "Registered owner", mo_file: "LTO office (MO file)", cs_no: "CS no.", chassis_no: "Chassis no.", engine_no: "Engine no.", or_expiry: "OR expires",
   arrival_date: "Arrived", buying_source: "Buying source", awarded_to: "Awarded to", classification: "Case", bank_source: "Bank or source", encumbrance: "Encumbered to",
   complete_docs: "Papers complete?", cr: "CR", or_receipt: "OR", deed: "Deed of sale", sellers_id: "Seller's ID", sec_cert: "SEC certificate", sec_ids: "SEC IDs", boards_reso: "Board resolution",
-  encumbered: "Encumbered papers", chattel: "Chattel", promissory: "Promissory note", stencil: "Stencil", papers_with: "Originals with", registry_of_deeds: "Registry of deeds",
+  encumbered: "Encumbered papers", chattel: "Chattel", promissory: "Promissory note", stencil: "Stencil", papers_with: "Papers kept by", registry_of_deeds: "Registry of deeds",
   other_docs: "Other papers", paper_status: "Paper status",
   stock_state: "State", list_price: "Price", target_price: "Target", reprice: "Reprice", retarget: "Re-target", location: "Location", tools: "Tools", stock_note: "Note on the state",
   remarks: "Remarks",

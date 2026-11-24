@@ -20,7 +20,7 @@ const rowOf = (r: Record<string, unknown>): Transfer => ({
 /** Every transfer (newest sale first), with the car's description where the car has a record. Empty when migration 41 is not applied yet. */
 export async function loadTransfers(plate?: string): Promise<{ transfers: Transfer[]; cars: Map<string, string> }> {
   const db = docsDb();
-  let q = db.from("car_transfers").select(COLS).order("sold_on", { ascending: false, nullsFirst: false }).order("cr_date", { ascending: false, nullsFirst: false }).limit(3000);
+  let q = db.from("car_sales").select(COLS).order("sold_on", { ascending: false, nullsFirst: false }).order("cr_date", { ascending: false, nullsFirst: false }).limit(3000);
   if (plate) q = q.eq("plate_no", plate);
   const { data, error } = await q;
   if (error) return { transfers: [], cars: new Map() };
@@ -37,13 +37,13 @@ export async function loadTransfers(plate?: string): Promise<{ transfers: Transf
 
 export async function saveTransfer(id: string, input: TransferInput, actor: string): Promise<string | null> {
   // once a person changed a record here, a later import of the sold list never overwrites it
-  const { error } = await docsDb().from("car_transfers").update({ ...transferColumns(input), edited_in_app: true, updated_by: actor, updated_at: new Date().toISOString() }).eq("id", id);
+  const { error } = await docsDb().from("car_sales").update({ ...transferColumns(input), edited_in_app: true, updated_by: actor, updated_at: new Date().toISOString() }).eq("id", id);
   return error ? error.message : null;
 }
 
 /** "Checked": a person looked at what was flagged on this record. */
 export async function markChecked(id: string, actor: string): Promise<string | null> {
-  const { error } = await docsDb().from("car_transfers").update({ flags: [], edited_in_app: true, updated_by: actor, updated_at: new Date().toISOString() }).eq("id", id);
+  const { error } = await docsDb().from("car_sales").update({ flags: [], edited_in_app: true, updated_by: actor, updated_at: new Date().toISOString() }).eq("id", id);
   return error ? error.message : null;
 }
 
@@ -51,12 +51,12 @@ export async function markChecked(id: string, actor: string): Promise<string | n
 export async function addTransfer(plate: string, input: TransferInput, actor: string): Promise<string | null> {
   const db = docsDb();
   const { data: unit } = await db.from("docs_units").select("id").eq("plate_no", plate).is("archived_at", null).order("arrival_date", { ascending: false }).limit(1).maybeSingle();
-  const { error } = await db.from("car_transfers").insert({ ...transferColumns(input), plate_no: plate, unit_id: unit?.id ?? null, source: "app", created_by: actor || null, updated_by: actor || null });
+  const { error } = await db.from("car_sales").insert({ ...transferColumns(input), plate_no: plate, unit_id: unit?.id ?? null, source: "app", created_by: actor || null, updated_by: actor || null });
   return error ? error.message : null;
 }
 
 /** The sale records a deal made, for the deal page (the stage of the transfer, and where to open it). */
 export async function salesOfDeal(dealId: string): Promise<{ plate: string; stage: string; unitId: string | null }[]> {
-  const { data } = await docsDb().from("car_transfers").select("plate_no, stage, unit_id").eq("deal_id", dealId);
+  const { data } = await docsDb().from("car_sales").select("plate_no, stage, unit_id").eq("deal_id", dealId);
   return (data ?? []).map((r) => ({ plate: r.plate_no as string, stage: (r.stage as string) ?? "in_process", unitId: (r.unit_id as string | null) ?? null }));
 }

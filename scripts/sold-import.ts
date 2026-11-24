@@ -48,7 +48,7 @@ async function main() {
   const units = (await readAll<Unit>("docs_units", "id, arrival_date, state_for, state_on, plate_no, make, model_variant, year_model, color, fuel, trans, mileage, reg_owner_name, mo_file, stock_state, archived_at")).filter((u) => !u.archived_at).sort((a, b) => (a.arrival_date ?? "").localeCompare(b.arrival_date ?? "")); // the latest arrival of a plate is the current car
   const unitOf = new Map(units.map((u) => [u.plate_no, u]));
   const known = [...new Set(units.map((u) => (u.make ?? "").toUpperCase()).filter(Boolean))];
-  const transfers = await readAll<{ plate_no: string; note: string | null }>("car_transfers", "plate_no, note");
+  const transfers = await readAll<{ plate_no: string; note: string | null }>("car_sales", "plate_no, note");
   const transferOf = new Set(transfers.map((t) => t.plate_no));
   const flags: Flag[] = [], plans: Plan[] = [], unplated: Plan[] = []; // unplated: rows whose plate cannot be used: they go to the review list
   let inferredLiaison = 0;
@@ -202,10 +202,10 @@ async function undoImport() {
   if (!existsSync("Docs/sheets-private/sold-before.json")) throw new Error("There is no sold-before.json: nothing to undo.");
   const before = JSON.parse(readFileSync("Docs/sheets-private/sold-before.json", "utf8")) as { units: ({ id: string } & Record<string, unknown>)[]; transfers: ({ id: string } & Record<string, unknown>)[] };
   const had = new Set(before.transfers.map((t) => t.id));
-  const now = await readAll<{ id: string; source_key: string | null }>("car_transfers", "id, source_key");
+  const now = await readAll<{ id: string; source_key: string | null }>("car_sales", "id, source_key");
   const made = now.filter((t) => t.source_key && !had.has(t.id)).map((t) => t.id);
-  for (let i = 0; i < made.length; i += 100) { const r = await db.from("car_transfers").delete().in("id", made.slice(i, i + 100)); if (r.error) throw r.error; }
-  for (const t of before.transfers) { const { id, ...rest } = t; const r = await db.from("car_transfers").update(rest).eq("id", id); if (r.error) throw r.error; }
+  for (let i = 0; i < made.length; i += 100) { const r = await db.from("car_sales").delete().in("id", made.slice(i, i + 100)); if (r.error) throw r.error; }
+  for (const t of before.transfers) { const { id, ...rest } = t; const r = await db.from("car_sales").update(rest).eq("id", id); if (r.error) throw r.error; }
   for (const u of before.units) { const { id, ...rest } = u; const r = await db.from("docs_units").update({ ...rest, last_change_source: "sold-import undone" }).eq("id", id); if (r.error) throw r.error; }
   const gone = await db.from("docs_review_items").delete().like("payload->>rowKey", "sold|%").select("id");
   console.log(`Review items of the sold list removed: ${gone.data?.length ?? 0}.`);
@@ -214,15 +214,15 @@ async function undoImport() {
 
 type UnitRow = { id: string; state_for: string | null; state_on: string | null; plate_no: string };
 async function applyPlans(plans: Plan[], unitOf: Map<string, { stock_state: string | null; mileage: string | null }>, units: Map<string, UnitRow>) {
-  const probe = await db.from("car_transfers").select("source_key", { head: true, count: "exact" });
+  const probe = await db.from("car_sales").select("source_key", { head: true, count: "exact" });
   if (probe.error) throw new Error("Migration 45 is not applied yet: the sold list columns are missing. Apply it first.");
   const have = await readAll<{ id: string; plate_no: string; source_key: string | null; edited_in_app: boolean; source: string; note: string | null; particular: string | null; financing: string | null; buyer: string | null; address: string | null; contact: string | null; liaison: string | null; sales: string | null }>(
-    "car_transfers", "id, plate_no, source_key, edited_in_app, source, note, particular, financing, buyer, address, contact, liaison, sales");
+    "car_sales", "id, plate_no, source_key, edited_in_app, source, note, particular, financing, buyer, address, contact, liaison, sales");
   // what is about to change, kept so --undo can put it back
   const touched = new Set(plans.filter((p) => units.get(p.plate)).map((p) => units.get(p.plate)!.id));
   const beforeUnits: Record<string, unknown>[] = [];
   for (const id of touched) { const r = await db.from("docs_units").select("id, reg_owner_name, mo_file, year_model, fuel, color, trans, mileage, chassis_no, engine_no, state_for, state_on").eq("id", id).single(); if (r.data) beforeUnits.push(r.data); }
-  const beforeTransfers = await readAll<Record<string, unknown>>("car_transfers", "*");
+  const beforeTransfers = await readAll<Record<string, unknown>>("car_sales", "*");
   writeFileSync("Docs/sheets-private/sold-before.json", JSON.stringify({ takenAt: new Date().toISOString(), units: beforeUnits, transfers: beforeTransfers }));
   const byKey = new Map(have.filter((t) => t.source_key).map((t) => [t.source_key!, t]));
   const waiting = new Map<string, typeof have>(); // transfers from the old ORCR WITH MAD tab: a sale merges into the one of its plate
@@ -246,18 +246,18 @@ async function applyPlans(plans: Plan[], unitOf: Map<string, { stock_state: stri
     const mine = byKey.get(p.key);
     if (mine) {
       if (mine.edited_in_app) { done.kept++; continue; }
-      const r = await db.from("car_transfers").update(fields).eq("id", mine.id); if (r.error) throw new Error(`${p.plate}: ${r.error.message}`); done.updated++; continue;
+      const r = await db.from("car_sales").update(fields).eq("id", mine.id); if (r.error) throw new Error(`${p.plate}: ${r.error.message}`); done.updated++; continue;
     }
     const old = waiting.get(p.plate)?.shift();
     if (old) {
       const keep = (a: string | null, b: string | null) => (a && a.trim() ? a : b);
       const merged = { ...fields, particular: keep(old.particular, fields.particular ?? null), financing: keep(old.financing, fields.financing), buyer: keep(old.buyer, fields.buyer), address: keep(old.address, fields.address),
         contact: keep(old.contact, fields.contact), liaison: keep(old.liaison, fields.liaison), sales: keep(old.sales, fields.sales), note: [old.note, note].filter((x, i, a) => x && a.indexOf(x) === i).join(" | ") || null };
-      const r = await db.from("car_transfers").update(merged).eq("id", old.id); if (r.error) throw new Error(`${p.plate}: ${r.error.message}`); done.merged++; continue;
+      const r = await db.from("car_sales").update(merged).eq("id", old.id); if (r.error) throw new Error(`${p.plate}: ${r.error.message}`); done.merged++; continue;
     }
-    const r = await db.from("car_transfers").insert(fields); if (r.error) throw new Error(`${p.plate}: ${r.error.message}`); done.created++;
+    const r = await db.from("car_sales").insert(fields); if (r.error) throw new Error(`${p.plate}: ${r.error.message}`); done.created++;
   }
-  await db.from("audit_logs").insert({ actor_id: null, action: "sold.import", entity: "car_transfers", entity_id: null, after: done });
+  await db.from("audit_logs").insert({ actor_id: null, action: "sold.import", entity: "car_sales", entity_id: null, after: done });
   console.log(`\nDone. Records created ${done.created}, merged into an old transfer ${done.merged}, updated ${done.updated}, left alone because a person changed them ${done.kept}; cars of MAD filled or fixed ${done.cars}.`);
 }
 main().catch((e) => { console.error(e); process.exit(1); });

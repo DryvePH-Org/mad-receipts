@@ -45,7 +45,7 @@ export function docsErrorText(err: unknown): string {
 
 /** The sale recorded for a plate (by hand or from the sold list), when the car has no AR: its buyer is who the sold papers are for. */
 export async function saleOfPlate(admin: Admin, plate: string): Promise<{ id: string; buyer: string | null } | null> {
-  const { data } = await (admin as unknown as SupabaseClient).from("car_transfers").select("id, buyer").eq("plate_no", plate).neq("stage", "cancelled").eq("is_reference", false).order("sold_on", { ascending: false }).limit(1);
+  const { data } = await (admin as unknown as SupabaseClient).from("car_sales").select("id, buyer").eq("plate_no", plate).neq("stage", "cancelled").eq("is_reference", false).order("sold_on", { ascending: false }).limit(1);
   const row = (data as { id: string; buyer: string | null }[] | null)?.[0];
   return row ? { id: row.id, buyer: row.buyer } : null;
 }
