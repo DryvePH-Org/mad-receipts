@@ -299,6 +299,28 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await docs.close(); await sales.close(); await cron.dispose();
 });
 
+test("Add a car: a quick scan of the LTO photo fills the empty boxes and saves nothing", async ({ browser }) => {
+  const docs = await as(browser, "docs");
+  await docs.goto("/documents/add");
+  await docs.getByLabel("Plate number").fill("ZZT 7011");
+  await expect(docs.getByText("This plate is not in MAD yet")).toBeVisible();
+  await docs.getByLabel("Color *").fill("black"); // what is already typed is kept
+  await expect(async () => { await docs.locator("#scan-photo").setInputFiles({ name: "blurry.jpg", mimeType: "image/jpeg", buffer: JPEG }); await expect(docs.getByText(/too blurry/)).toBeVisible({ timeout: 4000 }); }).toPass({ timeout: 30_000 });
+  await docs.locator("#scan-photo").setInputFiles({ name: "lto.jpg", mimeType: "image/jpeg", buffer: JPEG });
+  await expect(docs.getByText(/Filled from the photo/)).toBeVisible({ timeout: 30_000 });
+  await expect(docs.getByLabel("Brand *")).toHaveValue("NISSAN");
+  await expect(docs.getByLabel("Make *")).toHaveValue("TERRA 2.5L EL M");
+  await expect(docs.getByLabel("Model (year) *")).toHaveValue("2019");
+  await expect(docs.getByLabel("Color *")).toHaveValue("black");
+  // nothing was saved: no folder row, no file, no car
+  const db = adminClient();
+  expect((await db.from("folder_files").select("id").eq("plate_no", "ZZT7011")).data?.length ?? 0).toBe(0);
+  expect(((await db.from("docs_units_current" as never).select("id" as never).eq("plate_no", "ZZT7011")) as unknown as { data: unknown[] }).data?.length ?? 0).toBe(0);
+  await docs.getByRole("button", { name: "Undo" }).click();
+  await expect(docs.getByLabel("Brand *")).toHaveValue("");
+  await docs.close();
+});
+
 test("Documentation adds photos by typing only the plate: the folder is made, the photos are read", async ({ browser }) => {
   const docs = await as(browser, "docs");
   await docs.goto("/documents/add");

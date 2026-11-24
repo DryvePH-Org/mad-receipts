@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Camera, CircleAlert, FolderPlus, FolderOpen, Loader2, CarFront, Check } from "lucide-react";
+import { Camera, CircleAlert, FolderPlus, FolderOpen, Loader2, CarFront, Check, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DOC_LABELS, type DocType } from "@/lib/docs/types";
 import type { FolderPreview } from "@/lib/docs/service";
+import { SCAN_LABEL, type ScanKey } from "@/lib/cars/scan-keys";
 import { FIELD_BY_KEY, formatPlate, type FieldKey } from "@/lib/cars/standards";
 import { REQUIRED_DETAILS, type UnitDetailsInput } from "@/lib/docsbible/add-unit";
 import type { UnitStatus } from "@/lib/docsbible/add-unit-server";
@@ -34,6 +35,31 @@ export function AddFlow({ suggestions, initialPlate = "", botScans = false }: { 
   const [formError, setFormError] = useState<string | null>(null);
   const [staged, setStaged] = useState<File[]>([]); // documents chosen in the form: they go to Drive right after the car is saved
   const stagedInput = useRef<HTMLInputElement>(null);
+  const scanInput = useRef<HTMLInputElement>(null);
+  const [scan, setScan] = useState<{ busy: boolean; filled: ScanKey[]; unread: ScanKey[]; error: string | null; undo: (() => void) | null }>({ busy: false, filled: [], unread: [], error: null, undo: null });
+
+  /** One photo of the LTO record is read to fill the empty boxes. Nothing is saved: the photo is not kept anywhere. */
+  async function scanPhoto(original: File) {
+    setScan({ busy: true, filled: [], unread: [], error: null, undo: null });
+    try {
+      const file = await prepareImage(original);
+      const body = new FormData(); body.append("file", file, original.name);
+      const res = await fetch("/api/docs/scan-car", { method: "POST", body });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setScan({ busy: false, filled: [], unread: [], error: data.error ?? "The photo could not be read. Type the details instead.", undo: null }); return; }
+      const { values, unread } = data as { values: Partial<Record<ScanKey, string>>; unread: ScanKey[] };
+      const before = { plate, details };
+      const filled: ScanKey[] = [];
+      const next = { ...details };
+      for (const k of Object.keys(values) as ScanKey[]) {
+        if (k === "plate") { if (!plate.trim()) { setPlate(values.plate!); filled.push(k); } continue; }
+        if (!String(next[k] ?? "").trim()) { (next as Record<string, string>)[k] = values[k]!; filled.push(k); }
+      }
+      setDetails(next); setErrors({});
+      setScan({ busy: false, filled, unread, error: null, undo: () => { setPlate(before.plate); setDetails(before.details); setScan((x) => ({ ...x, filled: [], unread: [], undo: null })); } });
+      if (filled.includes("plate")) void check(values.plate!);
+    } catch { setScan({ busy: false, filled: [], unread: [], error: "The photo could not be read. Type the details instead.", undo: null }); }
+  }
 
   async function check(typed: string = plate) {
     if (typed.replace(/[^A-Za-z0-9]/g, "").length < 5) return;
@@ -131,6 +157,19 @@ export function AddFlow({ suggestions, initialPlate = "", botScans = false }: { 
           ) : (
             <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void saveUnit(); }}>
               <p className="text-sm text-muted-foreground">{again ? "A second arrival of this plate: the earlier one is kept." : unit ? "This plate is not in MAD yet." : "Type the plate, then the car's details."} Only the plate, brand, make, model (year) and color are needed (*). The rest can be filled in later.</p>
+              <div className="space-y-2 rounded-lg border border-dashed p-3 text-sm">
+                <p className="font-medium">Quick scan (optional)</p>
+                <p className="text-xs text-muted-foreground">Take or choose one photo of the LTO record (MV Inquiry screen, CR or OR) and the empty boxes below are filled in. The photo is only read to fill the boxes: it is not saved anywhere.</p>
+                <input ref={scanInput} type="file" accept={IMAGE_ACCEPT} className="sr-only" id="scan-photo" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void scanPhoto(f); }} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button type="button" variant="outline" size="sm" disabled={scan.busy} onClick={() => scanInput.current?.click()}>{scan.busy ? <Loader2 className="animate-spin" /> : <ScanLine />} {scan.busy ? "Reading the photo..." : "Scan a photo"}</Button>
+                  {scan.undo && <button type="button" className="text-xs underline underline-offset-2" onClick={scan.undo}>Undo</button>}
+                </div>
+                {scan.error && <p className="text-amber-800 dark:text-amber-200" role="alert">{scan.error}</p>}
+                {!scan.busy && !scan.error && scan.undo && (
+                  <p role="status" className="text-xs">{scan.filled.length ? <>Filled from the photo: {scan.filled.map((k) => SCAN_LABEL[k]).join(", ")}. Please check them.</> : "Nothing new to fill: those boxes already have values."}{scan.unread.length > 0 && <> Could not read: {scan.unread.map((k) => SCAN_LABEL[k]).join(", ")}.</>}</p>
+                )}
+              </div>
               <fieldset className="space-y-3">
                 <legend className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">The car</legend>
                 <div className="grid gap-4 sm:grid-cols-2">{field("make")}{field("model_variant")}{field("year_model")}{field("color")}</div>
