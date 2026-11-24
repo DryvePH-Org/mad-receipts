@@ -17,17 +17,16 @@ Goal: one place for each fact, tables named for what they hold, and the web app 
 
 | Table | One row per | Holds |
 |---|---|---|
-| `cars` | arrival of a car | Identity (plate, brand, make, model year, color, body type, transmission, fuel, mileage), registration (registered owner, LTO office, CS number, chassis, engine, OR expiry as a date), case (classification, encumbrance, buying source, arrival date), notes. |
-| `car_listing` | car on the sale list | Price, target, reprice, retarget, location, tools, state (Onhand, Reserved, Sold, For repair, Not for sale, Sell as is), state note, list order, in stock. |
-| `car_papers` (today `folder_files` plus `unit_details`) | paper or answer | The photos and what was read; the About-the-car answers as rows, not JSON. The old text paper columns go. |
-| `car_sales` | sale | Buyer, contact, address, agreed price, sold on, sales person, financing, payment status. |
+| `cars` (today `docs_units`) | arrival of a car | **Everything that is one fact per car, in one row**: identity (plate, brand, make, model year, color, body type, transmission, fuel, mileage), registration (registered owner, LTO office, CS number, chassis, engine, OR expiry), case (classification, encumbrance, buying source, arrival date), sale list (price, target, reprice, retarget, location, tools, state, state note, order, in stock), papers marks, notes. The screens show it in sections, so it reads as one record. |
+| `car_papers` (today `folder_files` plus `unit_details`) | paper or answer (repeats, so its own table) | The photos and what was read; the About-the-car answers as rows, not JSON. The old text paper columns go. |
+| `car_sales` | sale (a car can be sold again, so it repeats) | Buyer, contact, address, agreed price, sold on, sales person, financing, payment status. |
 | `car_transfers` | transfer of one sale | Liaison, stage, originals with, release, delivery, handoff rounds (one place only). |
 | Logs: `car_activity`, `car_repairs`, `car_price_history`, `car_or_renewals` | event | Append-only history; never edited. |
 
 ## Order of work (each step is one migration and the code that follows it, tested before the next)
 
 1. **Remove duplicates** (no new tables). The register value becomes the only value: the six `list_*` copies are folded into their register fields (a conflict goes to the Data check, nothing is overwritten), then dropped. `sale_status` and `vehicle_status` are dropped and the screens read `stock_state` only. OR expiry becomes one date column. The three note columns become one `notes` (the state note stays with the state). The sheet paper columns and import leftovers are archived to a read-only table and dropped. `car_stock` is dropped (it holds nothing the car does not).
-2. **Split the car**: `car_listing` is created from the price, state and order columns; `cars` keeps identity, registration and case. `docs_units_current` stays as a view with the old name so nothing breaks during the move, then the code is switched table by table and the view removed.
+2. **One car record, sections in the app**: the car stays ONE row (no `car_listing` table: price, state and location are one fact per car, so a second table would only add a join). The columns get clear section names in the code (`CAR_SECTIONS`: Identity, Registration, Papers, Sale list), and the car page, Car Inventory and the table read the same section list. Renaming `docs_units` to `cars` is optional and done last, through a view, if wanted.
 3. **Split the sale from the transfer**: `car_sales` takes the sale fields, `car_transfers` keeps the process, and the handoff exists only on the transfer (`unit_workflow` keeps approval only).
 4. **Papers as rows**: the About-the-car JSON becomes rows; the checklist reads them.
 5. **The app mirrors the tables**: the car record page shows the same sections in the same order (Identity, Registration, Papers, Listing and price, Sale, Transfer, History), each section edited in one place, with the same names in Car Inventory, Car documents and Sales.
@@ -53,3 +52,7 @@ Goal: one place for each fact, tables named for what they hold, and the web app 
 **Left of step 1, together with retiring the old Docs Bible sheet code** (they are tied to it: `src/lib/docs/bible.ts`, `golive/cutover.ts`, `docsbible/import.ts`, the CSV export): the old text paper columns (`cr`, `or_receipt`, `deed`, ... `paper_status`, `other_docs`) next to the real paper records; the import leftovers (`raw`, `import_run_id`, `source_row`, `arrival_raw`).
 
 **Finding before retiring the old paper columns (24 Nov 2026):** 195 cars have a Yes / No / To follow mark in the old paper columns, and 91 of them have no photo at all in the folders, so those marks are the only record of their papers. Dropping the columns would erase it. Proposed: fold the 13 columns into one read-only `legacy_papers` record on the car ("Papers recorded before MAD"), used only for cars with no photos; the photo checklist stays the truth for everything new. The importer (`docsbible/import.ts`, needed by the 3 no-plate items of the Data check) and the go-live drift check (`golive/cutover.ts`, useful while the sheets are still kept) are still used by live screens, so they are removed only after the sheets are switched off.
+
+**Paper marks (24 Nov 2026, the owner's rule):** the marks stay (CR, OR, deed...). They are never empty: what a person chose always stays; a box nobody has chosen starts as Yes when the paper is in the folder, otherwise No (N/A when the case does not need it). `docsbible/marks.ts`.
+
+**The 24 Nov migrations, in the owner's order:** `Docs/apply-24nov-1-before-push.sql` (before the push), then `Docs/apply-24nov-2-after-push.sql` (after the push). A test applies them in that order on a database with data.

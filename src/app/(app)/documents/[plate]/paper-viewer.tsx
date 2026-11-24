@@ -121,7 +121,6 @@ function FileControls({ f, busy, readOnly, onSetTypes, run, runNow }: { f: FileV
           {unread ? <Pill tone="blue">Not read yet</Pill> : f.readStatus === "failed" ? <Pill tone="red">Could not read</Pill> : f.readStatus === "unreadable" ? <Pill tone="red">Too unclear</Pill>
             : f.types.length === 0 ? <Pill tone="zinc">Nothing recognised</Pill> : f.types.map((t) => <Pill key={t} tone={t === "other" || t.endsWith("unmatched") ? "amber" : "emerald"}>{typeLabel(t)}</Pill>)}
           {kindsOf(f.seen.detections).map((k) => <Pill key={k} tone="blue">{k}</Pill>)}
-          {f.source === "upload" && <Pill tone="teal">From Sales</Pill>}
           {f.manual && <Pill tone="purple">Set by a person</Pill>}
           {f.edited && <Pill tone="purple">Corrected by a person</Pill>}
         </div>

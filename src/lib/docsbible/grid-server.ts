@@ -1,25 +1,28 @@
 import "server-only";
 import { isAdmin } from "@/lib/roles";
 import { COLUMN_BY_KEY, canEditColumn, checkEdit, COLUMNS, type GridRow, type Role } from "./grid";
+import { completeOf, finishMarks, PAPER_COLUMNS } from "./marks";
 import { docsDb } from "./review-server";
 
 export interface HistoryRow { field: string; before: string | null; after: string | null; actor: string | null; source: string; at: string }
 
 export async function loadGrid(): Promise<GridRow[]> {
   const db = docsDb();
-  const [units, complete, open] = await Promise.all([
+  const [units, files, open] = await Promise.all([
     db.from("docs_units_current").select("*").order("arrival_date", { ascending: false, nullsFirst: false }).limit(5000),
-    db.from("docs_complete").select("id, complete_docs").limit(5000),
+    db.from("folder_files").select("plate_no, doc_types").is("archive", null).limit(20000),
     db.from("docs_review_items").select("unit_id, plate_no").eq("status", "open").limit(5000),
   ]);
   if (units.error) throw new Error(`Could not read the register: ${units.error.message}`);
-  const comp = new Map((complete.data ?? []).map((c) => [c.id as string, c.complete_docs as string | null]));
+  const found = new Map<string, string[]>();
+  for (const f of files.data ?? []) found.set(f.plate_no as string, [...(found.get(f.plate_no as string) ?? []), ...((f.doc_types as string[] | null) ?? [])]);
   const decisions = new Map<string, number>();
   for (const i of open.data ?? []) { const k = (i.plate_no as string | null) ?? ""; if (k) decisions.set(k, (decisions.get(k) ?? 0) + 1); }
   return (units.data ?? []).map((u: Record<string, unknown>) => {
     const values: Record<string, string | null> = {};
     for (const c of COLUMNS) if (c.key !== "complete_docs") values[c.key] = (u[c.key] as string | null) ?? null;
-    return { id: u.id as string, values, complete: comp.get(u.id as string) ?? null, decisions: decisions.get(u.plate_no as string) ?? 0 };
+    const marks = finishMarks(values, found.get(u.plate_no as string) ?? []);
+    return { id: u.id as string, values: marks, complete: completeOf(marks), decisions: decisions.get(u.plate_no as string) ?? 0 };
   });
 }
 
@@ -28,10 +31,11 @@ export async function loadRegisterRow(plate: string): Promise<GridRow | null> {
   const db = docsDb();
   const { data: u } = await db.from("docs_units_current").select("*").eq("plate_no", plate).maybeSingle();
   if (!u) return null;
-  const [{ data: c }, { count }] = await Promise.all([db.from("docs_complete").select("complete_docs").eq("id", u.id).maybeSingle(), db.from("docs_review_items").select("id", { count: "exact", head: true }).eq("plate_no", plate).eq("status", "open")]);
+  const [{ data: files }, { count }] = await Promise.all([db.from("folder_files").select("doc_types").eq("plate_no", plate).is("archive", null), db.from("docs_review_items").select("id", { count: "exact", head: true }).eq("plate_no", plate).eq("status", "open")]);
   const values: Record<string, string | null> = {};
   for (const col of COLUMNS) if (col.key !== "complete_docs") values[col.key] = ((u as Record<string, unknown>)[col.key] as string | null) ?? null;
-  return { id: u.id as string, values, complete: (c?.complete_docs as string | null) ?? null, decisions: count ?? 0 };
+  const marks = finishMarks(values, (files ?? []).flatMap((f) => (f.doc_types as string[] | null) ?? []));
+  return { id: u.id as string, values: marks, complete: completeOf(marks), decisions: count ?? 0 };
 }
 
 /**
@@ -46,7 +50,9 @@ export async function saveCell(role: Role, actor: string, unitId: string, key: s
   if (!checked.ok) return { ok: false, message: checked.error };
   const db = docsDb();
   let q = db.from("docs_units").update({ [key]: checked.value, updated_by: actor, last_change_source: "app" }).eq("id", unitId).is("archived_at", null);
-  q = expected === null ? q.is(key, null) : q.eq(key, expected);
+  // a paper box that shows No, N/A or Yes without anyone having chosen it is empty in the database: it still counts as what the person saw
+  const derived = (PAPER_COLUMNS as readonly string[]).includes(key) && (expected === "No" || expected === "N/A" || expected === "Yes");
+  q = expected === null ? q.is(key, null) : derived ? q.or(`${key}.is.null,${key}.eq.${expected}`) : q.eq(key, expected);
   const { data, error } = await q.select("id");
   if (error) return { ok: false, message: `Could not save: ${error.message}` };
   if (!data?.length) return { ok: false, message: "Someone changed this cell a moment ago. The table was refreshed: look and try again." };

@@ -10,9 +10,9 @@ type Car = NonNullable<Awaited<ReturnType<typeof loadCar>>>;
 const COLUMN: Record<Exclude<DocsField, "remarks_1">, string> = { classification: "classification", cr: "cr", or: "or_receipt", deed: "deed", sellers_id: "sellers_id", sec_cert: "sec_cert", sec_ids: "sec_ids", boards_reso: "boards_reso", encumbered: "encumbered", chattel: "chattel", promissory: "promissory", stencil: "stencil" };
 
 /**
- * A scan finished: every paper that is in the folder says "Yes" in the car's row, where the box was still empty (a car just added shows empty boxes
- * for papers that were scanned a minute ago). Only EMPTY boxes are filled and only with "Yes"; what a person typed (No, To follow, N/A) is never changed,
- * and the classification and the dated note wait for the person who approves.
+ * A scan finished: every paper that is in the folder says "Yes" in the car's row, where the box was still empty (the photo is only the starting value).
+ * Only EMPTY boxes are filled and only with "Yes"; what a person chose (No, To follow, N/A, Yes) is never changed, and the classification and the dated
+ * note wait for the person who approves.
  */
 export async function fillFoundPapers(car: Car): Promise<string[]> {
   const db = docsDb();

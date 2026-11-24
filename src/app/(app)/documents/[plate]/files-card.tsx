@@ -1,5 +1,6 @@
 "use client";
 
+import { TYPE_COLUMN } from "@/lib/docsbible/marks";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChevronRight, Download, Loader2, Minus, RefreshCw, ScanText, X } from "lucide-react";
@@ -18,7 +19,7 @@ import { readNextAction, rescanAction, setCaseAction, setFileTypesAction, update
 import type { CarViewData, FileView } from "./types";
 
 
-const SLOT_COLUMN: Record<string, string> = { official_receipt: "or_receipt", certificate_of_registration: "cr", deed_owner_to_dealer: "deed", owner_id: "sellers_id", representative_id: "sellers_id", chattel_cancellation: "chattel", promissory_note: "promissory", secretary_certificate: "sec_cert", secretary_id: "sec_ids", board_resolution: "boards_reso", stencil: "stencil" };
+const SLOT_COLUMN = TYPE_COLUMN;
 const REG_CHOICES = ["Yes", "No", "To follow", "N/A"] as const;
 const REG_CHIP: Record<string, string> = { "Yes": "bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-200", "No": "bg-red-100 text-red-900 dark:bg-red-500/20 dark:text-red-200", "To follow": "bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200", "N/A": "bg-zinc-100 text-zinc-600 dark:bg-zinc-500/20 dark:text-zinc-300" };
 

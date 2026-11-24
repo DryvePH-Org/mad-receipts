@@ -21,11 +21,11 @@ const STUBS = `
   alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
 `;
 
-export async function createDb() {
+export async function createDb(opts: { upTo?: string } = {}) {
   const db = new PGlite();
   await db.exec(STUBS);
   const dir = "supabase/migrations";
-  for (const file of readdirSync(dir).filter((f) => f.endsWith(".sql")).sort()) {
+  for (const file of readdirSync(dir).filter((f) => f.endsWith(".sql") && (!opts.upTo || f <= opts.upTo)).sort()) {
     try {
       await db.exec(readFileSync(`${dir}/${file}`, "utf8"));
     } catch (error) {

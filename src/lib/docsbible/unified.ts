@@ -1,3 +1,4 @@
+import { requiredFor } from "./marks";
 import type { OrState } from "./or-expiry";
 
 // One list for the Car documents module: every car of the register, with what the folder and the scan know about it. Pure helpers here;
@@ -31,14 +32,9 @@ export function stageOf(f: StageFacts): StageKey {
   return "review";
 }
 
-const REQUIRED: Record<string, string[]> = {
-  "Clean": ["cr", "or_receipt", "deed", "sellers_id"],
-  "Repo (bank)": ["cr", "or_receipt", "deed", "sellers_id", "chattel", "sec_cert", "sec_ids"],
-  "Encumbered (Indiv)": ["cr", "or_receipt", "deed", "sellers_id", "encumbered", "chattel"],
-};
 /** "5 of 7 papers": how many of the papers this classification needs are marked Yes. Null for a car with no classification. */
 export function paperProgress(values: Record<string, string | null>): { have: number; need: number } | null {
-  const need = REQUIRED[values.classification ?? ""];
+  const need = values.classification && values.classification !== "Not classified (legacy)" ? requiredFor(values.classification) : null;
   return need ? { have: need.filter((k) => values[k] === "Yes").length, need: need.length } : null;
 }
 
