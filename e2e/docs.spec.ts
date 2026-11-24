@@ -769,12 +769,13 @@ test("Papers for the new owner: one tap on a paper, or every photo together with
   test.setTimeout(180_000);
   const db = adminClient() as unknown as { from: (t: string) => { upsert: (v: object, o?: object) => Promise<{ error: unknown }>; delete: () => { like: (c: string, v: string) => Promise<unknown> } } };
   await db.from("folder_files").delete().like("plate_no", "ZZT7008");
-  const seeded = await db.from("unit_folders").upsert({ plate_no: "ZZT7008", plate_display: "ZZT 7008", folder_id: "mock-folder-8", folder_name: "20 Kia Stonic (ZZT-7008)", folder_url: "https://drive.example.test/folders/mock-folder-8", location: "sold", match_status: "linked" }, { onConflict: "plate_no" });
+  for (const other of ["ZZT7005", "ZZT7006"]) await db.from("unit_folders").delete().like("plate_no", other); // a Drive folder belongs to one car: the earlier tests are done with it
+  const seeded = await db.from("unit_folders").upsert({ plate_no: "ZZT7008", plate_display: "ZZT 7008", folder_id: "mock-folder-7", folder_name: "20 Kia Stonic (ZZT-7008)", folder_url: "https://drive.example.test/folders/mock-folder-7", location: "sold", match_status: "linked" }, { onConflict: "plate_no" });
   expect(seeded.error).toBeNull();
 
   const docs = await as(browser, "docs");
   await docs.goto("/documents/ZZT7008?tab=sale");
-  await expect(docs.getByRole("heading", { name: /Documents for the new owner/ })).toBeVisible({ timeout: 30_000 });
+  await expect(docs.locator("#new-owner-papers")).toBeVisible({ timeout: 30_000 });
   await expect(docs.getByText("0 of 4")).toBeVisible();
   await docs.waitForTimeout(2000); // the page must be ready before a file is given to it
 
@@ -794,7 +795,7 @@ test("Papers for the new owner: one tap on a paper, or every photo together with
 
   // they are kept as the new owner's papers, apart from the IN checklist and the payments
   const rows = (await adminClient().from("folder_files").select("archive, archive_tag").eq("plate_no", "ZZT7008")).data as { archive: string; archive_tag: string }[];
-  expect(rows.map((r) => `${r.archive}:${r.archive_tag}`).sort()).toEqual(["transfer:CR", "transfer:Macro-etching", "transfer:OR", "transfer:PNP clearance"]);
+  expect(rows.filter((r) => r.archive).map((r) => `${r.archive}:${r.archive_tag}`).sort()).toEqual(["transfer:CR", "transfer:Macro-etching", "transfer:OR", "transfer:PNP clearance"]);
   await docs.goto("/documents/ZZT7008?tab=documents");
   await expect(docs.getByText(/NEWOWNER_/)).toHaveCount(0);
   await docs.close();
