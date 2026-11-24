@@ -79,3 +79,54 @@ describe("the handoff moves onto the transfer (migration 48)", () => {
   });
 });
 
+
+describe("the price list copies are gone (migration 53)", () => {
+  it("has no list_* copy on the car record, and the current-car view still works", async () => {
+    const cols = (await db.query<{ column_name: string }>("select column_name from information_schema.columns where table_schema = 'public' and table_name = 'docs_units' and column_name like 'list\\_%'")).rows.map((r) => r.column_name);
+    expect(cols).toEqual(["list_price"]);
+    await db.query("insert into public.docs_units (plate_no, plate_display, list_price) values ('DDD1111', 'DDD 1111', 100000)");
+    expect((await one<{ list_price: string }>("select list_price from public.docs_units_current where plate_no = 'DDD1111'")).list_price).toBeTruthy();
+  });
+  it("keeps a place for the values that were dropped", async () => {
+    await db.query("insert into public.car_dropped_values (plate_no, column_name, value, reason) values ('DDD1111', 'list_color', 'WHITE PEARL', 'test')");
+    expect((await one<{ n: string }>("select count(*)::int as n from public.car_dropped_values")).n).toBe(1);
+  });
+});
+
+describe("one status per car (migration 54)", () => {
+  it("has the state and not the two old status columns, and a new car starts Onhand", async () => {
+    const cols = (await db.query<{ column_name: string }>("select column_name from information_schema.columns where table_schema = 'public' and table_name = 'docs_units' and column_name in ('sale_status', 'vehicle_status', 'stock_state')")).rows.map((r) => r.column_name);
+    expect(cols).toEqual(["stock_state"]);
+    await db.query("insert into public.docs_units (plate_no, plate_display) values ('EEE1111', 'EEE 1111')");
+    expect((await one<{ stock_state: string }>("select stock_state from public.docs_units_current where plate_no = 'EEE1111'")).stock_state).toBe("Onhand");
+  });
+  it("forgets who and when for a car that is neither reserved nor sold", async () => {
+    await db.query("update public.docs_units set stock_state = 'Reserved', state_for = 'ELLA', state_on = '2026-11-20' where plate_no = 'EEE1111'");
+    await db.query("update public.docs_units set stock_state = 'Onhand' where plate_no = 'EEE1111'");
+    expect(await one("select state_for, state_on from public.docs_units where plate_no = 'EEE1111'")).toEqual({ state_for: null, state_on: null });
+  });
+});
+
+describe("one OR expiry date (migration 55)", () => {
+  it("has the date and not the two old text columns, and a typed date is kept as a date", async () => {
+    const cols = (await db.query<{ column_name: string }>("select column_name from information_schema.columns where table_schema = 'public' and table_name = 'docs_units' and column_name in ('renewal', 'or_expiry_raw', 'or_expiry')")).rows.map((r) => r.column_name);
+    expect(cols).toEqual(["or_expiry"]);
+    await db.query("insert into public.docs_units (plate_no, plate_display, or_expiry) values ('FFF1111', 'FFF 1111', '2027-09-01')");
+    expect((await one<{ or_expiry: Date }>("select or_expiry from public.docs_units_current where plate_no = 'FFF1111'")).or_expiry).toBeTruthy();
+  });
+});
+
+describe("the old sale list copy is gone (migration 56)", () => {
+  it("has no car_stock table", async () => {
+    expect((await one<{ n: number }>("select count(*)::int as n from information_schema.tables where table_schema = 'public' and table_name = 'car_stock'")).n).toBe(0);
+  });
+});
+
+describe("one note on the car (migrations 57 and 58)", () => {
+  it("has remarks and not the two old note columns, and the current-car view shows it", async () => {
+    const cols = (await db.query<{ column_name: string }>("select column_name from information_schema.columns where table_schema = 'public' and table_name = 'docs_units' and column_name in ('remarks', 'remarks_1', 'remarks_2') order by column_name")).rows.map((r) => r.column_name);
+    expect(cols).toEqual(["remarks"]);
+    await db.query("insert into public.docs_units (plate_no, plate_display, remarks) values ('GGG1111', 'GGG 1111', 'ORIG DOCS AT JEP')");
+    expect((await one<{ remarks: string }>("select remarks from public.docs_units_current where plate_no = 'GGG1111'")).remarks).toBe("ORIG DOCS AT JEP");
+  });
+});

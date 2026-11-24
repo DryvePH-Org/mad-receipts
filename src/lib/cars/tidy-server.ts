@@ -2,7 +2,7 @@ import "server-only";
 import { docsDb } from "@/lib/docsbible/review-server";
 import { findTidy, type TidyItem, type TidyRow } from "./tidy";
 
-const COLS = "id, plate_no, plate_display, year_model, make, model_variant, color, body_type, trans, fuel, mileage, spare_key, list_model, list_color, list_mileage, list_fuel";
+const COLS = "id, plate_no, plate_display, year_model, make, model_variant, color, body_type, trans, fuel, mileage, spare_key";
 
 /** The values of the cars on the stock list that do not follow the standard formats, each with the fix that is suggested. */
 export async function loadTidy(): Promise<TidyItem[]> {

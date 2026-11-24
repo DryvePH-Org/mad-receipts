@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin, requireRole } from "@/lib/auth";
 import { DETAIL_FIELDS, FIELD_BY_KEY, type DetailKey as FieldKey } from "@/lib/cars/standards";
-import { LIST_COPY } from "@/lib/cars/tidy";
 import { docsDb } from "@/lib/docsbible/review-server";
 import { manilaToday } from "@/lib/dates";
 
@@ -68,17 +67,6 @@ function checkDetails(raw: Partial<Record<FieldKey, string>>): { values: Partial
   return { values, errors };
 }
 
-/** What is written for a detail: the car record's field, and the price list's own copy of it is cleared, so there is one value everywhere. */
-function patchOf(values: Partial<Record<FieldKey, string | null>>): Record<string, string | null> {
-  const patch: Record<string, string | null> = {};
-  for (const [k, v] of Object.entries(values) as [FieldKey, string | null][]) {
-    patch[k] = v;
-    const copy = LIST_COPY[k];
-    if (copy) patch[copy] = null;
-  }
-  return patch;
-}
-
 /** The Admins change the details of a car (year, make, model, color, body type, transmission, fuel, mileage, spare key). Each value follows its standard format. */
 export async function updateCarDetailsAction(plateRaw: string, raw: Partial<Record<FieldKey, string>>): Promise<DetailsResult> {
   const user = await requireAdmin();
@@ -87,7 +75,7 @@ export async function updateCarDetailsAction(plateRaw: string, raw: Partial<Reco
   const { values, errors } = checkDetails(raw);
   if (Object.keys(errors).length) return { ok: false, error: Object.values(errors)[0]!, fields: errors };
   if (!Object.keys(values).length) return { ok: false, error: "Nothing to change." };
-  const { error } = await docsDb().from("docs_units").update({ ...patchOf(values), updated_by: user.id, last_change_source: "app" }).eq("plate_no", plate).eq("in_stock", true).is("archived_at", null);
+  const { error } = await docsDb().from("docs_units").update({ ...values, updated_by: user.id, last_change_source: "app" }).eq("plate_no", plate).eq("in_stock", true).is("archived_at", null);
   if (error) return { ok: false, error: `Could not save: ${error.message}` };
   revalidatePath("/cars"); revalidatePath(`/documents/${plate}`); revalidatePath("/documents");
   return { ok: true, message: "The details are saved." };
@@ -110,7 +98,7 @@ export async function applyTidyAction(raw: { unitId: string; field: string; valu
   for (const [unitId, fields] of byUnit) {
     const { values, errors } = checkDetails(fields);
     if (Object.keys(errors).length) return { ok: false, error: Object.values(errors)[0]!, fields: errors };
-    const { error } = await db.from("docs_units").update({ ...patchOf(values), updated_by: user.id, last_change_source: "app" }).eq("id", unitId);
+    const { error } = await db.from("docs_units").update({ ...values, updated_by: user.id, last_change_source: "app" }).eq("id", unitId);
     if (error) return { ok: false, error: `Could not save: ${error.message}` };
     done += Object.keys(values).length;
   }

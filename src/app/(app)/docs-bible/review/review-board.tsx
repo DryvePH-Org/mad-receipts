@@ -57,13 +57,13 @@ function Item({ item, canEdit }: { item: ReviewRow; canEdit: boolean }) {
           {item.units.length > 0 && (
             <div className="overflow-x-auto rounded-lg ring-1 ring-foreground/10">
               <table className="w-full min-w-[34rem] text-xs">
-                <thead className="bg-muted/50 text-left text-muted-foreground"><tr>{["Sheet row", "Plate", "Car", "Arrived", "Status", "Vehicle status", "Classification", ""].map((h) => <th key={h} className="px-2 py-1.5 font-medium">{h}</th>)}</tr></thead>
+                <thead className="bg-muted/50 text-left text-muted-foreground"><tr>{["Sheet row", "Plate", "Car", "Arrived", "State", "Classification", ""].map((h) => <th key={h} className="px-2 py-1.5 font-medium">{h}</th>)}</tr></thead>
                 <tbody className="divide-y">
                   {item.units.map((u) => (
                     <tr key={u.id} className={u.archived ? "opacity-50" : undefined}>
                       <td className="px-2 py-1.5">{u.source_row ?? "—"}</td><td className="px-2 py-1.5 font-mono">{u.plate_display}</td>
                       <td className="px-2 py-1.5">{[u.year_model, u.make, u.model_variant, u.color].filter(Boolean).join(" ") || "—"}</td>
-                      <td className="px-2 py-1.5">{u.arrival_date ?? "—"}</td><td className="px-2 py-1.5">{u.sale_status ?? "—"}</td><td className="px-2 py-1.5">{u.vehicle_status ?? "—"}</td><td className="px-2 py-1.5">{u.classification}</td>
+                      <td className="px-2 py-1.5">{u.arrival_date ?? "—"}</td><td className="px-2 py-1.5">{u.stock_state ?? "—"}</td><td className="px-2 py-1.5">{u.classification}</td>
                       <td className="px-2 py-1.5 text-right">
                         {canEdit && item.kind === "duplicate_plate" && !u.archived && (sure === u.id
                           ? <Button size="xs" variant="destructive" disabled={busy} onClick={() => run({ type: "archive", unitId: u.id })}>Yes, remove this row</Button>
@@ -79,10 +79,6 @@ function Item({ item, canEdit }: { item: ReviewRow; canEdit: boolean }) {
           {item.status !== "open" && item.decision && <p className="flex items-center gap-1.5 text-sm text-emerald-800 dark:text-emerald-300"><Check className="size-4" aria-hidden />{item.decision}</p>}
           {canEdit && (
             <div className="flex flex-wrap items-center gap-2">
-              {item.kind === "status_disagree" && item.units[0] && <>
-                <Button size="sm" disabled={busy} onClick={() => run({ type: "use_status", which: "sale" })}>STATUS is right ({item.units[0].sale_status})</Button>
-                <Button size="sm" disabled={busy} onClick={() => run({ type: "use_status", which: "vehicle" })}>VEHICLE STATUS is right ({item.units[0].vehicle_status})</Button>
-              </>}
               {item.kind === "legacy_classification" && <>
                 <NativeSelect aria-label="Classification" className="w-48" value={cls} onChange={(e) => setCls(e.target.value)}><option value="">Choose…</option>{CLASSIFICATIONS.map((c) => <option key={c} value={c}>{c}</option>)}</NativeSelect>
                 <Button size="sm" disabled={busy || !cls} onClick={() => run({ type: "classify", value: cls })}>Save</Button>

@@ -93,13 +93,13 @@ async function reviewDigest(today: string) {
 /** Documentation: cars whose OR is 30, 14, 7 or 0 days from expiring, or late by a whole number of weeks. Works from the real date column (migration 37). */
 async function orDigest(today: string) {
   // read the table (the "current" view was made before the new column existed and does not list it): the latest arrival of each plate
-  const { data: all, error } = await notifyDb().from("docs_units").select("plate_no, plate_display, year_model, make, model_variant, or_expiry, sale_status, vehicle_status, arrival_date").is("archived_at", null).limit(5000);
+  const { data: all, error } = await notifyDb().from("docs_units").select("plate_no, plate_display, year_model, make, model_variant, or_expiry, stock_state, arrival_date").is("archived_at", null).limit(5000);
   if (error) return { skipped: "the OR date column is not there yet" };
   const latest = new Map<string, NonNullable<typeof all>[number]>();
   for (const u of all ?? []) { const have = latest.get(String(u.plate_no)); if (!have || String(u.arrival_date ?? "") >= String(have.arrival_date ?? "")) latest.set(String(u.plate_no), u); }
   const data = [...latest.values()].filter((u) => !!u.or_expiry);
   const items = (data ?? [])
-    .filter((u) => !/^sold$/i.test(String(u.sale_status ?? "")) && u.vehicle_status !== "SOLD")
+    .filter((u) => u.stock_state !== "Sold")
     .map((u) => ({ u, days: daysBetween(today, String(u.or_expiry).slice(0, 10)) }))
     .filter((x) => announceToday(x.days))
     .sort((a, b) => a.days - b.days)

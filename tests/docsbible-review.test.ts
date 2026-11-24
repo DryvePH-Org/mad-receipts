@@ -1,17 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { planResolution, type UnitLite } from "../src/lib/docsbible/review";
 
-const unit: UnitLite = { id: "u1", plate_no: "ABC1234", plate_display: "ABC1234", arrival_date: "2026-10-05", sale_status: "Sold", vehicle_status: "AVAILABLE", classification: "Not classified (legacy)" };
+const unit: UnitLite = { id: "u1", plate_no: "ABC1234", plate_display: "ABC1234", arrival_date: "2026-10-05", stock_state: "Sold", classification: "Not classified (legacy)" };
 const err = (r: unknown) => (r as { error?: string }).error;
 
 describe("settling a review item", () => {
   it("leaving it as it is saves nothing but the decision", () => {
     expect(planResolution("status_disagree", unit, { type: "keep" })).toMatchObject({ recordOnly: true });
-  });
-  it("copies the status that is right to the other column", () => {
-    expect(planResolution("status_disagree", unit, { type: "use_status", which: "sale" })).toMatchObject({ patch: { fields: { vehicle_status: "SOLD" } } });
-    expect(planResolution("status_disagree", unit, { type: "use_status", which: "vehicle" })).toMatchObject({ patch: { fields: { sale_status: "Onhand" } } });
-    expect(err(planResolution("status_disagree", { ...unit, sale_status: "Weird" }, { type: "use_status", which: "sale" }))).toBeTruthy();
   });
   it("classifies only with one of the three classifications", () => {
     expect(planResolution("legacy_classification", unit, { type: "classify", value: "Repo (bank)" })).toMatchObject({ patch: { fields: { classification: "Repo (bank)" } } });

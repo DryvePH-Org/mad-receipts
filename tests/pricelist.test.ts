@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPriceListRows, daysInStock, rowKind, sellableFlag, type PriceRow } from "@/lib/pricelist/export";
-import { blankFills, compareWithDocs, identityOverrides, isTestRow, newUnitFromList, stockPatch, normalizeCar, normalizeRenewal, normalizeRepair, spareKeyState, type SnapshotRow } from "@/lib/pricelist/import";
+import { blankFills, compareWithDocs, isTestRow, newUnitFromList, stockPatch, normalizeCar, normalizeRenewal, normalizeRepair, spareKeyState, type SnapshotRow } from "@/lib/pricelist/import";
 
 const car = (o: Record<string, unknown> = {}): SnapshotRow => ({ _row: 4, _group: "HATCHBACK", _order: 1, "PLATE NUMBER": "NBU4875", BRAND: "TOYOTA", MAKE: "WIGO E", COLOR: "RED", YM: 17, PRICE: 238000, TARGET: 225000, REPRICE: 228000, "RE-TARGET": 215000, "DATE ARRIVED": "2026-09-12", "OR EXP": "2027-05-15", ...o }) as SnapshotRow;
 
@@ -67,13 +67,6 @@ describe("differences with the Docs Bible (the price list check)", () => {
 describe("what the price list showed differently", () => {
   const unit = { year_model: "17", make: "TOYOTA", model_variant: "WIGO 1.0G E MT", color: "RED", trans: "MT", fuel: "DIESEL", spare_key: null, mileage: "108T KMS", encumbrance: "N/A", arrival_date: "2026-09-11" };
   const s = normalizeCar(car({ MAKE: "WIGO E", MILEAGE: "108T KMS", FUEL: "DSL", ENCUMBRANCE: null, "DATE ARRIVED": "2026-09-12" })).stock!;
-  it("keeps the sheet's own words so the export reads like the sheet", () => {
-    expect(identityOverrides(s, unit)).toEqual({ model: "WIGO E", color: null, mileage: null, fuel: "DSL", arrivedOn: "2026-09-12", encumbrance: null });
-  });
-  it("keeps nothing when they say the same, or when the sheet left it blank", () => {
-    const same = normalizeCar(car({ MAKE: "WIGO 1.0G E MT" })).stock!;
-    expect(identityOverrides(same, { ...unit, fuel: "GAS", arrival_date: "2026-09-12" })).toEqual({ model: null, color: null, mileage: null, fuel: null, arrivedOn: null, encumbrance: null });
-  });
   it("puts a different arrival date on the check list (it decides the days in stock)", () => {
     expect(compareWithDocs(s, unit).map((i) => i.field)).toContain("arrival_date");
   });
@@ -120,13 +113,12 @@ describe("the Excel layout", () => {
 
 import { choicesFor, planSettle } from "@/lib/pricelist/sync";
 describe("settling an item of the price list check", () => {
-  it("copies the price list's value into the Docs Bible and clears the stock row's own wording", () => {
-    expect(planSettle("color", "list", { listValue: "WHITE", docsValue: "RED" })).toMatchObject({ docsPatch: { color: "WHITE" }, clearOverride: "list_color" });
+  it("copies the price list's value into the Docs Bible", () => {
+    expect(planSettle("color", "list", { listValue: "WHITE", docsValue: "RED" })).toMatchObject({ docsPatch: { color: "WHITE" } });
     expect(planSettle("year", "list", { listValue: "2017", docsValue: "18" })).toMatchObject({ docsPatch: { year_model: "17" } });
   });
-  it("keeps the Docs Bible's value by only clearing the stock row's own wording", () => {
+  it("keeps the Docs Bible's value and copies nothing", () => {
     const p = planSettle("arrival_date", "docs", { listValue: "2026-09-20", docsValue: "2026-09-12" });
-    expect(p).toMatchObject({ clearOverride: "list_arrived_on" });
     expect("docsPatch" in p).toBe(false);
   });
   it("settles an old status item by setting the car's one state to the side that was chosen", () => {
@@ -218,7 +210,7 @@ describe("papers with (the old DOCS column) is one fact of the car record", () =
   });
   it("puts the sale list's fields on the car record (and not papers_with, which is already a field of it)", () => {
     const s = normalizeCar(car({ DOCS: "C" })).stock!;
-    const keys = Object.keys(stockPatch(s, { model: null, color: null, mileage: null, fuel: null, arrivedOn: null, encumbrance: null }));
+    const keys = Object.keys(stockPatch(s));
     expect(keys).not.toContain("papers_with");
     expect(keys).toEqual(expect.arrayContaining(["in_stock", "list_price", "location", "stock_note", "stock_order"]));
   });

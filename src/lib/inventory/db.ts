@@ -21,7 +21,7 @@ export function createDbInventory(): InventoryAdapter {
   const db = () => docsDb(); // made when it is used: the build loads this file without the server's keys
 
   async function joined(plates?: string[]): Promise<Joined[]> {
-    let q = db().from("docs_units").select("id, plate_no, stock_note, list_model, list_color, make, model_variant, year_model, color, stock_state, state_for, state_on").eq("in_stock", true).is("archived_at", null).limit(3000);
+    let q = db().from("docs_units").select("id, plate_no, stock_note, make, model_variant, year_model, color, stock_state, state_for, state_on").eq("in_stock", true).is("archived_at", null).limit(3000);
     if (plates) q = q.in("plate_no", plates);
     const { data, error } = await q;
     if (error) throw new InventoryError(`The stock list could not be read: ${error.message}`);
@@ -30,7 +30,7 @@ export function createDbInventory(): InventoryAdapter {
       return {
         plate: c.plate_no as string, unitId: c.id as string,
         remarks: c.stock_state ? remarksText(c.stock_state as StockState, c.state_for as string | null, c.state_on as string | null, noteOf(old)) : old,
-        makeType: [c.make, (c.list_model as string | null) ?? c.model_variant].filter(Boolean).join(" "), year: String(c.year_model ?? ""), color: String((c.list_color as string | null) ?? c.color ?? ""),
+        makeType: [c.make, c.model_variant].filter(Boolean).join(" "), year: String(c.year_model ?? ""), color: String(c.color ?? ""),
       };
     });
   }

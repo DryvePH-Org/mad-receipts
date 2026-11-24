@@ -12,13 +12,12 @@ export type ReviewAction =
   | { type: "keep" }                                          // leave it as it is (any kind): the decision is recorded
   | { type: "archive"; unitId: string }                       // duplicate: this row is a double entry
   | { type: "add_plate"; plate: string }                      // no plate: add the plate, the row becomes a car
-  | { type: "use_status"; which: "sale" | "vehicle" }         // status: the one that is right is copied to the other
   | { type: "classify"; value: string }                       // legacy classification
   | { type: "set_date"; date: string }                        // odd date
   | { type: "set_plate"; plate: string }                      // odd plate
   | { type: "add_sale_plate"; plate: string };                // sold list row without a usable plate: the plate is typed, the row becomes a sale
 
-export interface UnitLite { id: string; plate_no: string; plate_display: string; arrival_date: string | null; sale_status: string | null; vehicle_status: string | null; classification: string }
+export interface UnitLite { id: string; plate_no: string; plate_display: string; arrival_date: string | null; stock_state: string | null; classification: string }
 export interface Resolution {
   decision: string;
   patch?: { unitId: string; fields: Record<string, string | null> };
@@ -30,8 +29,6 @@ export interface Resolution {
   recordOnly?: boolean;
 }
 
-const SALE_TO_VEHICLE: Record<string, string> = { sold: "SOLD", onhand: "AVAILABLE", reserved: "AVAILABLE", "not for sale": "NOT FOR SALE" };
-const VEHICLE_TO_SALE: Record<string, string> = { "SOLD": "Sold", "AVAILABLE": "Onhand", "SHIPPED TO CEB": "Onhand", "NOT FOR SALE": "Not For Sale" };
 
 export function planResolution(kind: ReviewKind, unit: UnitLite | null, action: ReviewAction): Resolution | { error: string } {
   if (action.type === "keep") return { decision: "Left as it is", recordOnly: true };
@@ -41,11 +38,6 @@ export function planResolution(kind: ReviewKind, unit: UnitLite | null, action: 
       if (kind !== "no_plate") return { error: "This item is not a row without a plate." };
       const plate = plateKey(action.plate);
       return plate.length >= 4 ? { decision: `Plate ${plate} added: the row is now a car`, createFromRow: { plate } } : { error: "Type the plate number." };
-    }
-    case "use_status": {
-      if (!unit || kind !== "status_disagree") return { error: "This item is not a status difference." };
-      if (action.which === "sale") { const v = SALE_TO_VEHICLE[(unit.sale_status ?? "").toLowerCase()]; return v ? { decision: `STATUS (${unit.sale_status}) is right: VEHICLE STATUS set to ${v}`, patch: { unitId: unit.id, fields: { vehicle_status: v } } } : { error: "STATUS has no matching VEHICLE STATUS." }; }
-      const s = VEHICLE_TO_SALE[(unit.vehicle_status ?? "").toUpperCase()]; return s ? { decision: `VEHICLE STATUS (${unit.vehicle_status}) is right: STATUS set to ${s}`, patch: { unitId: unit.id, fields: { sale_status: s } } } : { error: "VEHICLE STATUS has no matching STATUS." };
     }
     case "classify":
       return unit && kind === "legacy_classification" && (CLASSIFICATIONS as readonly string[]).includes(action.value) ? { decision: `Classified as ${action.value}`, patch: { unitId: unit.id, fields: { classification: action.value } } } : { error: "Choose Clean, Repo (bank) or Encumbered (Indiv)." };

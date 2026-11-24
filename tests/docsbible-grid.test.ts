@@ -5,18 +5,16 @@ const col = (k: string) => COLUMN_BY_KEY.get(k)!;
 const row = (id: string, values: Record<string, string | null>, complete: string | null = null, decisions = 0): GridRow => ({ id, values, complete, decisions });
 
 describe("who edits which column", () => {
-  it("Buying edits the papers, the OR date, the spare key and the arrival; the car's details (make, model, color...) are the Admins', Admin also the one state, nobody the two old status columns (worked out from the state), Sales and Online Marketing only look", () => {
+  it("Buying edits the papers, the OR date, the spare key and the arrival; the car's details (make, model, color...) are the Admins', Admin also the one state, Sales and Online Marketing only look", () => {
     expect(canEditColumn("buying", col("cr"))).toBe(true);
     expect(canEditColumn("buying", col("classification"))).toBe(true);
-    expect(canEditColumn("buying", col("remarks_1"))).toBe(true);
+    expect(canEditColumn("buying", col("remarks"))).toBe(true);
     expect(canEditColumn("buying", col("make"))).toBe(false); // the details of the car are the Admins'; Buying fills in About the car
     expect(canEditColumn("buying", col("spare_key"))).toBe(true);
-    expect(canEditColumn("buying", col("renewal"))).toBe(true);
+    expect(canEditColumn("buying", col("or_expiry"))).toBe(true);
     expect(canEditColumn("buying", col("arrival_date"))).toBe(true);
     expect(canEditColumn("buying", col("stock_state"))).toBe(false);
     expect(canEditColumn("admin", col("stock_state"))).toBe(true);
-    expect(canEditColumn("admin", col("vehicle_status"))).toBe(false); // derived from the state
-    expect(canEditColumn("admin", col("sale_status"))).toBe(false);
     expect(canEditColumn("admin", col("make"))).toBe(true);
     expect(canEditColumn("sales", col("cr"))).toBe(false); // the IN documents are for Buying and the Admins; Sales read them
     expect(canEditColumn("sales", col("stock_state"))).toBe(false);
@@ -49,7 +47,7 @@ describe("checking an edit", () => {
     expect(checkEdit(col("cs_no"), "  ab 12  ")).toEqual({ ok: true, value: "ab 12" });
     expect(checkEdit(col("cs_no"), "x".repeat(301)).ok).toBe(false);
     expect(checkEdit(col("color"), "  white  ")).toEqual({ ok: true, value: "WHITE" }); // a detail of the car follows its standard format
-    expect(checkEdit(col("remarks_1"), "a\r\nb")).toEqual({ ok: true, value: "a\nb" });
+    expect(checkEdit(col("remarks"), "a\r\nb")).toEqual({ ok: true, value: "a\nb" });
   });
 });
 
@@ -59,9 +57,9 @@ describe("the table", () => {
     expect(VIEWS.everything.keys).toHaveLength(COLUMNS.length);
   });
   const rows = [
-    row("1", { plate_display: "NGR 7902", make: "TOYOTA", classification: "Clean", vehicle_status: "AVAILABLE" }, "COMPLETE"),
-    row("2", { plate_display: "ABC1234", make: "HONDA", classification: "Repo (bank)", vehicle_status: "SOLD", remarks_1: "ORIG DOCS AT JEP" }, "NOT YET", 1),
-    row("3", { plate_display: "XYZ999", make: "FORD", classification: "Not classified (legacy)", vehicle_status: "SOLD" }, null),
+    row("1", { plate_display: "NGR 7902", make: "TOYOTA", classification: "Clean", stock_state: "Onhand" }, "COMPLETE"),
+    row("2", { plate_display: "ABC1234", make: "HONDA", classification: "Repo (bank)", stock_state: "Sold", remarks: "ORIG DOCS AT JEP" }, "NOT YET", 1),
+    row("3", { plate_display: "XYZ999", make: "FORD", classification: "Not classified (legacy)", stock_state: "Sold" }, null),
   ];
   it("searches a plate however it is typed, and other text", () => {
     expect(filterRows(rows, { ...EMPTY_GRID_FILTER, q: "ngr7902" }).map((r) => r.id)).toEqual(["1"]);
@@ -70,7 +68,7 @@ describe("the table", () => {
   it("filters by classification, completeness, status and the ones needing a decision", () => {
     expect(filterRows(rows, { ...EMPTY_GRID_FILTER, classification: "Repo (bank)" }).map((r) => r.id)).toEqual(["2"]);
     expect(filterRows(rows, { ...EMPTY_GRID_FILTER, complete: "NONE" }).map((r) => r.id)).toEqual(["3"]);
-    expect(filterRows(rows, { ...EMPTY_GRID_FILTER, vehicle: "SOLD" }).map((r) => r.id)).toEqual(["2", "3"]);
+    expect(filterRows(rows, { ...EMPTY_GRID_FILTER, state: "Sold" }).map((r) => r.id)).toEqual(["2", "3"]);
     expect(filterRows(rows, { ...EMPTY_GRID_FILTER, needsDecision: true }).map((r) => r.id)).toEqual(["2"]);
   });
 });

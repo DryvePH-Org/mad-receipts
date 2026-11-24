@@ -33,7 +33,6 @@ import { ApprovalCard } from "./approval-card";
 import { CarLive } from "./car-live";
 import { CarTop, FolderBox } from "./car-top";
 import { ChecksHelp } from "./checks-help";
-import { parseSheetDate } from "@/lib/cars/model";
 import { manilaToday } from "@/lib/dates";
 import { orStatus } from "@/lib/docsbible/or-expiry";
 import { docsDb } from "@/lib/docsbible/review-server";
@@ -81,8 +80,8 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
   ]);
   const linked = car.folder.match_status === "linked" && !!car.folder.folder_id;
   const stage = deriveStage(input ?? { linked, location: car.folder.location as "available" | "sold", filesTotal: car.files.length, pending: car.pending, failed: 0, scanning, flaggedFiles: 0, missingBefore: 0, missingSold: 0, hasDeal: !!deal, approved: !!flow.workflow.approvedAt, caseChosen: car.folder.case_source === "manual", handoffAt: flow.workflow.handoffAt, returnedAt: flow.workflow.handoffReturnedAt, receiver: settings.print.transmittalReceiver || "the receiver" });
-  const orRow = await docsDb().from("docs_units_current").select("renewal").eq("plate_no", key).maybeSingle();
-  const orDate = orRow.data?.renewal ? parseSheetDate(String(orRow.data.renewal)) : null; // the typed date, read the same way the database reads it
+  const orRow = await docsDb().from("docs_units_current").select("or_expiry").eq("plate_no", key).maybeSingle();
+  const orDate = orRow.data?.or_expiry ? String(orRow.data.or_expiry).slice(0, 10) : null;
   const transfers = seesSales(user.role) ? await loadTransfers(key) : null;
   const hand = await handoffOf(key).catch(() => null); // the steps of the transfer are kept on the car's sale record
   const [register, receipts, activity] = await Promise.all([loadRegisterRow(key).catch(() => null), canUpload ? listCarReceipts(key).catch(() => []) : Promise.resolve([]), loadCarActivity(key).catch(() => [] as ActivityEntry[])]);

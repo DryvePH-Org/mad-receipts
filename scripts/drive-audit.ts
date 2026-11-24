@@ -41,14 +41,14 @@ async function main() {
   for (const [p, l] of dupes.slice(0, 15)) console.log(`  ${p}: ${l.map((f) => `[${f.where}] ${f.name}`).join("  |  ")}`);
 
   const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
-  const { data: units } = await db.from("docs_units_current").select("plate_no, vehicle_status, sale_status");
+  const { data: units } = await db.from("docs_units_current").select("plate_no, stock_state");
   const regPlates = new Set((units ?? []).map((u) => u.plate_no as string));
   const noFolder = [...regPlates].filter((p) => !byPlate.has(p));
   const notInRegister = [...byPlate.keys()].filter((p) => !regPlates.has(p));
   console.log(`\nDocs Bible cars: ${regPlates.size}. With a folder: ${regPlates.size - noFolder.length}. Without a folder: ${noFolder.length}.`);
   console.log(`Folders whose plate is not in the Docs Bible: ${notInRegister.length}${notInRegister.length ? ` (e.g. ${notInRegister.slice(0, 12).join(", ")})` : ""}`);
-  const soldInAvailable = (units ?? []).filter((u) => /sold/i.test(String(u.vehicle_status ?? "")) && byPlate.get(u.plate_no as string)?.some((f) => f.where === "available")).length;
-  const availableInSold = (units ?? []).filter((u) => /available/i.test(String(u.vehicle_status ?? "")) && byPlate.get(u.plate_no as string)?.some((f) => f.where === "sold")).length;
+  const soldInAvailable = (units ?? []).filter((u) => u.stock_state === "Sold" && byPlate.get(u.plate_no as string)?.some((f) => f.where === "available")).length;
+  const availableInSold = (units ?? []).filter((u) => /^(Onhand|Reserved)$/.test(String(u.stock_state ?? "")) && byPlate.get(u.plate_no as string)?.some((f) => f.where === "sold")).length;
   console.log(`Cars the register calls SOLD whose folder is still in Available units: ${soldInAvailable}. Cars it calls AVAILABLE whose folder is in Sold units: ${availableInSold}.`);
 
   if (withFiles) {

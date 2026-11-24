@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { carRowOf, noteOf, type CarFacts, type StockFacts } from "@/lib/cars/from-db";
 import { forRole } from "@/lib/cars/model";
 
-const stock = (o: Partial<StockFacts> = {}): StockFacts => ({ plate_no: "NBU4875", body_group: "HATCHBACK", list_price: 238000, target_price: 225000, reprice: 228000, retarget: 215000, or_expiry: null, papers_with: "C", tools: null, location: "ROSE MARY", repair_status: null, remarks: null, list_model: null, list_color: null, list_mileage: null, list_fuel: null, list_arrived_on: null, list_encumbrance: null, ...o });
+const stock = (o: Partial<StockFacts> = {}): StockFacts => ({ plate_no: "NBU4875", body_group: "HATCHBACK", list_price: 238000, target_price: 225000, reprice: 228000, retarget: 215000, or_expiry: null, papers_with: "C", tools: null, location: "ROSE MARY", repair_status: null, remarks: null, ...o });
 const car = (o: Partial<CarFacts> = {}): CarFacts => ({ plate_display: "NBU4875", arrival_date: "2026-09-11", year_model: "17", make: "TOYOTA", model_variant: "WIGO 1.0G E MT", color: "RED", mileage: "108T KMS", trans: "MT", fuel: "GAS", encumbrance: "N/A", spare_key: null, body_type: null, or_expiry: "2027-05-15", ...o });
 
 describe("a Car Inventory row from the database", () => {
@@ -10,11 +10,6 @@ describe("a Car Inventory row from the database", () => {
     const c = carRowOf(stock(), car(), "2026-11-19");
     expect(c).toMatchObject({ plate: "NBU4875", year: "2017", brand: "TOYOTA", make: "WIGO 1.0G E MT", price: 228000, originalPrice: 238000, repriced: true, target: 215000, bodyType: "HATCHBACK", orExp: "2027-05-15", docsCode: "C", availability: "available", sellable: true });
     expect(c.daysInStock).toBe(69);
-  });
-  it("shows what the price list said where it differs from the car's record, and the arrival it kept", () => {
-    const c = carRowOf(stock({ list_model: "WIGO E", list_arrived_on: "2026-09-12", list_fuel: "DSL" }), car(), "2026-11-19");
-    expect(c).toMatchObject({ make: "WIGO E", fuel: "DSL" });
-    expect(c.daysInStock).toBe(68);
   });
   it("reads Reserved, Sold, For repair and Sell as is", () => {
     expect(carRowOf(stock({ remarks: "RESERVED - SWEET 10/14" }), car(), "2026-11-19")).toMatchObject({ availability: "reserved", sellable: false, reservedFor: ["SWEET"], reservedOn: "10/14" });

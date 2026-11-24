@@ -1,14 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { dateOfMonthDay, deriveState, legacyOf, remarksText, stateFromLegacy, stateFromStockNote, statusText } from "@/lib/cars/state";
+import { dateOfMonthDay, deriveState, remarksText, stateFromLegacy, stateFromStockNote, statusText } from "@/lib/cars/state";
 
 describe("one status per car", () => {
-  it("writes the two old columns from the one state", () => {
-    expect(legacyOf("Sold")).toEqual({ sale_status: "Sold", vehicle_status: "SOLD" });
-    expect(legacyOf("Reserved")).toEqual({ sale_status: "Reserved", vehicle_status: "AVAILABLE" });
-    expect(legacyOf("Shipped to Cebu")).toEqual({ sale_status: "Onhand", vehicle_status: "SHIPPED TO CEB" });
-    expect(legacyOf("For repair")).toEqual({ sale_status: "Onhand", vehicle_status: "AVAILABLE" });
-    expect(legacyOf("Not for sale")).toEqual({ sale_status: "Not For Sale", vehicle_status: "NOT FOR SALE" });
-  });
   it("reads the two old columns", () => {
     expect(stateFromLegacy("Sold", "SOLD")).toBe("Sold");
     expect(stateFromLegacy("Onhand", "SHIPPED TO CEB")).toBe("Shipped to Cebu");

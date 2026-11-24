@@ -16,7 +16,7 @@ if (existsSync(".env.local")) for (const l of readFileSync(".env.local", "utf8")
 const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
 
 // tables that keep the plate, as plate_no (their own key, or just a column)
-const CHILDREN = ["folder_files", "unit_workflow", "unit_details", "transmittals", "grokbot_jobs", "docs_review_items", "unit_sheet_sync", "deal_units", "car_stock", "car_repairs", "or_renewals", "car_price_history", "car_sync_items"];
+const CHILDREN = ["folder_files", "unit_workflow", "unit_details", "transmittals", "grokbot_jobs", "docs_review_items", "unit_sheet_sync", "deal_units", "car_repairs", "or_renewals", "car_price_history", "car_sync_items"];
 
 async function count(table: string, plate: string): Promise<number | null> {
   const { count: n, error } = await db.from(table).select("*", { count: "exact", head: true }).eq("plate_no", plate);

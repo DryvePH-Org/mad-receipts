@@ -10,7 +10,7 @@ import { docsDb } from "./review-server";
 
 // The car's scan and checklist become the car's row in MAD register (the database), at once. Nothing is written to a Google Sheet.
 
-const COLUMN: Record<DocsField, string> = { classification: "classification", cr: "cr", or: "or_receipt", deed: "deed", sellers_id: "sellers_id", sec_cert: "sec_cert", sec_ids: "sec_ids", boards_reso: "boards_reso", encumbered: "encumbered", chattel: "chattel", promissory: "promissory", stencil: "stencil", remarks_1: "remarks_1" };
+const COLUMN: Record<DocsField, string> = { classification: "classification", cr: "cr", or: "or_receipt", deed: "deed", sellers_id: "sellers_id", sec_cert: "sec_cert", sec_ids: "sec_ids", boards_reso: "boards_reso", encumbered: "encumbered", chattel: "chattel", promissory: "promissory", stencil: "stencil", remarks_1: "remarks" };
 
 async function carInput(plate: string) {
   const car = await loadCar(plate);
@@ -33,13 +33,9 @@ export async function setRegisterClassification(plate: string, caseType: CaseTyp
 export async function markRegisterSold(plate: string, actor: string): Promise<void> {
   const db = docsDb();
   const key = normalizePlate(plate);
-  let found = await db.from("docs_units_current").select("id, sale_status, vehicle_status, stock_state").eq("plate_no", key).maybeSingle();
-  if (found.error) found = await db.from("docs_units_current").select("id, sale_status, vehicle_status").eq("plate_no", key).maybeSingle(); // before migration 39
-  const unit = found.data as { id: string; sale_status: string | null; vehicle_status: string | null; stock_state?: string | null } | null;
-  if (!unit || (unit.stock_state === "Sold" || (unit.stock_state === undefined && unit.sale_status === "Sold" && unit.vehicle_status === "SOLD"))) return;
-  // the one status: Sold (the database writes the two old columns from it); before migration 39 the two columns are written as they were
-  const r = await db.from("docs_units").update({ stock_state: "Sold", updated_by: actor, last_change_source: "app" }).eq("id", unit.id);
-  if (r.error) await db.from("docs_units").update({ sale_status: "Sold", vehicle_status: "SOLD", updated_by: actor, last_change_source: "app" }).eq("id", unit.id);
+  const { data: unit } = await db.from("docs_units_current").select("id, stock_state").eq("plate_no", key).maybeSingle();
+  if (!unit || unit.stock_state === "Sold") return;
+  await db.from("docs_units").update({ stock_state: "Sold", updated_by: actor, last_change_source: "app" }).eq("id", unit.id);
 }
 
 /** How many papers of the register row differ from what the car's folder says (only meaningful once a person has chosen the case). */
@@ -75,7 +71,8 @@ export async function syncRegister(plate: string, actor: string, now = new Date(
   const patch: Record<string, string | null> = {};
   for (const c of plan.changes) patch[COLUMN[c.field]] = c.after;
   const note = scanNote({ now, carName: input.name, items: input.car.checklist.items.map((i) => ({ label: i.label, present: i.present, stage: i.stage, optional: i.optional })), flags: input.flags, details: input.details });
-  if (!noteAlreadyThere(current.remarks_1, note)) patch.remarks_1 = [current.remarks_1, note].filter(Boolean).join("\n\n");
+  const notes = (unit.remarks as string | null) ?? "";
+  if (!noteAlreadyThere(notes, note)) patch.remarks = [notes, note].filter(Boolean).join("\n\n");
   if (Object.keys(patch).length === 0) return { ok: true, changed: [], created };
   const r = await db.from("docs_units").update({ ...patch, updated_by: actor, last_change_source: "app" }).eq("id", unit.id as string);
   if (r.error) return { ok: false, message: `Could not save: ${r.error.message}` };

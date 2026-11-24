@@ -222,7 +222,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await docs.getByRole("dialog").getByRole("button", { name: "Move to Sold" }).click();
   await expect(docs.getByText("In Sold units").first()).toBeVisible({ timeout: 20_000 });
   // the register tells the same story as the folder: the car is SOLD there too
-  await expect.poll(async () => (await (adminClient() as unknown as { from: (t: string) => any }).from("docs_units_current").select("sale_status, vehicle_status").eq("plate_no", "ZZT7001").maybeSingle()).data, { timeout: 15_000 }).toMatchObject({ sale_status: "Sold", vehicle_status: "SOLD" }); // eslint-disable-line @typescript-eslint/no-explicit-any
+  await expect.poll(async () => (await (adminClient() as unknown as { from: (t: string) => any }).from("docs_units_current").select("stock_state").eq("plate_no", "ZZT7001").maybeSingle()).data, { timeout: 15_000 }).toMatchObject({ stock_state: "Sold" }); // eslint-disable-line @typescript-eslint/no-explicit-any
   await docs.goto("/documents/ZZT7001?tab=sale");
   await expect(docs.getByText("Handoff to").first()).toBeVisible();
 
@@ -345,8 +345,8 @@ test("Documentation adds photos by typing only the plate: the folder is made, th
   await docs.getByRole("button", { name: "Save the car and upload 1 document" }).click();
   await expect(docs.getByText(/is in MAD/)).toBeVisible();
   await expect(docs.getByText(/The team has been told/)).toBeVisible({ timeout: 30_000 });
-  const row = await adminClient().from("docs_units_current" as never).select("make, year_model, color, source, vehicle_status" as never).eq("plate_no", "ZZT7010").single() as unknown as { data: Record<string, string> };
-  expect(row.data).toMatchObject({ make: "TOYOTA", year_model: "19", color: "WHITE", source: "app", vehicle_status: "AVAILABLE" });
+  const row = await adminClient().from("docs_units_current" as never).select("make, year_model, color, source, stock_state" as never).eq("plate_no", "ZZT7010").single() as unknown as { data: Record<string, string> };
+  expect(row.data).toMatchObject({ make: "TOYOTA", year_model: "19", color: "WHITE", source: "app", stock_state: "Onhand" });
   await docs.locator("#add-photos").setInputFiles({ name: "x.jpg", mimeType: "image/jpeg", buffer: JPEG });
   await expect(docs.getByText("Saved ✓")).toBeVisible({ timeout: 30_000 });
   await expect(docs.getByText(/The team has been told/)).toBeVisible({ timeout: 30_000 });

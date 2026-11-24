@@ -19,7 +19,7 @@ const dateOf = (v: unknown) => { const s = String(v ?? "").trim(); return s ? pa
 
 async function main() {
   console.log(`OR expiry from the snapshot of ${snap.taken}. ${apply ? "WRITING" : "Dry run, nothing is written."}\n`);
-  const { data: units } = await db.from("docs_units_current").select("id, plate_no, renewal").limit(5000);
+  const { data: units } = await db.from("docs_units_current").select("id, plate_no, or_expiry").limit(5000);
   const unit = new Map((units ?? []).map((u) => [u.plate_no as string, u]));
   const sheets: [string, SnapshotRow[], string, string, "live" | "older"][] = [["the price list", snap.inventory, "PLATE NUMBER", "OR EXP", "live"], ["the renewal list", snap.renewals, "PLATE NUMBER", "OR EXP", "older"], ["the REMARKS register", snap.remarks_tab, "PLATE NO./INVENTORY", "OR EXPIRATION", "older"]];
   const sources = new Map<string, OrSource[]>(); const odd: string[] = [];
@@ -33,13 +33,13 @@ async function main() {
   for (const [plate, srcs] of sources) {
     const u = unit.get(plate);
     if (!u) { noDocsCar++; continue; }
-    const docsDate = dateOf(u.renewal);
+    const docsDate = dateOf(u.or_expiry);
     const f = compareOrDates(plate, docsDate, srcs);
     if (!f.length && srcs.some((s) => s.date)) same++;
     findings.push(...f);
   }
   const fills = findings.filter((f) => f.kind === "fill"), others = findings.filter((f) => f.kind !== "fill");
-  const docsWithDate = (units ?? []).filter((u) => dateOf(u.renewal)).length, docsText = (units ?? []).filter((u) => u.renewal && !dateOf(u.renewal)).length;
+  const docsWithDate = (units ?? []).filter((u) => dateOf(u.or_expiry)).length, docsText = 0;
   console.log(`Docs Bible: ${units?.length} cars, ${docsWithDate} with a clear OR date, ${docsText} with text that is not a clear date (kept as typed).`);
   console.log(`Cars with a date in a sheet: ${sources.size} | all agree with the Docs Bible: ${same} | not in the Docs Bible: ${noDocsCar}`);
   console.log(`To fill (Docs Bible blank, sheets agree): ${fills.length} | for the Price list check: ${others.length} (${others.filter((o) => o.kind === "differs").length} differ, ${others.filter((o) => o.kind === "disagree").length} sheets disagree)`);
@@ -49,7 +49,7 @@ async function main() {
 
   const probe = await db.from("docs_units").select("or_expiry").limit(1);
   if (probe.error) throw new Error(`Migration 37 is not applied yet (${probe.error.message}).`);
-  for (const f of fills) { const { error } = await db.from("docs_units").update({ renewal: f.value, last_change_source: "pricelist" }).eq("id", unit.get(f.plate)!.id as string); if (error) console.log(`  ${f.plate}: not filled: ${error.message}`); }
+  for (const f of fills) { const { error } = await db.from("docs_units").update({ or_expiry: f.value, last_change_source: "pricelist" }).eq("id", unit.get(f.plate)!.id as string); if (error) console.log(`  ${f.plate}: not filled: ${error.message}`); }
   const { data: past } = await db.from("car_sync_items").select("plate_no, list_value, docs_value").eq("status", "settled").eq("field", "or_expiry");
   const settled = new Set((past ?? []).map((p) => `${p.plate_no}|${p.list_value ?? ""}|${p.docs_value ?? ""}`));
   await db.from("car_sync_items").delete().eq("status", "open").eq("field", "or_expiry");

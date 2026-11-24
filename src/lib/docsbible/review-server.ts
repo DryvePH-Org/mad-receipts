@@ -14,7 +14,7 @@ export interface ReviewRow {
   units: (UnitLite & { make: string | null; model_variant: string | null; color: string | null; year_model: string | null; source_row: number | null; archived: boolean })[];
 }
 
-const UNIT_COLS = "id, plate_no, plate_display, arrival_date, sale_status, vehicle_status, classification, make, model_variant, color, year_model, source_row, archived_at";
+const UNIT_COLS = "id, plate_no, plate_display, arrival_date, stock_state, classification, make, model_variant, color, year_model, source_row, archived_at";
 
 export async function loadReview(admin: Admin = docsDb()): Promise<ReviewRow[]> {
   const { data: items, error } = await admin.from("docs_review_items").select("id, kind, plate_no, message, source_row, status, decision, resolved_at, unit_id").order("created_at").limit(2000);
@@ -31,7 +31,7 @@ export async function loadReview(admin: Admin = docsDb()): Promise<ReviewRow[]> 
     const mine = [...all.values()].filter((u) => (i.plate_no && u.plate_no === i.plate_no) || u.id === i.unit_id);
     return {
       id: i.id, kind: i.kind as ReviewKind, plate: i.plate_no, message: i.message, sourceRow: i.source_row, status: i.status as ReviewRow["status"], decision: i.decision, resolvedAt: i.resolved_at,
-      units: mine.sort((a, b) => (a.source_row ?? 0) - (b.source_row ?? 0)).map((u) => ({ id: u.id, plate_no: u.plate_no, plate_display: u.plate_display, arrival_date: u.arrival_date, sale_status: u.sale_status, vehicle_status: u.vehicle_status, classification: u.classification, make: u.make, model_variant: u.model_variant, color: u.color, year_model: u.year_model, source_row: u.source_row, archived: !!u.archived_at })),
+      units: mine.sort((a, b) => (a.source_row ?? 0) - (b.source_row ?? 0)).map((u) => ({ id: u.id, plate_no: u.plate_no, plate_display: u.plate_display, arrival_date: u.arrival_date, stock_state: u.stock_state, classification: u.classification, make: u.make, model_variant: u.model_variant, color: u.color, year_model: u.year_model, source_row: u.source_row, archived: !!u.archived_at })),
     };
   });
 }
@@ -55,7 +55,7 @@ export async function resolveReview(itemId: string, action: ReviewAction, actor:
   if (!item) return { ok: false, message: "That item is not there any more." };
   if (item.status !== "open") return { ok: false, message: "This item was already settled." };
   let unit: UnitLite | null = null;
-  if (item.unit_id) { const { data } = await admin.from("docs_units").select("id, plate_no, plate_display, arrival_date, sale_status, vehicle_status, classification").eq("id", item.unit_id).maybeSingle(); unit = data; }
+  if (item.unit_id) { const { data } = await admin.from("docs_units").select("id, plate_no, plate_display, arrival_date, stock_state, classification").eq("id", item.unit_id).maybeSingle(); unit = data; }
   const plan = planResolution(item.kind as ReviewKind, unit, action);
   if ("error" in plan) return { ok: false, message: plan.error };
 

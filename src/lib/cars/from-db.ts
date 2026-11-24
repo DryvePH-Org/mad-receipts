@@ -9,7 +9,6 @@ import { availabilityOf, daysBetween, type Availability, type CarRow } from "./m
 export interface StockFacts {
   plate_no: string; body_group: string | null; list_price: number | string | null; target_price: number | string | null; reprice: number | string | null; retarget: number | string | null;
   or_expiry: string | null; papers_with: string | null; tools?: string | null; location: string | null; repair_status: string | null; remarks: string | null;
-  list_model: string | null; list_color: string | null; list_mileage: string | null; list_fuel: string | null; list_arrived_on: string | null; list_encumbrance: string | null;
 }
 export interface CarFacts {
   id?: string; buying_source?: string | null;
@@ -32,20 +31,20 @@ export function carRowOf(s: StockFacts, u: CarFacts, today: string, aboutSpareKe
   // with a state, the status part of the old note is ignored: the state is the one truth, the note is only a note
   const remarks = state ? text(remarksText(state, u.state_for, u.state_on, noteOf(text(s.remarks)))) : text(s.remarks);
   const repairStatus = state ? (state === "For repair" ? "FOR REPAIR" : state === "Sell as is" ? "SELL AS IS" : "") : text(s.repair_status).toUpperCase();
-  const arrived = s.list_arrived_on ?? u.arrival_date;
+  const arrived = u.arrival_date;
   const original = num(s.list_price), reprice = num(s.reprice);
   const availability = state ? availabilityOfState(state) : availabilityOf(remarks, repairStatus);
   const st = parseStatus(remarks);
   const location = text(s.location), bodyType = text(s.body_group) || text(u.body_type);
-  const encumbrance = text(s.list_encumbrance ?? (/^N\/?A$/i.test(text(u.encumbrance)) ? "" : u.encumbrance));
+  const encumbrance = text(/^N\/?A$/i.test(text(u.encumbrance)) ? "" : u.encumbrance);
   const ym = text(u.year_model);
   // one spare key: the car's record; a stored checklist answer only fills in when the record has none
   const spareKey = text(u.spare_key) || (aboutSpareKey === "yes" ? "W/SPAREKEY" : aboutSpareKey === "no" ? "NO SPAREKEY" : "");
   return {
     plate: s.plate_no, plateDisplay: text(u.plate_display).toUpperCase() || s.plate_no, unitId: u.id,
     record: { year_model: u.year_model, make: u.make, model_variant: u.model_variant, color: u.color, body_type: u.body_type, trans: u.trans, fuel: u.fuel, mileage: u.mileage, spare_key: u.spare_key, buying_source: u.buying_source ?? null },
-    year: fullYear(ym) || ym, brand: text(u.make), make: text(s.list_model ?? u.model_variant), color: text(s.list_color ?? u.color), mileage: text(s.list_mileage ?? u.mileage),
-    trans: text(u.trans), fuel: text(s.list_fuel ?? u.fuel), bodyType,
+    year: fullYear(ym) || ym, brand: text(u.make), make: text(u.model_variant), color: text(u.color), mileage: text(u.mileage),
+    trans: text(u.trans), fuel: text(u.fuel), bodyType,
     price: reprice ?? original, originalPrice: original, repriced: reprice !== null && original !== null && reprice < original, target: num(s.retarget) ?? num(s.target_price),
     arrived, daysInStock: arrived ? Math.max(0, daysBetween(arrived, today)) : null,
     remarks, reservedFor: st?.names ?? [], reservedOn: st?.date ?? (state === "Reserved" || state === "Sold" ? monthDay(u.state_on) || null : null),

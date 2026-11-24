@@ -7,17 +7,6 @@ import { applyStatus } from "@/lib/inventory/remarks";
 export const STOCK_STATES = ["Onhand", "Reserved", "Sold", "Not for sale", "For repair", "Sell as is", "Shipped to Cebu"] as const;
 export type StockState = (typeof STOCK_STATES)[number];
 
-/** The old STATUS and VEHICLE STATUS columns, as the database writes them from the one state (the same table is in migration 39). */
-export function legacyOf(s: StockState): { sale_status: string; vehicle_status: string } {
-  switch (s) {
-    case "Sold": return { sale_status: "Sold", vehicle_status: "SOLD" };
-    case "Reserved": return { sale_status: "Reserved", vehicle_status: "AVAILABLE" };
-    case "Not for sale": return { sale_status: "Not For Sale", vehicle_status: "NOT FOR SALE" };
-    case "Shipped to Cebu": return { sale_status: "Onhand", vehicle_status: "SHIPPED TO CEB" };
-    default: return { sale_status: "Onhand", vehicle_status: "AVAILABLE" }; // Onhand, For repair, Sell as is
-  }
-}
-
 /** The state the two old Docs Bible columns say. Null when they say nothing usable. */
 export function stateFromLegacy(sale: string | null | undefined, vehicle: string | null | undefined): StockState | null {
   const s = String(sale ?? "").trim().toLowerCase(), v = String(vehicle ?? "").trim().toUpperCase();

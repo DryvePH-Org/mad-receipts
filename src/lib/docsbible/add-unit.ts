@@ -43,7 +43,7 @@ export function checkNewUnit(input: UnitDetailsInput, today: string): CheckedUni
       make: upper(input.make), model_variant: upper(input.model_variant, 160), year_model: year, color: upper(input.color), body_type: body.ok ? body.value : null, trans: trans.ok ? trans.value : null, fuel: fuel.ok ? fuel.value : null,
       mileage: mileage.ok ? mileage.value : null, category: upper(input.category) ?? "NORMAL", reg_owner_name: upper(input.reg_owner_name, 160), buying_source: source.ok ? source.value : null,
       spare_key: spare.ok ? spare.value : null, cs_no: upper(input.cs_no, 40), mo_file: upper(input.mo_file), awarded_to: upper(input.awarded_to), encumbrance: upper(input.encumbrance),
-      arrival_date: arrival.value, sale_status: "Onhand", vehicle_status: "AVAILABLE",
+      arrival_date: arrival.value,
     },
   };
 }

@@ -1,5 +1,6 @@
 // Plans the Docs Bible import from a frozen snapshot (see scripts/docs-bible-snapshot.py): the units, the staff's review items, the
 // handoff events and a column-by-column balance. Pure: it reads the snapshot and returns plans; scripts/docs-bible-import.ts writes them.
+import { stateFromLegacy } from "@/lib/cars/state";
 import { classification, dateOf, handoffEvent, LEGACY_CLASS, paper, plateKey, plateLooksUsual, plateShown, spareKey, statusesDisagree, text, type HandoffEvent } from "./normalize";
 
 export type Cell = [row: number, col: number, value: string, type: "s" | "n" | "d" | "b" | "e", formula: string | null];
@@ -18,7 +19,7 @@ const PAPERS: Record<string, string> = {
   "CR": "cr", "OR": "or_receipt", "DEED OF SALE": "deed", "SELLER'S ID": "sellers_id", "SEC CERT": "sec_cert", "SEC ID'S": "sec_ids", "BOARDS RESO": "boards_reso",
   "ENCUMBERED": "encumbered", "CHATTEL": "chattel", "PROMISSORY": "promissory", "STENCIL": "stencil",
 };
-const FREE: Record<string, string> = { "VEHICLE STATUS": "vehicle_status", "BANK/ SOURCE": "bank_source", "RENEWAL": "renewal", "OTHER DOCS ATTACHED": "other_docs", "PAPER STATUS": "paper_status", "REMARKS I": "remarks_1", "REMARKS II": "remarks_2" };
+const FREE: Record<string, string> = { "VEHICLE STATUS": "vehicle_status", "BANK/ SOURCE": "bank_source", "RENEWAL": "or_expiry", "OTHER DOCS ATTACHED": "other_docs", "PAPER STATUS": "paper_status", "REMARKS I": "remarks_1", "REMARKS II": "remarks_2" };
 
 export type IssueKind = "duplicate_plate" | "no_plate" | "status_disagree" | "legacy_classification" | "odd_date" | "odd_plate" | "unknown_value" | "other";
 export interface Issue { kind: IssueKind; plate: string | null; sourceRow: number | null; message: string }
@@ -80,7 +81,12 @@ export function planImport(snap: Snapshot, opts: { docsTab?: string } = {}): Imp
     if (statusesDisagree(fields.sale_status ?? null, fields.vehicle_status ?? null)) issues.push({ kind: "status_disagree", plate: key, sourceRow: r, message: `STATUS says ${fields.sale_status} but VEHICLE STATUS says ${fields.vehicle_status}. Decide which is right.` });
     if (cl.value === LEGACY_CLASS && (fields.vehicle_status === "AVAILABLE" || (fields.sale_status ?? "").toLowerCase() === "onhand")) issues.push({ kind: "legacy_classification", plate: key, sourceRow: r, message: "This car is still in stock but has no classification. Choose Clean, Repo (bank) or Encumbered (Indiv)." });
 
-    units.push({ sourceRow: r, plate_no: key, plate_display: plateShown(plateRaw), arrival_date: arr.value, arrival_raw: arrivalRaw, fields, raw });
+    const { sale_status, vehicle_status, remarks_1, remarks_2, ...kept } = fields;
+    const remarks = [remarks_1, remarks_2].filter(Boolean).join("\n\n") || null; // REMARKS I and II of the sheet are one note
+    if (remarks) kept.remarks = remarks; // the two sheet columns become the one state
+    const state = stateFromLegacy(sale_status ?? null, vehicle_status ?? null);
+    if (kept.or_expiry) kept.or_expiry = dateOf(kept.or_expiry).value; // the typed renewal becomes a real date (text that is not a date is not kept)
+    units.push({ sourceRow: r, plate_no: key, plate_display: plateShown(plateRaw), arrival_date: arr.value, arrival_raw: arrivalRaw, fields: state ? { ...kept, stock_state: state } : kept, raw });
   }
 
   // two arrivals of one plate: both are kept; the staff are told and decide later
@@ -93,8 +99,8 @@ export function planImport(snap: Snapshot, opts: { docsTab?: string } = {}): Imp
   const known = new Set(units.map((u) => u.plate_no));
   const seen = new Set<string>(); // the same step written in the register and again in a monthly tab is one event
   const push = (e: EventPlan) => { const k = `${e.plate}|${e.event}|${e.date ?? e.original}`; if (seen.has(k)) return; seen.add(k); (known.has(e.plate) ? events : unmatchedEvents).push(e); };
-  for (const u of units) for (const f of ["remarks_1", "remarks_2"] as const) {
-    for (const part of String(u.fields[f] ?? "").split("\n")) {
+  for (const u of units) {
+    for (const part of String(u.fields.remarks ?? "").split("\n")) {
       if (/^\d{1,2} [A-Z][a-z]{2} \d{4}, /.test(part) || !/SUBMITTED|RECEIVED/i.test(part)) continue; // the bots' dated scan notes are not handoff events
       const e = handoffEvent(part, 2026); if (e && e.event !== "note") push({ ...e, plate: u.plate_no, tab: tabName, sourceRow: u.sourceRow });
     }

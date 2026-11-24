@@ -10,7 +10,6 @@ const action = z.discriminatedUnion("type", [
   z.object({ type: z.literal("keep") }),
   z.object({ type: z.literal("archive"), unitId: z.uuid() }),
   z.object({ type: z.literal("add_plate"), plate: z.string().max(20) }),
-  z.object({ type: z.literal("use_status"), which: z.enum(["sale", "vehicle"]) }),
   z.object({ type: z.literal("classify"), value: z.string().max(40) }),
   z.object({ type: z.literal("set_date"), date: z.string().max(20) }),
   z.object({ type: z.literal("set_plate"), plate: z.string().max(20) }),

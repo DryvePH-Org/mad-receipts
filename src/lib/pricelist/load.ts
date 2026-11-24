@@ -5,7 +5,7 @@ import type { DetailRow, PriceRow } from "./export";
 
 import { STOCK_COLS } from "@/lib/cars/read";
 
-const UNIT_COLS = `id, plate_no, plate_display, arrival_date, year_model, make, model_variant, color, mileage, trans, fuel, encumbrance, spare_key, classification, papers_with, registry_of_deeds, stock_state, state_for, state_on, or_expiry, or_expiry_raw, ${STOCK_COLS}`;
+const UNIT_COLS = `id, plate_no, plate_display, arrival_date, year_model, make, model_variant, color, mileage, trans, fuel, encumbrance, spare_key, classification, papers_with, registry_of_deeds, stock_state, state_for, state_on, or_expiry, ${STOCK_COLS}`;
 
 /** The price list as the database holds it: one row per car on the sale list (the car record carries the prices, location and notes) and its About-the-car answers. */
 export async function loadPriceList(): Promise<{ rows: PriceRow[]; details: DetailRow[] }> {

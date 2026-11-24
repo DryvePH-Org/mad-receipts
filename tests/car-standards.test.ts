@@ -54,7 +54,7 @@ describe("one format for every detail of a car", () => {
   });
 });
 
-const row = (over: Partial<TidyRow> = {}): TidyRow => ({ id: "11111111-1111-4111-8111-111111111111", plate_no: "AAA1111", plate_display: "AAA 1111", year_model: "19", make: "TOYOTA", model_variant: "VIOS", color: "WHITE", body_type: "SEDAN", trans: "AT", fuel: "GAS", mileage: "45,000 KM", spare_key: "W/SPAREKEY", list_model: null, list_color: null, list_mileage: null, list_fuel: null, ...over });
+const row = (over: Partial<TidyRow> = {}): TidyRow => ({ id: "11111111-1111-4111-8111-111111111111", plate_no: "AAA1111", plate_display: "AAA 1111", year_model: "19", make: "TOYOTA", model_variant: "VIOS", color: "WHITE", body_type: "SEDAN", trans: "AT", fuel: "GAS", mileage: "45,000 KM", spare_key: "W/SPAREKEY", ...over });
 
 describe("the company\'s words for a car", () => {
   it("the Brand is TOYOTA, the Make is VIOS 1.3 E and the Model is the year model", () => {
@@ -79,12 +79,6 @@ describe("the tidy up list", () => {
     const items = findTidy([row({ mileage: "45T KMS", fuel: "DSL", body_type: "SPACESHIP", make: "toyota" })]);
     expect(items.map((i) => [i.field, i.current, i.suggestion])).toEqual(expect.arrayContaining([["mileage", "45T KMS", "45,000 KM"], ["fuel", "DSL", "DIESEL"], ["body_type", "SPACESHIP", null], ["make", "toyota", "TOYOTA"]]));
     expect(items).toHaveLength(4);
-  });
-  it("looks at what the screens show: the price list's copy when it has one, and flags a copy that disagrees with the record", () => {
-    const items = findTidy([row({ list_color: "WHITE PEARL", color: "WHITE" }), row({ list_model: "vios", model_variant: "VIOS" })]);
-    expect(items.find((i) => i.field === "color")).toMatchObject({ current: "WHITE PEARL", suggestion: "WHITE PEARL" });
-    expect(items.find((i) => i.field === "model_variant")).toMatchObject({ current: "vios", suggestion: "VIOS" });
-    expect(findTidy([row({ list_color: "WHITE", color: "white" })])).toEqual([]); // same words: nothing to decide
   });
 });
 

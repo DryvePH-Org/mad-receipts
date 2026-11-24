@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { PAPER_VALUES } from "@/lib/docsbible/normalize";
-import { canEditColumn, COLUMNS, EMPTY_GRID_FILTER, filterRows, GRID_CLASSIFICATIONS, SALE_STATUSES, STOCK_STATE_VALUES, VEHICLE_STATUSES, VIEWS, type Col, type GridFilter, type GridRow, type ViewKey } from "@/lib/docsbible/grid";
+import { canEditColumn, COLUMNS, EMPTY_GRID_FILTER, filterRows, GRID_CLASSIFICATIONS, STOCK_STATE_VALUES, VIEWS, type Col, type GridFilter, type GridRow, type ViewKey } from "@/lib/docsbible/grid";
 import { editsPapers, isAdmin, type Role } from "@/lib/roles";
 import type { HistoryRow } from "@/lib/docsbible/grid-server";
 import { historyAction, saveCellAction } from "./actions";
@@ -19,7 +19,7 @@ const CHIP: Record<string, string> = {
   "To follow": "bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200", "N/A": "bg-zinc-100 text-zinc-600 dark:bg-zinc-500/20 dark:text-zinc-300",
   "COMPLETE": "bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-200", "NOT YET": "bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200",
 };
-const choicesOf = (c: Col): readonly string[] | null => c.kind === "paper" ? PAPER_VALUES : c.kind === "classification" ? GRID_CLASSIFICATIONS : c.kind === "sale_status" ? SALE_STATUSES : c.kind === "vehicle_status" ? VEHICLE_STATUSES : c.kind === "stock_state" ? STOCK_STATE_VALUES : null;
+const choicesOf = (c: Col): readonly string[] | null => c.kind === "paper" ? PAPER_VALUES : c.kind === "classification" ? GRID_CLASSIFICATIONS : c.kind === "stock_state" ? STOCK_STATE_VALUES : null;
 
 export function DocsGrid({ initial, role }: { initial: GridRow[]; role: Role }) {
   const [rows, setRows] = useState(initial);
@@ -89,7 +89,7 @@ export function DocsGrid({ initial, role }: { initial: GridRow[]; role: Role }) 
         <div className="relative"><Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" aria-hidden /><Input aria-label="Search" className="w-64 pl-8" placeholder="Search plate, car, owner, remarks" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} /></div>
         {filterSelect("Classification", f.classification, (v) => setF({ ...f, classification: v }), [...GRID_CLASSIFICATIONS, "Not classified (legacy)"].map((c) => [c, c]))}
         {filterSelect("Complete", f.complete, (v) => setF({ ...f, complete: v }), [["COMPLETE", "COMPLETE"], ["NOT YET", "NOT YET"], ["NONE", "Not classified"]])}
-        {filterSelect("Vehicle status", f.vehicle, (v) => setF({ ...f, vehicle: v }), VEHICLE_STATUSES.map((s) => [s, s]))}
+        {filterSelect("State", f.state, (v) => setF({ ...f, state: v }), STOCK_STATE_VALUES.map((s) => [s, s]))}
         <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={f.needsDecision} onChange={(e) => setF({ ...f, needsDecision: e.target.checked })} /> Needs a decision</label>
         <span className="ml-auto text-sm text-muted-foreground">{shown.length} of {rows.length} cars</span>
       </div>

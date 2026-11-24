@@ -19,7 +19,7 @@ describe("the Add a car form", () => {
   it("turns what was typed into the register's columns, in capitals like the sheet", () => {
     const r = checkNewUnit({ ...base, trans: "at", spare_key: "w/ spare key", mileage: "45t kms", reg_owner_name: " juan  dela cruz " }, "2026-11-18");
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.fields).toMatchObject({ make: "TOYOTA", model_variant: "VIOS 1.3 E", year_model: "19", color: "WHITE", trans: "AT", spare_key: "W/SPAREKEY", mileage: "45,000 KM", reg_owner_name: "JUAN DELA CRUZ", sale_status: "Onhand", vehicle_status: "AVAILABLE", category: "NORMAL" });
+    if (r.ok) expect(r.fields).toMatchObject({ make: "TOYOTA", model_variant: "VIOS 1.3 E", year_model: "19", color: "WHITE", trans: "AT", spare_key: "W/SPAREKEY", mileage: "45,000 KM", reg_owner_name: "JUAN DELA CRUZ", category: "NORMAL" });
   });
   it("uses today as the arrival date unless one is typed, and refuses a made-up date", () => {
     const a = checkNewUnit(base, "2026-11-18"); expect(a.ok && a.fields.arrival_date).toBe("2026-11-18");

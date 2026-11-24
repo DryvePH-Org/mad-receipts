@@ -3,7 +3,6 @@ import { listCarRows } from "@/lib/docs/data";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadGrid } from "./grid-server";
 import type { GridRow } from "./grid";
-import { parseSheetDate } from "@/lib/cars/model";
 import { manilaToday } from "@/lib/dates";
 import { orStatus } from "./or-expiry";
 import { paperProgress, stageOf, type StageFacts, type UnifiedRow } from "./unified";
@@ -34,7 +33,7 @@ export async function loadUnified(): Promise<{ rows: UnifiedRow[]; grid: GridRow
     return {
       unitId: g?.id ?? null, plate, plateDisplay: (v.plate_display as string | null) ?? f?.plateDisplay ?? plate, car, caseLabel, stage, papers: g ? paperProgress(v) : null,
       flagged: f?.status.key === "review", decisions: g?.decisions ?? 0, files: f?.files ?? 0, location: f?.location ?? null, folder: f && f.match === "linked" ? f.location : "none",
-      or: /^(sold)$/i.test(String(v.sale_status ?? "")) || v.vehicle_status === "SOLD" ? { state: "unknown", days: null } : orStatus(v.renewal ? parseSheetDate(String(v.renewal)) : null, today), buyer: f?.buyer ?? null, payment: f?.payment ?? null, complete: g?.complete ?? null,
+      or: v.stock_state === "Sold" ? { state: "unknown", days: null } : orStatus(v.or_expiry ? String(v.or_expiry).slice(0, 10) : null, today), buyer: f?.buyer ?? null, payment: f?.payment ?? null, complete: g?.complete ?? null,
       searchText: `${(v.plate_display as string | null) ?? plate} ${car} ${v.reg_owner_name ?? ""} ${f?.buyer ?? ""} ${f?.deal?.dealNo ?? ""}`.toLowerCase(),
     };
   };

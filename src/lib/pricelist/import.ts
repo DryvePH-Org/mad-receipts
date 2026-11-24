@@ -124,10 +124,9 @@ export function blankFills(s: StockInput, u: UnitIdentity): Record<string, strin
 }
 
 /** The stock row as saved (the same for the import and for a car added from the check list). */
-export function stockPatch(s: StockInput, o: Overrides): Record<string, unknown> {
+export function stockPatch(s: StockInput): Record<string, unknown> {
   return {
     in_stock: true, body_group: s.group, stock_order: s.order, list_price: s.listPrice, target_price: s.targetPrice, reprice: s.reprice, retarget: s.retarget,
-    list_model: o.model, list_color: o.color, list_mileage: o.mileage, list_fuel: o.fuel, list_arrived_on: o.arrivedOn, list_encumbrance: o.encumbrance,
     tools: s.tools, location: s.location, stock_note: s.remarks,
   };
 }
@@ -142,23 +141,6 @@ export function newUnitFromList(s: StockInput, today: string): { fields: Record<
   return { fields: { plate_no: s.plate, plate_display: s.plateDisplay.toUpperCase(), arrival_date: s.identity.arrived ?? today, make: up(s.identity.brand), model_variant: up(s.identity.make), year_model: year, color: up(s.identity.color), mileage: s.identity.mileage, trans: up(s.identity.trans), fuel: up(s.identity.fuel), spare_key: s.identity.spareKey, encumbrance: up(s.identity.encumbrance) } };
 }
 
-export interface Overrides { model: string | null; color: string | null; mileage: string | null; fuel: string | null; arrivedOn: string | null; encumbrance: string | null }
-
-/**
- * What the price list said that the Docs Bible row does not say the same way. These are kept on the stock row so the Excel export (and Car Inventory)
- * read exactly as the sheet did. A field the sheet left blank, or wrote the same way, is not kept: the Docs Bible value is shown.
- */
-export function identityOverrides(s: StockInput, u: UnitIdentity): Overrides {
-  const differs = (a: string | null, b: string | null | undefined) => !!a && norm(a) !== norm(b);
-  return {
-    model: differs(s.identity.make, u.model_variant) ? s.identity.make : null,
-    color: differs(s.identity.color, u.color) ? s.identity.color : null,
-    mileage: differs(s.identity.mileage, u.mileage) ? s.identity.mileage : null,
-    fuel: differs(s.identity.fuel, u.fuel) ? s.identity.fuel : null,
-    arrivedOn: s.identity.arrived && s.identity.arrived !== (u.arrival_date ?? null) ? s.identity.arrived : null,
-    encumbrance: differs(s.identity.encumbrance, u.encumbrance) ? s.identity.encumbrance : null,
-  };
-}
 
 // ---- the two small lists ----
 
