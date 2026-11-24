@@ -62,6 +62,12 @@ describe("a sale made in the app (migration 47)", () => {
     const left = (await db.query<{ buyer: string; deal_id: string | null }>("select buyer, deal_id from public.car_sales where plate_no = 'ZZT4701'")).rows;
     expect(left).toEqual([{ buyer: "OLDER BUYER", deal_id: null }]);
   });
+  it("lets a Super Admin delete a transaction as well as an Admin (the rename of the table must not bring the old Admin-only check back)", async () => {
+    const boss = await user("super_admin", "boss47@example.test"), sales = await user("sales", "s47b@example.test");
+    const payload = { receipt_no: "D47-2", receipt_date: "2026-11-05", kind: "partial", buyer: { name: "Boss Test" }, units: [{ make_type: "2023 Toyota Vios", plate: "ZZT 4702" }], price: "500000", sale_type: "cash", due: { mode: "text", text: "soon" }, payments: [{ method: "cash", amount: "100000" }] };
+    const r = (await db.query<{ r: { deal_id: string } }>("select public.submit_receipt($1, $2::jsonb, false) as r", [sales, JSON.stringify(payload)])).rows[0].r;
+    await expect(db.query("select public.delete_deal($1, $2)", [boss, r.deal_id])).resolves.toBeTruthy();
+  });
 });
 
 describe("the handoff lives on the sale record only (migrations 48 and 59)", () => {
