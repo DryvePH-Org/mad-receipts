@@ -3,12 +3,13 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FolderSync, Loader2, Rows3, Search, Table2, TriangleAlert } from "lucide-react";
+import { FolderSync, Loader2, Rows3, Search, SlidersHorizontal, Table2, TriangleAlert, X } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Pill } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import type { GridRow, Role } from "@/lib/docsbible/grid";
 import { orLabel } from "@/lib/docsbible/or-expiry";
 import { PAYMENT_LABEL, PAYMENT_STATUSES, type PaymentStatus } from "@/lib/docs/payments";
@@ -33,6 +34,13 @@ export function DocumentsBoard({ rows, grid, role, canAct, openDecisions }: { ro
   const count = (k: ChipKey) => filterUnified(rows, k, "", false, folder, orDue).length;
   const inFolder = (k: FolderFilter) => filterUnified(rows, "all", "", false, k).length;
   const shown = useMemo(() => filterUnified(rows, chip, q, attention, folder, orDue).filter((r) => pay === "all" || r.payment === pay), [rows, chip, q, attention, folder, orDue, pay]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const active = [
+    ...(folder !== "all" ? [{ label: FOLDER_FILTERS.find((f) => f.key === folder)!.label, clear: () => setFolder("all") }] : []),
+    ...(pay !== "all" ? [{ label: PAYMENT_LABEL[pay], clear: () => setPay("all") }] : []),
+    ...(attention ? [{ label: "Needs attention", clear: () => setAttention(false) }] : []),
+    ...(orDue ? [{ label: "OR due or late", clear: () => setOrDue(false) }] : []),
+  ];
   const orCount = rows.filter((r) => r.or.state === "overdue" || r.or.state === "soon").length;
 
   return (
@@ -53,32 +61,43 @@ export function DocumentsBoard({ rows, grid, role, canAct, openDecisions }: { ro
 
       {view === "table" ? <DocsGrid initial={grid} role={role} /> : (
         <>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <div className="relative w-full sm:w-80"><Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <div className="flex items-center gap-2">
+            <div className="relative min-w-0 flex-1 sm:max-w-sm"><Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
               <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Plate, car, owner, buyer" aria-label="Search cars" className="pl-8" /></div>
-            <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={attention} onChange={(e) => setAttention(e.target.checked)} /> Needs attention</label>
-            <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={orDue} onChange={(e) => setOrDue(e.target.checked)} /> OR due or late ({orCount})</label>
+            <Button type="button" variant={filtersOpen ? "secondary" : "outline"} aria-expanded={filtersOpen} aria-controls="more-filters" onClick={() => setFiltersOpen((o) => !o)}>
+              <SlidersHorizontal /> Filters{active.length > 0 && <span className="ml-0.5 rounded-full bg-primary px-1.5 text-xs text-primary-foreground">{active.length}</span>}
+            </Button>
           </div>
-          <div role="tablist" aria-label="Drive folder" className="-mx-4 flex items-center gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
-            <span className="mr-1 text-sm text-muted-foreground">Folder</span>
-            {FOLDER_FILTERS.map((f) => (
-              <button key={f.key} type="button" role="tab" aria-selected={folder === f.key} onClick={() => setFolder(f.key)} className={cn("shrink-0 rounded-full border px-3 py-1 text-sm", folder === f.key ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted")}>{f.label} <span className="opacity-70">{inFolder(f.key)}</span></button>
+          <div role="tablist" aria-label="Stage" className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+            {CHIPS.map((c) => (
+              <button key={c.key} type="button" role="tab" aria-selected={chip === c.key} onClick={() => setChip(c.key)} className={cn("shrink-0 rounded-full border px-3 py-1 text-sm", chip === c.key ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted")}>{c.label} <span className="opacity-70">{count(c.key)}</span></button>
             ))}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div role="tablist" aria-label="Stage" className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
-              {CHIPS.map((c) => (
-                <button key={c.key} type="button" role="tab" aria-selected={chip === c.key} onClick={() => setChip(c.key)} className={cn("shrink-0 rounded-full border px-3 py-1 text-sm", chip === c.key ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted")}>{c.label} <span className="opacity-70">{count(c.key)}</span></button>
-              ))}
+          {filtersOpen && (
+            <div id="more-filters" className="grid gap-3 rounded-lg border bg-muted/30 p-3 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="space-y-1 text-sm"><span className="text-muted-foreground">Drive folder</span>
+                <NativeSelect value={folder} onChange={(e) => setFolder(e.target.value as FolderFilter)} aria-label="Drive folder">
+                  {FOLDER_FILTERS.map((f) => <option key={f.key} value={f.key}>{f.label} ({inFolder(f.key)})</option>)}
+                </NativeSelect></label>
+              {money && <label className="space-y-1 text-sm"><span className="text-muted-foreground">Payment</span>
+                <NativeSelect value={pay} onChange={(e) => setPay(e.target.value as "all" | PaymentStatus)} aria-label="Payment">
+                  <option value="all">Any payment</option>
+                  {PAYMENT_STATUSES.map((k) => <option key={k} value={k}>{PAYMENT_LABEL[k]} ({rows.filter((r) => r.payment === k).length})</option>)}
+                </NativeSelect></label>}
+              <div className="flex flex-col justify-end gap-2 text-sm sm:col-span-2 sm:flex-row sm:items-end sm:gap-5">
+                <label className="flex items-center gap-2"><input type="checkbox" checked={attention} onChange={(e) => setAttention(e.target.checked)} /> Needs attention</label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={orDue} onChange={(e) => setOrDue(e.target.checked)} /> OR due or late ({orCount})</label>
+              </div>
             </div>
-          </div>
-          {money && <div role="tablist" aria-label="Payment" className="-mx-4 flex items-center gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
-            <span className="mr-1 text-sm text-muted-foreground">Payment</span>
-            {(["all", ...PAYMENT_STATUSES] as const).map((k) => (
-              <button key={k} type="button" role="tab" aria-selected={pay === k} onClick={() => setPay(k)} className={cn("shrink-0 rounded-full border px-3 py-1 text-sm", pay === k ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted")}>{k === "all" ? "All" : `${PAYMENT_LABEL[k]} (${rows.filter((r) => r.payment === k).length})`}</button>
+          )}
+          <div className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+            <span>{shown.length} of {rows.length} cars.</span>
+            {active.map((f) => (
+              <button key={f.label} type="button" onClick={f.clear} className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs text-foreground hover:bg-muted/70" aria-label={`Remove the filter ${f.label}`}>{f.label}<X className="size-3" aria-hidden /></button>
             ))}
-          </div>}
-          <p className="text-sm text-muted-foreground">{shown.length} of {rows.length} cars. Click a car to see its photos, what is in and what is missing.</p>
+            {(active.length > 0 || chip !== "all" || q) && <button type="button" className="text-xs underline underline-offset-2" onClick={() => { setChip("all"); setQ(""); setAttention(false); setFolder("all"); setOrDue(false); setPay("all"); }}>Clear all</button>}
+            {active.length === 0 && chip === "all" && !q && <span>Click a car to see its photos, what is in and what is missing.</span>}
+          </div>
           {shown.length === 0 ? (
             <EmptyState icon={FolderSync} title="Nothing here" description="Try another stage or another search." />
           ) : (

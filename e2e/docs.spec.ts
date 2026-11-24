@@ -64,12 +64,13 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await expect(docs.getByRole("link", { name: /ZZT.?7002/ }).first()).toContainText("Folder not linked");
   await expect(docs.getByRole("link", { name: /ZZT.?7004/ }).first()).toContainText("Folder not linked");
   // the folder filter: ZZT 7001 sits in Available units, ZZT 7004 has no folder
-  await docs.getByRole("tab", { name: /^In Available units/ }).click();
+  await docs.getByRole("button", { name: /^Filters/ }).click();
+  await docs.getByLabel("Drive folder").selectOption("available");
   await expect(docs.getByRole("link", { name: /ZZT.?7001/ }).first()).toBeVisible();
   await expect(docs.getByRole("link", { name: /ZZT.?7004/ })).toHaveCount(0);
-  await docs.getByRole("tab", { name: /^No folder/ }).click();
+  await docs.getByLabel("Drive folder").selectOption("none");
   await expect(docs.getByRole("link", { name: /ZZT.?7004/ }).first()).toBeVisible();
-  await docs.getByRole("tab", { name: /^Any folder/ }).click();
+  await docs.getByLabel("Drive folder").selectOption("all");
   await docs.getByLabel("Search cars").fill("");
 
   // several folders: choose one
@@ -682,7 +683,8 @@ test("Payments: the sale is added by hand, the status is set, a payment paper is
   // the Documents list shows and filters by the payment status
   const list2 = await as(browser, "admin");
   await list2.goto("/documents");
-  await list2.getByRole("tab", { name: /^Partly paid/ }).click();
+  await list2.getByRole("button", { name: /^Filters/ }).click();
+  await list2.getByLabel("Payment").selectOption("partial");
   await expect(list2.getByText("ZZT 7005").first()).toBeVisible();
   await list2.close();
 
@@ -694,7 +696,8 @@ test("Payments: the sale is added by hand, the status is set, a payment paper is
   await expect(viewer.getByRole("tab", { name: /^OUT documents/ })).toHaveCount(0);
   expect((await viewer.request.get(`/api/docs/file/${file.id}`)).status()).toBe(404);
   await viewer.goto("/documents");
-  await expect(viewer.getByRole("tab", { name: /^Partly paid/ })).toHaveCount(0);
+  await viewer.getByRole("button", { name: /^Filters/ }).click();
+  await expect(viewer.getByLabel("Payment")).toHaveCount(0);
   await viewer.close();
 
   await db.from("car_transfers").delete().like("plate_no", "ZZT7005");
