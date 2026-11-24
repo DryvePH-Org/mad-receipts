@@ -44,7 +44,7 @@ test("every role can open Car Inventory, search and filter it", async ({ browser
   await sales.locator("tbody tr").first().click();
   await expect(sales.getByRole("dialog")).toBeVisible();
   await expect(sales.getByRole("dialog").getByText("Target")).toHaveCount(0);
-  await expect(sales.getByRole("dialog").getByText("Encumbrance")).toHaveCount(0);
+  await expect(sales.getByRole("dialog").getByText("Encumbered to")).toHaveCount(0);
   await sales.keyboard.press("Escape");
 
   // the approver does see the target price
@@ -54,7 +54,7 @@ test("every role can open Car Inventory, search and filter it", async ({ browser
   await approver.getByRole("button", { name: "Table" }).click();
   await approver.locator("tbody tr").first().click();
   await expect(approver.getByRole("dialog").getByText("Target")).toBeVisible();
-  await expect(approver.getByRole("dialog").getByText("Encumbrance")).toBeVisible();
+  await expect(approver.getByRole("dialog").getByText("Encumbered to")).toBeVisible();
   // Sales change the price list, so they see all of it
   const seller = await as(browser, "sales");
   await seller.goto("/cars");
@@ -101,7 +101,7 @@ test("the car record: the same sections for every car, details edited by the Adm
   await admin.getByRole("button", { name: "Table" }).click();
   await admin.locator("tbody tr").first().click();
   const dialog = admin.getByRole("dialog");
-  for (const section of ["Car details", "Status and price", "Where it is", "Papers"]) await expect(dialog.getByRole("heading", { name: section })).toBeVisible();
+  for (const section of ["Who the car is", "Status and price", "Where it is", "Papers"]) await expect(dialog.getByRole("heading", { name: section })).toBeVisible();
   for (const label of ["Model (year)", "Brand", "Make", "Color", "Body type", "Transmission", "Fuel", "Mileage", "Spare key"]) await expect(dialog.getByText(label, { exact: true }).first()).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Edit status and price" })).toBeVisible();
 

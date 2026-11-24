@@ -45,11 +45,11 @@ test("Documentation edits a paper cell with undo and history; the car's identity
 
   // Buying edits the papers, the classification, the spare key and the dates; the details of the car (make, model, color...) and the status columns are the Admins'
   await docs.getByRole("tab", { name: "Everything" }).click();
-  await expect(docs.getByRole("columnheader", { name: "MAKE" })).toBeVisible();
-  await expect(docs.getByRole("button", { name: `MAKE of ${PLATE}` })).toHaveCount(0);
-  await expect(docs.getByRole("button", { name: `SPARE KEY of ${PLATE}` })).toBeVisible();
+  await expect(docs.getByRole("columnheader", { name: "Brand" })).toBeVisible();
+  await expect(docs.getByRole("button", { name: `Brand of ${PLATE}` })).toHaveCount(0);
+  await expect(docs.getByRole("button", { name: `Spare key of ${PLATE}` })).toBeVisible();
   await expect(docs.getByRole("button", { name: `VEHICLE STATUS of ${PLATE}` })).toHaveCount(0);
-  await expect(docs.getByRole("button", { name: `CLASSIFICATION of ${PLATE}` })).toBeVisible();
+  await expect(docs.getByRole("button", { name: `Case of ${PLATE}` })).toBeVisible();
 
   // the plate opens the history
   await docs.getByRole("button", { name: PLATE, exact: true }).click();

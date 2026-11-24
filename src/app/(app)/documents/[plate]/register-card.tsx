@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
+import { SECTIONS } from "@/lib/cars/sections";
 import { canEditColumn, COLUMNS, GRID_CLASSIFICATIONS, STOCK_STATE_VALUES, type Col, type GridRow } from "@/lib/docsbible/grid";
 import { editsPapers, isAdmin, type Role } from "@/lib/roles";
 import { PAPER_VALUES } from "@/lib/docsbible/normalize";
@@ -17,11 +18,11 @@ import { saveCellAction } from "../../docs-bible/actions";
 import { updateRegisterAction } from "../actions";
 
 const choicesOf = (c: Col): readonly string[] | null => c.kind === "paper" ? PAPER_VALUES : c.kind === "classification" ? GRID_CLASSIFICATIONS : c.kind === "stock_state" ? STOCK_STATE_VALUES : null;
-const GROUPS: { title: string; keys: string[] }[] = [
-  { title: "Where the papers are", keys: ["papers_with", "registry_of_deeds"] },
-  { title: "Notes", keys: ["other_docs", "paper_status", "remarks"] },
-  { title: "The car", keys: ["category", "body_type", "year_model", "make", "model_variant", "color", "mileage", "trans", "fuel", "cs_no", "stock_state", "arrival_date", "encumbrance", "mo_file", "reg_owner_name", "buying_source", "awarded_to", "spare_key", "bank_source", "or_expiry"] },
-];
+/** The car's boxes in the order of the shared sections. The paper marks are on the Papers card, so only the other boxes are here. */
+const GROUPS: { title: string; keys: string[] }[] = SECTIONS.map((sec) => ({
+  title: sec.title,
+  keys: sec.keys.filter((k) => { const c = COLUMNS.find((x) => x.key === k); return !!c && c.kind !== "paper" && c.kind !== "complete"; }),
+})).filter((g) => g.keys.length > 0);
 
 /** The car's row of the Docs Bible, right on the car's page: the same columns the sheet had, changed in place by Documentation and Admin. */
 export function RegisterCard({ plate, row, role, canAct, confirmEdits = false }: { plate: string; row: GridRow | null; role: Role; canAct: boolean; confirmEdits?: boolean }) {
@@ -41,7 +42,7 @@ export function RegisterCard({ plate, row, role, canAct, confirmEdits = false }:
     confirm(() => start(async () => {
       const r = await saveCellAction(row.id, col.key, value, before);
       if (!r.ok) { toast.error(r.message ?? "Could not save."); router.refresh(); return; }
-      setValues((v) => ({ ...v, [col.key]: r.value ?? null })); toast.success(`${col.label} saved`);
+      setValues((v) => ({ ...v, [col.key]: r.value ?? null })); toast.success(`${col.name} saved`);
     }), () => setNonce((n) => n + 1));
   };
   const field = (col: Col) => {
@@ -49,7 +50,7 @@ export function RegisterCard({ plate, row, role, canAct, confirmEdits = false }:
     const id = `reg-${col.key}`;
     return (
       <div key={`${col.key}-${nonce}`} className={col.kind === "remarks" ? "space-y-1.5 sm:col-span-2" : "space-y-1.5"}>
-        <label htmlFor={id} className="text-xs text-muted-foreground">{col.label} <span className="opacity-60">({col.letter})</span></label>
+        <label htmlFor={id} className="text-xs text-muted-foreground">{col.name}</label>
         {!can ? <p className="min-h-8 rounded-lg bg-muted/50 px-2.5 py-1.5 text-sm break-words whitespace-pre-line">{v || "—"}</p>
           : choices ? <NativeSelect id={id} value={v} onChange={(e) => save(col, e.target.value)}>{col.kind !== "classification" && <option value="">(empty)</option>}{col.kind === "classification" && v === "Not classified (legacy)" && <option value={v}>Not classified</option>}{choices.map((c) => <option key={c} value={c}>{c}</option>)}</NativeSelect>
           : col.kind === "remarks" ? <textarea id={id} className="min-h-24 w-full rounded-lg border bg-background p-2 text-sm" defaultValue={v} onBlur={(e) => save(col, e.target.value)} />

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { PAPER_VALUES } from "@/lib/docsbible/normalize";
+import { inSectionOrder, sectionOf, SECTION_TITLE } from "@/lib/cars/sections";
 import { canEditColumn, COLUMNS, EMPTY_GRID_FILTER, filterRows, GRID_CLASSIFICATIONS, STOCK_STATE_VALUES, VIEWS, type Col, type GridFilter, type GridRow, type ViewKey } from "@/lib/docsbible/grid";
 import { editsPapers, isAdmin, type Role } from "@/lib/roles";
 import type { HistoryRow } from "@/lib/docsbible/grid-server";
@@ -30,7 +31,9 @@ export function DocsGrid({ initial, role }: { initial: GridRow[]; role: Role }) 
   const [history, setHistory] = useState<{ row: GridRow; list: HistoryRow[] | null } | null>(null);
   const [, start] = useTransition();
 
-  const cols = useMemo(() => { const keys = new Set<string>(VIEWS[view].keys); return COLUMNS.filter((c) => keys.has(c.key)); }, [view]);
+  const cols = useMemo(() => { const keys = new Set<string>(VIEWS[view].keys); const picked = COLUMNS.filter((c) => keys.has(c.key)); return [...picked.filter((c) => c.kind === "plate"), ...inSectionOrder(picked.filter((c) => c.kind !== "plate"))]; }, [view]);
+  // the sections the shown columns belong to, left to right, so the table reads like the car page
+  const bands = useMemo(() => { const out: { title: string; span: number }[] = []; for (const c of cols) { const id = sectionOf(c.key) ?? "identity"; const title = SECTION_TITLE[id]; const last = out[out.length - 1]; if (last && last.title === title) last.span++; else out.push({ title, span: 1 }); } return out; }, [cols]);
   const shown = useMemo(() => filterRows(rows, f), [rows, f]);
   const editable = (c: Col) => canEditColumn(role, c);
 
@@ -43,7 +46,7 @@ export function DocsGrid({ initial, role }: { initial: GridRow[]; role: Role }) 
       const r = await saveCellAction(row.id, col.key, value, before);
       if (!r.ok) { toast.error(r.message ?? "Could not save."); return; }
       setRows((all) => all.map((x) => (x.id === row.id ? { ...x, values: { ...x.values, [col.key]: r.value ?? null } } : x)));
-      if (undo) toast.success(`${row.values.plate_display} · ${col.label} saved`, { action: { label: "Undo", onClick: () => start(async () => { const u = await saveCellAction(row.id, col.key, before ?? "", r.value ?? null); if (u.ok) { setRows((all) => all.map((x) => (x.id === row.id ? { ...x, values: { ...x.values, [col.key]: before } } : x))); toast.success("Put back."); } else toast.error(u.message ?? "Could not undo."); }) } });
+      if (undo) toast.success(`${row.values.plate_display} · ${col.name} saved`, { action: { label: "Undo", onClick: () => start(async () => { const u = await saveCellAction(row.id, col.key, before ?? "", r.value ?? null); if (u.ok) { setRows((all) => all.map((x) => (x.id === row.id ? { ...x, values: { ...x.values, [col.key]: before } } : x))); toast.success("Put back."); } else toast.error(u.message ?? "Could not undo."); }) } });
     });
   }
 
@@ -62,11 +65,11 @@ export function DocsGrid({ initial, role }: { initial: GridRow[]; role: Role }) 
     );
     if (col.kind === "complete") return v ? <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${CHIP[v] ?? ""}`}>{v}</span> : <span className="text-muted-foreground">—</span>;
     if (isEditing && choices) return (
-      <NativeSelect autoFocus aria-label={col.label} className="h-7 text-xs" value={v ?? ""} onChange={(e) => save(row, col, e.target.value)} onBlur={() => setEditing(null)} onKeyDown={(e) => e.key === "Escape" && setEditing(null)}>
+      <NativeSelect autoFocus aria-label={col.name} className="h-7 text-xs" value={v ?? ""} onChange={(e) => save(row, col, e.target.value)} onBlur={() => setEditing(null)} onKeyDown={(e) => e.key === "Escape" && setEditing(null)}>
         {col.kind !== "classification" && <option value="">(empty)</option>}{choices.map((c) => <option key={c} value={c}>{c}</option>)}
       </NativeSelect>
     );
-    if (isEditing) return <Input autoFocus aria-label={col.label} className="h-7 text-xs" defaultValue={v ?? ""} onBlur={(e) => save(row, col, e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditing(null); }} />;
+    if (isEditing) return <Input autoFocus aria-label={col.name} className="h-7 text-xs" defaultValue={v ?? ""} onBlur={(e) => save(row, col, e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditing(null); }} />;
     const shownText = v ?? "";
     const body = col.kind === "paper" && v ? <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${CHIP[v] ?? ""}`}>{v}</span>
       : col.kind === "classification" && v === "Not classified (legacy)" ? <span className="text-muted-foreground italic">Not classified</span>
@@ -74,7 +77,7 @@ export function DocsGrid({ initial, role }: { initial: GridRow[]; role: Role }) 
       : <span className="block max-w-full truncate">{shownText}</span>;
     if (!can) return body;
     return (
-      <button type="button" aria-label={`${col.label} of ${row.values.plate_display}`} className="block h-full min-h-6 w-full rounded text-left outline-offset-2 hover:bg-primary/5 focus-visible:outline-2"
+      <button type="button" aria-label={`${col.name} of ${row.values.plate_display}`} className="block h-full min-h-6 w-full rounded text-left outline-offset-2 hover:bg-primary/5 focus-visible:outline-2"
         onClick={() => (col.kind === "remarks" ? setRemarks({ row, col }) : setEditing({ id: row.id, key: col.key }))}>{body || <span className="text-muted-foreground/50">·</span>}</button>
     );
   };
@@ -102,7 +105,8 @@ export function DocsGrid({ initial, role }: { initial: GridRow[]; role: Role }) 
       <div className="max-h-[70svh] overflow-auto rounded-xl ring-1 ring-foreground/10">
         <table className="border-separate border-spacing-0 text-sm" style={{ minWidth: cols.reduce((n, c) => n + c.width, 0) }}>
           <thead>
-            <tr>{cols.map((c, i) => <th key={c.key} title={c.letter === "AQ" || c.letter === "AR" || c.letter === "AS" ? "New in MAD" : `Column ${c.letter} in the old sheet`} style={{ minWidth: c.width, maxWidth: c.width }} className={`sticky top-0 border-b bg-muted px-2 py-2 text-left text-[11px] font-semibold tracking-wide whitespace-nowrap uppercase ${i === 0 ? "left-0 z-30 border-r" : "z-20"}`}>{c.label}</th>)}</tr>
+            <tr>{bands.map((b, i) => <th key={`${b.title}-${i}`} colSpan={b.span} className={`sticky top-0 z-20 border-r border-b bg-muted/80 px-2 py-1 text-left text-[11px] font-semibold text-muted-foreground whitespace-nowrap ${i === 0 ? "left-0 z-30" : ""}`}>{b.title}</th>)}</tr>
+            <tr>{cols.map((c, i) => <th key={c.key} title={`Called ${c.label} in the old sheet`} style={{ minWidth: c.width, maxWidth: c.width, top: 25 }} className={`sticky border-b bg-muted px-2 py-2 text-left text-xs font-semibold whitespace-nowrap ${i === 0 ? "left-0 z-30 border-r" : "z-20"}`}>{c.name}</th>)}</tr>
           </thead>
           <tbody>
             {shown.length === 0 && <tr><td colSpan={cols.length} className="px-3 py-8 text-center text-muted-foreground">No car matches.</td></tr>}
@@ -137,7 +141,7 @@ function RemarksDialog({ target, onClose, onSave }: { target: { row: GridRow; co
   const key = target ? `${target.row.id}:${target.col.key}` : "";
   const textNow = draft?.key === key ? draft.text : target?.row.values[target.col.key] ?? "";
   return (
-    <ResponsiveDialog open={!!target} onOpenChange={(o) => { if (!o) { setDraft(null); onClose(); } }} title={target ? `${target.col.label} · ${target.row.values.plate_display}` : ""} description="Type the note. A new line is fine.">
+    <ResponsiveDialog open={!!target} onOpenChange={(o) => { if (!o) { setDraft(null); onClose(); } }} title={target ? `${target.col.name} · ${target.row.values.plate_display}` : ""} description="Type the note. A new line is fine.">
       <div className="space-y-3">
         <textarea aria-label="Remarks" className="min-h-40 w-full rounded-lg border bg-background p-2 text-sm" value={textNow} onChange={(e) => setDraft({ key, text: e.target.value })} />
         <div className="flex gap-2"><Button onClick={() => { if (target) onSave(target.row, target.col, textNow); setDraft(null); }}>Save</Button><Button variant="ghost" onClick={() => { setDraft(null); onClose(); }}>Cancel</Button></div>

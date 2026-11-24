@@ -65,5 +65,5 @@ export async function loadHistory(unitId: string): Promise<HistoryRow[]> {
   const ids = [...new Set((data ?? []).map((h) => h.actor as string | null).filter((a): a is string => !!a))];
   const { data: people } = ids.length ? await db.from("profiles").select("id, full_name").in("id", ids) : { data: [] };
   const name = new Map((people ?? []).map((p) => [p.id as string, p.full_name as string]));
-  return (data ?? []).map((h) => ({ field: COLUMN_BY_KEY.get(h.field as string)?.label ?? String(h.field), before: h.before_value as string | null, after: h.after_value as string | null, actor: h.actor ? name.get(h.actor as string) ?? "Someone" : null, source: h.source as string, at: h.at as string }));
+  return (data ?? []).map((h) => ({ field: COLUMN_BY_KEY.get(h.field as string)?.name ?? String(h.field), before: h.before_value as string | null, after: h.after_value as string | null, actor: h.actor ? name.get(h.actor as string) ?? "Someone" : null, source: h.source as string, at: h.at as string }));
 }

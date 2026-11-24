@@ -1,17 +1,20 @@
 // The Docs Bible table: its columns (same names and order as the sheet), who may edit which, and the checking of an edit. Pure.
+import { FIELD_NAME } from "@/lib/cars/sections";
 import { FIELD_BY_KEY, type FieldKey } from "@/lib/cars/standards";
 import { editsPapers, isAdmin, type Role } from "@/lib/roles";
 import { dateOf, PAPER_VALUES, plateKey, text } from "./normalize";
 
 export type ColKind = "plate" | "text" | "paper" | "classification" | "date" | "stock_state" | "complete" | "remarks";
 export interface Col {
+  /** the one name of the box on every screen (see cars/sections.ts); `label` is the old sheet's header, kept for the CSV export */
+  name: string;
   key: string; label: string; letter: string; kind: ColKind; width: number;
   /** "papers": Buying and the Admins; "admin": the Admins only; null: computed, nobody types it */
   edit: "papers" | "admin" | null;
 }
 
 /** Same order and names as the sheet (letters are where they were in the Google Sheet, to help the move). */
-export const COLUMNS: Col[] = [
+const RAW_COLUMNS: Omit<Col, "name">[] = [
   { key: "plate_display", label: "PLATE NO.", letter: "L", kind: "plate", width: 110, edit: null },
   { key: "category", label: "CATEGORY", letter: "C", kind: "text", width: 110, edit: "papers" },
   { key: "body_type", label: "BODY TYPE", letter: "D", kind: "text", width: 100, edit: "admin" },
@@ -54,6 +57,7 @@ export const COLUMNS: Col[] = [
   // the one status of the car
   { key: "stock_state", label: "STATE", letter: "AS", kind: "stock_state", width: 130, edit: "admin" },
 ];
+export const COLUMNS: Col[] = RAW_COLUMNS.map((c) => ({ ...c, name: FIELD_NAME[c.key] ?? c.label }));
 export const COLUMN_BY_KEY = new Map(COLUMNS.map((c) => [c.key, c]));
 
 export const VIEWS = {

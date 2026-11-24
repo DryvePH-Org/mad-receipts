@@ -14,6 +14,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { fullYear } from "@/lib/inventory/year";
 import { AVAILABILITY_LABEL, type Availability, type CarRow } from "@/lib/cars/model";
 import { DETAIL_FIELDS, FIELD_BY_KEY, tidyOf, type Checked, type DetailKey } from "@/lib/cars/standards";
+import { FIELD_NAME, SECTION_TITLE } from "@/lib/cars/sections";
 import { updateCarDetailsAction } from "./actions";
 import { EditStock } from "./edit-stock";
 
@@ -69,9 +70,9 @@ export function CarRecord({ car, onClose, canEditStatus, canEditDetails, canOpen
         </div>
 
         {mode === "details" && rec ? (
-          <Section title="Car details"><EditDetails car={car} suggestions={suggestions} onDone={() => setMode("view")} /></Section>
+          <Section title={SECTION_TITLE.identity}><EditDetails car={car} suggestions={suggestions} onDone={() => setMode("view")} /></Section>
         ) : (
-          <Section title="Car details" action={canEditDetails && rec && mode === "view" ? <Button size="sm" variant="outline" onClick={() => setMode("details")}><Pencil /> Edit details</Button> : undefined}>
+          <Section title={SECTION_TITLE.identity} action={canEditDetails && rec && mode === "view" ? <Button size="sm" variant="outline" onClick={() => setMode("details")}><Pencil /> Edit details</Button> : undefined}>
             {GROUPS.map((g) => (
               <div key={g.title} className="space-y-2">
                 <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{g.title}</p>
@@ -85,35 +86,35 @@ export function CarRecord({ car, onClose, canEditStatus, canEditDetails, canOpen
         )}
 
         {mode === "status" && car.raw ? (
-          <Section title="Status, price and where it is"><EditStock car={car} locations={locations} onClose={() => setMode("view")} /></Section>
+          <Section title={SECTION_TITLE.status}><EditStock car={car} locations={locations} onClose={() => setMode("view")} /></Section>
         ) : (
           <>
-            <Section title="Status and price" action={canEditStatus && car.raw && mode === "view" ? <Button size="sm" variant="outline" onClick={() => setMode("status")}><Pencil /> Edit status and price</Button> : undefined}>
+            <Section title={SECTION_TITLE.status} action={canEditStatus && car.raw && mode === "view" ? <Button size="sm" variant="outline" onClick={() => setMode("status")}><Pencil /> Edit status and price</Button> : undefined}>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
-                <Row k="Status" v={AVAILABILITY_LABEL[car.availability]} />
+                <Row k={FIELD_NAME.stock_state} v={AVAILABILITY_LABEL[car.availability]} />
                 {car.reservedFor.length > 0 && <Row k={car.availability === "sold" ? "Sold to" : "Reserved by"} v={`${car.reservedFor.join(", ")}${car.reservedOn ? ` · ${car.reservedOn}` : ""}`} />}
-                <Row k="Price" v={peso(car.price)} />
+                <Row k={FIELD_NAME.list_price} v={peso(car.price)} />
                 {car.repriced && <Row k="Original price" v={peso(car.originalPrice)} />}
-                {showTarget && role !== "marketing" && <Row k="Target" v={peso(car.target)} />}
-                <Row k="Arrived" v={nice(car.arrived)} /><Row k="Days in stock" v={car.daysInStock !== null ? String(car.daysInStock) : "—"} />
+                {showTarget && role !== "marketing" && <Row k={FIELD_NAME.target_price} v={peso(car.target)} />}
+                <Row k={FIELD_NAME.arrival_date} v={nice(car.arrived)} /><Row k="Days in stock" v={car.daysInStock !== null ? String(car.daysInStock) : "—"} />
               </dl>
               {car.remarks && <div><p className="text-xs text-muted-foreground">Notes</p><p className="rounded-lg bg-muted p-2.5">{car.remarks}</p></div>}
             </Section>
             <Section title="Where it is">
               <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
-                <Row k="Location" v={car.location || "—"} />
-                {car.raw?.tools ? <Row k="Tools" v={car.raw.tools} /> : null}
+                <Row k={FIELD_NAME.location} v={car.location || "—"} />
+                {car.raw?.tools ? <Row k={FIELD_NAME.tools} v={car.raw.tools} /> : null}
               </dl>
             </Section>
           </>
         )}
 
-        <Section title="Papers">
+        <Section title={SECTION_TITLE.papers}>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
             <Row k="Documents" v={docs ? docs.label : "Not started"} />
-            {(car.encumbrance || role !== "marketing") && <Row k="Encumbrance" v={car.encumbrance || "None"} />}
-            {car.orExp && <Row k="OR expires" v={nice(car.orExp)} />}
-            {car.docsCode && <Row k="Papers with" v={car.docsCode} />}
+            {(car.encumbrance || role !== "marketing") && <Row k={FIELD_NAME.encumbrance} v={car.encumbrance || "None"} />}
+            {car.orExp && <Row k={FIELD_NAME.or_expiry} v={nice(car.orExp)} />}
+            {car.docsCode && <Row k={FIELD_NAME.papers_with} v={car.docsCode} />}
           </dl>
           {canOpenDocs && <Button variant="outline" nativeButton={false} render={<Link href={`/documents/${car.plate}`} />}>Open the car&apos;s page</Button>}
         </Section>
