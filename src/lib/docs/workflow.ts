@@ -48,7 +48,7 @@ export async function loadWorkflow(plate: string, admin: Admin = createAdminClie
   const hand = await handoffOf(key).catch(() => null);
   const handoff = { handoffAt: hand?.handedOffAt ?? null, handoffNote: hand?.note ?? null, handoffChecked: hand?.checked ?? [], handoffReturnedAt: hand?.backAt ?? null };
   return {
-    workflow: { ...(w ? { scanNotifiedAt: w.scan_notified_at, soldReadyNotifiedAt: w.sold_ready_notified_at, approvedAt: w.docs_approved_at, approvedByName: approver?.full_name?.trim() || null, marketingNotifiedAt: w.marketing_notified_at, handoffAt: w.handoff_at, handoffNote: w.handoff_note, handoffChecked: w.handoff_checked ?? [], handoffReturnedAt: w.handoff_returned_at } : EMPTY), ...handoff },
+    workflow: { ...(w ? { scanNotifiedAt: w.scan_notified_at, soldReadyNotifiedAt: w.sold_ready_notified_at, approvedAt: w.docs_approved_at, approvedByName: approver?.full_name?.trim() || null, marketingNotifiedAt: w.marketing_notified_at } : EMPTY), ...handoff },
     details: await withDocsSpareKey(key, d ? cleanDetails(d.data) : EMPTY_DETAILS), detailsSaved: !!d,
   };
 }

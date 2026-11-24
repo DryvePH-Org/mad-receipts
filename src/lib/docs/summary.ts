@@ -9,7 +9,7 @@ export interface DocsSummary { label: string; tone: DocsTone; case: string | nul
 export async function loadDocsSummaries(admin = createAdminClient()): Promise<Map<string, DocsSummary>> {
   const [{ data: folders }, { data: flows }] = await Promise.all([
     admin.from("unit_folders").select("plate_no, location, match_status, case_type, case_source, folder_id").limit(5000),
-    admin.from("unit_workflow").select("plate_no, docs_approved_at, handoff_at, handoff_returned_at").limit(5000),
+    admin.from("unit_workflow").select("plate_no, docs_approved_at").limit(5000),
   ]);
   const flow = new Map((flows ?? []).map((f) => [f.plate_no, f]));
   const hand = await handoffMap().catch(() => new Map<string, HandoffInfo>()); // the handoff is kept on the car's sale/transfer record

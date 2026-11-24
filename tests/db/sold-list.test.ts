@@ -64,18 +64,13 @@ describe("a sale made in the app (migration 47)", () => {
   });
 });
 
-describe("the handoff moves onto the transfer (migration 48)", () => {
-  it("copies a handoff onto the latest sale of the plate, or makes a record, and does not copy twice", async () => {
-    await db.query("insert into public.car_transfers (plate_no, buyer, sold_on, stage) values ('HND1111', 'OLD', '2025-01-01', 'unknown'), ('HND1111', 'NEW', '2026-05-05', 'unknown')");
-    await db.query("insert into public.unit_workflow (plate_no, handoff_at, handoff_note, handoff_checked) values ('HND1111', '2026-06-01T01:00:00Z', 'with the CR', array['or'])");
-    await db.query("insert into public.unit_workflow (plate_no, handoff_at, handoff_returned_at) values ('HND2222', '2026-06-02T01:00:00Z', '2026-06-20T01:00:00Z')");
-    expect((await one<{ n: number }>("select public.move_handoffs_to_transfers() as n")).n).toBe(2);
-    const a = await one<Record<string, unknown>>("select buyer, stage, handoff_note, handoff_checked, back_at from public.car_transfers where plate_no = 'HND1111' and handed_off_at is not null");
-    expect([a.buyer, a.stage, a.handoff_note, a.handoff_checked, a.back_at]).toEqual(["NEW", "in_process", "with the CR", ["or"], null]); // the latest sale, still out
-    const b = await one<Record<string, unknown>>("select stage, source, back_at is not null as back from public.car_transfers where plate_no = 'HND2222'");
-    expect(b).toEqual({ stage: "transferred", source: "app", back: true });                                                                  // no record yet: one is made, and the papers are back
-    expect((await one<{ n: number }>("select public.move_handoffs_to_transfers() as n")).n).toBe(0);
-    expect((await one<{ n: string }>("select count(*)::text as n from public.car_transfers where plate_no = 'HND1111'")).n).toBe("2");
+describe("the handoff lives on the sale record only (migrations 48 and 59)", () => {
+  it("keeps the steps of the originals on the sale record and none on the workflow row", async () => {
+    const cols = async (t: string) => (await db.query<{ column_name: string }>(`select column_name from information_schema.columns where table_schema = 'public' and table_name = '${t}' and column_name like '%handoff%' or column_name like 'handed_off%' and table_name = '${t}'`)).rows.length;
+    expect((await db.query<{ column_name: string }>("select column_name from information_schema.columns where table_schema = 'public' and table_name = 'unit_workflow' and column_name like 'handoff%'")).rows).toEqual([]);
+    expect(await cols("car_transfers")).toBeGreaterThan(0);
+    await db.query("insert into public.car_transfers (plate_no, handed_off_at, handoff_note, handoff_checked) values ('HND1111', '2026-06-01T01:00:00Z', 'with the CR', array['or'])");
+    expect((await one<{ handoff_note: string }>("select handoff_note from public.car_transfers where plate_no = 'HND1111'")).handoff_note).toBe("with the CR");
   });
 });
 

@@ -16,7 +16,7 @@ export async function loadUnified(): Promise<{ rows: UnifiedRow[]; grid: GridRow
   const [grid, folders, flows] = await Promise.all([
     loadGrid(),
     listCarRows(),
-    admin.from("unit_workflow").select("plate_no, docs_approved_at, handoff_at, handoff_returned_at").limit(5000),
+    admin.from("unit_workflow").select("plate_no, docs_approved_at").limit(5000),
   ]);
   const flow = new Map((flows.data ?? []).map((f) => [f.plate_no, f]));
   const hand = await handoffMap().catch(() => new Map<string, HandoffInfo>()); // the handoff is kept on the car's sale/transfer record
