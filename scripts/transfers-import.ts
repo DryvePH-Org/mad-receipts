@@ -1,7 +1,7 @@
 // Brings the ORCR WITH MAD tab in as transfer records, each linked to its car by plate (migration 41). The tab stays as it is in the old workbook.
 // A car that is not in the car record yet is kept by its plate and linked automatically when it is added. Re-running replaces only the imported rows
 // that nobody has edited since (the rows the staff changed or added are never touched).
-//   python3 (one time, see the snapshot step in Docs/one-database-plan.md) → Docs/sheets-private/orcr-with-mad.snapshot.json
+//   python3 (one time, see the snapshot step in Docs/archive/one-database-plan.md) → Docs/sheets-private/orcr-with-mad.snapshot.json
 //   JITI_ALIAS='{"@/":"<project folder>/src/"}' npx jiti scripts/transfers-import.ts            dry run
 //   JITI_ALIAS=... npx jiti scripts/transfers-import.ts --apply
 import { existsSync, readFileSync } from "node:fs";

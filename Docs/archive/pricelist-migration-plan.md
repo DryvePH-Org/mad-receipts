@@ -12,7 +12,7 @@ Studied on 18 Nov 2026 from the workbook the owner exported (`MAD PRICE LIST.xls
 | **REMARKS** | 72 | A second register of the same cars (status, OR expiration, stencil, registry of deeds, documents, two checklist columns that are empty). | **Drop**: the Docs Bible and the car page do all of it |
 | **Available units** | 99 | A snapshot of the price list from 21 Sep 2026, with a `#REF!` formula. | **Drop** (stale copy) |
 | **REPRICED** (hidden) | 71 | A copy of the inventory layout with `#REF!` errors in its totals. | **Drop** |
-| **BY PRICE** | 58 | The inventory sorted by price, typed, as of 1 Oct. 12 of the 26 cars checked now show a different price from the live list. | **Drop**: Car status sorts by price |
+| **BY PRICE** | 58 | The inventory sorted by price, typed, as of 1 Oct. 12 of the 26 cars checked now show a different price from the live list. | **Drop**: Car Inventory sorts by price |
 | **BRAND PRICE SUMMARY** | 18 | Units, lowest and highest price per brand, typed. | **Drop**: becomes a view in the app |
 | **Sheet16** | 29 | A daily inventory movement table (beginning, purchases, sales returns...) for 1-14 Sep 2025. | **Drop** (stale); the movement can be computed |
 | **PRICELIST 2025**, **June14 PRICELIST 2025** (hidden) | 46 / 65 | Old price lists; many "plates" are really plate+CS number run together. | **Archive** |
@@ -50,14 +50,14 @@ Rules that remove the mismatches:
 - **Days in stock, days late, price per brand** are computed when shown.
 - **Prices are numbers**, OR expiry is a date, encumbrance is picked from a list (one spelling per bank).
 
-What it does for speed: Car status and the New receipt car picker read the database in milliseconds instead of downloading the sheet as CSV from Google every couple of minutes; approving a receipt no longer waits on the Google script to write a status cell; no more cached or stale copies.
+What it does for speed: Car Inventory and the New receipt car picker read the database in milliseconds instead of downloading the sheet as CSV from Google every couple of minutes; approving a receipt no longer waits on the Google script to write a status cell; no more cached or stale copies.
 
 ## 4. Migration, in steps (each can be undone, the sheet stays read-only archive)
 
 1. **Clean first, in the import, not in the sheet**: skip the test rows; fix the text prices and dates; map the encumbrance spellings; report the rest in a review list like the Docs Bible import.
 2. **Import `INVENTORY 2026`** into `car_stock`, matched by plate to the Docs Bible (59 of 63 match; DDZ9807 gets added with Add a car; the odd plate is reviewed by a person). Keep the original row in a `raw` column, like the Docs Bible.
 3. **Import repairs (14) and renewals (25)**; the renewals of cars no longer in stock are kept as history.
-4. **Switch Car status, the car picker and the receipt approval** to the database. The approval stops writing to the sheet (like the Docs Bible).
+4. **Switch Car Inventory, the car picker and the receipt approval** to the database. The approval stops writing to the sheet (like the Docs Bible).
 5. **Cut-over check** as for the Docs Bible: lock the old workbook and check nobody typed in it.
 6. **Archive**: the hidden and stale tabs stay in the old workbook, read-only, nothing imported unless wanted.
 
@@ -76,14 +76,14 @@ What it does for speed: Car status and the New receipt car picker read the datab
 Decisions:
 - **DOCS codes** are kept as typed (shown as "Papers with") and each one goes on the review list, so the staff see them and say what they mean.
 - **LOCATION** stays as typed; **2025 NEW UNITS** is not imported; **repairs and renewals** are imported.
-- **ORCR WITH MAD stays in the Google Sheet**, and nothing will be updated there for the price list (the old workbook is left as it is, for accuracy). The app tells the staff so in a short note on Car status when it switches over.
+- **ORCR WITH MAD stays in the Google Sheet**, and nothing will be updated there for the price list (the old workbook is left as it is, for accuracy). The app tells the staff so in a short note on Car Inventory when it switches over.
 - **Who edits:** Admin and Approver (price, reprice, location, repair state, notes). Documentation and Sales only look.
 - **Connected data:** the car's identity, spare key and OR/CR papers come from the Docs Bible row; the About-the-car answers (spare key, casa maintenance and where, battery, where bought, EV charger and card) come from the car page checklist. The price list does not keep its own copy of any of them. Where the two disagree on import, the review list shows it; nothing is overwritten (only a blank spare key in the Docs Bible is filled from the price list).
-- **Excel export:** the same layout as the INVENTORY 2026 tab (columns, headings, body-type heading rows, colours, ₱ and date formats, frozen header, days in stock worked out on the day), plus a second sheet "About the car" with the connected details. Button on Car status for Admin and Approver.
+- **Excel export:** the same layout as the INVENTORY 2026 tab (columns, headings, body-type heading rows, colours, ₱ and date formats, frozen header, days in stock worked out on the day), plus a second sheet "About the car" with the connected details. Button on Car Inventory for Admin and Approver.
 
 Built so far (nothing in the live app reads it yet): migration 35 (`car_stock`, `car_price_history`, `car_repairs`, `or_renewals`, new review kinds), `scripts/pricelist-snapshot.py` (reads the exported workbook), `scripts/pricelist-apply.ts` (dry run first), the Excel export (`/api/cars/export`).
 
-Still to build, after the owner has compared the Excel export with the sheet: Car status and the car picker reading the database, the edit screen for Admin and Approver, the receipt approval writing to the database instead of the sheet's REMARKS cell, the info note about ORCR WITH MAD, the repairs and renewals screens, and the cut-over check.
+Still to build, after the owner has compared the Excel export with the sheet: Car Inventory and the car picker reading the database, the edit screen for Admin and Approver, the receipt approval writing to the database instead of the sheet's REMARKS cell, the info note about ORCR WITH MAD, the repairs and renewals screens, and the cut-over check.
 
 How to run the import: `python3 scripts/pricelist-snapshot.py "<the exported .xlsx>"`, then `JITI_ALIAS='{"@/":"<project folder>/src/"}' npx jiti scripts/pricelist-apply.ts` (dry run), then the same with `--apply`. Repeat both whenever the workbook is exported again; the import replaces what an earlier run imported.
 
@@ -104,9 +104,9 @@ A decision for the owner: the old workbook cannot be locked as a whole if ORCR W
 
 ## 8. The price list check (a review list of its own, 19 Nov 2026)
 
-Every place where the price list and the Docs Bible do not say the same thing is a row of **Data check** (`/data-check`, opened from Car status; Admin, Approver and Documentation), kept apart from the Docs Bible review list. One row per car and field, with both values side by side:
+Every place where the price list and the Docs Bible do not say the same thing is a row of **Data check** (`/data-check`, opened from Car Inventory; Admin, Approver and Documentation), kept apart from the Docs Bible review list. One row per car and field, with both values side by side:
 - **Use the price list's** copies its value into the Docs Bible (changes are in the car's history as "pricelist"); **Use the Docs Bible's** keeps the Docs Bible value and drops the price list's own wording; **Leave as it is** only notes it. Settled rows stay settled when the import is run again.
 - The first dry run finds 74 rows: 27 model texts, 17 arrival dates, 5 mileages, 4 colors, 2 statuses (a car Reserved on the price list but Onhand in the Docs Bible), 1 encumbrance, 1 spare key, 2 cars not in the Docs Bible, 3 odd values, and 12 DOCS codes to be explained.
-- Until a row is settled, the export and Car status show what the price list showed, so nothing looks different to the staff.
+- Until a row is settled, the export and Car Inventory show what the price list showed, so nothing looks different to the staff.
 
-Car status also shows, to everyone, the note "ORCR transfers to buyers are not in MAD. Keep using the 'ORCR WITH MAD' tab of the old MAD PRICE LIST." with a button to open the workbook. To open the tab itself, set `ORCR_SHEET_GID` (the number after `#gid=` in the address while that tab is open) in `/opt/mad-receipts/.env`.
+Car Inventory also shows, to everyone, the note "ORCR transfers to buyers are not in MAD. Keep using the 'ORCR WITH MAD' tab of the old MAD PRICE LIST." with a button to open the workbook. To open the tab itself, set `ORCR_SHEET_GID` (the number after `#gid=` in the address while that tab is open) in `/opt/mad-receipts/.env`.

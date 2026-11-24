@@ -1,5 +1,4 @@
 import "server-only";
-import { formatDate } from "@/lib/dates";
 import { pesos } from "@/lib/deals";
 import { dealStatusKey } from "@/lib/deal/status";
 import { manilaToday } from "@/lib/dates";
@@ -77,4 +76,3 @@ export async function driveProblem(message: string): Promise<void> {
   await tell({ category: "system_alert", dedupe: `alert:drive:${new Date().toISOString().slice(0, 13)}`, text: `🚨 A document upload to Google Drive failed.\n${message.slice(0, 300)}\nCheck the Apps Script deployment and Admin → Go-live check.\n${appUrl("/admin/golive")}` });
 }
 
-export const dateLine = (iso: string) => formatDate(iso.slice(0, 10));

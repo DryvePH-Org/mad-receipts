@@ -17,10 +17,7 @@ const STATUS_TONE: Record<string, Tone> = { complete: "emerald", missing: "amber
 
 /** The line under the car's name (where it is, its AR, links), what the bots are doing for it, and the folder chooser when it has no single folder. */
 export function CarTop({ data, readOnly = false, folderBox = true }: { data: CarViewData; readOnly?: boolean; folderBox?: boolean }) {
-  const router = useRouter();
   const orState = data.orState;
-  const [busy, start] = useTransition();
-  const run = (fn: () => Promise<{ ok: boolean; message: string }>) => start(async () => { const r = await fn(); if (r.ok) toast.success(r.message); else toast.error(r.message); router.refresh(); });
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">

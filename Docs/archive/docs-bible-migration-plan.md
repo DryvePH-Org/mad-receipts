@@ -149,4 +149,4 @@ Implementation: our own table component (TanStack Table; 400 rows do not need he
 | 4 | Car page and checklist read/write the database; sheet-editor bot and "Send to sheet" retired; nightly backup export | No code path writes to the sheet |
 | 5 | Parallel week, "sheet differs" check, cut-over, sheet read-only | Owner signs off |
 
-Not in scope now: the MAD Pricelist and the Car status module stay as they are; the pricelist's four document cells are simply no longer written by the app.
+Not in scope now: the MAD Pricelist and the Car Inventory module stay as they are; the pricelist's four document cells are simply no longer written by the app.

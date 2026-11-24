@@ -40,7 +40,7 @@ As **Documentation**, in the table view, search one plate.
 
 1. Click a paper cell (for example CR). A drop-down opens: choose **Yes**. The cell changes at once and a message appears with **Undo**. Press **Undo**: it goes back.
 2. Click the plate: the car's **history** opens with who, when, from what to what.
-3. Switch to **Everything**. MAKE, SPARE KEY, the OR date (RENEWAL) and DATE ARRIVAL are editable by Documentation too (the whole car record is theirs); STATE is **not editable** by Documentation (Admin, and Admin and Approver in Car status); the old STATUS and VEHICLE STATUS columns are worked out from STATE and nobody types them.
+3. Switch to **Everything**. MAKE, SPARE KEY, the OR date (RENEWAL) and DATE ARRIVAL are editable by Documentation too (the whole car record is theirs); STATE is **not editable** by Documentation (Admin, and Admin and Approver in Car Inventory); the old STATUS and VEHICLE STATUS columns are worked out from STATE and nobody types them.
 4. Open the same car as **Admin** and change STATE: it works, and STATUS and VEHICLE STATUS follow by themselves.
 5. With the car open in two browsers, change the same cell in both, one after the other: the second one is **refused** with "Someone changed this cell a moment ago".
 
@@ -84,7 +84,7 @@ Pick a car that has photos in Drive but is not approved yet (the chip **Needs sc
 | g | In the Papers window, each paper shows **Docs Bible says** (Yes / No / To follow / N/A): change it for a paper that is not coming (To follow) or not needed (N/A). Under the Papers list, a line says whether the Docs Bible row matches this checklist, with **Update the Docs Bible**. The **Docs Bible row** and **About the car** cards are closed: click one to open it. | One clear place for each paper; the rest is hidden until you click. |
 | h | Press **Approve**. | A message says the Docs Bible was updated and marketing was told on Telegram. The stage is **Approved**. |
 | i | Open the car in the **Table**. | CLASSIFICATION and the papers match what was in the folder; REMARKS I has a dated scan note; COMPLETE shows. Open the history: each changed column is listed as changed *by the app*. |
-| j | As **Sales**, open the same car. | The stage and the papers, read only. In **Car status** the car shows its documents status. |
+| j | As **Sales**, open the same car. | The stage and the papers, read only. In **Car Inventory** the car shows its documents status. |
 
 **Proves:** scan, review, case chosen by a person, approval, and the register filled at once, no waiting and no Google Sheet.
 
@@ -115,7 +115,7 @@ This is the start of the workflow for every car, and the last test: a car that i
    - **Table**: the new car is there, complete, with its details.
    - **Download as CSV**: the new row is in the file, in the old sheet's columns.
    - **History** of the car: from "created" to every change.
-   - As **Sales**: the car shows in the list and in Car status with its documents status. Sales cannot open **Add a car**.
+   - As **Sales**: the car shows in the list and in Car Inventory with its documents status. Sales cannot open **Add a car**.
 7. Try the same plate again in **Add a car**: it says the car is **already in the Docs Bible** and does not add it twice. Press *this car arrived again* only for a car that really came back: it adds a second row and keeps the first (and the review list will mention the two).
 
 **Proves:** a new car can be taken from nothing to a complete, approved, visible record, with its details typed once, at the start.
@@ -173,4 +173,4 @@ Set up once: the Admin opens **My Telegram → Set up the bot**. Then each teste
 5. In **Data check**, rows named "OR expiry" show two different dates for one car: choose which is right.
 
 ## 10. Papers with and the registry of deeds
-Open a car in Car documents: the car record has a group **Where the papers are** with **Papers with** and **Registry of deeds**. Documentation can type in both. The same two columns are at the end of the Table (Everything view). Car status shows Papers with in a car's details (Admin, Approver and Documentation).
+Open a car in Car documents: the car record has a group **Where the papers are** with **Papers with** and **Registry of deeds**. Documentation can type in both. The same two columns are at the end of the Table (Everything view). Car Inventory shows Papers with in a car's details (Admin, Approver and Documentation).

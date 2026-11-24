@@ -4,9 +4,9 @@ The Docs Bible lives in the database now, so going live no longer means pointing
 
 ## Before the first real day
 1. **Migrations 30, 31 and 32** are applied (Supabase SQL Editor; the files are in `supabase/migrations`). 
-2. **The data was moved from the live sheet** with `scripts/docs-bible-snapshot.py` and `scripts/docs-bible-apply.ts` (see `Docs/docs-bible-migration-plan.md`). If anyone typed in the live sheet since, take a fresh snapshot and run the apply script again with `--replace` (it deletes the earlier imported rows and loads again; changes made in the app to those rows would be lost, so do this only before staff start working in the app).
+2. **The data was moved from the live sheet** with `scripts/docs-bible-snapshot.py` and `scripts/docs-bible-apply.ts` (see `Docs/archive/docs-bible-migration-plan.md`). If anyone typed in the live sheet since, take a fresh snapshot and run the apply script again with `--replace` (it deletes the earlier imported rows and loads again; changes made in the app to those rows would be lost, so do this only before staff start working in the app).
 3. **The review list is cleared** (Car documents → Review list): duplicate plates, differing statuses, rows with no plate, cars with no classification.
-4. **Settings on the server** (`/opt/mad-receipts/.env`, then recreate the container): `DOCS_READER=grokbot`, `GROKBOT_SCAN_WEBHOOK_URL`, `GROKBOT_SCAN_WEBHOOK_SECRET`, `GROKBOT_CALLBACK_SECRET`, `APP_BASE_URL`, `CRON_SECRET`, the Telegram settings, and for Car status `CARS_SHEET_ID` (the MAD Pricelist, shared "Anyone with the link can view").
+4. **Settings on the server** (`/opt/mad-receipts/.env`, then recreate the container): `DOCS_READER=grokbot`, `GROKBOT_SCAN_WEBHOOK_URL`, `GROKBOT_SCAN_WEBHOOK_SECRET`, `GROKBOT_CALLBACK_SECRET`, `APP_BASE_URL`, `CRON_SECRET`, the Telegram settings, and for Car Inventory `CARS_SHEET_ID` (the MAD Pricelist, shared "Anyone with the link can view").
 5. **Drive:** the Apps Script properties `DOC_AVAILABLE_ID` and `DOC_SOLD_ID` point at the real Available and Sold folders (the photos are read from and filed in Drive).
 6. **The scanner bot** has the text of `Docs/GROKBOT_SCANNER_ROUTINE.md` saved as its instructions.
 7. **Cloudflare:** if the bot's answer is refused with a 403, add a skip rule for the paths `/api/grokbot/callback` and `/api/docs/scan-file/`.
@@ -44,11 +44,11 @@ The Docs Bible in the database is the one place to work. The old Google Sheet is
 ## The price list in the database (migration 35)
 1. Run `supabase/migrations/20261119000035_car_stock.sql` in the Supabase SQL Editor.
 2. Export the MAD PRICE LIST workbook (File > Download > Microsoft Excel) and save it as `Docs/sheets-private/MAD-Pricelist.xlsx`.
-3. Take the snapshot, dry-run the import and read what it reports (it becomes the **Data check** in Car status); add cars that are missing from the Docs Bible with Add a car; then import with `--apply` (see `Docs/pricelist-migration-plan.md`, section 6).
-4. Car status then shows **Download Excel (price list layout)** for Admin and Approver. Compare it with the sheet before anything else is switched.
+3. Take the snapshot, dry-run the import and read what it reports (it becomes the **Data check** in Car Inventory); add cars that are missing from the Docs Bible with Add a car; then import with `--apply` (see `Docs/archive/pricelist-migration-plan.md`, section 6).
+4. Car Inventory then shows **Download Excel (price list layout)** for Admin and Approver. Compare it with the sheet before anything else is switched.
 
-## Car status reads the database (no Google sheet)
-Nothing about the price list is read from or written to Google any more: `CARS_SHEET_ID`, `CARS_SHEET_GID`, `INVENTORY_SHEET_ID` and the related settings are not used (they can be removed from `/opt/mad-receipts/.env`). Before the old workbook is locked: take a fresh export, run `scripts/pricelist-apply.ts` (it also takes cars that left the list off the stock), and check the Excel against the sheet. After that, changes are made in Car status, not in the sheet.
+## Car Inventory reads the database (no Google sheet)
+Nothing about the price list is read from or written to Google any more: `CARS_SHEET_ID`, `CARS_SHEET_GID`, `INVENTORY_SHEET_ID` and the related settings are not used (they can be removed from `/opt/mad-receipts/.env`). Before the old workbook is locked: take a fresh export, run `scripts/pricelist-apply.ts` (it also takes cars that left the list off the stock), and check the Excel against the sheet. After that, changes are made in Car Inventory, not in the sheet.
 
 ## Papers with and the registry of deeds (migration 38)
 1. Run `supabase/migrations/20261119000038_papers_registry.sql` in the Supabase SQL Editor **before** pushing the code that uses it.

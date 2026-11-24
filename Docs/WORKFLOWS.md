@@ -15,7 +15,7 @@ flowchart TB
   subgraph APP[MAD web app - one database]
     R[Receipts and deals]:::app
     C[Car documents + Docs Bible]:::app
-    DB[Dashboards: Car status, Buy, Sell]:::app
+    DB[Dashboards: Car Inventory, Buy, Sell]:::app
   end
   APP --> GD[Google Drive: document photos via Apps Script]:::ext
   APP --> BOT[Scanner bot: reads the photos]:::ext
@@ -129,7 +129,7 @@ Who edits: Documentation the papers and notes, Admin everything, Sales and Appro
 
 ## 7. Status
 
-**Working now:** receipts and approvals, voice entry, reminders and deal status, Buy and Sell dashboards, Car status, receipt log and inventory note, Telegram, the Docs Bible table and review list, the scanner bot and its queue, the daily CSV backup, roles and per-person access, auto-deploy, the transmittal print, folders linked to the live Drive.
+**Working now:** receipts and approvals, voice entry, reminders and deal status, Buy and Sell dashboards, Car Inventory, receipt log and inventory note, Telegram, the Docs Bible table and review list, the scanner bot and its queue, the daily CSV backup, roles and per-person access, auto-deploy, the transmittal print, folders linked to the live Drive.
 
 **Being tested:** Add a car (details and photos), the Papers part and live updates, folder checks every minute, sold papers on the car page, Sales seeing photos with no buttons. Not yet tested: Move to Sold, handoff with the 3-day reminders, papers are back.
 

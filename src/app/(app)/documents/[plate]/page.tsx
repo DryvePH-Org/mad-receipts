@@ -16,7 +16,7 @@ import type { ActivityEntry } from "@/lib/docs/activity-text";
 import { isAdmin, seesPrivateDocs, seesSales, type Role } from "@/lib/roles";
 import { getSettings } from "@/lib/data";
 import { isScanning, readerMode } from "@/lib/docs/bot-scan";
-import { readingNotes, reviewedOf, rotationOf, detectionsOf, wasEdited, type Car } from "@/lib/docs/car";
+import { readingNotes, reviewedOf, rotationOf, detectionsOf, wasEdited } from "@/lib/docs/car";
 import { getCarDetail } from "@/lib/docs/data";
 import { cleanDetails, missingDetails } from "@/lib/docs/details";
 import { deriveStage } from "@/lib/docs/stage";
@@ -197,14 +197,6 @@ type Tone2 = "amber" | "emerald" | "zinc";
 interface Panel { key: CarTab; label: string; badge?: string | null; tone?: Tone2; node: React.ReactNode }
 
 /** The latest sale of the car that is not cancelled (the page lists them newest first). */
-/** The signed ARs in the car's papers, shown in the payments as well (what the bot read: who it is for, the amount and the date). */
-function arEntries(files: Car["files"]): ArchiveFile[] {
-  return files.filter((f) => f.doc_types.includes("acknowledgement_receipt")).map((f) => {
-    const d = detectionsOf(f.details)?.find((x) => x.type === "acknowledgement_receipt");
-    return { id: f.id, name: f.filename, tag: "Acknowledgement receipt (AR)", amount: d?.amount ?? null, on: d?.documentDate ?? null, note: d ? [d.buyerName && `Buyer ${d.buyerName}`, d.documentNumber && `AR no. ${d.documentNumber}`].filter(Boolean).join(" · ") || null : null, addedAt: f.created_at, mime: f.mime_type ?? "", ar: true };
-  });
-}
-
 function saleOf(list: Transfer[]): Transfer | null { return list.find((t) => t.stage !== "cancelled") ?? null; }
 
 /** The Documents tab of a car with no single folder in Drive yet: the way to find or make it. */

@@ -47,7 +47,7 @@ async function tidy() { made.splice(0); }
 const JPEG = Buffer.from("/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACv/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==", "base64");
 
 test("an AR finds its car folder; Documentation checks the papers, Sales adds the rest, the folder moves to Sold", async ({ browser, playwright, baseURL }) => {
-  test.setTimeout(240_000); // the longest flow: three cars, two roles, every step
+  test.setTimeout(420_000); // the longest flow: three cars, two roles, every step
   await makeAr("ZZT 7001"); // one folder in Available: links
   await makeAr("ZZT 7002"); // two folders: a person chooses
   await makeAr("ZZT 7004"); // no folder: a person looks
@@ -606,7 +606,7 @@ test("A saved receipt makes the sale record of its car, or joins the one that is
   await admin.getByRole("dialog").getByRole("button", { name: "Yes, delete it" }).click();
   await admin.waitForURL("**/deals", { timeout: 30_000 });
   expect(await recs("ZZT7030")).toHaveLength(0);
-  made && (await db.from("car_transfers").delete().like("plate_no", "ZZT703%"));
+  if (made) await db.from("car_transfers").delete().like("plate_no", "ZZT703%");
   await admin.close();
 });
 

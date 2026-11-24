@@ -3,8 +3,6 @@ import { chatJson } from "@/lib/voice/groq";
 
 // The model that reads a report. Anthropic (Claude) when ANTHROPIC_API_KEY is set (the most accurate for Taglish, and a report costs a fraction of a cent);
 // otherwise the Groq model the receipt voice note already uses.
-export function llmReady(): boolean { return !!(process.env.ANTHROPIC_API_KEY || process.env.GROQ_API_KEY); }
-
 export async function readWithModel(system: string, user: string): Promise<string> {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return chatJson(system, user);

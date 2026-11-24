@@ -6,7 +6,6 @@ import { applyStatus } from "@/lib/inventory/remarks";
 
 export const STOCK_STATES = ["Onhand", "Reserved", "Sold", "Not for sale", "For repair", "Sell as is", "Shipped to Cebu"] as const;
 export type StockState = (typeof STOCK_STATES)[number];
-export const isStockState = (v: unknown): v is StockState => (STOCK_STATES as readonly string[]).includes(String(v));
 
 /** The old STATUS and VEHICLE STATUS columns, as the database writes them from the one state (the same table is in migration 39). */
 export function legacyOf(s: StockState): { sale_status: string; vehicle_status: string } {

@@ -25,11 +25,6 @@ export async function loadRepairs(plate?: string): Promise<Repair[]> {
   return error ? [] : (data ?? []).map(rowOf);
 }
 
-export async function loadEvents(repairId: string): Promise<{ kind: string; detail: string | null; by: string | null; at: string }[]> {
-  const { data } = await docsDb().from("repair_events").select("kind, detail, by_name, at").eq("repair_id", repairId).order("at").limit(200);
-  return (data ?? []).map((e) => ({ kind: e.kind as string, detail: (e.detail as string | null) ?? null, by: (e.by_name as string | null) ?? null, at: e.at as string }));
-}
-
 async function event(repairId: string, kind: string, detail: string | null, by: Actor) {
   await docsDb().from("repair_events").insert({ repair_id: repairId, kind, detail, by_name: by.name, by_user: by.userId ?? null });
 }

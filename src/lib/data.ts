@@ -202,7 +202,6 @@ function remindersOf(deals: DealView[], settings: AppSettings): Notification[] {
       id: d.id, status: d.status, balance: d.balance, due_date: d.dueDate, sale_type: d.saleType, loan_status: d.loanStatus, buyer_name: d.buyerName,
       institution: d.institution, loan_amount: d.loan / 100, lieu_amount: d.lieu / 100, lieu_until: d.lieuUntil, loan_since: d.loanSince, created_by: d.createdBy, unit_name: d.unitName,
     })),
-    [],
     settings.reminders, manilaToday(),
   );
 }

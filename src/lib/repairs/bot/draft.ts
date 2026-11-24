@@ -76,5 +76,3 @@ export function missingOptional(d: DraftData): Gap[] {
   return out;
 }
 
-/** The id the report's jobs carry (the sheet's BOT ID): R<draft>-<round>, then -<n> per problem, so a resend is never a double. */
-export const reportKey = (d: Pick<Draft, "id" | "round">) => `R${d.id}-${d.round}`;

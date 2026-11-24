@@ -87,7 +87,7 @@ export interface Notification {
 }
 
 export function buildNotifications(
-  deals: NotifyDeal[], _receipts: NotifyReceipt[], settings: AppSettings["reminders"], today: string, _nowMs: number = Date.now(),
+  deals: NotifyDeal[], settings: AppSettings["reminders"], today: string,
 ): Notification[] {
   const out: Notification[] = [];
   for (const d of deals) {

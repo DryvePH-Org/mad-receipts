@@ -138,8 +138,7 @@ describe("reminders", () => {
       deal({ id: "a", due_date: "2026-10-30" }), deal({ id: "b", due_date: "2026-11-07" }), deal({ id: "c", due_date: "2026-12-20" }),
       deal({ id: "d", balance: 0, sale_type: "financing", loan_status: "waiting", institution: "BDO", loan_since: "2026-10-01", loan_amount: 100000 }),
       deal({ id: "e", due_date: "2026-12-20", lieu_amount: 25000, lieu_until: "2026-11-06" }),
-    ], [
-    ], settings, today, Date.parse("2026-11-04T00:00:00Z"));
+    ], settings, today);
     expect(list.map((n) => n.key).sort()).toEqual(["due-b", "li-e", "ln-d", "od-a"]);
     expect(notificationsFor(list, { id: "u1", role: "sales" }).map((n) => n.key).sort()).toEqual(["due-b", "li-e", "ln-d", "od-a"]);
     expect(notificationsFor(list, { id: "u2", role: "sales" })).toEqual([]);
@@ -149,7 +148,7 @@ describe("reminders", () => {
   });
   it("respects the settings", () => {
     const off = { ...settings, before7: false, before3: false, dueDay: false };
-    expect(buildNotifications([deal({ due_date: "2026-11-06" })], [], off, today)).toHaveLength(0);
+    expect(buildNotifications([deal({ due_date: "2026-11-06" })], off, today)).toHaveLength(0);
   });
 });
 

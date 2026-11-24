@@ -1,6 +1,5 @@
 import "server-only";
 import { parseCsv } from "@/lib/dashboard/parse";
-import { fetchText } from "@/lib/dashboard/sheets";
 import { docsBridge } from "@/lib/docs/bridge";
 import { appsScriptConfigured } from "@/lib/google/apps-script";
 import { grokbotMissing } from "@/lib/grokbot/client";

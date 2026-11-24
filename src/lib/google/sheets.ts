@@ -50,20 +50,3 @@ export function createSheetsClient(): SheetsClient {
   };
 }
 
-/** A1 range for a whole tab, quoted so names with spaces or quotes work. */
-export function tabRange(tab: string, cells?: string): string {
-  const quoted = `'${tab.replace(/'/g, "''")}'`;
-  return cells ? `${quoted}!${cells}` : quoted;
-}
-
-/** 0 → "A", 25 → "Z", 26 → "AA". */
-export function columnLetter(index: number): string {
-  let n = index + 1;
-  let letters = "";
-  while (n > 0) {
-    const rem = (n - 1) % 26;
-    letters = String.fromCharCode(65 + rem) + letters;
-    n = Math.floor((n - 1) / 26);
-  }
-  return letters;
-}
