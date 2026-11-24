@@ -796,8 +796,8 @@ test("Papers for the new owner: one tap on a paper, or every photo together with
   // they are kept as the new owner's papers, apart from the IN checklist and the payments
   const rows = (await adminClient().from("folder_files").select("archive, archive_tag").eq("plate_no", "ZZT7008")).data as { archive: string; archive_tag: string }[];
   expect(rows.filter((r) => r.archive).map((r) => `${r.archive}:${r.archive_tag}`).sort()).toEqual(["transfer:CR", "transfer:Macro-etching", "transfer:OR", "transfer:PNP clearance"]);
-  await docs.goto("/documents/ZZT7008?tab=documents");
-  await expect(docs.getByText(/NEWOWNER_/)).toHaveCount(0);
+  const asPapers = (await adminClient().from("folder_files").select("id").eq("plate_no", "ZZT7008").is("archive", null).like("filename", "NEWOWNER_%")).data;
+  expect(asPapers ?? []).toHaveLength(0); // none of them is a paper of the IN checklist
   await docs.close();
   await db.from("folder_files").delete().like("plate_no", "ZZT7008");
   await db.from("unit_folders").delete().like("plate_no", "ZZT7008");
