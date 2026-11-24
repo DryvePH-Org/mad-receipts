@@ -1,3 +1,4 @@
+import { columnsFromDetails, DETAIL_COLUMNS, detailsFromRow, hasAnswers, type DetailColumns } from "./details-record";
 import "server-only";
 import { formatDate, manilaToday } from "@/lib/dates";
 import { normalizePlate } from "@/lib/rules/plate";
@@ -10,7 +11,7 @@ import { docsDb } from "@/lib/docsbible/review-server";
 import { spareKeyState } from "@/lib/pricelist/import";
 import { adminChange, carsOut, handoffOf, isSoldCar, markBack, sendOut, setChecked, stampReminded } from "@/lib/transfers/handoff";
 import { getSettings } from "@/lib/data";
-import { cleanDetails, EMPTY_DETAILS, missingDetails, type UnitDetails } from "./details";
+import { cleanDetails, missingDetails, type UnitDetails } from "./details";
 
 // What happens after the reading: the details checklist, approval (ready to market), and the Handoff of a sold car's papers.
 
@@ -40,7 +41,7 @@ export async function loadWorkflow(plate: string, admin: Admin = createAdminClie
   const key = normalizePlate(plate);
   const [{ data: w }, { data: d }] = await Promise.all([
     admin.from("unit_workflow").select("*").eq("plate_no", key).maybeSingle(),
-    admin.from("unit_details").select("data").eq("plate_no", key).maybeSingle(),
+    docsDb().from("docs_units_current").select(DETAIL_COLUMNS).eq("plate_no", key).maybeSingle(), // the answers are columns of the car record
   ]);
   // who approved the documents (the name, so the page can say who and when)
   const approver = w?.docs_approved_by ? (await admin.from("profiles").select("full_name").eq("id", w.docs_approved_by).maybeSingle()).data : null;
@@ -49,29 +50,8 @@ export async function loadWorkflow(plate: string, admin: Admin = createAdminClie
   const handoff = { handoffAt: hand?.handedOffAt ?? null, handoffNote: hand?.note ?? null, handoffChecked: hand?.checked ?? [], handoffReturnedAt: hand?.backAt ?? null };
   return {
     workflow: { ...(w ? { scanNotifiedAt: w.scan_notified_at, soldReadyNotifiedAt: w.sold_ready_notified_at, approvedAt: w.docs_approved_at, approvedByName: approver?.full_name?.trim() || null, marketingNotifiedAt: w.marketing_notified_at } : EMPTY), ...handoff },
-    details: await withDocsSpareKey(key, d ? cleanDetails(d.data) : EMPTY_DETAILS), detailsSaved: !!d,
+    details: detailsFromRow(d as DetailColumns | null), detailsSaved: hasAnswers(d as DetailColumns | null),
   };
-}
-
-/** The spare key is ONE fact, kept in the car's record. The car page always shows the record's answer; a stored answer of the checklist is only used when the record has none. */
-async function withDocsSpareKey(plate: string, details: UnitDetails): Promise<UnitDetails> {
-  try {
-    const { data } = await docsDb().from("docs_units").select("spare_key").eq("plate_no", plate).is("archived_at", null).order("arrival_date", { ascending: false }).limit(1);
-    const state = spareKeyState((data?.[0]?.spare_key as string | null) ?? null);
-    return state === "unknown" ? details : { ...details, spareKey: state }; // the record wins, so the two can never drift apart
-  } catch { return details; }
-}
-
-/** Answering "spare key" on the car page writes the same fact into the car's record, so Car Inventory, the Table and the Excel all show it. */
-async function writeSpareKeyToRecord(plate: string, answer: "yes" | "no" | "", actor: string): Promise<void> {
-  if (!answer) return;
-  try {
-    const db = docsDb();
-    const { data } = await db.from("docs_units").select("id, spare_key").eq("plate_no", plate).is("archived_at", null).order("arrival_date", { ascending: false }).limit(1);
-    const unit = data?.[0];
-    if (!unit || spareKeyState(unit.spare_key as string | null) === answer) return; // already says it (in the staff's own words)
-    await db.from("docs_units").update({ spare_key: answer === "yes" ? "W/SPAREKEY" : "W/O SPAREKEY", last_change_source: "about", updated_by: actor }).eq("id", unit.id as string);
-  } catch (e) { console.warn(`[docs] spare key not copied to the car's record: ${e instanceof Error ? e.message : "unknown"}`); }
 }
 
 const log = (admin: Admin, actor: string, action: string, plate: string, after: Json) =>
@@ -87,9 +67,19 @@ const carName = (c: { folder: { folder_name: string | null; plate_display: strin
 export async function saveDetails(plate: string, data: unknown, actor: string, deps: Pick<WorkflowDeps, "admin"> = { admin: createAdminClient() }): Promise<void> {
   const key = normalizePlate(plate);
   const clean = cleanDetails(data);
-  const { error } = await deps.admin.from("unit_details").upsert({ plate_no: key, data: clean as unknown as Json, updated_by: actor }, { onConflict: "plate_no" });
-  if (error) throw new Error(/unit_details/.test(error.message) ? "Saving needs the latest database update (migration 24)." : "Could not save. Try again.");
-  await writeSpareKeyToRecord(key, clean.spareKey, actor);
+  const db = docsDb();
+  let id = (await db.from("docs_units_current").select("id, spare_key").eq("plate_no", key).maybeSingle()).data as { id: string; spare_key: string | null } | null;
+  if (!id) {
+    // the answers are about a car of MAD: a car that only has a folder gets its record now (the case is the one the staff chose, else not classified)
+    const { data: folder } = await db.from("unit_folders").select("plate_display, case_type").eq("plate_no", key).maybeSingle();
+    const made = await db.from("docs_units").insert({ plate_no: key, plate_display: (folder?.plate_display as string | null) || key, source: "app", last_change_source: "about", created_by: actor, updated_by: actor }).select("id, spare_key").single();
+    if (made.error || !made.data) throw new Error("Could not save. Try again.");
+    id = made.data as { id: string; spare_key: string | null };
+  }
+  // the spare key is the record's own column: answering it here writes the same fact, in the staff's words if the record already says it
+  const spare = clean.spareKey && spareKeyState(id.spare_key) !== clean.spareKey ? { spare_key: clean.spareKey === "yes" ? "W/SPAREKEY" : "W/O SPAREKEY" } : {};
+  const { error } = await db.from("docs_units").update({ ...columnsFromDetails(clean), ...spare, last_change_source: "about", updated_by: actor }).eq("id", id.id);
+  if (error) throw new Error("Could not save. Try again.");
   await Promise.resolve(log(deps.admin, actor, "docs.save_details", key, {})).catch(() => undefined);
 }
 

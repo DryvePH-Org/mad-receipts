@@ -42,3 +42,27 @@ describe("the sale record rename (migrations 60 and 61), in the owner's order", 
     expect((await db.query("select 1 from information_schema.views where table_name = 'car_transfers'")).rows).toHaveLength(0);
   }, 90_000);
 });
+
+describe("the About-the-car answers become columns of the car record (migrations 63 and 64), in the owner's order", () => {
+  it("copies each blob onto the car's current record, fills an empty spare key, keeps the blob, then removes the table", async () => {
+    const db = await createDb({ upTo: "20261124000062_zzz" });
+    await db.query("insert into public.docs_units (plate_no, plate_display, arrival_date) values ('DET1111', 'DET 1111', '2026-01-01'), ('DET1111', 'DET 1111', '2026-09-01'), ('DET2222', 'DET 2222', '2026-09-01')");
+    await db.query("update public.docs_units set spare_key = 'W/O SPAREKEY' where plate_no = 'DET2222'");
+    await db.query(`insert into public.unit_details (plate_no, data) values
+      ('DET1111', '{"ownerNo":"2","casaMaintained":"yes","casaWhen":"June 2026","casaWhere":"Toyota","batteryWhen":"2025","boughtFrom":"ABC Motors","spareKey":"yes","evType":"phev","wallCharger":"yes","note":"scratch","evCharger":"yes"}'::jsonb),
+      ('DET2222', '{"spareKey":"yes","casaMaintained":"maybe"}'::jsonb)`);
+    await db.exec(readFileSync("supabase/migrations/20261124000063_car_details_on_record.sql", "utf8"));
+
+    const latest = (await db.query<Record<string, unknown>>("select owner_no, casa_maintained, casa_when, casa_where, battery_when, bought_from, ev_type, wall_charger, condition_note, spare_key from public.docs_units_current where plate_no = 'DET1111'")).rows[0];
+    expect(latest).toEqual({ owner_no: 2, casa_maintained: "yes", casa_when: "June 2026", casa_where: "Toyota", battery_when: "2025", bought_from: "ABC Motors", ev_type: "phev", wall_charger: "yes", condition_note: "scratch", spare_key: "W/SPAREKEY" });
+    expect((await db.query("select owner_no from public.docs_units where plate_no = 'DET1111' and arrival_date = '2026-01-01'")).rows[0]).toEqual({ owner_no: null }); // the older arrival is not touched
+    const second = (await db.query<Record<string, unknown>>("select casa_maintained, spare_key from public.docs_units_current where plate_no = 'DET2222'")).rows[0];
+    expect(second).toEqual({ casa_maintained: null, spare_key: "W/O SPAREKEY" }); // an answer that is not yes or no is left out; the record's own spare key stays
+
+    await db.exec(readFileSync("supabase/migrations/20261124000064_drop_unit_details.sql", "utf8"));
+    expect((await db.query("select 1 from information_schema.tables where table_name = 'unit_details'")).rows).toHaveLength(0);
+    const kept = (await db.query<{ plate_no: string; value: string }>("select plate_no, value from public.car_dropped_values where column_name = 'unit_details blob' order by plate_no")).rows;
+    expect(kept.map((k) => k.plate_no)).toEqual(["DET1111", "DET2222"]);
+    expect(JSON.parse(kept[0].value).evCharger).toBe("yes"); // even the answers nobody asks any more are kept
+  }, 90_000);
+});

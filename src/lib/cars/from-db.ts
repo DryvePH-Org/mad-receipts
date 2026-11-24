@@ -26,7 +26,7 @@ export const noteOf = (remarks: string): string => applyStatus(remarks, "Availab
 
 const availabilityOfState = (s: StockState): Availability => (s === "Reserved" ? "reserved" : s === "Sold" ? "sold" : s === "For repair" ? "repair" : s === "Sell as is" ? "asis" : s === "Not for sale" ? "notforsale" : "available");
 
-export function carRowOf(s: StockFacts, u: CarFacts, today: string, aboutSpareKey?: "yes" | "no" | ""): CarRow {
+export function carRowOf(s: StockFacts, u: CarFacts, today: string): CarRow {
   const state = u.stock_state ?? null;
   // with a state, the status part of the old note is ignored: the state is the one truth, the note is only a note
   const remarks = state ? text(remarksText(state, u.state_for, u.state_on, noteOf(text(s.remarks)))) : text(s.remarks);
@@ -38,8 +38,7 @@ export function carRowOf(s: StockFacts, u: CarFacts, today: string, aboutSpareKe
   const location = text(s.location), bodyType = text(s.body_group) || text(u.body_type);
   const encumbrance = text(/^N\/?A$/i.test(text(u.encumbrance)) ? "" : u.encumbrance);
   const ym = text(u.year_model);
-  // one spare key: the car's record; a stored checklist answer only fills in when the record has none
-  const spareKey = text(u.spare_key) || (aboutSpareKey === "yes" ? "W/SPAREKEY" : aboutSpareKey === "no" ? "NO SPAREKEY" : "");
+  const spareKey = text(u.spare_key); // one spare key: the car's own record
   return {
     plate: s.plate_no, plateDisplay: text(u.plate_display).toUpperCase() || s.plate_no, unitId: u.id,
     record: { year_model: u.year_model, make: u.make, model_variant: u.model_variant, color: u.color, body_type: u.body_type, trans: u.trans, fuel: u.fuel, mileage: u.mileage, spare_key: u.spare_key, buying_source: u.buying_source ?? null },

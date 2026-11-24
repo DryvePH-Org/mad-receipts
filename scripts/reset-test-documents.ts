@@ -21,7 +21,6 @@ const TABLES: { table: string; pk: string; note: string; filter?: (q: any) => an
   { table: "folder_files", pk: "id", note: "photos of the cars and what the bot read from them" },
   { table: "unit_folders", pk: "plate_no", note: "the car folders found in Drive" },
   { table: "unit_workflow", pk: "plate_no", note: "approvals and handoff records" },
-  { table: "unit_details", pk: "plate_no", note: "the About the car answers" },
   { table: "transmittals", pk: "plate_no", note: "transmittal receipts" },
   { table: "unit_sheet_sync", pk: "plate_no", note: "old sheet sync records" },
   { table: "grokbot_jobs", pk: "id", note: keepScans ? "old sheet-bot jobs (the scan jobs are kept)" : "scan jobs", filter: (q) => (keepScans ? q.like("action", "docs_%").neq("action", "docs_scan") : q.like("action", "docs_%")) },

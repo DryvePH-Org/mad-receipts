@@ -1,6 +1,5 @@
 import "server-only";
 import { manilaToday } from "@/lib/dates";
-import { cleanDetails } from "@/lib/docs/details";
 import { docsDb } from "@/lib/docsbible/review-server";
 import { carRowOf, type CarFacts, type StockFacts } from "./from-db";
 import type { CarRow } from "./model";
@@ -22,10 +21,8 @@ export async function loadCars(): Promise<CarsData> {
   const { data, error } = await db.from("docs_units").select(cols).eq("in_stock", true).is("archived_at", null).order("stock_order").limit(3000);
   if (error) throw new Error(`Car Inventory could not be read: ${error.message}`);
   const rows = (data ?? []) as unknown as (CarFacts & StockFacts & { id: string; stock_note: string | null })[];
-  const details = rows.length ? await db.from("unit_details").select("plate_no, data").in("plate_no", rows.map((r) => r.plate_no)).limit(3000) : { data: [] };
-  const about = new Map((details.data ?? []).map((d) => [d.plate_no as string, cleanDetails(d.data).spareKey]));
   const today = manilaToday();
   // one record: the sale list's fields and the car's own are the same row
-  const cars: CarRow[] = rows.map((r) => carRowOf({ ...r, remarks: r.stock_note, repair_status: null }, r, today, about.get(r.plate_no)));
+  const cars: CarRow[] = rows.map((r) => carRowOf({ ...r, remarks: r.stock_note, repair_status: null }, r, today));
   return { cars, at: Date.now() };
 }

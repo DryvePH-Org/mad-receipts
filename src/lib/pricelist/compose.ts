@@ -1,6 +1,6 @@
 import { noteOf } from "@/lib/cars/from-db";
 import { remarksText, type StockState } from "@/lib/cars/state";
-import { cleanDetails } from "@/lib/docs/details";
+import type { UnitDetails } from "@/lib/docs/details";
 import type { DetailRow, PriceRow } from "./export";
 
 // One price list row = the stock row (prices, location, notes, and what the price list itself showed differently) + the car's Docs Bible row
@@ -20,8 +20,7 @@ export interface UnitRecord {
 
 const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
 
-export function composeRow(s: StockRecord, u: UnitRecord, aboutRaw: unknown, complete: string | null): { price: PriceRow; detail: DetailRow } {
-  const d = aboutRaw ? cleanDetails(aboutRaw) : null;
+export function composeRow(s: StockRecord, u: UnitRecord, d: UnitDetails | null, complete: string | null): { price: PriceRow; detail: DetailRow } {
   // one spare key: the car's record (answering it on the car page writes the record). A stored checklist answer only fills in when the record has none.
   const spareKey = u.spare_key ?? (d?.spareKey === "yes" ? "W/SPAREKEY" : d?.spareKey === "no" ? "NO SPAREKEY" : null);
   const plate = u.plate_display || s.plate_no;

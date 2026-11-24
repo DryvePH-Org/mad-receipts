@@ -240,10 +240,10 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await admin.getByRole("button", { name: "Save the details" }).click();
   await expect(admin.getByRole("heading", { name: "Change a car that is already sold?" })).toBeVisible();
   await admin.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
-  expect(((await adminClient().from("unit_details").select("data").eq("plate_no", "ZZT7001").maybeSingle()).data?.data as { note?: string } | undefined)?.note ?? "").not.toBe("Corrected by the Admin");
+  expect(((await adminClient().from("docs_units_current" as never).select("condition_note" as never).eq("plate_no", "ZZT7001").maybeSingle()) as unknown as { data: { condition_note?: string } | null }).data?.condition_note ?? "").not.toBe("Corrected by the Admin");
   await admin.getByRole("button", { name: "Save the details" }).click();
   await admin.getByRole("dialog").getByRole("button", { name: "Yes, change this" }).click();
-  await expect.poll(async () => ((await adminClient().from("unit_details").select("data").eq("plate_no", "ZZT7001").maybeSingle()).data?.data as { note?: string } | undefined)?.note, { timeout: 20_000 }).toBe("Corrected by the Admin");
+  await expect.poll(async () => ((await adminClient().from("docs_units_current" as never).select("condition_note" as never).eq("plate_no", "ZZT7001").maybeSingle()) as unknown as { data: { condition_note?: string } | null }).data?.condition_note, { timeout: 20_000 }).toBe("Corrected by the Admin");
   // the handoff: change the note, then take it back
   await openTab(admin, "Sale and transfer");
   await admin.locator("#ho-note-admin").fill("Fixed note");

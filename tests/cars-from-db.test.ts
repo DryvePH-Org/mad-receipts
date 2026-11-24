@@ -21,9 +21,9 @@ describe("a Car Inventory row from the database", () => {
     expect(carRowOf(stock(), car(), "2026-11-19").encumbrance).toBe("");
     expect(carRowOf(stock({ body_group: "MANILA UNIT TO CEBU" }), car(), "2026-11-19").toCebu).toBe(true);
   });
-  it("shows the car record's spare key (one fact); a stored checklist answer only fills in when the record has none", () => {
-    expect(carRowOf(stock(), car({ spare_key: "N/A" }), "2026-11-19", "yes").spareKey).toBe("N/A");
-    expect(carRowOf(stock(), car({ spare_key: null }), "2026-11-19", "yes").spareKey).toBe("W/SPAREKEY");
+  it("shows the car record's spare key, the one fact", () => {
+    expect(carRowOf(stock(), car({ spare_key: "N/A" }), "2026-11-19").spareKey).toBe("N/A");
+    expect(carRowOf(stock(), car({ spare_key: null }), "2026-11-19").spareKey).toBe("");
   });
   it("keeps a note that is not a status, and gives the edit screen only to the roles that edit the price list", () => {
     expect(noteOf("RESERVED - DAVID 11/2 | battery on order")).toBe("battery on order");
