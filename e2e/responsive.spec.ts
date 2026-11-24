@@ -46,3 +46,20 @@ test("on a phone the receipt form keeps its steps and buttons compact", async ({
   expect(bar!.height).toBeLessThan(84); // one row
   await expect(page.getByLabel("Receipt No.")).toBeVisible();
 });
+
+test("Car documents on a phone: the filters panel and the table stay inside the page", async ({ browser }) => {
+  test.setTimeout(240_000);
+  const page = await (await browser.newContext({ viewport: { width: 375, height: 812 } })).newPage();
+  await login(page, "admin");
+  await page.goto("/documents");
+  await expect(page.getByLabel("Search cars")).toBeVisible({ timeout: 60_000 });
+  await page.getByRole("button", { name: /^Filters/ }).click();
+  await expect(page.getByLabel("Drive folder")).toBeVisible();
+  await page.screenshot({ path: "/private/tmp/claude-502/-Users-aaroncustodio-AutomatedSalesInvoice/d642e5a2-3dd7-469b-937a-8cd951e93c62/scratchpad/phone-filters.png" });
+  const wide = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(await wide()).toBeLessThanOrEqual(1);
+  await page.getByRole("tab", { name: "Table" }).click();
+  await expect(page.getByRole("columnheader", { name: "Brand" })).toBeVisible({ timeout: 60_000 });
+  await page.screenshot({ path: "/private/tmp/claude-502/-Users-aaroncustodio-AutomatedSalesInvoice/d642e5a2-3dd7-469b-937a-8cd951e93c62/scratchpad/phone-table.png" });
+  expect(await wide()).toBeLessThanOrEqual(1);
+});

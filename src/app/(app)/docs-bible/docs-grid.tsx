@@ -83,16 +83,18 @@ export function DocsGrid({ initial, role }: { initial: GridRow[]; role: Role }) 
   };
 
   const filterSelect = (label: string, value: string, set: (v: string) => void, options: [string, string][]) => (
-    <NativeSelect aria-label={label} className="w-40" value={value} onChange={(e) => set(e.target.value)}><option value="">{label}: all</option>{options.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</NativeSelect>
+    <NativeSelect aria-label={label} className="w-full sm:w-40" value={value} onChange={(e) => set(e.target.value)}><option value="">{label}: all</option>{options.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</NativeSelect>
   );
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative"><Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" aria-hidden /><Input aria-label="Search" className="w-64 pl-8" placeholder="Search plate, car, owner, remarks" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} /></div>
-        {filterSelect("Classification", f.classification, (v) => setF({ ...f, classification: v }), [...GRID_CLASSIFICATIONS, "Not classified (legacy)"].map((c) => [c, c]))}
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+        {filterSelect("Case", f.classification, (v) => setF({ ...f, classification: v }), [...GRID_CLASSIFICATIONS, "Not classified (legacy)"].map((c) => [c, c]))}
         {filterSelect("Complete", f.complete, (v) => setF({ ...f, complete: v }), [["COMPLETE", "COMPLETE"], ["NOT YET", "NOT YET"], ["NONE", "Not classified"]])}
         {filterSelect("State", f.state, (v) => setF({ ...f, state: v }), STOCK_STATE_VALUES.map((s) => [s, s]))}
+        </div>
         <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={f.needsDecision} onChange={(e) => setF({ ...f, needsDecision: e.target.checked })} /> Needs a decision</label>
         <span className="ml-auto text-sm text-muted-foreground">{shown.length} of {rows.length} cars</span>
       </div>

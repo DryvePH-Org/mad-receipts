@@ -48,7 +48,6 @@ const RAW_COLUMNS: Omit<Col, "name">[] = [
   { key: "chattel", label: "CHATTEL", letter: "AJ", kind: "paper", width: 84, edit: "papers" },
   { key: "promissory", label: "PROMISSORY", letter: "AK", kind: "paper", width: 96, edit: "papers" },
   { key: "stencil", label: "STENCIL", letter: "AL", kind: "paper", width: 84, edit: "papers" },
-  { key: "other_docs", label: "OTHER DOCS ATTACHED", letter: "AM", kind: "text", width: 190, edit: "papers" },
   { key: "paper_status", label: "PAPER STATUS", letter: "AN", kind: "text", width: 130, edit: "papers" },
   { key: "remarks", label: "REMARKS", letter: "AO", kind: "remarks", width: 300, edit: "papers" },
   // new in MAD (they were in the old REMARKS register): where the original papers are, and the registry of deeds
@@ -107,6 +106,6 @@ export function filterRows(rows: GridRow[], f: GridFilter): GridRow[] {
     if (f.needsDecision && r.decisions === 0) return false;
     if (!q) return true;
     if (qp && plateKey(r.values.plate_display).includes(qp)) return true;
-    return ["make", "model_variant", "color", "reg_owner_name", "remarks", "paper_status", "other_docs"].some((k) => (r.values[k] ?? "").toLowerCase().includes(q));
+    return ["make", "model_variant", "color", "reg_owner_name", "remarks", "paper_status"].some((k) => (r.values[k] ?? "").toLowerCase().includes(q));
   });
 }

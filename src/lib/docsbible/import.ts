@@ -81,8 +81,8 @@ export function planImport(snap: Snapshot, opts: { docsTab?: string } = {}): Imp
     if (statusesDisagree(fields.sale_status ?? null, fields.vehicle_status ?? null)) issues.push({ kind: "status_disagree", plate: key, sourceRow: r, message: `STATUS says ${fields.sale_status} but VEHICLE STATUS says ${fields.vehicle_status}. Decide which is right.` });
     if (cl.value === LEGACY_CLASS && (fields.vehicle_status === "AVAILABLE" || (fields.sale_status ?? "").toLowerCase() === "onhand")) issues.push({ kind: "legacy_classification", plate: key, sourceRow: r, message: "This car is still in stock but has no classification. Choose Clean, Repo (bank) or Encumbered (Indiv)." });
 
-    const { sale_status, vehicle_status, remarks_1, remarks_2, ...kept } = fields;
-    const remarks = [remarks_1, remarks_2].filter(Boolean).join("\n\n") || null; // REMARKS I and II of the sheet are one note
+    const { sale_status, vehicle_status, remarks_1, remarks_2, other_docs, ...kept } = fields;
+    const remarks = [remarks_1, remarks_2, other_docs ? `Other papers: ${other_docs}` : null].filter(Boolean).join("\n\n") || null; // REMARKS I and II and the other papers of the sheet are one note
     if (remarks) kept.remarks = remarks; // the two sheet columns become the one state
     const state = stateFromLegacy(sale_status ?? null, vehicle_status ?? null);
     if (kept.or_expiry) kept.or_expiry = dateOf(kept.or_expiry).value; // the typed renewal becomes a real date (text that is not a date is not kept)

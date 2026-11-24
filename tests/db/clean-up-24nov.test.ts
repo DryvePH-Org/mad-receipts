@@ -66,3 +66,17 @@ describe("the About-the-car answers become columns of the car record (migrations
     expect(JSON.parse(kept[0].value).evCharger).toBe("yes"); // even the answers nobody asks any more are kept
   }, 90_000);
 });
+
+describe("the other-papers note joins the remarks (migrations 65 and 66)", () => {
+  it("joins it once even when run twice, keeps it, then drops the column", async () => {
+    const db = await createDb({ upTo: "20261124000064_zzz" });
+    await db.query("insert into public.docs_units (plate_no, plate_display, remarks, other_docs) values ('OTH1111', 'OTH 1111', 'ORIG DOCS AT JEP', 'CR PHOTOCOPY'), ('OTH2222', 'OTH 2222', null, 'Sales Invoice'), ('OTH3333', 'OTH 3333', 'a note', null)");
+    const fold = readFileSync("supabase/migrations/20261124000065_fold_other_docs.sql", "utf8");
+    await db.exec(fold); await db.exec(fold);
+    const rows = (await db.query<{ plate_no: string; remarks: string | null }>("select plate_no, remarks from public.docs_units order by plate_no")).rows;
+    expect(rows).toEqual([{ plate_no: "OTH1111", remarks: "ORIG DOCS AT JEP\n\nOther papers: CR PHOTOCOPY" }, { plate_no: "OTH2222", remarks: "Other papers: Sales Invoice" }, { plate_no: "OTH3333", remarks: "a note" }]);
+    await db.exec(readFileSync("supabase/migrations/20261124000066_drop_other_docs.sql", "utf8"));
+    expect((await db.query("select 1 from information_schema.columns where table_name = 'docs_units' and column_name = 'other_docs'")).rows).toHaveLength(0);
+    expect((await db.query<{ value: string }>("select value from public.car_dropped_values where column_name = 'other_docs' order by value")).rows.map((r) => r.value)).toEqual(["CR PHOTOCOPY", "Sales Invoice"]);
+  }, 90_000);
+});
