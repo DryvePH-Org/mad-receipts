@@ -80,3 +80,13 @@ describe("the other-papers note joins the remarks (migrations 65 and 66)", () =>
     expect((await db.query<{ value: string }>("select value from public.car_dropped_values where column_name = 'other_docs' order by value")).rows.map((r) => r.value)).toEqual(["CR PHOTOCOPY", "Sales Invoice"]);
   }, 90_000);
 });
+
+describe("the papers for the new owner are an archive kind of folder_files (migration 67)", () => {
+  it("accepts the payment and transfer kinds and nothing else", async () => {
+    const db = await createDb();
+    await db.query("insert into public.unit_folders (plate_no, plate_display, case_type) values ('TRN1111', 'TRN 1111', 'clean')");
+    await db.query("insert into public.folder_files (plate_no, drive_file_id, filename, archive, archive_tag) values ('TRN1111', 'd1', 'a.jpg', 'payment', 'Proof of payment'), ('TRN1111', 'd2', 'b.jpg', 'transfer', 'PNP clearance'), ('TRN1111', 'd3', 'c.jpg', null, null)");
+    await expect(db.query("insert into public.folder_files (plate_no, drive_file_id, filename, archive) values ('TRN1111', 'd4', 'd.jpg', 'other')")).rejects.toThrow();
+    expect((await db.query<{ n: number }>("select count(*)::int as n from public.folder_files where archive = 'transfer'")).rows[0].n).toBe(1);
+  }, 60_000);
+});

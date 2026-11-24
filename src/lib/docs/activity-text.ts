@@ -13,6 +13,8 @@ export function describeActivity(action: string, afterRaw: unknown): string {
     case "docs.upload": { const kinds = list(a.types).map((t) => DOC_LABELS[t as DocType] ?? t); return `Uploaded ${a.area === "out" ? "an OUT document" : a.area === "in" ? "an IN document" : "a photo"}${kinds.length ? `, read as ${kinds.join(" and ")}` : ""}${f}`; }
     case "docs.archive_add": return `Added a payment paper: ${str(a.tag) || "payment"}${f}`;
     case "docs.archive_remove": return `Removed a payment paper${f}`;
+    case "docs.transfer_paper_add": return `Added a paper for the new owner: ${str(a.tag) || "paper"}${f}`;
+    case "docs.transfer_paper_remove": return `Removed a paper of the new owner${str(a.tag) ? ` (${str(a.tag)})` : ""}${f}`;
     case "docs.sale_add": return `Added the sale${str(a.buyer) ? ` for ${str(a.buyer)}` : ""}`;
     case "docs.sale_from_ar": return `The sale was made from the uploaded AR${str(a.buyer) ? ` (${str(a.buyer)})` : ""}`;
     case "docs.payment_status": return str(a.status) ? `Set the payment status to ${str(a.status)}` : "Cleared the payment status";
@@ -44,7 +46,7 @@ export function describeActivity(action: string, afterRaw: unknown): string {
 /** `area`: IN documents, OUT documents (after the sale), or both/neither (the car as a whole). */
 export interface ActivityEntry { id: string; at: string; who: string; text: string; area: "in" | "out" | null }
 
-const OUT_ACTIONS = new Set(["docs.archive_add", "docs.archive_remove", "docs.sale_add", "docs.sale_from_ar", "docs.payment_status", "docs.transfer_released", "docs.transfer_delivered"]);
+const OUT_ACTIONS = new Set(["docs.archive_add", "docs.archive_remove", "docs.transfer_paper_add", "docs.transfer_paper_remove", "docs.sale_add", "docs.sale_from_ar", "docs.payment_status", "docs.transfer_released", "docs.transfer_delivered"]);
 /** Which part of the car's documents an entry belongs to, so the OUT tab can show its own history. */
 export function areaOf(action: string, afterRaw: unknown): "in" | "out" | null {
   if (OUT_ACTIONS.has(action)) return "out";

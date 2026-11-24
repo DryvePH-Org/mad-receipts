@@ -29,11 +29,13 @@ const Line = ({ k, v }: { k: string; v: React.ReactNode }) => <p className="flex
  * The first thing on the car's page: where this car stands, in a few lines each, with a way into the tab that has the rest.
  * Status, documents, the sale, the transfer of the originals, repairs, and what needs a person.
  */
-export function Overview({ data, facts, sale, steps, approval, canSale, detailsMissing, carDescription, payments }: {
+export function Overview({ data, facts, sale, steps, approval, canSale, detailsMissing, carDescription, payments, buyerPapers }: {
   data: CarViewData; facts: CarFacts; sale: Transfer | null; steps: Parameters<typeof stepsOf>[0] | null; approval: { at: string | null; by: string | null };
   canSale: boolean; detailsMissing: number; carDescription: string | null;
   /** the payment papers kept for the car: null for the roles that do not see money */
   payments: { count: number; total: number } | null;
+  /** how many of the papers for the new owner (OR, CR, PNP clearance, macro-etching) have a copy: null when the roles or the car have no sale side */
+  buyerPapers: { have: number; total: number; missing: string[] } | null;
 }) {
   const before = data.items.filter((i) => i.stage === "available" && !i.optional), have = before.filter((i) => i.present).length;
   const soldPapers = data.items.filter((i) => i.stage === "sold"), soldHave = soldPapers.filter((i) => i.present).length;
@@ -101,6 +103,7 @@ export function Overview({ data, facts, sale, steps, approval, canSale, detailsM
             {sale && s ? <>
               <p className="flex flex-wrap items-center gap-2"><Pill tone={sale.stage === "delivered" ? "emerald" : sale.stage === "cancelled" ? "red" : "blue"}>{STAGE_LABEL[sale.stage]}</Pill>{s.next && <span className="text-xs text-muted-foreground">next: {s.steps.find((x) => x.key === s.next)?.label.toLowerCase()}</span>}</p>
               <ol className="flex flex-wrap gap-1" aria-label="Steps">{s.steps.map((x) => <li key={x.key} className={`rounded-full px-2 py-0.5 text-[11px] ${x.done ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-200" : "bg-muted text-muted-foreground"}`}>{x.label}</li>)}</ol>
+              {buyerPapers && <Line k="Buyer's papers" v={<span className={buyerPapers.have === buyerPapers.total ? "text-emerald-800 dark:text-emerald-300" : undefined}>{buyerPapers.have} of {buyerPapers.total} copied{buyerPapers.missing.length > 0 && buyerPapers.have > 0 ? `, missing ${buyerPapers.missing.join(", ")}` : ""}</span>} />}
               {sale.originalsAt && <Line k="Originals" v={sale.originalsAt} />}{sale.liaison && <Line k="Liaison" v={sale.liaison} />}
             </> : <p className="text-muted-foreground">Nothing to transfer yet.</p>}
           </Block>

@@ -764,3 +764,40 @@ test("The AR photo makes the sale: the buyer and the date come from it, the AR s
   await db.from("car_sales").delete().like("plate_no", "ZZT7006");
   await db.from("unit_folders").delete().like("plate_no", "ZZT7006");
 });
+
+test("Papers for the new owner: one tap on a paper, or every photo together with each starting as the paper it most likely is", async ({ browser }) => {
+  test.setTimeout(180_000);
+  const db = adminClient() as unknown as { from: (t: string) => { upsert: (v: object, o?: object) => Promise<{ error: unknown }>; delete: () => { like: (c: string, v: string) => Promise<unknown> } } };
+  await db.from("folder_files").delete().like("plate_no", "ZZT7008");
+  const seeded = await db.from("unit_folders").upsert({ plate_no: "ZZT7008", plate_display: "ZZT 7008", folder_id: "mock-folder-8", folder_name: "20 Kia Stonic (ZZT-7008)", folder_url: "https://drive.example.test/folders/mock-folder-8", location: "sold", match_status: "linked" }, { onConflict: "plate_no" });
+  expect(seeded.error).toBeNull();
+
+  const docs = await as(browser, "docs");
+  await docs.goto("/documents/ZZT7008?tab=sale");
+  await expect(docs.getByRole("heading", { name: /Documents for the new owner/ })).toBeVisible({ timeout: 30_000 });
+  await expect(docs.getByText("0 of 4")).toBeVisible();
+  await docs.waitForTimeout(2000); // the page must be ready before a file is given to it
+
+  // one tap on a paper: its photo goes straight in as that paper
+  await docs.getByLabel("Add photos of the OR").setInputFiles({ name: "photo.jpg", mimeType: "image/jpeg", buffer: JPEG });
+  await expect(docs.getByText("1 of 4")).toBeVisible({ timeout: 40_000 });
+
+  // everything else together: the name says PNP; the two phone photos take the next papers that have nothing yet (CR, then macro-etching)
+  await docs.getByLabel("Photos of the papers for the new owner").setInputFiles([
+    { name: "IMG_1.jpg", mimeType: "image/jpeg", buffer: JPEG }, { name: "IMG_2.jpg", mimeType: "image/jpeg", buffer: JPEG }, { name: "pnp.jpg", mimeType: "image/jpeg", buffer: JPEG },
+  ]);
+  await expect(docs.getByLabel("What is IMG_1.jpg")).toHaveValue("CR");
+  await expect(docs.getByLabel("What is IMG_2.jpg")).toHaveValue("Macro-etching");
+  await expect(docs.getByLabel("What is pnp.jpg")).toHaveValue("PNP clearance");
+  await docs.getByRole("button", { name: "Save 3 papers" }).click();
+  await expect(docs.getByText("4 of 4")).toBeVisible({ timeout: 60_000 });
+
+  // they are kept as the new owner's papers, apart from the IN checklist and the payments
+  const rows = (await adminClient().from("folder_files").select("archive, archive_tag").eq("plate_no", "ZZT7008")).data as { archive: string; archive_tag: string }[];
+  expect(rows.map((r) => `${r.archive}:${r.archive_tag}`).sort()).toEqual(["transfer:CR", "transfer:Macro-etching", "transfer:OR", "transfer:PNP clearance"]);
+  await docs.goto("/documents/ZZT7008?tab=documents");
+  await expect(docs.getByText(/NEWOWNER_/)).toHaveCount(0);
+  await docs.close();
+  await db.from("folder_files").delete().like("plate_no", "ZZT7008");
+  await db.from("unit_folders").delete().like("plate_no", "ZZT7008");
+});
