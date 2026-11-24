@@ -315,9 +315,9 @@ test("Documentation adds photos by typing only the plate: the folder is made, th
   // the car is added to the Docs Bible first: the details are needed, and the photos wait for them
   await expect(docs.getByText("This plate is not in MAD yet")).toBeVisible();
   await expect(docs.getByText("Save the car first, then add its documents.")).toBeVisible();
-  await expect(async () => { await docs.getByRole("button", { name: "Save the car" }).click(); await expect(docs.getByText("Type the make.")).toBeVisible({ timeout: 3000 }); }).toPass({ timeout: 30_000 }); // the page may still be waking up
-  await docs.getByLabel("Make *").fill("toyota"); await docs.getByLabel("Model *").fill("vios 1.3 e");
-  await docs.getByLabel("Year *").fill("2019"); await docs.getByLabel("Color *").fill("white");
+  await expect(async () => { await docs.getByRole("button", { name: "Save the car" }).click(); await expect(docs.getByText("Type the brand.")).toBeVisible({ timeout: 3000 }); }).toPass({ timeout: 30_000 }); // the page may still be waking up
+  await docs.getByLabel("Brand *").fill("toyota"); await docs.getByLabel("Make *").fill("vios 1.3 e");
+  await docs.getByLabel("Model (year) *").fill("2019"); await docs.getByLabel("Color *").fill("white");
   await expect(async () => { await docs.locator("#staged-photos").setInputFiles({ name: "y.jpg", mimeType: "image/jpeg", buffer: JPEG }); await expect(docs.getByText("1 photo chosen")).toBeVisible({ timeout: 3000 }); }).toPass({ timeout: 30_000 }); // chosen in the form: it goes to Drive right after the car is saved
   await docs.getByRole("button", { name: "Save the car and upload 1 document" }).click();
   await expect(docs.getByText(/is in MAD/)).toBeVisible();
@@ -386,6 +386,7 @@ test("each role sees only its own pages", async ({ browser }) => {
     await expect(docs.getByText("You don't have access to this page."), path).toBeVisible();
   }
   await expect(docs.getByRole("link", { name: "Car documents" })).toBeVisible();
+  await expect(docs.getByRole("link", { name: "Add a car" })).toBeVisible(); // Buying add a car from the menu
   await expect(docs.getByRole("link", { name: "New receipt" })).toHaveCount(0);
   await docs.close();
 

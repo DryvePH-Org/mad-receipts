@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { NAV_ITEMS, effectiveModules, isActivePath, navFor, navGroups, roleModules, tabBarItems } from "@/lib/navigation";
+import { ALL_MODULE_IDS, NAV_ITEMS, effectiveModules, isActivePath, navFor, navGroups, roleModules, tabBarItems } from "@/lib/navigation";
 import { editsCars, editsOut, editsPapers, isAdmin, isSuper, roleFromDb, seesSales } from "@/lib/roles";
 import { tabHint } from "@/app/(app)/documents/[plate]/tabs";
 
 describe("navigation", () => {
   it("each role sees its own pages", () => {
-    expect(navFor("super_admin").map((i) => i.href)).toEqual(["/dashboard", "/activity", "/new", "/deals", "/reminders", "/cars", "/documents", "/repairs", "/settings", "/admin/users", "/admin/sync"]);
-    expect(navFor("admin").map((i) => i.href)).toEqual(["/dashboard", "/activity", "/cars", "/documents", "/repairs"]); // every module, none of the administration tools; receipts, transactions and reminders are hidden for now
-    expect(navFor("buying").map((i) => i.href)).toEqual(["/cars", "/documents", "/repairs"]);
+    expect(navFor("super_admin").map((i) => i.href)).toEqual(["/dashboard", "/activity", "/new", "/deals", "/reminders", "/cars", "/documents", "/documents/add", "/repairs", "/settings", "/admin/users", "/admin/sync"]);
+    expect(navFor("admin").map((i) => i.href)).toEqual(["/dashboard", "/activity", "/cars", "/documents", "/documents/add", "/repairs"]); // every module, none of the administration tools; receipts, transactions and reminders are hidden for now
+    expect(navFor("buying").map((i) => i.href)).toEqual(["/cars", "/documents", "/documents/add", "/repairs"]); // Add a car is in the menu for Buying
     expect(navFor("marketing").map((i) => i.href)).toEqual(["/cars", "/documents", "/repairs"]); // the same pages, looking only
     expect(navFor("sales").map((i) => i.href)).toEqual(["/cars", "/documents", "/repairs"]);
   });
@@ -22,7 +22,7 @@ describe("navigation", () => {
   });
 
   it("groups the sidebar into Overview, Receipts, Cars and Administration (only the Super Admin has Receipts)", () => {
-    expect(navGroups("super_admin").map((g) => [g.label, g.items.length])).toEqual([["Overview", 2], ["Receipts", 3], ["Cars", 3], ["Administration", 3]]);
+    expect(navGroups("super_admin").map((g) => [g.label, g.items.length])).toEqual([["Overview", 2], ["Receipts", 3], ["Cars", 4], ["Administration", 3]]);
     expect(navGroups("admin").map((g) => g.label)).toEqual(["Overview", "Cars"]);
     expect(navGroups("sales").map((g) => g.label)).toEqual(["Cars"]);
     expect(navGroups("marketing").map((g) => g.label)).toEqual(["Cars"]);
@@ -33,7 +33,7 @@ describe("navigation", () => {
     expect(tabBarItems("sales").tabs.map((i) => i.label)).toEqual(["Car Inventory", "Car documents", "Repairs"]);
     const admin = tabBarItems("super_admin");
     expect(admin.tabs.map((i) => i.label)).toEqual(["Dashboard", "Activity log", "New receipt", "Transactions"]);
-    expect(admin.more.map((i) => i.label)).toEqual(["Reminders", "Car Inventory", "Car documents", "Repairs", "Settings", "Users", "Sync jobs"]);
+    expect(admin.more.map((i) => i.label)).toEqual(["Reminders", "Car Inventory", "Car documents", "Add a car", "Repairs", "Settings", "Users", "Sync jobs"]);
   });
 
   it("marks the current page", () => {
@@ -42,6 +42,17 @@ describe("navigation", () => {
     expect(isActivePath("/deals", "/dealsheet")).toBe(false);
     expect(isActivePath("/admin/users", "/admin/sync")).toBe(false);
     expect(isActivePath("/deals", null)).toBe(false);
+    // Add a car is lit on its own page, and Car documents is not lit with it
+    expect(isActivePath("/documents/add", "/documents/add")).toBe(true);
+    expect(isActivePath("/documents", "/documents/add")).toBe(false);
+    expect(isActivePath("/documents", "/documents/ABC1234")).toBe(true);
+  });
+
+  it("Add a car follows the Car documents module: it cannot be given or hidden on its own", () => {
+    expect(ALL_MODULE_IDS).not.toContain("add");
+    expect(roleModules("buying")).not.toContain("add");
+    expect(navFor("sales", effectiveModules("sales", ["documents"])).map((i) => i.href)).toContain("/documents/add");
+    expect(navFor("buying", effectiveModules("buying", [], ["documents"])).map((i) => i.href)).not.toContain("/documents/add");
   });
 
   it("a person's modules are the role's, plus granted ones, minus hidden ones", () => {

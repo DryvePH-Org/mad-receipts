@@ -93,7 +93,7 @@ test("Add a car: a plate that is already in the Docs Bible is not added twice, u
   await expect(docs.getByRole("button", { name: "Save the car" })).toHaveCount(0);
   // a second arrival keeps the first row
   await docs.getByRole("button", { name: /arrived again/ }).click();
-  await docs.getByLabel("Make *").fill("honda"); await docs.getByLabel("Model *").fill("city"); await docs.getByLabel("Year *").fill("21"); await docs.getByLabel("Color *").fill("grey");
+  await docs.getByLabel("Brand *").fill("honda"); await docs.getByLabel("Make *").fill("city"); await docs.getByLabel("Model (year) *").fill("21"); await docs.getByLabel("Color *").fill("grey");
   await docs.getByRole("button", { name: "Save the car" }).click();
   await expect(docs.getByText(/is in MAD\. Now add its documents/)).toBeVisible();
   const rows = await db().from("docs_units").select("make").eq("plate_no", PLATE);

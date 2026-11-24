@@ -1,5 +1,6 @@
 import {
   Bell,
+  CirclePlus,
   BookOpenCheck,
   Car,
   CarFront,
@@ -18,7 +19,7 @@ import {
 import type { Role } from "@/lib/roles";
 export { ROLE_LABELS, type Role } from "@/lib/roles";
 
-export type ModuleId = "dashboard" | "cars" | "register" | "new" | "deals" | "reminders" | "documents" | "repairs" | "upload" | "activity" | "settings" | "users" | "sync";
+export type ModuleId = "dashboard" | "cars" | "register" | "new" | "deals" | "reminders" | "documents" | "repairs" | "upload" | "activity" | "settings" | "users" | "sync" | "add";
 
 export interface NavItem {
   id: ModuleId;
@@ -31,6 +32,8 @@ export interface NavItem {
   menu?: false;
   /** Which live count (if any) is shown beside the item. */
   badge?: "reminders";
+  /** a menu entry that is not a module of its own: it is shown to whoever has this other module (so it cannot be given or hidden alone) */
+  via?: ModuleId;
 }
 
 const ALL: Role[] = ["super_admin", "admin", "buying", "marketing", "sales"];
@@ -47,6 +50,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "cars", href: "/cars", label: "Car Inventory", icon: CarFront, group: "Cars", roles: ALL },
   { id: "documents", href: "/documents", label: "Car documents (act)", icon: FolderCheck, group: "Cars", roles: ["super_admin", "admin", "buying"], menu: false }, // scan, approve, move, hand off: the menu entry is "register" below
   { id: "register", href: "/documents", label: "Car documents", icon: BookOpenCheck, group: "Cars", roles: ALL },
+  { id: "add", href: "/documents/add", label: "Add a car", icon: CirclePlus, group: "Cars", roles: [], via: "documents" }, // Buying and the Admins: the way in to add a car and its IN documents
   { id: "repairs", href: "/repairs", label: "Repairs", icon: Wrench, group: "Cars", roles: ALL },
   { id: "upload", href: "/upload-documents", label: "Sold papers (add)", icon: Upload, group: "Cars", roles: ["super_admin", "admin", "sales"], menu: false }, // the module that lets someone add the sold papers on a car page of Car documents
   { id: "settings", href: "/settings", label: "Settings", icon: Settings, group: "Administration", roles: SUPER },
@@ -62,24 +66,24 @@ export const SENSITIVE: ModuleId[] = ["settings", "users", "sync"];
 /** A Super Admin can never lose these two, so someone always stays in charge. */
 export const ADMIN_FLOOR: ModuleId[] = ["users", "settings"];
 
-export const ALL_MODULE_IDS = NAV_ITEMS.map((i) => i.id);
+export const ALL_MODULE_IDS = NAV_ITEMS.filter((i) => !i.via).map((i) => i.id);
 export const GRANTABLE: ModuleId[] = ALL_MODULE_IDS;
 export const isModuleId = (v: unknown): v is ModuleId => typeof v === "string" && (ALL_MODULE_IDS as string[]).includes(v);
 
 /** What a role includes with no changes. */
-export const roleModules = (role: Role): ModuleId[] => NAV_ITEMS.filter((i) => i.roles.includes(role)).map((i) => i.id);
+export const roleModules = (role: Role): ModuleId[] => NAV_ITEMS.filter((i) => !i.via && i.roles.includes(role)).map((i) => i.id);
 
 /** The modules a person has: their role's, plus what the Admin granted (only grantable ones), minus what was hidden. Hiding wins. */
 export function effectiveModules(role: Role, grants: readonly string[] = [], denies: readonly string[] = []): ModuleId[] {
   const set = new Set<ModuleId>(roleModules(role));
   for (const g of grants) if (isModuleId(g) && GRANTABLE.includes(g)) set.add(g);
   for (const d of denies) if (isModuleId(d) && !(role === "super_admin" && ADMIN_FLOOR.includes(d))) set.delete(d);
-  return NAV_ITEMS.map((i) => i.id).filter((id) => set.has(id));
+  return ALL_MODULE_IDS.filter((id) => set.has(id));
 }
 
 
 /** The menu items this role may see. (The pages and the database enforce access too.) */
-export const navFor = (role: Role, modules: readonly ModuleId[] = roleModules(role)): NavItem[] => NAV_ITEMS.filter((item) => item.menu !== false && modules.includes(item.id));
+export const navFor = (role: Role, modules: readonly ModuleId[] = roleModules(role)): NavItem[] => NAV_ITEMS.filter((item) => item.menu !== false && modules.includes(item.via ?? item.id));
 
 /** The nav groups for the sidebar, in order, each with its items. */
 export function navGroups(role: Role, modules?: readonly ModuleId[]): { label: NavItem["group"]; items: NavItem[] }[] {
@@ -98,5 +102,7 @@ export function tabBarItems(role: Role, modules?: readonly ModuleId[]): { tabs: 
 /** Whether a menu item is the current page. */
 export function isActivePath(href: string, pathname: string | null): boolean {
   if (!pathname) return false;
-  return pathname === href || pathname.startsWith(`${href}/`);
+  const on = (h: string) => pathname === h || pathname.startsWith(`${h}/`);
+  // the longest matching menu address wins: Add a car (/documents/add) is lit on its own page, not Car documents (/documents) as well
+  return on(href) && !NAV_ITEMS.some((i) => i.href !== href && i.href.length > href.length && i.href.startsWith(`${href}/`) && on(i.href));
 }

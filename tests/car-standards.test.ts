@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkBody, checkFuel, checkMileage, checkSpareKey, checkTrans, checkWords, checkYear, tidyOf } from "@/lib/cars/standards";
+import { checkBody, checkFuel, checkMileage, checkSpareKey, checkTrans, checkWords, checkYear, FIELD_BY_KEY, formatPlate, tidyOf } from "@/lib/cars/standards";
 import { findTidy, type TidyRow } from "@/lib/cars/tidy";
 import { checkEdit, COLUMN_BY_KEY, canEditColumn } from "@/lib/docsbible/grid";
 
@@ -55,6 +55,21 @@ describe("one format for every detail of a car", () => {
 });
 
 const row = (over: Partial<TidyRow> = {}): TidyRow => ({ id: "11111111-1111-4111-8111-111111111111", plate_no: "AAA1111", plate_display: "AAA 1111", year_model: "19", make: "TOYOTA", model_variant: "VIOS", color: "WHITE", body_type: "SEDAN", trans: "AT", fuel: "GAS", mileage: "45,000 KM", spare_key: "W/SPAREKEY", list_model: null, list_color: null, list_mileage: null, list_fuel: null, ...over });
+
+describe("the company\'s words for a car", () => {
+  it("the Brand is TOYOTA, the Make is VIOS 1.3 E and the Model is the year model", () => {
+    expect(FIELD_BY_KEY.get("make")!.label).toBe("Brand");
+    expect(FIELD_BY_KEY.get("model_variant")!.label).toBe("Make");
+    expect(FIELD_BY_KEY.get("year_model")!.label).toBe("Model (year)");
+    expect(checkYear("abc")).toEqual({ ok: false, error: "Type the model year like 2019." });
+  });
+  it("a plate is written NKF 4771: capitals, three letters, a space, the digits", () => {
+    for (const typed of ["nkf4771", "NKF 4771", " nkf  4771 ", "nkf-4771"]) expect(formatPlate(typed), typed).toBe("NKF 4771");
+    expect(formatPlate("zzt 7010")).toBe("ZZT 7010");
+    expect(formatPlate("ab 12")).toBe("AB 12"); // another shape is only tidied
+    expect(formatPlate("")).toBe("");
+  });
+});
 
 describe("the tidy up list", () => {
   it("a car that follows the standards has nothing to tidy", () => {

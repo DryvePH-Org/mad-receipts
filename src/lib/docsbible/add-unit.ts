@@ -10,7 +10,7 @@ export interface UnitDetailsInput {
 }
 
 export const REQUIRED_DETAILS: { key: keyof UnitDetailsInput; label: string }[] = [
-  { key: "make", label: "Make" }, { key: "model_variant", label: "Model" }, { key: "year_model", label: "Year" }, { key: "color", label: "Color" },
+  { key: "make", label: "Brand" }, { key: "model_variant", label: "Make" }, { key: "year_model", label: "Model (year)" }, { key: "color", label: "Color" },
 ];
 export { BODY_TYPES, BUYING_SOURCES, FUELS, SPARE_KEYS, TRANSMISSIONS } from "@/lib/cars/standards";
 
@@ -31,7 +31,7 @@ export function checkNewUnit(input: UnitDetailsInput, today: string): CheckedUni
   const errors: Record<string, string> = {};
   for (const r of REQUIRED_DETAILS) if (text(input[r.key]) === null) errors[r.key] = `Type the ${r.label.toLowerCase()}.`;
   const year = yearModel(input.year_model ?? "");
-  if (text(input.year_model) !== null && year === null) errors.year_model = "Type the year like 2019 or 19.";
+  if (text(input.year_model) !== null && year === null) errors.year_model = "Type the model year like 2019.";
   const arrival = text(input.arrival_date) === null ? { value: today } : dateOf(input.arrival_date);
   if (!arrival.value) errors.arrival_date = "Type a real date, like 2026-11-18.";
   const body = checkBody(input.body_type), trans = checkTrans(input.trans), fuel = checkFuel(input.fuel), mileage = checkMileage(input.mileage), source = checkBuyingSource(input.buying_source), spare = checkSpareKey(input.spare_key);

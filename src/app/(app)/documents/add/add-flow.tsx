@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DOC_LABELS, type DocType } from "@/lib/docs/types";
 import type { FolderPreview } from "@/lib/docs/service";
-import { BODY_TYPES, BUYING_SOURCES, FUELS, REQUIRED_DETAILS, SPARE_KEYS, TRANSMISSIONS, type UnitDetailsInput } from "@/lib/docsbible/add-unit";
+import { FIELD_BY_KEY, formatPlate, type FieldKey } from "@/lib/cars/standards";
+import { REQUIRED_DETAILS, type UnitDetailsInput } from "@/lib/docsbible/add-unit";
 import type { UnitStatus } from "@/lib/docsbible/add-unit-server";
 import { NativeSelect } from "@/components/ui/native-select";
 import { addUnitAction, finishAddAction, previewAddAction, unitStatusAction } from "../actions";
@@ -77,15 +78,27 @@ export function AddFlow({ suggestions, initialPlate = "", botScans = false }: { 
     if (r.ok) { setSaved(r.plate); if (staged.length) { const files = staged; setStaged([]); send(files); } return; }
     setErrors(r.errors ?? {}); setFormError(r.message);
   }
-  const field = (k: keyof UnitDetailsInput, label: string, opts: { list?: readonly string[]; listId?: string; placeholder?: string; select?: readonly string[] } = {}) => {
+  // every detail follows its standard format: the pick lists, the capitals, and what will be saved is shown while typing
+  const PLAIN: Record<string, string> = { reg_owner_name: "Registered owner (on the CR)", arrival_date: "Date it arrived", cs_no: "CS no", mo_file: "MO file", awarded_to: "Awarded to", encumbrance: "Encumbrance (bank)", category: "Category" };
+  const LISTS: Record<string, { id: string; items: string[] }> = { make: { id: "dl-make", items: suggestions.makes }, model_variant: { id: "dl-model", items: suggestions.models }, color: { id: "dl-color", items: suggestions.colors } };
+  const field = (k: keyof UnitDetailsInput) => {
+    const std = FIELD_BY_KEY.get(k as FieldKey);
     const required = REQUIRED_DETAILS.some((r) => r.key === k);
+    const value = details[k] ?? "";
+    const checked = std && value.trim() ? std.check(value) : null;
+    const error = errors[k] ?? (checked && !checked.ok ? checked.error : null);
+    const saveAs = checked?.ok && checked.value && checked.value !== value.trim() ? checked.value : null;
+    const list = LISTS[k];
     return (
       <div className="space-y-1.5">
-        <Label htmlFor={`u-${k}`}>{label}{required ? " *" : ""}</Label>
-        {opts.select ? <NativeSelect id={`u-${k}`} value={details[k] ?? ""} onChange={(e) => set(k, e.target.value)}><option value="">Choose…</option>{opts.select.map((o) => <option key={o} value={o}>{o}</option>)}</NativeSelect>
-          : <Input id={`u-${k}`} value={details[k] ?? ""} list={opts.listId} placeholder={opts.placeholder} autoComplete="off" onChange={(e) => set(k, e.target.value)} aria-invalid={!!errors[k]} />}
-        {opts.listId && opts.list && <datalist id={opts.listId}>{opts.list.map((o) => <option key={o} value={o} />)}</datalist>}
-        {errors[k] && <p className="text-xs text-destructive">{errors[k]}</p>}
+        <Label htmlFor={`u-${k}`}>{(std?.label ?? PLAIN[k] ?? k)}{required ? " *" : ""}</Label>
+        {std?.options ? (
+          <NativeSelect id={`u-${k}`} value={value} onChange={(e) => set(k, e.target.value)}><option value="">Choose…</option>{std.options.map((o) => <option key={o} value={o}>{k === "spare_key" ? std.show(o) : o}</option>)}</NativeSelect>
+        ) : (
+          <Input id={`u-${k}`} value={value} list={list && list.items.length ? list.id : undefined} placeholder={std ? `e.g. ${std.hint}` : k === "arrival_date" ? "today if empty" : undefined} autoComplete="off" inputMode={k === "year_model" || k === "mileage" ? "numeric" : undefined} onChange={(e) => set(k, e.target.value)} aria-invalid={!!error} />
+        )}
+        {list && list.items.length > 0 && <datalist id={list.id}>{list.items.map((o) => <option key={o} value={o} />)}</datalist>}
+        {error ? <p className="text-xs text-destructive">{error}</p> : saveAs ? <p className="text-xs text-muted-foreground">Will be saved as <b className="text-foreground">{std?.show(saveAs)}</b></p> : null}
       </div>
     );
   };
@@ -97,7 +110,7 @@ export function AddFlow({ suggestions, initialPlate = "", botScans = false }: { 
           <div className="max-w-xs space-y-1.5">
             <Label htmlFor="add-plate">Plate number *</Label>
             <div className="relative">
-              <Input id="add-plate" value={plate} autoComplete="off" autoCapitalize="characters" placeholder="e.g. NKF 4771" className="pr-9" onChange={(e) => { setPlate(e.target.value.toUpperCase()); setSaved(null); setFinished(null); }} />
+              <Input id="add-plate" value={plate} autoComplete="off" autoCapitalize="characters" placeholder="e.g. NKF 4771" className="pr-9" onChange={(e) => { setPlate(formatPlate(e.target.value)); setSaved(null); setFinished(null); }} />
               {looking && <Loader2 className="absolute top-2.5 right-3 size-4 animate-spin text-muted-foreground" aria-label="Looking" />}
             </div>
           </div>
@@ -117,13 +130,15 @@ export function AddFlow({ suggestions, initialPlate = "", botScans = false }: { 
             </div>
           ) : (
             <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void saveUnit(); }}>
-              <p className="text-sm text-muted-foreground">{again ? "A second arrival of this plate: the earlier one is kept." : unit ? "This plate is not in MAD yet." : "Type the plate, then the car's details."} Only the plate, make, model, year and color are needed (*). The rest can be filled in later.</p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {field("make", "Make", { listId: "dl-make", list: suggestions.makes, placeholder: "e.g. TOYOTA" })}
-                {field("model_variant", "Model", { listId: "dl-model", list: suggestions.models, placeholder: "e.g. VIOS 1.3 E" })}
-                {field("year_model", "Year", { placeholder: "2019 or 19" })}
-                {field("color", "Color", { listId: "dl-color", list: suggestions.colors, placeholder: "e.g. WHITE" })}
-              </div>
+              <p className="text-sm text-muted-foreground">{again ? "A second arrival of this plate: the earlier one is kept." : unit ? "This plate is not in MAD yet." : "Type the plate, then the car's details."} Only the plate, brand, make, model (year) and color are needed (*). The rest can be filled in later.</p>
+              <fieldset className="space-y-3">
+                <legend className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">The car</legend>
+                <div className="grid gap-4 sm:grid-cols-2">{field("make")}{field("model_variant")}{field("year_model")}{field("color")}</div>
+              </fieldset>
+              <fieldset className="space-y-3">
+                <legend className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">What it is like (optional)</legend>
+                <div className="grid gap-4 sm:grid-cols-2">{field("body_type")}{field("trans")}{field("fuel")}{field("mileage")}{field("spare_key")}</div>
+              </fieldset>
               <div className="space-y-2 rounded-lg border p-3 text-sm">
                 <p className="font-medium">Documents (photos of the papers)</p>
                 <p className="text-xs text-muted-foreground">Choose them now and they go into the car&apos;s Google Drive folder, and are scanned, as soon as you save the car. Or add them after saving.</p>
@@ -134,18 +149,8 @@ export function AddFlow({ suggestions, initialPlate = "", botScans = false }: { 
                   {staged.length > 0 && <button type="button" className="text-xs underline underline-offset-2" onClick={() => setStaged([])}>Clear</button>}
                 </div>
               </div>
-              <details className="rounded-lg border p-3 text-sm"><summary className="cursor-pointer font-medium">More about the car (optional, can be filled in later)</summary>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  {field("body_type", "Body type", { select: BODY_TYPES })}
-                  {field("trans", "Transmission", { select: TRANSMISSIONS })}
-                  {field("fuel", "Fuel", { select: FUELS })}
-                  {field("mileage", "Mileage", { placeholder: "e.g. 45T KMS" })}
-                  {field("reg_owner_name", "Registered owner (on the CR)")}
-                  {field("buying_source", "Bought from", { select: BUYING_SOURCES })}
-                  {field("spare_key", "Spare key", { select: SPARE_KEYS })}
-                  {field("arrival_date", "Date it arrived", { placeholder: "today if empty" })}
-                  {field("cs_no", "CS no")}{field("mo_file", "MO file")}{field("awarded_to", "Awarded to")}{field("encumbrance", "Encumbrance (bank)")}{field("category", "Category")}
-                </div></details>
+              <details className="rounded-lg border p-3 text-sm"><summary className="cursor-pointer font-medium">Buying and papers (optional, can be filled in later)</summary>
+                <div className="mt-3 grid gap-4 sm:grid-cols-2">{field("reg_owner_name")}{field("buying_source")}{field("arrival_date")}{field("cs_no")}{field("mo_file")}{field("awarded_to")}{field("encumbrance")}{field("category")}</div></details>
               {formError && <p className="flex gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200" role="alert"><CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />{formError}</p>}
               <Button type="submit" disabled={saving || plate.replace(/[^A-Za-z0-9]/g, "").length < 5}>{saving ? <Loader2 className="animate-spin" /> : <CarFront />} {staged.length ? `Save the car and upload ${staged.length} ${staged.length === 1 ? "document" : "documents"}` : "Save the car"}</Button>
             </form>

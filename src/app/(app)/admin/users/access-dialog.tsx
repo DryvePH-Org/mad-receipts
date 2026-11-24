@@ -8,10 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
-import { ADMIN_FLOOR, effectiveModules, NAV_ITEMS, ROLE_LABELS, roleModules, SENSITIVE, type ModuleId, type Role } from "@/lib/navigation";
+import { ADMIN_FLOOR, effectiveModules, NAV_ITEMS as ALL_ITEMS, ROLE_LABELS, roleModules, SENSITIVE, type ModuleId, type Role } from "@/lib/navigation";
 import { setModuleAccess } from "./actions";
 
 type Choice = "role" | "allow" | "hide";
+const NAV_ITEMS = ALL_ITEMS.filter((i) => !i.via); // a menu entry that follows another module is not a module of its own
 const label = (id: ModuleId) => NAV_ITEMS.find((i) => i.id === id)?.label ?? id;
 
 /** What one person may open: the role's modules, with any module added or hidden. Saving shows what will change and asks to confirm. */

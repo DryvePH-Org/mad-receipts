@@ -32,7 +32,6 @@ async function Content() {
     <div className="space-y-4">
       <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">{pageNote("documents", role)}</p>
       {(canAct || seesSales(role)) && <div className="flex flex-wrap gap-2">
-        {canAct && <Button nativeButton={false} render={<Link href="/documents/add" />}>Add a car</Button>}
         {canAct && <Button variant="outline" nativeButton={false} render={<Link href="/documents/handoff" />}>Documents on handoff</Button>}
         {seesSales(role) && <Button variant="outline" nativeButton={false} render={<Link href="/documents/transfers" />}>Transfers</Button>}
       </div>}

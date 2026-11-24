@@ -61,7 +61,7 @@ export function checkYear(raw: unknown): Checked {
   const d = squash(raw).replace(/\D/g, "");
   if (d.length === 2) return { ok: true, value: d };
   if (d.length === 4 && /^(19|20)\d\d$/.test(d)) return { ok: true, value: d.slice(2) };
-  return { ok: false, error: "Type the year like 2019." };
+  return { ok: false, error: "Type the model year like 2019." };
 }
 
 /** Make, model and color: capitals, one space between words. Only letters, digits and the usual punctuation. */
@@ -107,9 +107,10 @@ export interface FieldStandard {
 const plain = (v: string | null | undefined) => (v && v.trim() ? v.trim() : "—");
 
 export const FIELDS: FieldStandard[] = [
-  { key: "year_model", label: "Year", hint: "2019", check: checkYear, show: (v) => (v ? fullYear(v) : "—") },
-  { key: "make", label: "Make", hint: "TOYOTA", check: checkWords("make", 40), show: plain },
-  { key: "model_variant", label: "Model and variant", hint: "VIOS 1.3 E", check: checkWords("model", 80), show: plain },
+  // the company's words: the Brand is TOYOTA, the Make is VIOS 1.3 E, the Model is the year model (2019)
+  { key: "year_model", label: "Model (year)", hint: "2019", check: checkYear, show: (v) => (v ? fullYear(v) : "—") },
+  { key: "make", label: "Brand", hint: "TOYOTA", check: checkWords("brand", 40), show: plain },
+  { key: "model_variant", label: "Make", hint: "VIOS 1.3 E", check: checkWords("make", 80), show: plain },
   { key: "color", label: "Color", hint: "WHITE PEARL", check: checkWords("color", 40), show: plain },
   { key: "body_type", label: "Body type", options: BODY_TYPES, hint: "SUV", check: checkBody, show: plain },
   { key: "trans", label: "Transmission", options: TRANSMISSIONS, hint: "AT", check: checkTrans, show: plain },
@@ -130,4 +131,11 @@ export function tidyOf(key: FieldKey, stored: string | null | undefined): { fits
   if (!c.ok) return { fits: false, suggestion: null, reason: c.error };
   if (c.value === squash(stored)) return { fits: true };
   return { fits: false, suggestion: c.value, reason: `Written ${std.hint ? "the standard way" : "differently"}.` };
+}
+
+/** A plate as it is written everywhere: capitals, three letters then a space then the digits (NKF 4771). Any other shape is only tidied (capitals, one space). */
+export function formatPlate(raw: unknown): string {
+  const t = squash(raw).toUpperCase().replace(/[^A-Z0-9 ]/g, "");
+  const m = /^([A-Z]{3})\s?(\d{3,4})$/.exec(t);
+  return m ? `${m[1]} ${m[2]}` : t;
 }

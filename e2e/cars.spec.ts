@@ -102,7 +102,7 @@ test("the car record: the same sections for every car, details edited by the Adm
   await admin.locator("tbody tr").first().click();
   const dialog = admin.getByRole("dialog");
   for (const section of ["Car details", "Status and price", "Where it is", "Papers"]) await expect(dialog.getByRole("heading", { name: section })).toBeVisible();
-  for (const label of ["Year", "Make", "Model and variant", "Color", "Body type", "Transmission", "Fuel", "Mileage", "Spare key"]) await expect(dialog.getByText(label, { exact: true }).first()).toBeVisible();
+  for (const label of ["Model (year)", "Brand", "Make", "Color", "Body type", "Transmission", "Fuel", "Mileage", "Spare key"]) await expect(dialog.getByText(label, { exact: true }).first()).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Edit status and price" })).toBeVisible();
 
   // the details form: pick lists for the closed sets, the way it will be saved shown while typing
@@ -114,7 +114,7 @@ test("the car record: the same sections for every car, details edited by the Adm
   await dialog.getByLabel("Mileage").fill("lots");
   await expect(dialog.getByText("Type the mileage in km, like 45000.")).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Save the details" })).toBeDisabled();
-  await dialog.getByLabel("Year").fill("2019");
+  await dialog.getByLabel("Model (year)").fill("2019");
   await dialog.getByRole("button", { name: "Cancel" }).click(); // nothing was saved
   await expect(dialog.getByRole("button", { name: "Edit details" })).toBeVisible();
   await admin.keyboard.press("Escape");

@@ -1,4 +1,5 @@
 import "server-only";
+import { formatPlate } from "@/lib/cars/standards";
 import { manilaToday } from "@/lib/dates";
 import { plateKey } from "./normalize";
 import { checkNewUnit, type UnitDetailsInput } from "./add-unit";
@@ -38,7 +39,7 @@ export async function addUnit(plateTyped: string, details: UnitDetailsInput, act
   if (!checked.ok) return { ok: false, message: "Some details are missing or wrong.", errors: checked.errors };
   const status = await unitStatus(key);
   if (status.exists && !secondArrival) return { ok: false, message: `${key} is already in MAD (${status.name}).`, exists: { id: status.id, name: status.name } };
-  const row = { plate_no: key, plate_display: plateTyped.trim().toUpperCase().replace(/\s+/g, " "), ...checked.fields, arrival_raw: checked.fields.arrival_date, source: "app", last_change_source: "add", created_by: actor, updated_by: actor };
+  const row = { plate_no: key, plate_display: formatPlate(plateTyped), ...checked.fields, arrival_raw: checked.fields.arrival_date, source: "app", last_change_source: "add", created_by: actor, updated_by: actor };
   const r = await docsDb().from("docs_units").insert({ ...row, stock_state: "Onhand" }).select("id").single(); // the one status
   if (r.error) return { ok: false, message: `Could not add the car: ${r.error.message}` };
   // a second arrival is put on the data check, so the staff can decide later whether it is a real second arrival or a double entry
