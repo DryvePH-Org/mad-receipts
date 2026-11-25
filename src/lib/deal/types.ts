@@ -84,6 +84,10 @@ export interface FormState {
   payoutProofs: ProofFile[];
   hasRem: boolean;
   remarks: string;
+  /** who sold the car (a person with the Sales role): the name the car's Reserved/Sold and the sale record carry. An Admin chooses it; Sales are themselves. */
+  soldBy: string;
+  /** an Admin saves without the proof photos (for example when ARs of the past are entered) */
+  skipProofs: boolean;
   notes: NoteRow[];
 }
 

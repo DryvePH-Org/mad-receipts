@@ -19,11 +19,13 @@ const peso = (v: string) => toCentavos(v) ?? 0;
 export const unitFieldId = (i: number, key: string) => `unit-${i}-${key}`;
 
 /** What stops a receipt from being sent for approval. The server runs the same check. */
-export function missingFields(s: FormState, t: Totals, settings: AppSettings, opts: { continuing: boolean; duplicateDeal?: string }): Missing[] {
+export function missingFields(s: FormState, t: Totals, settings: AppSettings, opts: { continuing: boolean; duplicateDeal?: string; /** an Admin starting a deal must say who sold the car */ needsSoldBy?: boolean }): Missing[] {
   const m: Missing[] = [];
   const add = (step: Step, label: string, target: string) => m.push({ step, label, target });
   const req = settings.required;
+  const proofsOn = req.proofs && !s.skipProofs; // an Admin may save without the proof photos
   if (!s.receiptNo.trim()) add(1, "Receipt number", "receiptNo");
+  if (opts.needsSoldBy && !s.soldBy.trim()) add(1, "Who sold it", "soldBy");
   if (!s.receivedFrom.trim()) add(1, "Received from", "receivedFrom");
   const digits = s.contact.replace(/\D/g, "");
   const phoneOk = /^09\d{9}$/.test(digits);
@@ -58,10 +60,10 @@ export function missingFields(s: FormState, t: Totals, settings: AppSettings, op
   if (t.balance > 0 && !dueText) add(4, "When the balance will be given", s.dueMode === "date" ? "dueDate" : "dueText");
   s.methods.forEach((x, i) => {
     if (x.type === "wallet" && peso(x.amount) && !x.name.trim()) add(4, "Name of a payment method", `method-${i}-name`);
-    if (settings.required.proofs && peso(x.amount) && x.proofs.length === 0) add(4, `Proof for ${x.type === "check" ? "the check" : x.name || "the payment"}`, `method-${i}-proof`);
+    if (proofsOn && peso(x.amount) && x.proofs.length === 0) add(4, `Proof for ${x.type === "check" ? "the check" : x.name || "the payment"}`, `method-${i}-proof`);
   });
-  if (settings.required.proofs && peso(s.cash) && s.cashProofs.length === 0) add(4, "Photo of the cash", "cash-proof");
-  if (settings.required.proofs && t.payout && s.payoutProofs.length === 0) add(4, "Proof of the payout to the buyer", "payout-proof");
+  if (proofsOn && peso(s.cash) && s.cashProofs.length === 0) add(4, "Photo of the cash", "cash-proof");
+  if (proofsOn && t.payout && s.payoutProofs.length === 0) add(4, "Proof of the payout to the buyer", "payout-proof");
   if (t.due >= 0 && t.balance < 0) add(4, `Received is more than is due (overpaid by ${formatPeso(-t.balance)})`, "cash");
   if (t.due < 0 && t.balance > 0) add(4, "The payout is more than we owe the buyer", "payout");
   if (t.payout > 0 && t.due >= 0) add(4, "A payout only applies when we owe the buyer", "payout");

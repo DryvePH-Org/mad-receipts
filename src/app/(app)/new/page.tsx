@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { requireModule } from "@/lib/auth";
+import { salespeopleNames } from "@/lib/deal/salespeople";
+import { isAdmin } from "@/lib/roles";
 import { getDeal, getSettings, listDeals } from "@/lib/data";
 import { manilaToday } from "@/lib/dates";
 import { inventory } from "@/lib/inventory";
@@ -33,5 +35,5 @@ async function Content({ searchParams }: { searchParams: PageProps<"/new">["sear
     committed: found.openingPaid + found.approvedPaid + found.pendingPaid, terms: found.terms,
   } : null;
   const invUnits: InvUnit[] = units.map((u) => ({ plate: u.plate, makeType: withYear(u.year, u.makeType), color: u.color, status: u.status }));
-  return <ReceiptForm key={cont?.id ?? "new"} userId={user.id} today={manilaToday()} settings={settings} inventory={invUnits} liveDeals={live} continueDeal={cont} />;
+  return <ReceiptForm key={cont?.id ?? "new"} userId={user.id} today={manilaToday()} settings={settings} inventory={invUnits} liveDeals={live} continueDeal={cont} isAdmin={isAdmin(user.role)} salespeople={await salespeopleNames()} />;
 }

@@ -123,7 +123,6 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
   const openItems = [...items.filter((i) => !i.present && !i.optional).map((i) => i.label), ...(car.pending ? [`${car.pending} photo${car.pending === 1 ? "" : "s"} not read yet`] : []), ...(flagged ? [`${flagged} file${flagged === 1 ? "" : "s"} still to check`] : [])];
   const soldItems = items.filter((i) => i.stage === "sold").map((i) => ({ key: i.key, label: i.label, present: i.present }));
   // the app's own printout of the AR (unsigned) saved in the folder: shown beside the signed paper, for Documentation (it does not hold up the car)
-  const arCopy = receipts.length ? [{ key: "ar_copy", label: "AR copy from the app, saved in the folder (UNSIGNED)", present: receipts.every((r) => r.filed), optional: true }] : [];
   const busy = scanning || data.botWork.length > 0;
 
   const facts = await loadCarFacts(key).catch(() => ({ unit: null, repairs: [] } as CarFacts));
@@ -133,16 +132,14 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
   const detailsMissing = missingDetails(flow.details).length;
   const soldCar = data.location === "sold" || facts.unit?.stockState === "Sold";
   const handData = { plate: key, location: data.location, soldCar, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, releasedOn: hand?.releasedOn ?? null, deliveredOn: hand?.deliveredOn ?? null, stage: sale?.stage ?? hand?.stage ?? null,
-    items: [...items, ...arCopy].map((i) => ({ key: i.key, label: i.label, present: i.present, optional: i.optional })) };
+    items: [...items].map((i) => ({ key: i.key, label: i.label, present: i.present, optional: i.optional })) };
   const before = items.filter((i) => i.stage === "available" && !i.optional);
   // the after-sale checklist: the signed AR (every AR that was uploaded is listed under it), the buyer's ID and the deed
   const fileOf = new Map(car.files.map((f) => [f.id, f]));
   const outItems: OutItem[] = items.filter((i) => i.stage === "sold").map((i) => ({
-    key: i.key, label: i.key === "ack" ? "Signed AR (every AR that is uploaded)" : i.label, present: i.present,
-    files: (i.key === "ack" ? car.files.filter((f) => f.doc_types.includes("acknowledgement_receipt")).map((f) => f.id) : i.fileIds).map((id) => fileOf.get(id)).filter((f): f is NonNullable<typeof f> => !!f).map((f) => {
-      const d = detectionsOf(f.details)?.find((x) => x.type === "acknowledgement_receipt");
-      return { id: f.id, name: f.filename, by: f.uploaded_by ? uploaderName.get(f.uploaded_by) ?? "Someone" : null, at: f.created_at, note: d ? [d.buyerName && `Buyer ${d.buyerName}`, d.documentNumber && `AR no. ${d.documentNumber}`, d.amount != null && `₱${d.amount.toLocaleString("en-PH")}`, d.documentDate && dayOf(d.documentDate)].filter(Boolean).join(" · ") || f.filename : f.filename };
-    }),
+    key: i.key, label: i.label, present: i.present,
+    // the AR line has no photo: it is the receipt saved in the app (see the Receipts tab); the other lines list the papers read from the folder
+    files: (i.key === "ack" ? [] : i.fileIds).map((id) => fileOf.get(id)).filter((f): f is NonNullable<typeof f> => !!f).map((f) => ({ id: f.id, name: f.filename, by: f.uploaded_by ? uploaderName.get(f.uploaded_by) ?? "Someone" : null, at: f.created_at, note: null })),
   }));
   const outHave = outItems.filter((i) => i.present).length;
   const buyerName = data.deal?.buyerName ?? sale?.buyer ?? null;
@@ -164,7 +161,7 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
         <aside className="space-y-6">
           {canAct ? <ApprovalCard isAdmin={data.isAdmin} plate={key} approvedAt={flow.workflow.approvedAt} approvedBy={flow.workflow.approvedByName} marketingNotifiedAt={flow.workflow.marketingNotifiedAt} rule={stage.rules.approve} activity={activity} />
             : <Card id="approval"><CardHeader><CardTitle className="flex flex-wrap items-center gap-3">Approval{flow.workflow.approvedAt ? <Pill tone="emerald">Approved</Pill> : <Pill tone="zinc">Not approved yet</Pill>}</CardTitle></CardHeader><CardContent className="space-y-3 text-sm">{flow.workflow.approvedAt && <p className="font-medium">Approved by {flow.workflow.approvedByName ?? "someone"}.</p>}<div className="space-y-1 border-t pt-3"><p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Activity on this car</p><ActivityList entries={activity} /></div></CardContent></Card>}
-          {canAct && <SoldCard plate={key} location={data.location} items={[...arCopy.map(({ key: k, label, present }) => ({ key: k, label, present })), ...soldItems]} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />}
+          {canAct && <SoldCard plate={key} location={data.location} items={soldItems} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />}
           {canAct && <ChecksHelp />}
         </aside>
       </div>) : <NoFolder data={data} canAct={canAct} /> },
@@ -210,7 +207,6 @@ function NoFolder({ data, canAct }: { data: CarViewData; canAct: boolean }) {
 const Empty = ({ children }: { children: React.ReactNode }) => <Card><CardContent className="pt-4 text-sm text-muted-foreground">{children}</CardContent></Card>;
 
 type Who = { editsIn: boolean; editsOut: boolean; seesSales: boolean };
-const dayOf = (iso: string) => new Date(`${iso}T00:00:00+08:00`).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Manila" });
 
 /** For the people who do not act on the IN documents: what this page is for them, and their next step (if there is one). */
 function YourPart({ hint, next, plate }: { hint: string; next: { anchor: string | null; title: string } | null; plate: string }) {

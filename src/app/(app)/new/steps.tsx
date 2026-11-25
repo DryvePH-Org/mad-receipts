@@ -31,6 +31,8 @@ export interface Ctx {
   /** the steps whose missing fields are shown in colour: only after the person has been past them */
   revealed: ReadonlySet<number>;
   earlierLocked: boolean; unlockEarlier: () => void;
+  /** an Admin or the Super Admin: chooses who sold the car and may save without the proof photos */
+  isAdmin: boolean; salespeople: string[];
   /** full payment: cash is exactly what is left, until the user unlocks it */
   cashAuto: boolean; unlockCash: () => void;
 }
@@ -61,6 +63,8 @@ export function StepBuyer({ ctx }: { ctx: Ctx }) {
         <div className="sm:col-span-2"><FormField id="date" label="Date"><Input id="date" type="date" value={s.date} onChange={(e) => set({ date: e.target.value })} /></FormField></div>
         <div className="sm:col-span-4"><FormField id="receivedFrom" label="Received from" error={bad(ctx, "receivedFrom") ? "Required" : undefined}><Input id="receivedFrom" value={s.receivedFrom} onChange={(e) => set({ receivedFrom: e.target.value })} placeholder="Full name of the buyer" autoComplete="off" disabled={ctx.linked} /></FormField></div>
         <div className="sm:col-span-2"><FormField id="contact" label="Contact no." hint={!digits ? "11 digits, starting with 09" : digits.length !== 11 ? `${digits.length} of 11 digits` : !digits.startsWith("09") ? "Mobile numbers start with 09" : "11 digits ✓"}><Input id="contact" className="font-mono" inputMode="tel" value={s.contact} aria-invalid={bad(ctx, "contact")} onChange={(e) => set({ contact: e.target.value.replace(/[^\d\s]/g, "") })} onBlur={(e) => set({ contact: prettyPhone(e.target.value) })} placeholder="0917 123 4567" /></FormField></div>
+        {ctx.isAdmin && !ctx.linked && <div className="sm:col-span-3"><FormField id="soldBy" label="Who sold it" hint="A person with the Sales role: the car says Reserved or Sold by this person." error={bad(ctx, "soldBy") ? "Required" : undefined}>
+          <NativeSelect id="soldBy" value={s.soldBy} onChange={(e) => set({ soldBy: e.target.value })}><option value="">Choose…</option>{ctx.salespeople.map((p) => <option key={p}>{p}</option>)}</NativeSelect></FormField></div>}
         <div className="sm:col-span-6"><FormField id="address" label="Postal address" error={bad(ctx, "address") ? "Required" : undefined}><Input id="address" value={s.address} onChange={(e) => set({ address: e.target.value })} placeholder="Street, barangay, city" /></FormField></div>
       </CardContent></Card>
   );
@@ -243,12 +247,13 @@ export function StepDeal({ ctx }: { ctx: Ctx }) {
 // ======================= 4. Payment =======================
 export function StepPayment({ ctx }: { ctx: Ctx }) {
   const { s, t, set, settings, userId } = ctx;
-  const proofs = settings.required.proofs;
+  const proofs = settings.required.proofs && !s.skipProofs;
   const setMethod = (i: number, p: Partial<MethodRow>) => set({ methods: s.methods.map((m, j) => (j === i ? { ...m, ...p } : m)) });
   const [bankOther, setBankOther] = useState<Record<number, boolean>>({});
   const b = ctx.ledger.balance;
   return (
     <>
+      {ctx.isAdmin && settings.required.proofs && <label className="flex items-center gap-2 rounded-lg bg-muted/60 p-3 text-sm"><input type="checkbox" checked={s.skipProofs} onChange={(e) => set({ skipProofs: e.target.checked })} /> Save without the proof photos (Admin only, for example when ARs of the past are entered)</label>}
       <Card><Title icon={<HandCoins className="size-4" />} title="This payment" desc="What kind of payment, and how the money came in" />
         <CardContent className="space-y-5">
           <LieuNote s={s} />

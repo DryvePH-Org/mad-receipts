@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { SyncContext } from "@/lib/sync/targets";
 import { dealSaleKey, salespersonOf, sameBuyer } from "./match";
+import { paymentStatusOfDeal } from "./payment-status";
 
 const db = (): SupabaseClient => createAdminClient() as unknown as SupabaseClient; // the sale records are newer than the generated types
 
@@ -52,6 +53,12 @@ export async function ensureSaleRecords(ctx: SyncContext): Promise<void> {
       if (Object.keys(fill).length) await client.from("docs_units").update({ ...fill, last_change_source: "app" }).eq("id", unit.id);
     }
   }
+}
+
+/** The sale record of each car follows the deal's money: its payment status is worked out from the receipts, so it never has to be set by hand. Safe to run again. */
+export async function syncSalePayment(ctx: SyncContext): Promise<void> {
+  const status = paymentStatusOfDeal(ctx.deal as unknown as Parameters<typeof paymentStatusOfDeal>[0]);
+  await db().from("car_sales").update({ payment_status: status, payment_status_at: new Date().toISOString() }).eq("deal_id", ctx.deal.id);
 }
 
 /** The deal was cancelled: its sale records are cancelled too (they stay on record, out of the open work). */

@@ -22,8 +22,8 @@ export function buildSubmitPayload(s: FormState, dealId: string | null) {
       method: m.type, label: m.type === "check" ? "Check" : m.name, amount: money(m.amount), reference: m.ref, check_no: m.checkNo, bank: m.bank, branch: m.branch, attachments: proofs(m.proofs),
     })),
   ];
-  const { cashProofs: _c, payoutProofs: _p, methods: _m, cash: _cash, payout: _pay, earlier: _e, ...terms } = snap;
-  void [_c, _p, _m, _cash, _pay, _e];
+  const { cashProofs: _c, payoutProofs: _p, methods: _m, cash: _cash, payout: _pay, earlier: _e, skipProofs: _s, ...terms } = snap;
+  void [_c, _p, _m, _cash, _pay, _e, _s];
   const base = {
     deal_id: dealId, receipt_no: s.receiptNo.trim(), receipt_date: s.date, kind: s.kind, payments,
     payout: money(s.payout) ? { amount: money(s.payout), attachments: proofs(s.payoutProofs) } : null,

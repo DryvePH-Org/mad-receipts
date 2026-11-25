@@ -24,11 +24,15 @@ const next = async (page: Page, to: string) => {
   if (await btn.count()) await btn.click();
 };
 
+/** An Admin says who sold the car (the first person with the Sales role in the list); Sales have no such box. */
+async function pickSeller(page: Page) { const box = page.getByLabel("Who sold it"); if (await box.count()) await box.selectOption({ index: 1 }); }
+
 /** Fills the whole form for a financed sale with a trade-in, as Sales would. */
 async function fillFinanced(page: Page, no: string, plate: string) {
   await page.goto("/new");
   await page.getByLabel("Receipt No.").fill(no);
   await page.getByLabel("Received from").fill("ZZT E2E Maria Santos");
+  await pickSeller(page);
   await page.getByLabel("Contact no.").fill("09171234567");
   await page.getByLabel("Postal address").fill("27 Maginhawa St., Quezon City");
   await next(page, "Vehicle");
@@ -145,6 +149,7 @@ test("continuing a deal fills in at once; earnest money and a full payment work 
   // a car that already has an open deal offers to continue it, and the deal's details are there at once, with no refresh
   await sales.goto("/new");
   await sales.getByLabel("Received from").fill("ZZT E2E Someone Else");
+  await pickSeller(sales);
   await next(sales, "Vehicle");
   await sales.getByRole("button", { name: "Not in the inventory? Type it yourself" }).click();
   await sales.getByLabel("Plate number").fill("ZZT 1001");

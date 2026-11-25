@@ -45,6 +45,8 @@ export interface SyncDeps {
   docsLink?: (plate: string, dealId: string) => Promise<unknown>;
   /** Makes (or joins) the sale record of each car of the deal. */
   saleRecords?: (ctx: SyncContext) => Promise<void>;
+  /** Brings the payment status of the deal's sale records up to date with the receipts. */
+  salePayment?: (ctx: SyncContext) => Promise<void>;
   /** Puts the audit copy of the receipt (its printout and proofs) in the receipts folder in Drive. */
   auditCopy?: (ctx: SyncContext) => Promise<void>;
 }
@@ -63,6 +65,13 @@ export function unitStatusFor(status: DealStatusKey): "Available" | "Reserved" |
   return status === "settled" ? "Sold" : status === "cancelled" ? "Available" : "Reserved";
 }
 
+/**
+ * Receipts are announced on Telegram, except on the days listed here: a day when many receipts of the past are entered at once (the owner's decision: 25 Nov 2026 only).
+ * The day is the day the receipt was saved, so a job retried later stays quiet too.
+ */
+export const TELEGRAM_QUIET_DAYS: string[] = ["2026-11-25"];
+export const isQuietDay = (ctx: Pick<SyncContext, "today" | "receipt">): boolean => TELEGRAM_QUIET_DAYS.includes(ctx.today) || TELEGRAM_QUIET_DAYS.includes(new Date(new Date(ctx.receipt.created_at).getTime() + 8 * 3_600_000).toISOString().slice(0, 10));
+
 /** Each target is safe to run again: it checks for its own earlier result first. */
 export const syncTargets: Record<SyncTarget, (ctx: SyncContext, deps: SyncDeps) => Promise<SyncResult | void>> = {
   async docs(ctx, deps) {
@@ -71,6 +80,7 @@ export const syncTargets: Record<SyncTarget, (ctx: SyncContext, deps: SyncDeps) 
     if (!deps.docsLink) throw new Error("The documents folders are not set up");
     for (const unit of ctx.units) await deps.docsLink(unit.plate, ctx.deal.id);
     if (deps.saleRecords) await deps.saleRecords(ctx);   // and the sale of each car becomes a record of the sale list
+    if (deps.salePayment) await deps.salePayment(ctx);   // and its payment status follows the receipts
   },
 
   // The audit copy: every saved receipt goes to the receipts folder in Drive (its printout and its proofs), once. The copy into the car's own folder is a button.
@@ -83,6 +93,7 @@ export const syncTargets: Record<SyncTarget, (ctx: SyncContext, deps: SyncDeps) 
   async sheets() { return; },
 
   async telegram(ctx, deps) {
+    if (isQuietDay(ctx)) return; // a quiet day: nothing is posted
     if (ctx.event === "confirm") {
       const image = (await ctx.proofs()).find((p) => p.mime.startsWith("image/"));
       if (image) await deps.telegram().sendPhoto(image.bytes, telegramCaption(ctx));
@@ -93,6 +104,7 @@ export const syncTargets: Record<SyncTarget, (ctx: SyncContext, deps: SyncDeps) 
   },
 
   async inventory(ctx, deps) {
+    if (deps.salePayment) await deps.salePayment(ctx).catch(() => undefined); // every event (a receipt, a void, a cancel, the loan released) keeps the sale's payment status true
     // The deal's current status, so a late or repeated job still writes the right word.
     const status = unitStatusFor(dealStatusOf(ctx.deal, ctx.today));
     const ref = { receiptNo: ctx.lastReceiptNo, people: [{ name: ctx.salesperson, percent: null }], date: sheetDate(ctx.lastReceiptAt) };

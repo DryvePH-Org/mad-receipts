@@ -40,7 +40,7 @@ function initial(settings: AppSettings, today: string, cont: ContinueDeal | null
   return { form, fin: { ...emptyFin(), dpIn: prettyMoney(form.dp), feeMode: "amount", feeIn: prettyMoney(form.fee), feeTouched: true } };
 }
 
-export function ReceiptForm({ userId, today, settings, inventory, liveDeals, continueDeal }: { userId: string; today: string; settings: AppSettings; inventory: InvUnit[]; liveDeals: LiveDeal[]; continueDeal: ContinueDeal | null }) {
+export function ReceiptForm({ userId, today, settings, inventory, liveDeals, continueDeal, isAdmin, salespeople }: { isAdmin: boolean; salespeople: string[]; userId: string; today: string; settings: AppSettings; inventory: InvUnit[]; liveDeals: LiveDeal[]; continueDeal: ContinueDeal | null }) {
   const router = useRouter();
   const init = useMemo(() => initial(settings, today, continueDeal), [settings, today, continueDeal]);
   const [form, setForm] = useState(init.form);
@@ -67,7 +67,7 @@ export function ReceiptForm({ userId, today, settings, inventory, liveDeals, con
   const s: FormState = useMemo(() => (cashAuto ? { ...base, cash: leftText } : base), [base, cashAuto, leftText]);
   const { t, ledger, sources } = useMemo(() => workOut(s), [s]);
   const dup = !linked ? liveDeals.find((d) => s.units.some((u) => norm(u.plate) && d.plateNos.includes(norm(u.plate)))) : undefined;
-  const missing = useMemo(() => missingFields(s, t, settings, { continuing: !!linked, duplicateDeal: dup?.dealNo }), [s, t, settings, linked, dup]);
+  const missing = useMemo(() => missingFields(s, t, settings, { continuing: !!linked, duplicateDeal: dup?.dealNo, needsSoldBy: isAdmin && !linked }), [s, t, settings, linked, dup, isAdmin]);
   const warnings = useMemo(() => warningsFor(s, t, settings), [s, t, settings]);
 
   const set = (p: Partial<FormState>) => {
@@ -80,7 +80,7 @@ export function ReceiptForm({ userId, today, settings, inventory, liveDeals, con
     setTimeout(() => { const el = document.getElementById(target); if (el) { el.scrollIntoView({ block: "center" }); el.focus({ preventScroll: true }); } }, 80);
   }
   const revealed: ReadonlySet<number> = step === 5 ? new Set([1, 2, 3, 4, 5]) : passed;
-  const ctx: Ctx = { s, t, ledger, sources, set, fin, setFin: (f) => { setFin(f); setConfirmed(false); }, settings, userId, inventory, missing, warnings, linked: !!linked, go, dpResolved: { dpC: resolved.dpC }, revealed,
+  const ctx: Ctx = { s, t, ledger, sources, set, fin, setFin: (f) => { setFin(f); setConfirmed(false); }, settings, userId, inventory, missing, warnings, linked: !!linked, go, dpResolved: { dpC: resolved.dpC }, revealed, isAdmin, salespeople,
     earlierLocked, unlockEarlier: () => setEarlierUnlocked(true), cashAuto, unlockCash: () => { setForm((f) => ({ ...f, cash: leftText })); setCashUnlocked(true); setConfirmed(false); } };
 
   // What the voice reader heard goes into the form; what staff already typed stays (unless they ask otherwise).

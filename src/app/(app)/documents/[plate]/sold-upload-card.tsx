@@ -7,12 +7,12 @@ import { UploadDropzone, useUploadQueue } from "./bulk-upload";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DOC_LABELS, type DocType } from "@/lib/docs/types";
 
-/** One line of the after-sale checklist. The signed AR can have several files: every AR that was uploaded is listed under it. */
+/** One line of the after-sale checklist. The AR line has no photo: it is the receipt saved in the app. */
 export interface OutItem { key: string; label: string; present: boolean; files: { id: string; name: string; note: string | null; by?: string | null; at?: string }[] }
 
 /**
- * The OUT documents, after the sale: one place to upload them (photos of the signed AR, the buyer's ID and the deed, in any order) and the checklist of
- * what is in. Every AR that is uploaded falls under the signed AR line. A car with no sale yet takes its sale from the first AR.
+ * The OUT documents, after the sale: one place to upload the buyer's ID and the deed (photos, in any order) and the checklist of what is in. The AR is not
+ * uploaded here: it is the receipt saved in New receipt, which also makes the sale.
  */
 export function SoldUploadCard({ plate, items, buyer, canUpload = true }: { plate: string; items: OutItem[]; buyer: string | null; canUpload?: boolean }) {
   const router = useRouter();
@@ -23,7 +23,6 @@ export function SoldUploadCard({ plate, items, buyer, canUpload = true }: { plat
       const file = await prepareImage(original);
       const body = new FormData();
       body.set("plate", plate);
-      body.set("ar", "1"); // the first AR of a car with no sale makes the sale
       body.set("file", file, "photo.jpg");
       const res = await fetch("/api/docs/upload", { method: "POST", body });
       const json = (await res.json().catch(() => ({}))) as { result?: { types: string[]; flags: string[]; readStatus: string }; error?: string };
@@ -39,7 +38,7 @@ export function SoldUploadCard({ plate, items, buyer, canUpload = true }: { plat
       <CardHeader><CardTitle className="flex flex-wrap items-center gap-3">After-sale documents
         <span className="text-sm font-normal text-muted-foreground">{have} of {items.length} in</span></CardTitle></CardHeader>
       <CardContent className="space-y-4 text-sm">
-        <p className="text-muted-foreground">{buyer ? <>Buyer <b className="text-foreground">{buyer}</b>. </> : <>No sale is recorded yet: the first AR you upload makes it. </>}Take a photo of each paper; it goes into this car&apos;s folder, is read, and falls into the list below. Every AR that is uploaded is listed under the signed AR.</p>
+        <p className="text-muted-foreground">{buyer ? <>Buyer <b className="text-foreground">{buyer}</b>. </> : <>No sale is recorded yet: it is made when the AR is saved in New receipt. </>}The AR is the receipt saved in New receipt (it is on the list when it is saved). Here, take a photo of each other paper (the buyer&apos;s ID and the deed); it goes into this car&apos;s folder, is read, and falls into the list below.</p>
         <ul className="divide-y rounded-lg ring-1 ring-foreground/10" aria-label="After-sale documents">
           {items.map((n) => (
             <li key={n.key} className="px-3 py-2.5">

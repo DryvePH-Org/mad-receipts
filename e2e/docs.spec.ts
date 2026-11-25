@@ -166,7 +166,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await sales.goto("/documents/ZZT7001?tab=payments");
   // Sales add the OUT documents here (the AR's buyer is shown)
   await expect(sales.locator("#sold-upload")).toContainText(BUYER);
-  await expect(sales.getByText("Still needed")).toHaveCount(3); // the signed AR, the buyer's ID and the deed
+  await expect(sales.getByText("Still needed")).toHaveCount(2); // the buyer's ID and the deed: the AR is the receipt saved in the app (the car has one)
   // a plate nobody has sold never gets a photo, whatever is sent to the server
   const refused = await sales.request.post("/api/docs/upload", { multipart: { plate: "ZZT 9999", file: { name: "p.jpg", mimeType: "image/jpeg", buffer: JPEG } } });
   expect(refused.status()).toBe(409);
@@ -182,8 +182,8 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await sales.locator("#doc-photos").setInputFiles({ name: "x.jpg", mimeType: "image/jpeg", buffer: JPEG });
   await expect(sales.getByText("Saved ✓")).toBeVisible({ timeout: 30_000 });
   await expect(sales.getByText(/Not recognised\. It is in the folder/)).toBeVisible();
-  // ... and the three papers Sales provides (named so the stand-in reader knows them)
-  for (const label of ["id-ZZT_E2E_Docs_Buyer", "deed-buyer-ZZT_E2E_Docs_Buyer", "ar-ZZT_E2E_Docs_Buyer"]) {
+  // ... and the two papers Sales provides (named so the stand-in reader knows them); the AR is the receipt saved in the app
+  for (const label of ["id-ZZT_E2E_Docs_Buyer", "deed-buyer-ZZT_E2E_Docs_Buyer"]) {
     const res = await sales.request.post("/api/docs/upload", { multipart: { plate: "ZZT 7001", label, file: { name: "p.jpg", mimeType: "image/jpeg", buffer: JPEG } } });
     expect(res.ok(), label).toBe(true);
     expect((await res.json()).result.types.length).toBeGreaterThan(0);
@@ -195,8 +195,8 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await expect(docs.locator("#papers li", { hasText: "Buyer's ID" })).toHaveCount(0); // the OUT documents are not in the IN list ...
   await docs.getByRole("tab", { name: /^OUT documents/ }).click();
   const outList = docs.getByRole("list", { name: "After-sale documents" });
-  await expect(outList).toContainText("Buyer's ID"); // ... they are on the OUT documents tab, with every AR that was uploaded under the signed AR
-  await expect(outList).toContainText("Signed AR");
+  await expect(outList).toContainText("Buyer's ID"); // ... they are on the OUT documents tab, with the AR line (the receipt saved in the app)
+  await expect(outList).toContainText("the receipt saved in New receipt");
   await expect(outList.getByText("In the folder").first()).toBeVisible();
   await docs.goto("/documents/ZZT7001?tab=documents");
   // the activity history on the approval card: who did what, with the date and time
@@ -702,67 +702,6 @@ test("Payments: the sale is added by hand, the status is set, a payment paper is
 
   await db.from("car_sales").delete().like("plate_no", "ZZT7005");
   await db.from("unit_folders").delete().like("plate_no", "ZZT7005");
-});
-
-test("The AR photo makes the sale: the buyer and the date come from it, the AR shows in the payments", async ({ browser }) => {
-  test.setTimeout(150_000);
-  const db = adminClient() as unknown as { from: (t: string) => { upsert: (v: object, o?: object) => Promise<{ error: unknown }>; delete: () => { like: (c: string, v: string) => Promise<unknown> }; select: (c: string) => { eq: (c: string, v: string) => { single: () => Promise<{ data: Record<string, unknown> | null }> } } } };
-  await db.from("unit_folders").delete().like("plate_no", "ZZT7005");
-  await db.from("unit_folders").delete().like("plate_no", "ZZT7006");
-  const seeded = await db.from("unit_folders").upsert({ plate_no: "ZZT7006", plate_display: "ZZT 7006", folder_id: "mock-folder-7", folder_name: "21 Ford Escape (ZZT-7006)", folder_url: "https://drive.example.test/folders/mock-folder-7", location: "sold", match_status: "linked" }, { onConflict: "plate_no" });
-  expect(seeded.error).toBeNull();
-
-  const sales = await as(browser, "sales");
-  await sales.goto("/documents/ZZT7006?tab=payments");
-  await expect(sales.locator("#sold-upload")).toContainText("No sale is recorded yet", { timeout: 30_000 });
-  await expect(sales.getByRole("button", { name: "Choose files" })).toBeVisible();
-  await expect(sales.getByText("No AR to upload? Add the sale by hand")).toBeVisible();
-
-  // an ordinary sold-papers upload is refused while the car has no sale; the AR itself is accepted (the stand-in reader knows the buyer from the file label), and the sale is made from it
-  // without ar=1 the same upload is refused: no sale, no AR
-  const refused = await sales.request.post("/api/docs/upload", { multipart: { plate: "ZZT 7006", label: "ar-Someone", file: { name: "p.jpg", mimeType: "image/jpeg", buffer: JPEG } } });
-  expect(refused.status()).toBe(409);
-  const res = await sales.request.post("/api/docs/upload", { multipart: { plate: "ZZT 7006", ar: "1", label: "ar-ZZT_E2E_AR_Buyer", file: { name: "p.jpg", mimeType: "image/jpeg", buffer: JPEG } } });
-  expect(res.ok()).toBe(true);
-  expect((await res.json()).result.types).toContain("acknowledgement_receipt");
-
-  const sale = await db.from("car_sales").select("buyer, sold_on, sales, agreed_price").eq("plate_no", "ZZT7006").single();
-  expect(sale.data).toMatchObject({ buyer: "ZZT E2E AR BUYER", sold_on: "2026-11-20", sales: "ZZT E2E SALES", agreed_price: null });
-
-  await sales.goto("/documents/ZZT7006?tab=payments");
-  await expect(sales.getByRole("group", { name: "Payment status" })).toBeVisible({ timeout: 30_000 });
-  await expect(sales.locator("#sold-upload")).not.toContainText("No sale is recorded yet");
-  // every AR that is uploaded falls under the signed AR of the after-sale list, with what the bot read on it
-  const out = sales.getByRole("list", { name: "After-sale documents" });
-  await expect(out).toContainText("Signed AR");
-  await expect(out).toContainText("Buyer ZZT E2E AR Buyer");
-  await expect(out).toContainText("₱50,000");
-  await expect(out.getByRole("link", { name: /^Open / })).toHaveCount(1);
-  // the OUT tab history lists the upload and the sale made from the AR
-  await expect(sales.locator("#out-activity")).toContainText("The sale was made from the uploaded AR");
-  await expect(sales.locator("#out-activity")).toContainText("Uploaded an OUT document");
-  // many files at once: each goes in turn and says how it went; a file that is not a photo says so and can be tried again
-  await sales.waitForTimeout(2500);
-  await sales.locator("#doc-photos").setInputFiles([
-    { name: "b1.jpg", mimeType: "image/jpeg", buffer: JPEG }, { name: "b2.jpg", mimeType: "image/jpeg", buffer: JPEG }, { name: "b3.jpg", mimeType: "image/jpeg", buffer: JPEG },
-    { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("not a photo") },
-  ]);
-  await expect(sales.getByText("Saved ✓")).toHaveCount(3, { timeout: 60_000 });
-  await expect(sales.getByRole("progressbar", { name: "Upload progress" })).toBeVisible();
-  await expect(sales.getByText("3 saved, 1 did not go through")).toBeVisible();
-  await expect(sales.getByRole("button", { name: "Try again" })).toBeVisible();
-  await sales.getByRole("button", { name: "Clear the saved ones" }).click();
-  await expect(sales.getByText("Saved ✓")).toHaveCount(0);
-  // a second AR (another payment) falls into the same line: all the ARs are listed
-  const second = await sales.request.post("/api/docs/upload", { multipart: { plate: "ZZT 7006", ar: "1", label: "ar-ZZT_E2E_AR_Buyer", file: { name: "p.jpg", mimeType: "image/jpeg", buffer: JPEG } } });
-  expect(second.ok()).toBe(true);
-  await sales.reload();
-  await expect(sales.getByRole("list", { name: "After-sale documents" }).getByRole("link", { name: /^Open / })).toHaveCount(2);
-  await expect(sales.getByRole("list", { name: "After-sale documents" })).toContainText("2 in the folder");
-  await sales.close();
-
-  await db.from("car_sales").delete().like("plate_no", "ZZT7006");
-  await db.from("unit_folders").delete().like("plate_no", "ZZT7006");
 });
 
 test("Papers for the new owner: one tap on a paper, or every photo together with each starting as the paper it most likely is", async ({ browser }) => {

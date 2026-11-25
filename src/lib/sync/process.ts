@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { Tables } from "@/lib/supabase/database.types";
 import { createTelegramClient } from "@/lib/telegram";
 import { sheetDate } from "@/lib/inventory/remarks";
-import { ensureSaleRecords } from "@/lib/sales/ensure";
+import { ensureSaleRecords, syncSalePayment } from "@/lib/sales/ensure";
 import { saveAuditCopy } from "./audit-drive";
 import { dealStatusOf, SyncConflict, syncTargets, TARGET_ORDER, unitStatusFor, type ProofBytes, type SyncContext, type SyncDeps, type SyncEvent, type SyncTarget } from "./targets";
 
@@ -32,6 +32,7 @@ export function defaultSyncDeps(): SyncDeps {
     docsLink: (plate, dealId) => linkFolder(plate, dealId),
     auditCopy: saveAuditCopy,
     saleRecords: ensureSaleRecords,
+    salePayment: syncSalePayment,
   };
 }
 
@@ -77,12 +78,13 @@ export async function processDueJobs(options: { receiptId?: string; limit?: numb
 async function loadContext(admin: Admin, receiptId: string): Promise<Omit<SyncContext, "event">> {
   const { data: receipt, error } = await admin.from("receipts").select("*").eq("id", receiptId).single();
   if (error || !receipt) throw new Error(`Could not load the receipt: ${error?.message ?? "not found"}`);
-  const [{ data: deal }, { data: units }, { data: payments }, { data: last }, { data: settingsRow }] = await Promise.all([
+  const [{ data: deal }, { data: units }, { data: payments }, { data: last }, { data: settingsRow }, { data: terms }] = await Promise.all([
     admin.from("deal_summaries").select("*").eq("id", receipt.deal_id).single(),
     admin.from("deal_units").select("make_type, plate_display, plate_no, color").eq("deal_id", receipt.deal_id).order("position"),
     admin.from("receipt_payments").select("*").eq("receipt_id", receiptId).order("position"),
     admin.from("receipts").select("receipt_no, created_at, receipt_date").eq("deal_id", receipt.deal_id).eq("status", "approved").order("created_at", { ascending: false }).limit(1).maybeSingle(),
     admin.from("app_settings").select("config").eq("id", 1).maybeSingle(),
+    admin.from("deals").select("terms").eq("id", receipt.deal_id).maybeSingle(),
   ]);
   if (!deal) throw new Error("Could not load the deal");
   const ids = [receipt.submitted_by, receipt.reviewed_by, deal.created_by].filter((x): x is string => !!x);
@@ -92,7 +94,7 @@ async function loadContext(admin: Admin, receiptId: string): Promise<Omit<SyncCo
 
   return {
     receipt, deal, units: (units ?? []).map((u) => ({ make_type: u.make_type, plate: u.plate_display, plate_no: u.plate_no, color: u.color })), payments: payments ?? [],
-    settings: parseSettings(settingsRow?.config), filledInBy: name(receipt.submitted_by), salesperson: name(deal.created_by),
+    settings: parseSettings(settingsRow?.config), filledInBy: name(receipt.submitted_by), salesperson: String((terms?.terms as { soldBy?: string } | null)?.soldBy ?? "").trim() || name(deal.created_by), // who sold it, as chosen on the receipt; else who opened the deal
     lastReceiptNo: last?.receipt_no ?? receipt.receipt_no, // the date written on the receipt (noon in Manila), not the day it was typed in: a past transaction keeps its own date
     lastReceiptAt: `${last?.receipt_date ?? receipt.receipt_date}T04:00:00Z`, today: manilaToday(),
     proofs: () => (proofs ??= (async () => {

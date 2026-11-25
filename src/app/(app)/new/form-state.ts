@@ -11,7 +11,7 @@ export function emptyForm(settings: AppSettings, today: string): FormState {
     price: "", sale: "cash", institution: "", dp: "", fee: "", monthly: "", years: "",
     hasTi: false, ti: { year: "", unit: "", plate: "", mileage: "", value: "" }, hasLieu: false, lieuAmount: "", lieuUntil: "",
     dueMode: "date", dueDate: "", dueText: "", earlier: "", cash: "", cashProofs: [], methods: [], payout: "", payoutProofs: [],
-    hasRem: false, remarks: "", notes: settings.notes.map((n) => ({ text: n.text, on: n.on })),
+    soldBy: "", skipProofs: false, hasRem: false, remarks: "", notes: settings.notes.map((n) => ({ text: n.text, on: n.on })),
   };
 }
 

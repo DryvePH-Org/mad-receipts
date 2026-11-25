@@ -15,5 +15,6 @@ export const formStateSchema = z.object({
   earlier: text(20), cash: text(20), cashProofs: z.array(proof).max(10),
   methods: z.array(z.object({ type: z.enum(["check", "wallet"]), name: text(60), amount: text(20), ref: text(60), checkNo: text(30), bank: text(60), branch: text(60), proofs: z.array(proof).max(10) })).max(20),
   payout: text(20), payoutProofs: z.array(proof).max(10),
+  soldBy: text(40).default(""), skipProofs: z.boolean().default(false),
   hasRem: z.boolean(), remarks: text(2000), notes: z.array(z.object({ text: text(300), on: z.boolean() })).max(30),
 });
