@@ -68,3 +68,19 @@ describe("approving and settings follow a person's modules (migration 21)", () =
     await expect(db.query("select public.review_receipt($1, $2, true)", [approver, r.receipt_id])).rejects.toThrow(/not_pending|not_approver/);
   });
 });
+
+describe("the number of a transaction is its first receipt's number (migration 70)", () => {
+  it("names the deal after the first receipt, leaves it alone for the later receipts, and keeps the old number in the history", async () => {
+    const payload = (no: string, deal_id: string | null = null) => ({
+      deal_id, receipt_no: no, receipt_date: "2026-11-07", kind: "partial", buyer: { name: "Number Buyer" }, units: [{ make_type: "2023 Toyota Vios", plate: "ZZT 9188" }], price: "500000", sale_type: "cash",
+      due: { mode: "text", text: "soon" }, payments: [{ method: "cash", amount: "100000" }],
+    });
+    const first = (await db.query<{ r: { deal_id: string; deal_no: string } }>("select public.submit_receipt($1, $2::jsonb, false) as r", [id, JSON.stringify(payload("2652"))])).rows[0].r;
+    expect((await db.query<{ deal_no: string }>("select deal_no from public.deals where id = $1", [first.deal_id])).rows[0].deal_no).toBe("2652");
+    await db.query("select public.submit_receipt($1, $2::jsonb, false)", [id, JSON.stringify({ ...payload("2700", first.deal_id), buyer: undefined, units: undefined, price: undefined, sale_type: undefined, due: undefined })]);
+    expect((await db.query<{ deal_no: string }>("select deal_no from public.deals where id = $1", [first.deal_id])).rows[0].deal_no).toBe("2652"); // the second receipt does not rename it
+    const log = (await db.query<{ after: { was: string; now: string } }>("select after from public.audit_logs where action = 'deal.renumbered' order by created_at desc limit 1")).rows[0].after;
+    expect(log.now).toBe("2652");
+    expect(log.was).toMatch(/^D\d+$/);
+  }, 60_000);
+});
