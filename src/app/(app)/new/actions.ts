@@ -58,7 +58,11 @@ export async function submitReceipt(input: unknown, dealId: string | null): Prom
   const r = data as { deal_id: string; receipt_id: string; deal_no: string; receipt_no: string; balance_after: string | number };
   revalidatePath("/", "layout"); // every screen that shows deals, receipts or balances
   // What the database queued on saving (the car's status, the Drive audit copy, Telegram, the car's folder link) runs now instead of waiting for the next cron.
-  after(() => processDueJobs({ receiptId: r.receipt_id }).catch((e) => console.error(`[sync] after submit failed: ${e instanceof Error ? e.message : "unknown"}`)));
+  after(async () => {
+    await processDueJobs({ receiptId: r.receipt_id }).catch((e) => console.error(`[sync] after submit failed: ${e instanceof Error ? e.message : "unknown"}`));
+    // the jobs have just changed the car's state and the sale: the screens that show them are made fresh
+    try { revalidatePath("/cars"); revalidatePath("/documents", "layout"); revalidatePath("/deals", "layout"); } catch { /* the next visit shows it anyway */ }
+  });
   if (!TELEGRAM_QUIET_DAYS.includes(manilaToday())) after(() => receiptSaved(r.receipt_id)); // the deal's owner hears when it settles the deal (not on a quiet day)
   return { ok: true, dealId: r.deal_id, receiptId: r.receipt_id, dealNo: r.deal_no, receiptNo: r.receipt_no, balanceAfter: String(r.balance_after) };
 }

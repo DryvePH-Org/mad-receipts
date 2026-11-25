@@ -58,9 +58,7 @@ export function createDbInventory(): InventoryAdapter {
       if (!row) {
         const { data: c } = await db().from("docs_units").select("id").eq("plate_no", key).is("archived_at", null).order("arrival_date", { ascending: false }).limit(1);
         if (!c?.[0]) throw new InventoryError(`Plate ${key} is not in the app's car list.`);
-        const { data: last } = await db().from("docs_units").select("stock_order").order("stock_order", { ascending: false }).limit(1);
-        const ins = await db().from("docs_units").update({ in_stock: true, stock_order: Number(last?.[0]?.stock_order ?? 0) + 1, last_change_source: "app" }).eq("id", c[0].id as string);
-        if (ins.error) throw new InventoryError(`Could not put ${key} on the stock list: ${ins.error.message}`);
+        // a car that is not on the sale list (it was sold before, or it is only in Car documents) keeps its place: its state is saved on its record, it is NOT put back on the list
         row = { plate: key, unitId: c[0].id as string, remarks: "", makeType: "", year: "", color: "" };
       }
       const next = applyStatus(row.remarks, status, ref);

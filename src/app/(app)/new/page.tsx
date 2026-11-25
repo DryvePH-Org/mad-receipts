@@ -6,6 +6,7 @@ import { salespeopleNames } from "@/lib/deal/salespeople";
 import { isAdmin } from "@/lib/roles";
 import { getDeal, getSettings, listDeals } from "@/lib/data";
 import { manilaToday } from "@/lib/dates";
+import { registerCarsOffTheList } from "@/lib/deal/cars";
 import { inventory } from "@/lib/inventory";
 import { withYear } from "@/lib/inventory/year";
 import { param } from "@/lib/search";
@@ -34,6 +35,10 @@ async function Content({ searchParams }: { searchParams: PageProps<"/new">["sear
     id: found.id, dealNo: found.dealNo, buyerName: found.buyerName, receiptCount: found.approvedCount + found.pendingCount,
     committed: found.openingPaid + found.approvedPaid + found.pendingPaid, terms: found.terms,
   } : null;
-  const invUnits: InvUnit[] = units.map((u) => ({ plate: u.plate, makeType: withYear(u.year, u.makeType), color: u.color, status: u.status }));
+  const others = await registerCarsOffTheList(new Set(units.map((u) => u.plate))).catch(() => []);
+  const invUnits: InvUnit[] = [
+    ...units.map((u) => ({ plate: u.plate, makeType: withYear(u.year, u.makeType), color: u.color, status: u.status })),
+    ...others.map((u) => ({ plate: u.plate, makeType: withYear(u.year, u.makeType), color: u.color || undefined, status: u.status })), // the cars of Car documents that are not on the sale list
+  ];
   return <ReceiptForm key={cont?.id ?? "new"} userId={user.id} today={manilaToday()} settings={settings} inventory={invUnits} liveDeals={live} continueDeal={cont} isAdmin={isAdmin(user.role)} salespeople={await salespeopleNames()} />;
 }

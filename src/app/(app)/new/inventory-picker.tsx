@@ -22,7 +22,7 @@ export function InventoryPicker({ open, onOpenChange, units, onPick }: { open: b
     const map = new Map<string, InvUnit[]>();
     for (const u of units) {
       if (!u.makeType) continue;
-      if (availableOnly && u.status !== "Available") continue;
+      if (availableOnly && !words.length && u.status !== "Available") continue; // typing something searches every car, sold ones too
       if (make && makeOf(u.makeType) !== make) continue;
       const hay = `${u.makeType} ${u.plate} ${u.color ?? ""}`.toLowerCase();
       if (!words.every((w) => hay.includes(w))) continue;
@@ -32,16 +32,16 @@ export function InventoryPicker({ open, onOpenChange, units, onPick }: { open: b
   }, [units, q, make, availableOnly]);
 
   return (
-    <ResponsiveDialog open={open} onOpenChange={onOpenChange} title="Search the inventory" description="Pick the make and type, then choose the plate.">
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange} title="Search the cars" description="Every car of MAD, sold or not. Type the plate or the car, or pick the make and type, then choose the plate.">
       <div className="space-y-3">
         <div className="grid gap-2 sm:grid-cols-[1fr_9rem]">
           <div className="relative"><Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-            <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Make, model, plate or color" className="pl-8" aria-label="Search the inventory" /></div>
+            <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Make, model, plate or color" className="pl-8" aria-label="Search the cars" /></div>
           <NativeSelect value={make} onChange={(e) => setMake(e.target.value)} aria-label="Make"><option value="">All makes</option>{makes.map((m) => <option key={m}>{m}</option>)}</NativeSelect>
         </div>
         <div className="flex gap-1.5">{[true, false].map((v) => <Button key={String(v)} size="sm" variant={availableOnly === v ? "default" : "outline"} className="rounded-full" onClick={() => setAvailableOnly(v)}>{v ? "Available" : "All"}</Button>)}</div>
         <div className="max-h-80 space-y-2 overflow-y-auto">
-          {groups.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">{units.length === 0 ? "The inventory sheet could not be read. Type the car yourself." : "Nothing matches. Try another word, or type the car yourself."}</p> : groups.map(([name, list]) => {
+          {groups.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">{units.length === 0 ? "The cars could not be read. Type the car yourself." : "Nothing matches. Try another word, or type the car yourself."}</p> : groups.map(([name, list]) => {
             const available = list.filter((u) => u.status === "Available").length;
             return (
               <button key={name} type="button" className="flex w-full items-center gap-3 rounded-lg border p-3 text-left hover:border-ring hover:bg-muted" onClick={() => { onPick(name, q.trim() && list.length === 1 ? list[0] : null); onOpenChange(false); }}>
