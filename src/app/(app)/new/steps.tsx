@@ -172,7 +172,6 @@ export function StepDeal({ ctx }: { ctx: Ctx }) {
                 <NativeSelect id="institution" value={instOther || (s.institution && !inList) ? "__other" : s.institution} onChange={(e) => { if (e.target.value === "__other") { setInstOther(true); set({ institution: "" }); } else { setInstOther(false); set({ institution: e.target.value }); } }}>
                   <option value="">Choose…</option>{settings.institutions.map((x) => <option key={x}>{x}</option>)}<option value="__other">Other…</option></NativeSelect>
                 {(instOther || (s.institution && !inList)) && <Input className="mt-2" aria-label="Institution name" value={s.institution} onChange={(e) => set({ institution: e.target.value })} placeholder="Type the institution" />}</FormField></div>
-              <div className="sm:col-span-3"><FormField id="monthly" label="Monthly payment"><MoneyInput id="monthly" value={s.monthly} onChange={(v) => set({ monthly: v })} /></FormField></div>
               <div className="sm:col-span-3 space-y-2"><Label htmlFor="dpIn">Down payment or loan</Label>
                 <Seg label="How you know it" value={fin.dpMode} options={[["amount", "DP ₱"], ["percent", "DP %"], ["loan", "Loan ₱"]]} onChange={(m: DpMode) => setFin(switchDpMode(s.price, fin, m))} className="flex" />
                 <MoneyInput id="dpIn" prefix={dpIn} value={fin.dpIn} onChange={(v) => setFin({ ...fin, dpIn: v })} invalid={bad(ctx, "dpIn")} />
@@ -201,7 +200,7 @@ export function StepDeal({ ctx }: { ctx: Ctx }) {
               </div>
               <div className="sm:col-span-6"><div className="flex flex-wrap items-center gap-2"><Label>Years to pay</Label>{settings.years.map((y) => <Chip key={y} selected={s.years === y} onClick={() => set({ years: s.years === y ? "" : y })}>{y}</Chip>)}
                 <Input aria-label="Other number of years" className="w-24" inputMode="decimal" placeholder="Other" value={settings.years.includes(s.years) ? "" : s.years} onChange={(e) => set({ years: e.target.value.replace(/[^\d.]/g, "") })} />
-                {t.years > 0 && t.monthly > 0 && <span className="text-xs text-muted-foreground">= {t.months} monthly payments · {formatPeso(t.repay)} paid to the lender in total</span>}</div></div>
+                </div></div>
             </div>
           )}
         </CardContent></Card>

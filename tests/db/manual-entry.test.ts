@@ -57,6 +57,13 @@ describe("submitting a receipt", () => {
     expect(num(r.balance_after)).toBe(139900); // 150,000 + 39,900 - 50,000
   });
 
+  it("financing without a down payment yet (the lender has not approved): the whole price is due, there is no loan, and an earnest payment is saved", async () => {
+    const r = await submit(sales, payload(sales, { sale_type: "financing", institution: "BDO", payments: [cash(sales, "20000")] }));
+    const d = await one("select * from public.deals where id = $1", [r.deal_id]);
+    expect([num(d.amount_due), num(d.loan_amount), d.loan_status, d.down_payment]).toEqual([720000, 0, "none", null]);
+    expect(num(r.balance_after)).toBe(700000);
+  });
+
   it("financing, earnest then down payment then fee: all come off one balance, and the totals add up", async () => {
     // price 720,000, down payment 150,000, fee 39,900 (7% of the 570,000 loan): the buyer owes 189,900
     const first = await submit(sales, payload(sales, { sale_type: "financing", institution: "BDO", down_payment: "150000", processing_fee: "39900", earlier: "20000", kind: "partial", payments: [cash(sales, "120000")] }));
@@ -100,7 +107,6 @@ describe("submitting a receipt", () => {
     await fails(submit(sales, payload(sales, { payments: [cash(sales, "720001")] })), "overpayment");
     await fails(submit(sales, payload(sales, { payments: [] })), "payment_required");
     await fails(submit(sales, payload(sales, { sale_type: "financing", institution: "BDO", down_payment: "800000" })), "down_payment_too_high");
-    await fails(submit(sales, payload(sales, { sale_type: "financing", institution: "BDO" })), "down_payment_required");
     await fails(submit(sales, payload(sales, { sale_type: "financing", down_payment: "100000" })), "institution_required");
     await fails(submit(sales, payload(sales, { sale_type: "financing", institution: "BDO", down_payment: "100000", trade_in: { value: "120000" } })), "trade_in_exceeds_down_payment");
     await fails(submit(sales, payload(sales, { kind: "huge" })), "kind_invalid");

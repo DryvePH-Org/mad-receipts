@@ -9,7 +9,8 @@ import { DealStatusBadge, Pill, ReceiptStatusBadge } from "@/components/shared/s
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireModule } from "@/lib/auth";
-import { isAdmin as isAdminRole, seesSales } from "@/lib/roles";
+import { isAdmin as isAdminRole, isSuper, seesSales } from "@/lib/roles";
+import { EditDeal, EditReceipt } from "./edit-transaction";
 import { getDeal, receiptsOfDeal } from "@/lib/data";
 import { formatDate, manilaToday } from "@/lib/dates";
 import { buildLedger, totals } from "@/lib/deal/math";
@@ -43,6 +44,7 @@ async function Content({ params }: { params: PageProps<"/deals/[id]">["params"] 
   const ledger = buildLedger(t, { units: deal.units.length, institution: deal.institution ?? "", tradeInText: tradeText, payRows: [], payoutProofs: 0, lieuUntilText: deal.lieuUntil ? formatDate(deal.lieuUntil) : "" });
   const pct = t.due > 0 ? Math.max(0, Math.min(100, Math.round(((deal.openingPaid + deal.approvedPaid) / t.due) * 100))) : 100;
   const isAdmin = isAdminRole(user.role);
+  const superAdmin = isSuper(user.role);
   const sales = seesSales(user.role) ? await salesOfDeal(deal.id) : [];
   const invStatus = deal.status === "cancelled" ? "Available" : status === "settled" ? "Sold" : "Reserved";
 
@@ -82,6 +84,7 @@ async function Content({ params }: { params: PageProps<"/deals/[id]">["params"] 
                         <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{formatPeso(r.amount)}</td>
                         <td className="px-3 py-2.5"><ReceiptStatusBadge status={r.status} />{r.status === "rejected" && <p className="text-xs text-muted-foreground">{r.rejectReason}</p>}{r.status === "void" && <p className="text-xs text-muted-foreground">{r.voidReason}</p>}{r.status === "approved" && r.reviewedByName && <p className="text-xs text-muted-foreground">by {r.reviewedByName}</p>}</td>
                         <td className="px-3 py-2.5"><div className="flex justify-end gap-1.5"><PrintReceiptButton receiptId={r.id} />
+                          {superAdmin && r.status !== "void" && deal.status !== "cancelled" && <EditReceipt receipt={{ id: r.id, no: r.receiptNo, date: r.date, payments: r.payments.map((p) => ({ id: p.id, label: p.label, amount: p.amount })) }} />}
                           {isAdmin && r.status === "approved" && <DealAdminActions mode="receipt" dealId={deal.id} today={today} loanStatus={deal.loanStatus} institution="" loanAmount="" canCancel={false} receiptId={r.id} receiptNo={r.receiptNo} amountText={formatPeso(r.amount)} />}</div></td>
                       </tr>
                     ))}
@@ -131,6 +134,7 @@ async function Content({ params }: { params: PageProps<"/deals/[id]">["params"] 
           )}
 
           {isAdmin && deal.status === "open" && <DealAdminActions mode="deal" dealId={deal.id} today={today} loanStatus="none" institution="" loanAmount="" canCancel />}
+          {superAdmin && deal.status !== "cancelled" && <EditDeal deal={{ id: deal.id, dealNo: deal.dealNo, buyer: deal.buyerName, address: deal.buyerAddress ?? "", contact: deal.buyerContact ?? "", price: deal.price, financing: deal.saleType === "financing", institution: deal.institution ?? "", dp: deal.downPayment, fee: deal.fee, due: deal.dueDate ?? "" }} />}
           {isAdmin && <DeleteDeal dealId={deal.id} dealNo={deal.dealNo} receipts={receipts.length} proofs={receipts.reduce((n, r) => n + r.payments.reduce((m, p) => m + p.proofs, 0), 0)} />}
         </div>
       </div>

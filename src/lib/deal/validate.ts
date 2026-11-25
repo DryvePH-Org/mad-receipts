@@ -41,7 +41,7 @@ export function missingFields(s: FormState, t: Totals, settings: AppSettings, op
   if (!t.price) add(3, "Agreed price", "price");
   if (s.sale === "financing") {
     if (!s.institution.trim()) add(3, "Financing institution", "institution");
-    if (!t.dpSet) add(3, "Down payment or loan amount", "dpIn");
+    // the down payment or loan is not known until the lender approves: it can be left out and filled in later
     if (t.price && t.dp > t.price) add(3, "Down payment is more than the agreed price", "dpIn");
     else if (t.dpSet && t.tv > t.share) add(3, `The trade-in (${formatPeso(t.tv)}) is worth more than the down payment. Raise the down payment to at least ${formatPeso(t.tv)}`, "dpIn");
   }
@@ -77,8 +77,6 @@ export function warningsFor(s: FormState, t: Totals, settings: AppSettings): War
   const minDown = Number(settings.minDownPct) || 20;
   if (s.sale === "financing" && t.dpSet && t.price && (t.share / t.price) * 100 < minDown) add(3, `The down payment is only ${Math.round((t.share / t.price) * 1000) / 10}% of the price. Most lenders ask for at least ${minDown}%, so the loan may not be approved.`);
   if (s.sale === "financing" && t.loan && t.fee && (t.fee / t.loan) * 100 > 15) add(3, `The processing fee is ${Math.round((t.fee / t.loan) * 10000) / 100}% of the loan, much more than the usual ${settings.feeStd}%.`);
-  if (s.sale === "financing" && t.dpSet && t.loan && (!t.monthly || !t.years)) add(3, "Monthly payment or years to pay are not filled in.");
-  if (s.sale === "financing" && t.loan && t.repay && t.repay < t.loan) add(3, `${formatPeso(t.monthly)} × ${t.months} months is ${formatPeso(t.repay)}, which does not even cover the ${formatPeso(t.loan)} loan.`);
   if (s.hasTi && s.sale !== "financing" && t.due < 0) add(3, `The trade-in is worth more than the price, so we pay the buyer ${formatPeso(-t.due)}.`);
   if (s.hasLieu && s.lieuUntil && s.date && s.lieuUntil < s.date) add(3, "The in-lieu date is before the receipt date.");
   if (t.due < 0 && t.today > 0) add(4, "Nothing is due from the buyer, but a payment is recorded.");

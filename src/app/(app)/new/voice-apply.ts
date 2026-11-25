@@ -93,7 +93,6 @@ export function applyVoice(form: FormState, fin: FinUi, v: VoiceExtraction, o: {
         if (!fin.dpIn.trim() || o.overwrite) { ui = { ...ui, dpMode: dpHeard.mode, dpIn: heardIn, dpLock: null }; if (!sameDp) mark(dpHeard.label); }
         else if (!sameDp) hold(dpHeard.label);
       }
-      f.monthly = money(form.monthly, v.monthly, "the monthly payment") ?? f.monthly;
       const years = v.years !== null ? String(v.years) : null;
       f.years = text(form.years, years, "the years to pay") ?? f.years;
       // the processing fee
