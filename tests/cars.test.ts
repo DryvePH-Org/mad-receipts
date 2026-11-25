@@ -75,7 +75,7 @@ describe("reading the tab", () => {
   it("fails clearly when the header is not there", () => { expect(() => parseInventoryRows([["a", "b"]], "2026-11-14")).toThrow(/PLATE NUMBER/); });
 
   it("counts for the tiles", () => {
-    expect(summarize(cars)).toMatchObject({ total: 5, sellable: 2, available: 1, asis: 1, reserved: 1, sold: 1, repair: 1 });
+    expect(summarize(cars)).toMatchObject({ total: 4, sellable: 2, available: 1, asis: 1, reserved: 1, sold: 1, repair: 1 });
   });
   it("filters by words, status, brand, price, year and the sellable switch", () => {
     expect(filterCars(cars, { ...EMPTY_FILTER, q: "wigo red" }).map((c) => c.plate)).toEqual(["NBU4875"]);
@@ -83,10 +83,13 @@ describe("reading the tab", () => {
     expect(filterCars(cars, { ...EMPTY_FILTER, availability: ["reserved", "repair"] }).map((c) => c.plate)).toEqual(["NKU8411", "ASA9497"]);
     expect(filterCars(cars, { ...EMPTY_FILTER, brands: ["KIA"] }).map((c) => c.plate)).toEqual(["ASA9497"]);
     expect(filterCars(cars, { ...EMPTY_FILTER, priceMax: 250000 }).map((c) => c.plate)).toEqual(["NBU4875"]);
-    expect(filterCars(cars, { ...EMPTY_FILTER, yearMin: 2019 }).map((c) => c.plate).sort()).toEqual(["IAE5345", "NBM7701", "NKU8411"].sort());
+    expect(filterCars(cars, { ...EMPTY_FILTER, yearMin: 2019 }).map((c) => c.plate).sort()).toEqual(["IAE5345", "NKU8411"].sort());
     expect(filterCars(cars, { ...EMPTY_FILTER, sellableOnly: true }).map((c) => c.plate)).toEqual(["NBU4875", "IAE5345"]);
     expect(filterCars(cars, { ...EMPTY_FILTER, spareKey: true }).map((c) => c.plate)).toEqual(["NKU8411"]);
-    expect(filterCars(cars, { ...EMPTY_FILTER, bodyTypes: ["SEDAN"] }).map((c) => c.plate)).toEqual(["ASA9497", "NBM7701"]);
+    expect(filterCars(cars, { ...EMPTY_FILTER, bodyTypes: ["SEDAN"] }).map((c) => c.plate)).toEqual(["ASA9497"]);
+    // sold cars are past records: hidden until the Sold tile is chosen or a word is typed
+    expect(filterCars(cars, { ...EMPTY_FILTER, availability: ["sold"] }).map((c) => c.plate)).toEqual(["NBM7701"]);
+    expect(filterCars(cars, { ...EMPTY_FILTER, q: "nbm7701" }).map((c) => c.plate)).toEqual(["NBM7701"]);
   });
   it("sorts, with cars that have no price or date last", () => {
     expect(sortCars(cars, "priceLow").map((c) => c.plate)).toEqual(["NBU4875", "ASA9497", "NBM7701", "NKU8411", "IAE5345"]);

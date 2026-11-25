@@ -1,4 +1,4 @@
-import { editsCars, type Role } from "@/lib/roles";
+import { editsCars, seesSales, type Role } from "@/lib/roles";
 import { parseStatus } from "@/lib/inventory/remarks";
 import { fullYear } from "@/lib/inventory/year";
 import { normalizePlate } from "@/lib/rules/plate";
@@ -18,6 +18,10 @@ export interface CarRow {
   remarks: string; reservedFor: string[]; reservedOn: string | null;
   encumbrance: string; location: string; repairStatus: string; spareKey: string; orExp: string | null; docsCode: string;
   availability: Availability; sellable: boolean; toCebu: boolean;
+  /** on the sale list (false: a car of the register that left it, sold before: it stays here for reference) */
+  listed?: boolean;
+  /** the price agreed with the buyer, for a car that is reserved or sold (from its sale record); hidden from the roles that do not see sales */
+  agreedPrice?: number | null;
   /** the stock row's own values, for the edit screen (Admin and Approver only; removed for everyone else) */
   /** the car record's own values of its details, as stored (the form edits these) */
   unitId?: string;
@@ -144,7 +148,7 @@ export function hiddenFields(role: Role): ReadonlySet<SensitiveField> {
 export function forRole(car: CarRow, role: Role): CarRow {
   const hide = hiddenFields(role);
   const editor = editsCars(role);
-  return { ...car, raw: editor ? car.raw : undefined, target: hide.has("target") ? null : car.target, encumbrance: hide.has("encumbrance") ? "" : car.encumbrance, orExp: hide.has("orExp") ? null : car.orExp, docsCode: hide.has("docsCode") ? "" : car.docsCode };
+  return { ...car, agreedPrice: seesSales(role) ? car.agreedPrice : null, raw: editor ? car.raw : undefined, target: hide.has("target") ? null : car.target, encumbrance: hide.has("encumbrance") ? "" : car.encumbrance, orExp: hide.has("orExp") ? null : car.orExp, docsCode: hide.has("docsCode") ? "" : car.docsCode };
 }
 
 // ---------------- filtering and sorting (done in the browser) ----------------
@@ -163,6 +167,7 @@ export function filterCars(cars: CarRow[], f: CarFilter): CarRow[] {
       if (!words.every((w) => hay.includes(w.replace(/[^a-z0-9.]/g, "")) || hay.includes(w))) return false;
     }
     if (f.availability.length && !f.availability.includes(c.availability)) return false;
+    if (c.availability === "sold" && !f.availability.includes("sold") && !f.q.trim()) return false; // sold cars are kept for reference: they show when you search or open the Sold tile
     if (f.brands.length && !f.brands.includes(c.brand)) return false;
     if (f.bodyTypes.length && !f.bodyTypes.includes(c.bodyType)) return false;
     if (f.fuels.length && !f.fuels.includes(c.fuel)) return false;
@@ -198,5 +203,5 @@ export interface CarSummary { total: number; sellable: number; available: number
 export function summarize(cars: CarRow[]): CarSummary {
   const count = (a: Availability) => cars.filter((c) => c.availability === a).length;
   const days = cars.filter((c) => c.sellable && c.daysInStock !== null).map((c) => c.daysInStock as number);
-  return { total: cars.length, sellable: cars.filter((c) => c.sellable).length, available: count("available"), asis: count("asis"), reserved: count("reserved"), sold: count("sold"), repair: count("repair"), avgDays: days.length ? Math.round(days.reduce((a, b) => a + b, 0) / days.length) : null, oldest: days.length ? Math.max(...days) : null };
+  return { total: cars.filter((c) => c.availability !== "sold").length, sellable: cars.filter((c) => c.sellable).length, available: count("available"), asis: count("asis"), reserved: count("reserved"), sold: count("sold"), repair: count("repair"), avgDays: days.length ? Math.round(days.reduce((a, b) => a + b, 0) / days.length) : null, oldest: days.length ? Math.max(...days) : null };
 }

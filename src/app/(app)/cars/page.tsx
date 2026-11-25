@@ -18,7 +18,7 @@ import { CarsBoard } from "./cars-board";
 export default function CarsPage() {
   return (
     <div className="space-y-6">
-      <PageHeader title="Car Inventory" description="Every car in stock: can it be sold, is it being repaired, how long has it been here. This is the app’s own list." />
+      <PageHeader title="Car Inventory" description="Every car in stock, and every car that was sold (search its plate or open the Sold tile): can it be sold, is it being repaired, how long has it been here, what price was agreed. This is the app’s own list." />
       <Suspense fallback={<PageSkeleton />}><Content /></Suspense>
     </div>
   );

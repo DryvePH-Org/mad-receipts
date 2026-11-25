@@ -47,12 +47,13 @@ export function CarsBoard({ cars, role, canEdit, canEditDetails, canOpenDocs, do
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
         {tile("Can be sold", summary.sellable, "available or sell as is", () => set({ sellableOnly: !f.sellableOnly, availability: [] }), f.sellableOnly)}
         {tile("Available", summary.available, "ready to sell", () => only("available"), f.availability.includes("available") && f.availability.length === 1)}
         {tile("Reserved", summary.reserved, "someone has it", () => only("reserved"), f.availability.includes("reserved") && f.availability.length === 1)}
         {tile("For repair", summary.repair, "not ready", () => only("repair"), f.availability.includes("repair") && f.availability.length === 1)}
         {tile("Sell as is", summary.asis, "no repair planned", () => only("asis"), f.availability.includes("asis") && f.availability.length === 1)}
+        {tile("Sold", summary.sold, "past records, kept here", () => only("sold"), f.availability.includes("sold") && f.availability.length === 1)}
         {tile("Days in stock", summary.avgDays ?? "—", summary.oldest !== null ? `average; oldest ${summary.oldest}` : "average")}
       </div>
 
@@ -108,11 +109,11 @@ export function CarsBoard({ cars, role, canEdit, canEditDetails, canOpenDocs, do
                 <div className="flex items-start gap-2"><div className="min-w-0 flex-1"><p className="truncate font-medium">{title(c)}</p><p className="font-mono text-xs text-muted-foreground">{c.plateDisplay}</p></div><Pill tone={TONE[c.availability]}>{AVAILABILITY_LABEL[c.availability]}</Pill></div>
                 <p className="text-xs text-muted-foreground">{[c.color, c.mileage, c.trans, c.fuel].filter(Boolean).join(" · ") || "—"}</p>
                 <div className="mt-auto flex items-end justify-between gap-2">
-                  <div><p className="text-lg font-semibold tabular-nums">{peso(c.price)}</p>{c.repriced && c.originalPrice && <p className="text-xs text-muted-foreground line-through">{peso(c.originalPrice)}</p>}</div>
+                  <div><p className="text-lg font-semibold tabular-nums">{c.listed === false ? "Off the list" : peso(c.price)}</p>{c.repriced && c.originalPrice && c.listed !== false && <p className="text-xs text-muted-foreground line-through">{peso(c.originalPrice)}</p>}{c.agreedPrice && <p className="text-xs font-medium text-blue-900 dark:text-blue-200">Agreed {peso(c.agreedPrice)}</p>}</div>
                   <p className="text-right text-xs text-muted-foreground">{c.daysInStock !== null ? `${c.daysInStock} days` : "arrival unknown"}</p>
                 </div>
                 <div className="flex flex-wrap gap-1.5 text-xs">
-                  {c.availability === "reserved" && c.reservedFor.length > 0 && <span className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-900 dark:bg-blue-500/10 dark:text-blue-200">by {c.reservedFor.join(", ")}{c.reservedOn ? ` · ${c.reservedOn}` : ""}</span>}
+                  {(c.availability === "reserved" || c.availability === "sold") && c.reservedFor.length > 0 && <span className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-900 dark:bg-blue-500/10 dark:text-blue-200">by {c.reservedFor.join(", ")}{c.reservedOn ? ` · ${c.reservedOn}` : ""}</span>}
                   {c.repairStatus && <span className="inline-flex items-center gap-1 rounded bg-red-50 px-1.5 py-0.5 text-red-900 dark:bg-red-500/10 dark:text-red-200"><Wrench className="size-3" aria-hidden />{c.repairStatus}</span>}
                   {docs[c.plate] && <Pill tone={docs[c.plate].tone}>{docs[c.plate].label}</Pill>}
                   {c.location && <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5"><MapPin className="size-3" aria-hidden />{c.location}</span>}
@@ -132,7 +133,7 @@ export function CarsBoard({ cars, role, canEdit, canEditDetails, canOpenDocs, do
                   <td className="px-3 py-2 font-mono text-xs">{c.plateDisplay}</td>
                   <td className="px-3 py-2"><button type="button" className="text-left font-medium underline-offset-2 hover:underline" onClick={(e) => { e.stopPropagation(); setOpen(c); }}>{title(c)}</button></td>
                   <td className="px-3 py-2 text-muted-foreground">{c.color || "—"}</td>
-                  <td className="px-3 py-2 tabular-nums">{peso(c.price)}{c.repriced && <span className="ml-1 text-xs text-muted-foreground line-through">{peso(c.originalPrice)}</span>}</td>
+                  <td className="px-3 py-2 tabular-nums">{c.listed === false ? <span className="text-muted-foreground">Off the list</span> : peso(c.price)}{c.repriced && c.listed !== false && <span className="ml-1 text-xs text-muted-foreground line-through">{peso(c.originalPrice)}</span>}{c.agreedPrice && <span className="block text-xs font-medium text-blue-900 dark:text-blue-200">Agreed {peso(c.agreedPrice)}</span>}</td>
                   <td className="px-3 py-2"><Pill tone={TONE[c.availability]}>{AVAILABILITY_LABEL[c.availability]}</Pill></td>
                   <td className="px-3 py-2">{docs[c.plate] ? <Pill tone={docs[c.plate].tone}>{docs[c.plate].label}</Pill> : <span className="text-muted-foreground">Not started</span>}</td>
                   <td className="px-3 py-2 tabular-nums">{c.daysInStock ?? "—"}</td>

@@ -14,6 +14,8 @@ export interface CarFacts {
   id?: string; buying_source?: string | null;
   plate_display: string | null; arrival_date: string | null; year_model: string | null; make: string | null; model_variant: string | null; color: string | null; mileage: string | null;
   trans: string | null; fuel: string | null; encumbrance: string | null; spare_key: string | null; body_type: string | null; or_expiry: string | null; papers_with?: string | null;
+  /** on the sale list (false: left it, sold before) */
+  in_stock?: boolean | null;
   /** the one status (migration 39); null before the backfill: the old note and repair state are used then */
   stock_state?: StockState | null; state_for?: string | null; state_on?: string | null;
 }
@@ -26,7 +28,7 @@ export const noteOf = (remarks: string): string => applyStatus(remarks, "Availab
 
 const availabilityOfState = (s: StockState): Availability => (s === "Reserved" ? "reserved" : s === "Sold" ? "sold" : s === "For repair" ? "repair" : s === "Sell as is" ? "asis" : s === "Not for sale" ? "notforsale" : "available");
 
-export function carRowOf(s: StockFacts, u: CarFacts, today: string): CarRow {
+export function carRowOf(s: StockFacts, u: CarFacts, today: string, extra: { agreedPrice?: number | null } = {}): CarRow {
   const state = u.stock_state ?? null;
   // with a state, the status part of the old note is ignored: the state is the one truth, the note is only a note
   const remarks = state ? text(remarksText(state, u.state_for, u.state_on, noteOf(text(s.remarks)))) : text(s.remarks);
@@ -45,10 +47,12 @@ export function carRowOf(s: StockFacts, u: CarFacts, today: string): CarRow {
     year: fullYear(ym) || ym, brand: text(u.make), make: text(u.model_variant), color: text(u.color), mileage: text(u.mileage),
     trans: text(u.trans), fuel: text(u.fuel), bodyType,
     price: reprice ?? original, originalPrice: original, repriced: reprice !== null && original !== null && reprice < original, target: num(s.retarget) ?? num(s.target_price),
-    arrived, daysInStock: arrived ? Math.max(0, daysBetween(arrived, today)) : null,
+    // a sold car stopped counting when it was sold; the others count up to today
+    arrived, daysInStock: arrived ? Math.max(0, daysBetween(arrived, state === "Sold" && u.state_on ? u.state_on : today)) : null,
     remarks, reservedFor: st?.names ?? [], reservedOn: st?.date ?? (state === "Reserved" || state === "Sold" ? monthDay(u.state_on) || null : null),
     encumbrance, location, repairStatus, spareKey, orExp: u.or_expiry ?? s.or_expiry, docsCode: text(u.papers_with ?? s.papers_with),
-    availability, sellable: availability === "available" || availability === "asis",
+    availability, sellable: (availability === "available" || availability === "asis") && u.in_stock !== false, listed: u.in_stock !== false,
+    agreedPrice: availability === "reserved" || availability === "sold" ? extra.agreedPrice ?? null : null,
     toCebu: /CEBU/i.test(bodyType) || /CEBU/i.test(location) || state === "Shipped to Cebu",
     raw: { listPrice: num(s.list_price), targetPrice: num(s.target_price), reprice, retarget: num(s.retarget), tools: text(s.tools), papersWith: text(u.papers_with ?? s.papers_with), note: noteOf(remarks), state },
   };
