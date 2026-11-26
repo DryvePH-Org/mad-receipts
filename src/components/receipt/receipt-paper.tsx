@@ -83,7 +83,7 @@ export function ReceiptPaper({ state: s, company: co, print: pr = DEFAULT_SETTIN
     s.hasTi && tradeText[1] && ["Trade-in plate", tradeText[1]],
     s.hasTi && tradeText[2] && ["Trade-in mileage", tradeText[2]],
     s.hasTi && ["Trade-in value", `${money(t.tv)} (taken off the price)`],
-    s.hasLieu && ["In lieu of documents", t.lieu > 0 ? `${money(t.lieu)} (taken off the balance)` : "amount not set"],
+    s.hasLieu && ["In lieu of documents", t.lieu > 0 ? `${money(t.lieu)} (still owed, paid once the documents are transferred)` : "amount not set"],
     s.hasLieu && ["Pay on or before", s.lieuUntil ? formatDate(s.lieuUntil) : "—"],
     t.earlier > 0 && ["Earlier payments", money(t.earlier)],
     t.earlier > 0 && ["Paid today", money(t.today)],

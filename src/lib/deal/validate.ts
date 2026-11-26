@@ -53,7 +53,7 @@ export function missingFields(s: FormState, t: Totals, settings: AppSettings, op
     if (!peso(s.lieuAmount)) add(3, "In-lieu amount", "lieuAmount");
     if (!s.lieuUntil) add(3, "In-lieu until date", "lieuUntil");
     // the documents stand in for part of what the buyer owes, so they cannot be worth more than that
-    if (peso(s.lieuAmount) && t.due < 0) add(3, `In-lieu amount (more than the buyer owes: ${formatPeso(t.due + t.lieu)})`, "lieuAmount");
+    if (peso(s.lieuAmount) && t.lieu > Math.max(t.due, 0)) add(3, `In-lieu amount (more than the buyer owes: ${formatPeso(Math.max(t.due, 0))})`, "lieuAmount");
   }
   if (!t.today && t.due > 0) add(4, "Amount paid today", "cash");
   const dueText = s.dueMode === "date" ? s.dueDate : s.dueText.trim();

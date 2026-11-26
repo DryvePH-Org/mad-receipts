@@ -167,7 +167,7 @@ for the screen; `tests/deal-math.test.ts` and `tests/db/manual-entry.test.ts` ch
 - Processing fee (financing only) is paid by the buyer on top of the down payment, so it is part of the amount due.
   Default 7% of the loan; one button for no fee; "Other" takes any percent or peso amount and shows the other one.
   Earnest money, the down payment and the fee all come off the same balance.
-- "In lieu of documents" stands in for part of the payment: it is taken off the balance like a payment, never more than the buyer owes.
+- "In lieu of documents" is the amount the buyer still pays, on or before its date, once the documents are transferred. It stays in the balance (migration 72; before that it was taken off), never more than the buyer owes.
 - Balance = amount due − earlier payments − paid today + payout. An overpayment cannot be saved.
 - Always: price + fee = trade-in + loan + received − payout + balance.
 
@@ -300,7 +300,7 @@ The app only ever edits the one REMARKS cell of a car, keeps any other note, nev
   revisited. Only when the answer changes does the screen reload its data, with a thin bar at the top and a small "Updating… / Updated" note. The form pages are left alone, and typing is kept.
 - **The receipt form is calm at the start:** nothing is red when it opens. Missing fields show in colour only for steps you have been past (or on the last step). The first **Next** on a step with something missing shows
   what and where (and stays); pressing it again moves on. The step bar shows an amber count on steps you left with something open, and the bottom bar says how many are left or "✓ This step is done".
-- **In lieu of documents** (amount and date) shows beside the payment, beside the balance, and on the Finish step. It is part of the math: it is taken off the balance like a payment (migration 23), and it can never be more than the buyer owes.
+- **In lieu of documents** (amount and date) shows beside the payment, beside the balance, and on the Finish step. It is NOT taken off the balance (migration 72): it is still owed, and it can never be more than the buyer owes. The date drives the reminder.
 
 ## Delete data (testing and clean starts)
 
