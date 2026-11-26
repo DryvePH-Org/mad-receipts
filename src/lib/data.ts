@@ -129,6 +129,7 @@ export interface ReceiptView {
   amount: number;
   payout: number;
   balanceAfter: number;
+  remarks?: string | null;
   status: "pending" | "approved" | "rejected" | "void";
   submittedBy: string;
   submittedByName: string;
@@ -148,7 +149,7 @@ function toReceiptView(r: ReceiptRow): ReceiptView {
   const payments = (Array.isArray(r.payments) ? r.payments : []) as unknown as Record<string, unknown>[];
   return {
     id: r.id, receiptNo: r.receipt_no, dealId: r.deal_id, dealNo: r.deal_no, buyerName: r.buyer_name, saleType: r.sale_type as SaleType,
-    date: r.receipt_date, kind: r.kind as ReceiptView["kind"], amount: centsOf(r.amount), payout: centsOf(r.payout), balanceAfter: centsOf(r.balance_after),
+    date: r.receipt_date, kind: r.kind as ReceiptView["kind"], amount: centsOf(r.amount), payout: centsOf(r.payout), balanceAfter: centsOf(r.balance_after), remarks: (r as { remarks?: string | null }).remarks ?? null,
     status: r.status as ReceiptView["status"], submittedBy: r.submitted_by, submittedByName: r.submitted_by_name ?? "", submittedAt: r.submitted_at,
     reviewedByName: r.reviewed_by_name, reviewedAt: r.reviewed_at, rejectReason: r.reject_reason, voidReason: r.void_reason,
     payments: payments.map((p) => ({

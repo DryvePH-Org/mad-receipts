@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireModule } from "@/lib/auth";
 import { isAdmin as isAdminRole, isSuper, seesSales } from "@/lib/roles";
-import { EditDeal, EditReceipt } from "./edit-transaction";
+import { AddEarlierReceipt, EditDeal, EditReceipt } from "./edit-transaction";
 import { getDeal, receiptsOfDeal } from "@/lib/data";
 import { formatDate, manilaToday } from "@/lib/dates";
 import { buildLedger, totals } from "@/lib/deal/math";
@@ -84,7 +84,7 @@ async function Content({ params }: { params: PageProps<"/deals/[id]">["params"] 
                         <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{formatPeso(r.amount)}</td>
                         <td className="px-3 py-2.5"><ReceiptStatusBadge status={r.status} />{r.status === "rejected" && <p className="text-xs text-muted-foreground">{r.rejectReason}</p>}{r.status === "void" && <p className="text-xs text-muted-foreground">{r.voidReason}</p>}{r.status === "approved" && r.reviewedByName && <p className="text-xs text-muted-foreground">by {r.reviewedByName}</p>}</td>
                         <td className="px-3 py-2.5"><div className="flex justify-end gap-1.5"><PrintReceiptButton receiptId={r.id} />
-                          {superAdmin && r.status !== "void" && deal.status !== "cancelled" && <EditReceipt receipt={{ id: r.id, no: r.receiptNo, date: r.date, payments: r.payments.map((p) => ({ id: p.id, label: p.label, amount: p.amount })) }} />}
+                          {superAdmin && r.status !== "void" && deal.status !== "cancelled" && <EditReceipt receipt={{ id: r.id, no: r.receiptNo, date: r.date, kind: r.kind, remarks: r.remarks ?? (r.snapshot?.hasRem ? r.snapshot.remarks : "") ?? "", payments: r.payments.map((p) => ({ id: p.id, label: p.label, amount: p.amount })) }} />}
                           {isAdmin && r.status === "approved" && <DealAdminActions mode="receipt" dealId={deal.id} today={today} loanStatus={deal.loanStatus} institution="" loanAmount="" canCancel={false} receiptId={r.id} receiptNo={r.receiptNo} amountText={formatPeso(r.amount)} />}</div></td>
                       </tr>
                     ))}
@@ -134,7 +134,7 @@ async function Content({ params }: { params: PageProps<"/deals/[id]">["params"] 
           )}
 
           {isAdmin && deal.status === "open" && <DealAdminActions mode="deal" dealId={deal.id} today={today} loanStatus="none" institution="" loanAmount="" canCancel />}
-          {superAdmin && deal.status !== "cancelled" && <EditDeal deal={{ id: deal.id, dealNo: deal.dealNo, buyer: deal.buyerName, address: deal.buyerAddress ?? "", contact: deal.buyerContact ?? "", price: deal.price, financing: deal.saleType === "financing", institution: deal.institution ?? "", dp: deal.downPayment, fee: deal.fee, due: deal.dueDate ?? "" }} />}
+          {superAdmin && deal.status !== "cancelled" && <div className="flex flex-wrap gap-2"><EditDeal deal={{ id: deal.id, dealNo: deal.dealNo, buyer: deal.buyerName, address: deal.buyerAddress ?? "", contact: deal.buyerContact ?? "", price: deal.price, sale: deal.saleType, institution: deal.institution ?? "", dp: deal.downPayment, fee: deal.fee, years: deal.years ? String(deal.years) : "", tradeIn: deal.tradeIn, tradeInUnit: deal.tradeInInfo?.unit ?? "", lieu: deal.lieu, lieuUntil: deal.lieuUntil ?? "", earlier: deal.openingPaid, due: deal.dueDate ?? "", dueText: deal.dueText ?? "", units: deal.units.map((u) => ({ make: u.make_type, plate: u.plate, color: u.color ?? "" })) }} /><AddEarlierReceipt dealId={deal.id} earlier={deal.openingPaid} /></div>}
           {isAdmin && <DeleteDeal dealId={deal.id} dealNo={deal.dealNo} receipts={receipts.length} proofs={receipts.reduce((n, r) => n + r.payments.reduce((m, p) => m + p.proofs, 0), 0)} />}
         </div>
       </div>
