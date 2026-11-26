@@ -76,7 +76,7 @@ export function checkWords(label: string, max: number) {
 
 /**
  * The mileage as a whole number of kilometres, written "45,000 KM". Understands 45000, 45,000, 45000 KMS, 45K, 45T and 45 THOUSAND (T and K mean thousands).
- * A bare small number (45) is refused, because it could be 45 or 45,000.
+ * A bare number is kilometres as typed (484 is 484 KM: a new car has few km); type 45K for 45,000.
  */
 export function checkMileage(raw: unknown): Checked {
   if (blank(raw)) return { ok: true, value: null };
@@ -85,7 +85,6 @@ export function checkMileage(raw: unknown): Checked {
   if (!m) return { ok: false, error: "Type the mileage in km, like 45000." };
   let n = Number(m[1].replace(/,/g, ""));
   if (m[2]) n *= 1000;
-  else if (n < 1000) return { ok: false, error: "Type the whole number of km, like 45000 (or 45K for 45,000)." };
   n = Math.round(n);
   return n > 999_999 ? { ok: false, error: "That mileage looks too high. Check it." } : { ok: true, value: `${n.toLocaleString("en-US")} KM` };
 }

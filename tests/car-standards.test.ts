@@ -16,9 +16,11 @@ describe("one format for every detail of a car", () => {
     for (const typed of ["45000", "45,000", "45000 km", "45000 KMS", "45k", "45T", "45T KMS", "45 thousand"]) expect(checkMileage(typed), typed).toEqual(ok("45,000 KM"));
     expect(checkMileage("120000")).toEqual(ok("120,000 KM"));
     expect(checkMileage("")).toEqual(ok(null));
-  });
+    expect(checkMileage("484")).toEqual(ok("484 KM"));
+    expect(checkMileage("484 KMS")).toEqual(ok("484 KM"));
+    expect(checkMileage("0")).toEqual(ok("0 KM"));  });
   it("a bare small number or words are not a mileage, so nobody guesses 45 or 45,000", () => {
-    for (const bad of ["45", "lots", "45 miles", "9999999"]) expect(checkMileage(bad).ok, bad).toBe(false);
+    for (const bad of ["lots", "45 miles", "9999999"]) expect(checkMileage(bad).ok, bad).toBe(false);
   });
   it("the pick lists accept the usual ways of writing a value and give the standard one", () => {
     expect(checkTrans("automatic")).toEqual(ok("AT"));
