@@ -5,8 +5,8 @@ import { tabHint } from "@/app/(app)/documents/[plate]/tabs";
 
 describe("navigation", () => {
   it("each role sees its own pages", () => {
-    expect(navFor("super_admin").map((i) => i.href)).toEqual(["/dashboard", "/activity", "/new", "/deals", "/reminders", "/cars", "/documents", "/documents/add", "/repairs", "/settings", "/admin/users", "/admin/sync"]);
-    expect(navFor("admin").map((i) => i.href)).toEqual(["/dashboard", "/activity", "/cars", "/documents", "/documents/add", "/repairs"]); // every module, none of the administration tools; receipts, transactions and reminders are hidden for now
+    expect(navFor("super_admin").map((i) => i.href)).toEqual(["/dashboard", "/activity", "/new", "/deals", "/reminders", "/cars", "/new-cars", "/documents", "/documents/add", "/repairs", "/settings", "/admin/users", "/admin/sync"]);
+    expect(navFor("admin").map((i) => i.href)).toEqual(["/dashboard", "/activity", "/cars", "/new-cars", "/documents", "/documents/add", "/repairs"]); // every module, none of the administration tools; receipts, transactions and reminders are hidden for now
     expect(navFor("buying").map((i) => i.href)).toEqual(["/cars", "/documents", "/documents/add", "/repairs"]); // Add a car is in the menu for Buying
     expect(navFor("marketing").map((i) => i.href)).toEqual(["/cars", "/documents", "/repairs"]); // the same pages, looking only
     expect(navFor("sales").map((i) => i.href)).toEqual(["/cars", "/documents", "/repairs"]);
@@ -22,7 +22,7 @@ describe("navigation", () => {
   });
 
   it("groups the sidebar into Overview, Receipts, Cars and Administration (only the Super Admin has Receipts)", () => {
-    expect(navGroups("super_admin").map((g) => [g.label, g.items.length])).toEqual([["Overview", 2], ["Receipts", 3], ["Cars", 4], ["Administration", 3]]);
+    expect(navGroups("super_admin").map((g) => [g.label, g.items.length])).toEqual([["Overview", 2], ["Receipts", 3], ["Cars", 5], ["Administration", 3]]);
     expect(navGroups("admin").map((g) => g.label)).toEqual(["Overview", "Cars"]);
     expect(navGroups("sales").map((g) => g.label)).toEqual(["Cars"]);
     expect(navGroups("marketing").map((g) => g.label)).toEqual(["Cars"]);
@@ -33,7 +33,7 @@ describe("navigation", () => {
     expect(tabBarItems("sales").tabs.map((i) => i.label)).toEqual(["Car Inventory", "Car documents", "Repairs"]);
     const admin = tabBarItems("super_admin");
     expect(admin.tabs.map((i) => i.label)).toEqual(["Dashboard", "Activity log", "New receipt", "Transactions"]);
-    expect(admin.more.map((i) => i.label)).toEqual(["Reminders", "Car Inventory", "Car documents", "Add a car", "Repairs", "Settings", "Users", "Sync jobs"]);
+    expect(admin.more.map((i) => i.label)).toEqual(["Reminders", "Car Inventory", "New cars to price", "Car documents", "Add a car", "Repairs", "Settings", "Users", "Sync jobs"]);
   });
 
   it("marks the current page", () => {

@@ -10,7 +10,7 @@ import { editsCars, editsPapers, isAdmin } from "@/lib/roles";
 import { docsDb } from "@/lib/docsbible/review-server";
 import { countOpenSyncItems } from "@/lib/pricelist/sync-server";
 import { forRole } from "@/lib/cars/model";
-import { loadCars, orcrSheetUrl, type CarsData } from "@/lib/cars/read";
+import { countAwaitingPrice, loadCars, orcrSheetUrl, type CarsData } from "@/lib/cars/read";
 import { loadTidy } from "@/lib/cars/tidy-server";
 import { loadDocsSummaries } from "@/lib/docs/summary";
 import { CarsBoard } from "./cars-board";
@@ -45,6 +45,7 @@ async function Content() {
   const openChecks = canCheck ? await countOpenSyncItems() : 0;
   const orcr = orcrSheetUrl();
   const tidyCount = isAdmin(user.role) ? await loadTidy().then((t) => t.length, () => 0) : 0; // details written in different ways, for the Admins to tidy
+  const waiting = user.modules.includes("pricing") ? await countAwaitingPrice() : 0; // new cars with no price yet are not in this list
   return (
     <>
       <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">{pageNote("cars", user.role)}</p>
@@ -53,6 +54,12 @@ async function Content() {
         {canCheck && <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/documents/transfers" />}>Open Transfers</Button>}
         {orcr && <Button size="sm" variant="ghost" nativeButton={false} render={<a href={orcr} target="_blank" rel="noreferrer" />}><ExternalLink /> Old sheet</Button>}
       </div>
+      {waiting > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100">
+          <p className="min-w-0 flex-1">{waiting} new {waiting === 1 ? "car is" : "cars are"} waiting for a price. {waiting === 1 ? "It goes" : "They go"} into this list once priced.</p>
+          <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/new-cars" />}>Set the prices</Button>
+        </div>
+      )}
       {tidyCount > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100">
           <p className="min-w-0 flex-1">{tidyCount} car {tidyCount === 1 ? "detail is" : "details are"} not written the standard way (mileage, fuel, color...). Tidy them so every car reads the same.</p>

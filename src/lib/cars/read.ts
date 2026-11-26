@@ -1,6 +1,7 @@
 import "server-only";
 import { manilaToday } from "@/lib/dates";
 import { docsDb } from "@/lib/docsbible/review-server";
+import { awaitsPrice } from "./awaiting";
 import { carRowOf, type CarFacts, type StockFacts } from "./from-db";
 import type { CarRow } from "./model";
 
@@ -21,7 +22,8 @@ export async function loadCars(): Promise<CarsData> {
   // every car of the register (the latest arrival of each plate), the ones on the sale list first; cars that were sold stay for reference
   const { data, error } = await db.from("docs_units_current").select(cols).order("in_stock", { ascending: false }).order("stock_order").limit(5000);
   if (error) throw new Error(`Car Inventory could not be read: ${error.message}`);
-  const rows = (data ?? []) as unknown as (CarFacts & StockFacts & { id: string; stock_note: string | null })[];
+  // a car with no price yet is not in the inventory: it waits in "New cars to price" until an Admin sets its price
+  const rows = ((data ?? []) as unknown as (CarFacts & StockFacts & { id: string; stock_note: string | null })[]).filter((r) => !awaitsPrice(r));
   // the price agreed with the buyer, from the car's latest sale record, for a car that is reserved or sold
   const { data: sales } = await db.from("car_sales").select("plate_no, agreed_price, sold_on").neq("stage", "cancelled").eq("is_reference", false).not("agreed_price", "is", null).order("sold_on", { ascending: false, nullsFirst: false }).limit(8000);
   const agreed = new Map<string, number>();
@@ -30,3 +32,17 @@ export async function loadCars(): Promise<CarsData> {
   const cars: CarRow[] = rows.map((r) => carRowOf({ ...r, remarks: r.stock_note, repair_status: null }, r, today, { agreedPrice: agreed.get(r.plate_no) ?? null }));
   return { cars, at: Date.now() };
 }
+
+export interface AwaitingCar { plate: string; plateDisplay: string; unitId: string; year: string; make: string; model: string; color: string; mileage: string; arrived: string | null }
+
+/** The cars that have no price yet, the newest first. */
+export async function loadAwaitingPrice(): Promise<AwaitingCar[]> {
+  const { data, error } = await docsDb().from("docs_units_current").select("id, plate_no, plate_display, year_model, make, model_variant, color, mileage, arrival_date, in_stock, stock_state, list_price, reprice").eq("in_stock", true).order("arrival_date", { ascending: false, nullsFirst: false }).limit(5000);
+  if (error) throw new Error(`The new cars could not be read: ${error.message}`);
+  return ((data ?? []) as unknown as Record<string, string | null>[]).filter((r) => awaitsPrice(r)).map((r) => ({
+    plate: r.plate_no as string, plateDisplay: (r.plate_display ?? r.plate_no) as string, unitId: r.id as string, year: r.year_model ?? "", make: r.make ?? "", model: r.model_variant ?? "", color: r.color ?? "", mileage: r.mileage ?? "", arrived: r.arrival_date,
+  }));
+}
+
+/** How many cars wait for a price (the number beside the menu entry). */
+export const countAwaitingPrice = () => loadAwaitingPrice().then((c) => c.length, () => 0);

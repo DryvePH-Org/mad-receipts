@@ -3,6 +3,7 @@ import {
   CirclePlus,
   BookOpenCheck,
   Car,
+  Tag,
   CarFront,
   FolderCheck,
   History,
@@ -19,7 +20,7 @@ import {
 import type { Role } from "@/lib/roles";
 export { ROLE_LABELS, type Role } from "@/lib/roles";
 
-export type ModuleId = "dashboard" | "cars" | "register" | "new" | "deals" | "reminders" | "documents" | "repairs" | "upload" | "activity" | "settings" | "users" | "sync" | "add";
+export type ModuleId = "dashboard" | "cars" | "register" | "new" | "deals" | "reminders" | "documents" | "repairs" | "upload" | "activity" | "settings" | "users" | "sync" | "add" | "pricing";
 
 export interface NavItem {
   id: ModuleId;
@@ -31,7 +32,7 @@ export interface NavItem {
   /** false: the module exists (it can be given or hidden, and its pages check it) but has no menu entry of its own */
   menu?: false;
   /** Which live count (if any) is shown beside the item. */
-  badge?: "reminders";
+  badge?: "reminders" | "pricing";
   /** a menu entry that is not a module of its own: it is shown to whoever has this other module (so it cannot be given or hidden alone) */
   via?: ModuleId;
 }
@@ -48,6 +49,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "deals", href: "/deals", label: "Transactions", icon: Car, group: "Receipts", roles: SUPER },
   { id: "reminders", href: "/reminders", label: "Reminders", icon: Bell, group: "Receipts", roles: SUPER, badge: "reminders" },
   { id: "cars", href: "/cars", label: "Car Inventory", icon: CarFront, group: "Cars", roles: ALL },
+  { id: "pricing", href: "/new-cars", label: "New cars to price", icon: Tag, group: "Cars", roles: ADMINS, badge: "pricing" }, // a new car waits here until an Admin sets its price; then it goes into Car Inventory
   { id: "documents", href: "/documents", label: "Car documents (act)", icon: FolderCheck, group: "Cars", roles: ["super_admin", "admin", "buying"], menu: false }, // scan, approve, move, hand off: the menu entry is "register" below
   { id: "register", href: "/documents", label: "Car documents", icon: BookOpenCheck, group: "Cars", roles: ALL },
   { id: "add", href: "/documents/add", label: "Add a car", icon: CirclePlus, group: "Cars", roles: [], via: "documents" }, // Buying and the Admins: the way in to add a car and its IN documents

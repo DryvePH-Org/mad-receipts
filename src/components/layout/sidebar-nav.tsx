@@ -19,6 +19,8 @@ interface Props {
   /** the menu items this person has: their role's, plus or minus what the Admin changed */
   modules: ModuleId[];
   name: string;
+  /** a number to show beside a menu entry (how many are waiting) */
+  badges?: Partial<Record<ModuleId, number>>;
 }
 
 /** The desktop sidebar (from 1024 px): logo, menu groups, and the signed-in user. */
@@ -35,7 +37,7 @@ function ActiveView(props: Props) {
   return <View {...props} pathname={usePathname()} />;
 }
 
-function View({ role, modules, name, pathname }: Props & { pathname: string | null }) {
+function View({ role, modules, name, badges = {}, pathname }: Props & { pathname: string | null }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-16 shrink-0 items-center px-5">
@@ -65,6 +67,7 @@ function View({ role, modules, name, pathname }: Props & { pathname: string | nu
                     >
                       <item.icon className="size-5" aria-hidden />
                       {item.label}
+                      {!!badges[item.id] && <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-semibold text-white tabular-nums" aria-label={`${badges[item.id]} waiting`}>{badges[item.id]}</span>}
                     </Link>
                   </li>
                 );

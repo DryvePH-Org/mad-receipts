@@ -5,20 +5,23 @@ import { SidebarNav } from "@/components/layout/sidebar-nav";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import type { CurrentUser } from "@/lib/auth";
-import { ROLE_LABELS } from "@/lib/navigation";
+import { countAwaitingPrice } from "@/lib/cars/read";
+import { ROLE_LABELS, type ModuleId } from "@/lib/navigation";
 import { isAdmin } from "@/lib/roles";
 
 /**
  * Wraps every signed-in page. From 1024 px: a fixed sidebar. Below that: a top bar and a bottom
  * tab bar. The content is centred in a 72 rem column and cleared of the fixed bars.
  */
-export function AppShell({ user, children }: { user: CurrentUser; children: React.ReactNode }) {
+export async function AppShell({ user, children }: { user: CurrentUser; children: React.ReactNode }) {
   const name = user.fullName ?? user.email;
+  // the number beside a menu entry: how many cars wait for a price
+  const badges: Partial<Record<ModuleId, number>> = user.modules.includes("pricing") ? { pricing: await countAwaitingPrice() } : {};
 
   return (
     <div className="min-h-svh bg-background">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r bg-sidebar lg:block print:hidden">
-        <SidebarNav role={user.role} modules={user.modules} name={name} />
+        <SidebarNav role={user.role} modules={user.modules} name={name} badges={badges} />
       </aside>
 
       <div className="lg:pl-64 print:pl-0">
@@ -37,7 +40,7 @@ export function AppShell({ user, children }: { user: CurrentUser; children: Reac
         </main>
       </div>
 
-      <BottomTabBar role={user.role} modules={user.modules} name={name} />
+      <BottomTabBar role={user.role} modules={user.modules} name={name} badges={badges} />
     </div>
   );
 }
