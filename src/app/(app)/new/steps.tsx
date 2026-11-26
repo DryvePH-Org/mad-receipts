@@ -44,7 +44,7 @@ function LieuNote({ s }: { s: FormState }) {
   return (
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-muted px-3 py-2 text-sm"><ShieldCheck className="size-4 shrink-0" aria-hidden /><b>In lieu of documents</b>
       <span>{s.lieuAmount ? <b className="tabular-nums">{formatPeso(toCentavos(s.lieuAmount) ?? 0)}</b> : "no amount yet"}{s.lieuUntil ? ` to be paid on or before ${formatDate(s.lieuUntil)}` : ""}.</span>
-      <span className="text-xs text-muted-foreground">We hold the buyer&apos;s documents until then. It is taken off the balance.</span></p>
+      <span className="text-xs text-muted-foreground">We hold the buyer&apos;s documents. It stays in the balance and is paid after the documents are transferred.</span></p>
   );
 }
 const Warn = ({ list }: { list: string[] }) => (<>{list.map((w) => <p key={w} className="flex gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200"><TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />{w}</p>)}</>);
