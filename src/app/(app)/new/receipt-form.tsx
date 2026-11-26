@@ -181,7 +181,7 @@ export function ReceiptForm({ userId, today, settings, inventory, liveDeals, con
           : <Button size="lg" disabled={!canSend} onClick={send} title={missing.length ? "Fill in the missing fields first" : !confirmed ? "Tick the box to confirm you checked everything" : undefined}>{pending ? <Loader2 className="animate-spin" /> : <Send />} <span className="max-sm:hidden">Save the receipt</span><span className="sm:hidden">Save</span></Button>}
       </div>
 
-      <ResponsiveDialog open={!!result} onOpenChange={() => undefined} title="Receipt saved" description={result ? `Receipt ${result.receiptNo} · ${formatPeso(t.today)} from ${s.receivedFrom} · deal ${result.dealNo}. It is final: nobody has to approve it.` : undefined}>
+      <ResponsiveDialog open={!!result} onOpenChange={(o) => { if (!o && result) router.push(`/deals/${result.dealId}`); }} title="Receipt saved" description={result ? `Receipt ${result.receiptNo} · ${formatPeso(t.today)} from ${s.receivedFrom} · deal ${result.dealNo}. It is final: nobody has to approve it.` : undefined}>
         {result && (
           <div className="space-y-4">
             <ul className="space-y-2 text-sm">
