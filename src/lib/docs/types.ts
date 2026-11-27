@@ -4,7 +4,9 @@
 export const RAW_TYPES = [
   "official_receipt", "certificate_of_registration", "government_id", "deed_of_sale", "chattel_cancellation",
   "promissory_note", "secretary_certificate", "board_resolution", "acknowledgement_receipt", "transmittal_receipt", "stencil",
-  "spa", "ex_oficio_sheriff", "voluntary_documents", "secretary_certificate_jfp", "notarized_undertaking", "sec_document", "other",
+  "spa", "ex_oficio_sheriff", "voluntary_documents", "secretary_certificate_jfp", "notarized_undertaking", "sec_document",
+  // the papers that come back from the transfer (read by the transfer scanner)
+  "pnp_clearance", "macro_etching", "other",
 ] as const;
 export type RawType = (typeof RAW_TYPES)[number];
 
@@ -15,6 +17,7 @@ export const DOC_TYPES = [
   "acknowledgement_receipt", "transmittal_receipt", "stencil",
   // extra papers some cars come with: they show on the checklist when one is in the folder and are never missing
   "spa", "ex_oficio_sheriff", "voluntary_documents", "secretary_certificate_jfp", "notarized_undertaking", "sec_document",
+  "pnp_clearance", "macro_etching",
   // a deed with the buyer named and notarized: kept private from Sales and Online Marketing
   "deed_closed",
   // seen but not tied to anyone yet: a person decides
@@ -45,6 +48,8 @@ export const DOC_LABELS: Record<DocType, string> = {
   secretary_certificate_jfp: "Secretary's certificate of JFP and amended articles of incorporation",
   notarized_undertaking: "Notarized undertaking to change name",
   sec_document: "Securities and Exchange Commission (SEC)",
+  pnp_clearance: "PNP (HPG) clearance",
+  macro_etching: "Macro-etching",
   id_unmatched: "An ID (whose is not clear)",
   deed_unmatched: "A deed of sale (between whom is not clear)",
   other: "Other / not recognised",

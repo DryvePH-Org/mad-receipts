@@ -12,6 +12,11 @@ export type TransferPaperKey = (typeof TRANSFER_PAPERS)[number]["key"];
 export const TRANSFER_TAGS: string[] = [...TRANSFER_PAPERS.map((p) => p.key), "Other"];
 export const isTransferTag = (v: unknown): v is string => typeof v === "string" && TRANSFER_TAGS.includes(v);
 
+/** The paper the transfer scanner saw (its document type) as one of the four, or null when it is none of them. */
+export function paperOfType(type: string | null | undefined): TransferPaperKey | null {
+  return type === "official_receipt" ? "OR" : type === "certificate_of_registration" ? "CR" : type === "pnp_clearance" ? "PNP clearance" : type === "macro_etching" ? "Macro-etching" : null;
+}
+
 /** What a file name says about the paper (a phone photo called IMG_2041 says nothing): null when it says nothing. */
 export function guessPaper(filename: string): TransferPaperKey | null {
   const n = filename.toLowerCase();

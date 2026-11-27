@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   if (!found.ok) return fail(found.message, 409);
   try {
     const result = await uploadPhoto({ area: "out", plate: found.view.plate, actor: user.id, bytes: new Uint8Array(await file.arrayBuffer()), mime: file.type, label: String(form.get("label") ?? "").replace(/[^\w-]+/g, "").slice(0, 20) || undefined, deferRead: readerMode() === "grokbot" });
-    if (readerMode() === "grokbot") scheduleScan(found.view.plate, 25_000); // photos added one by one are scanned together, shortly after the last one
+    if (readerMode() === "grokbot") scheduleScan(found.view.plate, 25_000, undefined, "out"); // the OUT scanner reads these; photos added one by one are scanned together, shortly after the last one
     const car = await loadCar(found.view.plate);
     console.info(`[docs] upload status=${result.readStatus}`);
     after(() => soldPapersAdded(found.view.plate, car?.folder.folder_name ?? found.view.plate, user.id));

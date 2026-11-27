@@ -3,14 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
-import { requireModule, requireAdmin, requireAnyModule } from "@/lib/auth";
+import { requireModule, requireAdmin, requireAnyModule, requireRole } from "@/lib/auth";
 import { isAdmin, seesSales } from "@/lib/roles";
 import { deleteArchiveFile, setPaymentStatus } from "@/lib/docs/archive";
 import { isPaymentStatus } from "@/lib/docs/payments";
 import { addTransfer } from "@/lib/transfers/server";
 import { removeFile, resetFile, editReading, reviewFlag, chooseFolder, defaultDocsDeps, docsErrorText, linkFolder, previewCarFolder, type FolderPreview, moveToSold, readPending, refreshFolders, scanFolder, setCase, setFileTypes, type MoveResult, type ReadProgress } from "@/lib/docs/service";
 import { CASES, CHOOSABLE, type CaseType, type DocType } from "@/lib/docs/types";
-import { readerMode, scheduleScan } from "@/lib/docs/bot-scan";
+import { readerMode, scheduleScan, startBotScan } from "@/lib/docs/bot-scan";
+import { approveStage, withdrawStage } from "@/lib/docs/stage-approval";
+import { outCheck, transferCheck } from "@/lib/docs/stage-checks";
 import { allowed } from "@/lib/docs/stage";
 import { stageFor } from "@/lib/docs/stage-server";
 import { fileCarReceipts, fileDealReceipts } from "@/lib/docs/receipts-drive";
@@ -495,4 +497,71 @@ export async function addSaleAction(plate: string, raw: z.input<typeof saleSchem
     revalidatePath("/documents", "layout"); revalidatePath("/documents/transfers");
     return { ok: true as const, message: "The sale is added." };
   }, (message) => ({ ok: false as const, message }));
+}
+
+
+// ---------------- approving the OUT documents and the papers back from the transfer ----------------
+
+/** The OUT documents are reviewed and approved by Sales (and the Admins). With `moveToSold`, the car's folder moves to Sold at the same time (Sales and Documentation). */
+export async function approveOutAction(plate: string, confirmIncomplete: boolean, moveToSoldToo: boolean): Promise<StepOutcome> {
+  const user = await requireRole("super_admin", "admin", "sales");
+  await requireModule("upload");
+  const p = plateSchema.safeParse(plate);
+  if (!p.success) return { ok: false, message: "Bad plate." };
+  return guard<StepOutcome>(async () => {
+    const check = await outCheck(p.data);
+    if (!check.rule.allowed && !(isAdmin(user.role) && confirmIncomplete && check.rule.adminOverride)) {
+      return check.rule.adminOverride && isAdmin(user.role) ? { ok: false as const, needsConfirm: true as const, missing: [check.rule.reason ?? "Not ready"] } : { ok: false as const, message: check.rule.reason ?? "This cannot be approved yet." };
+    }
+    const r = await approveStage(p.data, "out", { id: user.id, name: user.fullName ?? "Someone" });
+    if (!r.ok) return { ok: false as const, message: r.error };
+    let message = "The OUT documents are approved.";
+    if (moveToSoldToo) {
+      const m = await moveToSold(p.data, user.id, true);
+      message = m.ok ? "Approved, and the car is moved to Sold." : `Approved. The car could not be moved to Sold yet: ${"error" in m ? m.error : "something is missing"}`;
+      if (m.ok) await markRegisterSold(p.data, user.id).catch(() => undefined);
+    }
+    revalidatePath("/documents", "layout");
+    return { ok: true as const, message };
+  }, (message) => ({ ok: false as const, message }));
+}
+
+/** The papers that came back from the transfer are reviewed and approved by Documentation (and the Admins). */
+export async function approveTransferAction(plate: string, confirmIncomplete: boolean): Promise<StepOutcome> {
+  const user = await requireModule("transfer");
+  const p = plateSchema.safeParse(plate);
+  if (!p.success) return { ok: false, message: "Bad plate." };
+  return guard<StepOutcome>(async () => {
+    const check = await transferCheck(p.data);
+    if (!check.rule.allowed && !(confirmIncomplete && check.rule.adminOverride)) {
+      return check.rule.adminOverride ? { ok: false as const, needsConfirm: true as const, missing: [check.rule.reason ?? "Not ready"] } : { ok: false as const, message: check.rule.reason ?? "This cannot be approved yet." };
+    }
+    const r = await approveStage(p.data, "transfer", { id: user.id, name: user.fullName ?? "Someone" });
+    if (!r.ok) return { ok: false as const, message: r.error };
+    revalidatePath("/documents", "layout");
+    return { ok: true as const, message: "The papers are approved. The car is ready to be released to the buyer." };
+  }, (message) => ({ ok: false as const, message }));
+}
+
+/** An Admin takes the approval of OUT or of the transfer back. */
+export async function withdrawStageAction(plate: string, stage: "out" | "transfer"): Promise<Done> {
+  const user = await requireAdmin();
+  const p = plateSchema.safeParse(plate);
+  if (!p.success || (stage !== "out" && stage !== "transfer")) return { ok: false, message: "Bad request." };
+  const r = await withdrawStage(p.data, stage, user.id);
+  if (!r.ok) return { ok: false, message: r.error };
+  revalidatePath("/documents", "layout");
+  return { ok: true, message: "The approval was taken back." };
+}
+
+/** Scans the waiting photos of the OUT documents (the OUT scanner) or of the transfer (the transfer scanner). */
+export async function scanStageAction(plate: string, stage: "out" | "transfer"): Promise<{ ok: boolean; message: string }> {
+  if (stage === "out") await requireModule("upload"); else await requireModule("transfer");
+  const p = plateSchema.safeParse(plate);
+  if (!p.success) return { ok: false, message: "Bad plate." };
+  const key = normalizePlate(p.data);
+  await createAdminClient().from("folder_files").update({ read_status: "pending", read_error: null }).eq("plate_no", key).eq("stage", stage).eq("read_status", "failed");
+  const r = await startBotScan(key, undefined, undefined, stage);
+  revalidatePath(`/documents/${key}`);
+  return r.started ? { ok: true, message: "The scanner is reading the photos. The result appears here by itself." } : { ok: !!r.message ? false : true, message: r.message ?? "There is nothing waiting to be read." };
 }

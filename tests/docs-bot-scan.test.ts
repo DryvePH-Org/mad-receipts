@@ -48,7 +48,14 @@ describe("starting a scan", () => {
     expect(run).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(2_000);
     expect(run).toHaveBeenCalledTimes(1);
-    expect(run).toHaveBeenCalledWith("ZZT9001");
+    expect(run).toHaveBeenCalledWith("ZZT9001", "in");
+  });
+  it("each stage has its own timer, so an OUT photo never delays the IN scan", async () => {
+    const run = vi.fn(async () => undefined);
+    scheduleScan("ZZT 9002", 25_000, run);
+    scheduleScan("ZZT 9002", 25_000, run, "out");
+    await vi.advanceTimersByTimeAsync(26_000);
+    expect(run.mock.calls).toEqual([["ZZT9002", "in"], ["ZZT9002", "out"]]);
   });
   it("is the bot only when DOCS_READER says grokbot", () => {
     vi.stubEnv("DOCS_READER", "");

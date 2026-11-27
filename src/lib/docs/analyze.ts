@@ -168,7 +168,8 @@ export function checklist(caseType: CaseType, results: FileResult[], deal: DealC
     ...EXTRA_DOCS.filter((type) => presence(type, results).present).map((type) => ({ key: type, type, label: DOC_LABELS[type], stage: "available" as const, optional: true, ...presence(type, results) })),
     ...OPTIONAL_DOCS.map((type) => ({ key: type, type, label: type === "stencil" ? "Stencil (if the car has one)" : DOC_LABELS[type], stage: "available" as const, optional: true, ...presence(type, results) })),
     // the AR is the receipt saved in the app (New receipt): it is on the list once the car's deal has a saved receipt. It is not uploaded as a photo any more.
-    ...(deal.linked === false ? [] : [{ key: "ack", type: "ack" as const, label: ACK_LABEL, stage: "sold" as const, present: deal.hasReceipt, fileIds: [] as string[] }]),
+    // The physical AR is also a photo now (the OUT scanner reads it as an acknowledgement of payment): either one puts it on the list.
+    ...(deal.linked === false && !presence("acknowledgement_receipt", results).present ? [] : [{ key: "ack", type: "ack" as const, label: ACK_LABEL, stage: "sold" as const, present: deal.hasReceipt || presence("acknowledgement_receipt", results).present, fileIds: presence("acknowledgement_receipt", results).fileIds }]),
     ...SOLD_EXTRAS.map((type) => ({ key: type, type, label: DOC_LABELS[type], stage: "sold" as const, ...presence(type, results) })),
   ];
   const missing = items.filter((i) => !i.present && !i.optional);

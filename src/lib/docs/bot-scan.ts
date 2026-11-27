@@ -1,14 +1,22 @@
 import "server-only";
-import { grokbotConfig, GrokbotError, startJob, type Deps } from "@/lib/grokbot/client";
+import { grokbotConfig, GrokbotError, SCAN_ACTION, startJob, type Deps } from "@/lib/grokbot/client";
 import { defaultGrokbotDeps } from "@/lib/grokbot/store";
 import { normalizePlate } from "@/lib/rules/plate";
 import { readingFromReply, type Reading } from "./reader";
+import { paperOfType } from "./transfer-papers";
 import { defaultDocsDeps, recompute, saveReading, type DocsDeps } from "./service";
 import { signFileToken } from "./signed-url";
 
 // Reading the document photos with the grokbot instead of a picture-reading API. The app gives the bot short-lived links to a car's
 // waiting photos in ONE job and does not wait: a bot run can take several minutes. When the bot answers, the callback hands the answer
 // to applyScanAnswer, which saves what every photo showed. The page follows the job's record, so nothing depends on a request staying open.
+
+/** The three stages of a car's documents: the papers it came with (IN), the papers after the sale (OUT) and the papers that come back from the transfer. Each is read by its own bot. */
+export type DocStage = keyof typeof SCAN_ACTION;
+export const DOC_STAGES: readonly DocStage[] = ["in", "out", "transfer"];
+export const isDocStage = (v: unknown): v is DocStage => typeof v === "string" && (DOC_STAGES as readonly string[]).includes(v);
+/** The stage a scan job was for, from its action. */
+export const stageOfAction = (action: string): DocStage | null => DOC_STAGES.find((s) => SCAN_ACTION[s] === action) ?? null;
 
 export const readerMode = (): "grokbot" | "api" => (process.env.DOCS_READER?.trim().toLowerCase() === "grokbot" ? "grokbot" : "api");
 
@@ -29,28 +37,29 @@ export function defaultScanDeps(): ScanDeps {
 // Photos added one by one are grouped: a scan starts shortly after the LAST one (this server process).
 const g = globalThis as unknown as { __madScanTimers?: Map<string, ReturnType<typeof setTimeout>> };
 const timers = () => (g.__madScanTimers ??= new Map());
+const timerKey = (plate: string, stage: DocStage) => `${plate}:${stage}`;
 
 /** Whether a scan of this car is waiting to start or the bot is working on one (read from the jobs table, so it survives a restart). */
-export async function isScanning(plate: string, admin: DocsDeps["admin"] = defaultDocsDeps().admin, now = Date.now()): Promise<boolean> {
+export async function isScanning(plate: string, admin: DocsDeps["admin"] = defaultDocsDeps().admin, now = Date.now(), stage: DocStage = "in"): Promise<boolean> {
   const key = normalizePlate(plate);
-  if (timers().has(key)) return true;
-  const { count } = await admin.from("grokbot_jobs").select("id", { count: "exact", head: true }).eq("action", "docs_scan").in("status", ["queued", "sent"]).eq("plate_no", key).gte("created_at", new Date(now - SCAN_STALE_MS - 3_600_000).toISOString());
+  if (timers().has(timerKey(key, stage))) return true;
+  const { count } = await admin.from("grokbot_jobs").select("id", { count: "exact", head: true }).eq("action", SCAN_ACTION[stage]).in("status", ["queued", "sent"]).eq("plate_no", key).gte("created_at", new Date(now - SCAN_STALE_MS - 3_600_000).toISOString());
   return (count ?? 0) > 0;
 }
 
 /** Sends the car's waiting photos to the bot as one job and returns at once. */
-export async function startBotScan(plate: string, deps: ScanDeps = defaultScanDeps(), now = Date.now()): Promise<{ started: boolean; sent: number; message: string | null }> {
+export async function startBotScan(plate: string, deps: ScanDeps = defaultScanDeps(), now = Date.now(), stage: DocStage = "in"): Promise<{ started: boolean; sent: number; message: string | null }> {
   const key = normalizePlate(plate);
   if (!deps.baseUrl || !deps.secret) return { started: false, sent: 0, message: "The grokbot is not set up on this server." };
-  if (await isScanning(key, deps.docs.admin, now)) return { started: false, sent: 0, message: "A scan of this car is already running." };
+  if (await isScanning(key, deps.docs.admin, now, stage)) return { started: false, sent: 0, message: "A scan of this car is already running." };
   const since = new Date(now - 3_600_000).toISOString();
-  const { count: recent } = await deps.docs.admin.from("grokbot_jobs").select("id", { count: "exact", head: true }).eq("action", "docs_scan").eq("plate_no", key).gte("created_at", since);
+  const { count: recent } = await deps.docs.admin.from("grokbot_jobs").select("id", { count: "exact", head: true }).eq("action", SCAN_ACTION[stage]).eq("plate_no", key).gte("created_at", since);
   if ((recent ?? 0) >= MAX_JOBS_PER_HOUR) return { started: false, sent: 0, message: "Too many scans for this car in the last hour." };
-  const { data: todo } = await deps.docs.admin.from("folder_files").select("id, filename").eq("plate_no", key).eq("read_status", "pending").order("created_at").order("filename").limit(SCAN_BATCH);
+  const { data: todo } = await deps.docs.admin.from("folder_files").select("id, filename").eq("plate_no", key).eq("stage", stage).eq("read_status", "pending").order("created_at").order("filename").limit(SCAN_BATCH);
   if (!todo?.length) return { started: false, sent: 0, message: null };
   const files = todo.map((f) => ({ file_id: f.id, name: f.filename, url: `${deps.baseUrl}/api/docs/scan-file/${signFileToken(f.id, deps.secret, now, 90)}` }));
   try {
-    await startJob("docs_scan", { plate: key, files }, deps.grok, { plate: key });
+    await startJob(SCAN_ACTION[stage], { plate: key, files }, deps.grok, { plate: key });
     return { started: true, sent: files.length, message: null };
   } catch (err) {
     const message = err instanceof GrokbotError || err instanceof Error ? err.message : "The bot could not start.";
@@ -101,7 +110,8 @@ export async function markLookalikes(admin: DocsDeps["admin"], plate: string, id
 export async function applyScanAnswer(jobId: string, deps: ScanDeps = defaultScanDeps()): Promise<{ read: number; failed: number }> {
   const admin = deps.docs.admin;
   const { data: job } = await admin.from("grokbot_jobs").select("action, status, result, error, request").eq("id", jobId).maybeSingle();
-  if (!job || job.action !== "docs_scan" || job.status === "sent") return { read: 0, failed: 0 };
+  const stage = job ? stageOfAction(String(job.action)) : null;
+  if (!job || !stage || job.status === "sent") return { read: 0, failed: 0 };
   const req = (job.request ?? {}) as { plate?: string; files?: { file_id?: string }[] };
   const plate = normalizePlate(req.plate ?? "");
   const ids = (req.files ?? []).map((f) => String(f.file_id ?? "")).filter(Boolean);
@@ -113,13 +123,17 @@ export async function applyScanAnswer(jobId: string, deps: ScanDeps = defaultSca
     for (const id of open) { await admin.from("folder_files").update({ read_status: "failed", read_error: (job.error ?? "The bot could not scan this photo.").slice(0, 300), read_at: new Date().toISOString() }).eq("id", id); failed++; }
   } else {
     const { readings, missing } = planScanResults(ids, (job.result as { results?: unknown } | null)?.results);
-    for (const [id, reading] of readings) if (open.has(id)) { await saveReading(admin, { id }, reading); read++; }
+    for (const [id, reading] of readings) if (open.has(id)) {
+      await saveReading(admin, { id }, reading); read++;
+      // the transfer scanner places the paper: its tag is what it saw (a paper it cannot tell stays "Other" for Documentation to choose)
+      if (stage === "transfer") { const tag = reading.detections.map((d) => paperOfType(d.type)).find(Boolean); if (tag) await admin.from("folder_files").update({ archive_tag: tag }).eq("id", id); }
+    }
     for (const id of missing) if (open.has(id)) { await admin.from("folder_files").update({ read_status: "failed", read_error: "The bot did not return this photo. Press Scan again.", read_at: new Date().toISOString() }).eq("id", id); failed++; }
   }
   await markLookalikes(admin, plate, [...open]);
   await recompute(plate, deps.docs);
   if (read > 0) await deps.docs.after?.(plate).catch(() => undefined);
-  if (job.status === "done") await startBotScan(plate, deps).catch(() => undefined); // more photos waiting: the next batch
+  if (job.status === "done") await startBotScan(plate, deps, Date.now(), stage).catch(() => undefined); // more photos waiting: the next batch
   return { read, failed };
 }
 
@@ -127,10 +141,10 @@ export async function applyScanAnswer(jobId: string, deps: ScanDeps = defaultSca
  * Starts a scan of the car soon. A call within the delay replaces the earlier one, so a person adding photos one by one gets ONE bot job
  * for the whole group, not one per photo.
  */
-export function scheduleScan(plate: string, delayMs: number, run: (plate: string) => Promise<unknown> = (p) => startBotScan(p)): void {
+export function scheduleScan(plate: string, delayMs: number, run: (plate: string, stage: DocStage) => Promise<unknown> = (p, s) => startBotScan(p, undefined, undefined, s), stage: DocStage = "in"): void {
   const key = normalizePlate(plate);
-  const t = timers();
-  const old = t.get(key);
+  const t = timers(), tk = timerKey(key, stage);
+  const old = t.get(tk);
   if (old) clearTimeout(old);
-  t.set(key, setTimeout(() => { t.delete(key); void run(key).catch((e) => console.warn(`[docs] bot scan failed: ${e instanceof Error ? e.message : "unknown"}`)); }, delayMs));
+  t.set(tk, setTimeout(() => { t.delete(tk); void run(key, stage).catch((e) => console.warn(`[docs] bot scan failed: ${e instanceof Error ? e.message : "unknown"}`)); }, delayMs));
 }

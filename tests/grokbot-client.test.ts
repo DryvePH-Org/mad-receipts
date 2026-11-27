@@ -153,7 +153,7 @@ describe("the queue and the scanner", () => {
   });
   it("lets the scanner run as many at once as allowed", async () => {
     const m = memoryStore(), { calls, fetchMock } = recorder();
-    const deps = { store: m.store, config, capacity: { scan: 2 }, fetch: fetchMock, ...noWait };
+    const deps = { store: m.store, config, capacity: { scan: 2, scan_out: 1, scan_transfer: 1 }, fetch: fetchMock, ...noWait };
     for (const p of ["AAA1111", "BBB2222", "CCC3333"]) await enqueueJob("docs_scan", { plate: p }, deps);
     expect(calls).toHaveLength(2);
   });

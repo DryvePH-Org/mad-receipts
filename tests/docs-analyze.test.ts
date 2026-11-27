@@ -15,10 +15,12 @@ const OWNER = "LIM, MARIA LEONILA";
 const types = (a: ReturnType<typeof analyze>, i: number) => a.files[i].types;
 
 describe("the AR on the checklist is the receipt saved in the app", () => {
-  it("is on the list once the car's deal has a saved receipt, and a photo of an AR in the folder does not count by itself", () => {
+  it("is on the list once the car's deal has a saved receipt, or once the physical AR is photographed and read", () => {
     expect(checklist("clean", analyze([], folder, { ...deal, hasReceipt: true }).files, { ...deal, hasReceipt: true }).items.find((i) => i.key === "ack")?.present).toBe(true);
     const photoOnly = analyze([file([det("acknowledgement_receipt", { buyerName: "Juan Dela Cruz", documentNumber: "2516" })])], folder, { ...deal, hasReceipt: false });
-    expect(checklist("clean", photoOnly.files, { ...deal, hasReceipt: false }).items.find((i) => i.key === "ack")?.present).toBe(false);
+    expect(checklist("clean", photoOnly.files, { ...deal, hasReceipt: false }).items.find((i) => i.key === "ack")?.present).toBe(true);
+    // with neither a receipt nor a photo, and no sale linked, the line is not on the list
+    expect(checklist("clean", analyze([], folder, { ...deal, linked: false, hasReceipt: false }).files, { ...deal, linked: false, hasReceipt: false }).items.find((i) => i.key === "ack")).toBeUndefined();
   });
 });
 
@@ -150,8 +152,11 @@ describe("the checklist", () => {
     const more = [...clean, file([det("government_id", { holderName: "Juan Dela Cruz" })]), file([det("deed_of_sale", { sellerName: OWNER, buyerName: "Juan Dela Cruz" })]), file([det("acknowledgement_receipt", { buyerName: "Juan Dela Cruz" })])];
     const a = analyze(more, folder, deal);
     expect(checklist("clean", a.files, deal).complete).toBe(true);
+    // the physical AR photo is on the list too: with neither a receipt nor an AR photo, the AR is missing
     const noReceipt = { ...deal, hasReceipt: false };
-    expect(checklist("clean", analyze(more, folder, noReceipt).files, noReceipt).missing.map((m) => m.key)).toEqual(["ack"]); // with no receipt saved in the app the AR is missing (a photo of an AR does not count)
+    const noAr = more.filter((f) => !f.detections?.some((d) => d.type === "acknowledgement_receipt"));
+    expect(checklist("clean", analyze(noAr, folder, noReceipt).files, noReceipt).missing.map((m) => m.key)).toEqual(["ack"]);
+    expect(checklist("clean", analyze(more, folder, noReceipt).files, noReceipt).missing).toEqual([]);
   });
   it("each case asks for its own papers", () => {
     const a = analyze(clean, folder, deal);

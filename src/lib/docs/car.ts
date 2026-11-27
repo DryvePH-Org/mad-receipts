@@ -57,7 +57,10 @@ export interface Car {
   caseReason: string;
   checklist: Checklist;
   status: FolderStatus;
+  /** photos of the IN documents waiting to be read (the OUT photos have their own scanner and count) */
   pending: number;
+  /** photos of the OUT documents waiting for the OUT scanner */
+  pendingOut: number;
   /** the payment papers kept for this car (never read, never on the checklist) */
   archive: FileRow[];
 }
@@ -72,6 +75,7 @@ export function buildCar(folder: FolderRow, allFiles: FileRow[], deal: DealConte
   const chosen = folder.case_source === "manual" && folder.case_type && (CASES as readonly string[]).includes(folder.case_type) ? (folder.case_type as CaseType) : null;
   const caseType = chosen ?? analysis.suggestedCase;
   const list = checklist(caseType, analysis.files, deal);
-  const pending = files.filter((f) => f.read_status === "pending").length;
-  return { folder, files, analysis, caseType, suggestedCase: analysis.suggestedCase, caseReason: analysis.caseReason, checklist: list, archive, status: folderStatus(list, analysis.files, pending, folder.match_status === "linked" && !!folder.folder_id), pending };
+  const pending = files.filter((f) => f.read_status === "pending" && (f.stage ?? "in") === "in").length;
+  const pendingOut = files.filter((f) => f.read_status === "pending" && f.stage === "out").length;
+  return { folder, files, analysis, caseType, suggestedCase: analysis.suggestedCase, caseReason: analysis.caseReason, checklist: list, archive, status: folderStatus(list, analysis.files, pending, folder.match_status === "linked" && !!folder.folder_id), pending, pendingOut };
 }

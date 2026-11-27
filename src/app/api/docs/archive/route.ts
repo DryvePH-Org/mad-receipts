@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import { readerMode, scheduleScan } from "@/lib/docs/bot-scan";
 import { getCurrentUser } from "@/lib/auth";
 import { uploadArchive } from "@/lib/docs/archive";
 import { docsErrorText } from "@/lib/docs/service";
@@ -24,6 +25,7 @@ export async function POST(request: Request) {
   if (file.size > MAX_BYTES) return fail("That file is too large (8 MB at most).", 413);
   try {
     const r = await uploadArchive({ plate, actor: user.id, bytes: new Uint8Array(await file.arrayBuffer()), mime: file.type, name: file.name, tag: String(form.get("tag") ?? ""), kind: form.get("kind") === "transfer" ? "transfer" : "payment", amount: form.get("amount"), on: form.get("on"), note: form.get("note") });
+    if (transfer && readerMode() === "grokbot") scheduleScan(plate, 25_000, undefined, "transfer"); // the transfer scanner reads the papers together, shortly after the last one
     return Response.json({ ok: true, ...r });
   } catch (err) {
     const text = docsErrorText(err);

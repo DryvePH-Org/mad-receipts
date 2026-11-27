@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireSuper, requireModule } from "@/lib/auth";
-import { startBotScan } from "@/lib/docs/bot-scan";
+import { isDocStage, startBotScan } from "@/lib/docs/bot-scan";
 import { GrokbotError, grokbotMissing, sendJob } from "@/lib/grokbot/client";
 import { defaultGrokbotDeps } from "@/lib/grokbot/store";
 import { normalizePlate } from "@/lib/rules/plate";
@@ -45,7 +45,8 @@ export async function retryScanAction(formData: FormData): Promise<void> {
   await requireModule("sync");
   const plate = normalizePlate(String(formData.get("plate") ?? ""));
   if (plate.length < 5) return;
-  await createAdminClient().from("folder_files").update({ read_status: "pending", read_error: null }).eq("plate_no", plate).eq("read_status", "failed");
-  await startBotScan(plate).catch(() => undefined);
+  const stage = isDocStage(formData.get("stage")) ? (formData.get("stage") as "in" | "out" | "transfer") : "in";
+  await createAdminClient().from("folder_files").update({ read_status: "pending", read_error: null }).eq("plate_no", plate).eq("stage", stage).eq("read_status", "failed");
+  await startBotScan(plate, undefined, undefined, stage).catch(() => undefined);
   revalidatePath("/admin/sync");
 }

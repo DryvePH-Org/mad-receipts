@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
-import { grokbotConfig, type BotName, type Capacity, type Deps, type JobStore } from "./client";
+import { grokbotConfig, isScanJob, type BotName, type Capacity, type Deps, type JobStore } from "./client";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -44,16 +44,16 @@ export function dbJobStore(admin: Admin = createAdminClient()): JobStore {
   };
 }
 
-/** How many scans may run at once: GROKBOT_SCAN_PARALLEL (1 to 4, default 1). */
+/** How many scans may run at once, per bot: GROKBOT_SCAN_PARALLEL, GROKBOT_SCAN_OUT_PARALLEL, GROKBOT_SCAN_TRANSFER_PARALLEL (1 to 4, default 1). */
 export function capacityFromEnv(env: Record<string, string | undefined> = process.env): Capacity {
-  const n = Number(env.GROKBOT_SCAN_PARALLEL);
-  return { scan: Number.isInteger(n) && n >= 1 && n <= 4 ? n : 1 };
+  const n = (v: string | undefined) => { const x = Number(v); return Number.isInteger(x) && x >= 1 && x <= 4 ? x : 1; };
+  return { scan: n(env.GROKBOT_SCAN_PARALLEL), scan_out: n(env.GROKBOT_SCAN_OUT_PARALLEL), scan_transfer: n(env.GROKBOT_SCAN_TRANSFER_PARALLEL) };
 }
 
 export const defaultGrokbotDeps = (): Deps => ({
   store: dbJobStore(), config: grokbotConfig(), capacity: capacityFromEnv(),
   // a scan that failed without an answer marks its photos failed, so they never stay "waiting" forever
-  onFailed: (id) => (id.startsWith("docs_scan-") ? import("@/lib/docs/bot-scan").then((m) => m.applyScanAnswer(id)) : Promise.resolve()),
+  onFailed: (id) => (isScanJob(id) ? import("@/lib/docs/bot-scan").then((m) => m.applyScanAnswer(id)) : Promise.resolve()),
 });
 
 export interface QueueRow { id: string; action: string; bot: BotName; status: "queued" | "sent" | "done" | "failed"; plate: string | null; priority: number; createdAt: string; startedAt: string | null; completedAt: string | null; error: string | null; /** seconds waiting in line, and seconds with the bot (so far, or in all) */ waitSec: number; runSec: number | null }

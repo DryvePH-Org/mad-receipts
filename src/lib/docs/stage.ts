@@ -113,3 +113,18 @@ export function deriveStage(i: StageInput): StageModel {
 
 /** The same rules for the server to enforce (it must not trust the page). */
 export const allowed = (rule: Rule, isAdmin: boolean): boolean => rule.allowed || (!!rule.adminOverride && isAdmin);
+
+/** What decides whether a stage (OUT or the transfer) can be approved: the same rule for each, so every tab behaves alike. */
+export interface StageCheck { missing: string[]; pending: number; failed: number; flagged: number; scanning: boolean }
+
+/** The approval of OUT or transfer: not while the bot is reading; photos not read, papers missing or warnings open can be approved past by an Admin after a confirmation. */
+export function stageApprovalRule(c: StageCheck): Rule {
+  if (c.scanning) return no("The bot is still reading the photos. Wait for it to finish.");
+  const open = [
+    ...(c.pending ? [`${plural(c.pending, "photo")} not read yet`] : []),
+    ...(c.failed ? [`${plural(c.failed, "photo")} could not be read`] : []),
+    ...(c.missing.length ? [`still missing: ${c.missing.join(", ")}`] : []),
+    ...(c.flagged ? [`${plural(c.flagged, "paper")} with a warning to check`] : []),
+  ];
+  return open.length ? no(`${open.join("; ")}.`, true) : ok;
+}

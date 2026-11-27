@@ -9,13 +9,19 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 export class GrokbotError extends Error {}
 
-export type BotName = "scan";
-/** Every job is the scanner's (the connection test too). */
-export const botOf = (_action: string): BotName => "scan"; // eslint-disable-line @typescript-eslint/no-unused-vars
+/** Three scanners, each with its own instructions and its own line in the queue: the IN documents, the OUT documents (after the sale) and the papers that come back from the transfer. */
+export type BotName = "scan" | "scan_out" | "scan_transfer";
+export const BOTS: readonly BotName[] = ["scan", "scan_out", "scan_transfer"];
+/** The scan job of each stage of a car's documents. */
+export const SCAN_ACTION = { in: "docs_scan", out: "docs_scan_out", transfer: "docs_scan_transfer" } as const;
+/** Which bot takes a job: the OUT scanner and the transfer scanner have their own; everything else (the IN scan, the connection test) is the first scanner's. */
+export const botOf = (action: string): BotName => (action === SCAN_ACTION.out ? "scan_out" : action === SCAN_ACTION.transfer ? "scan_transfer" : "scan");
+/** A job id starts with its action: the ids of every scan job. */
+export const isScanJob = (jobId: string): boolean => /^docs_scan(_out|_transfer)?-/.test(jobId);
 /** Higher goes first: a person waiting for a connection test before a scan. */
 export const priorityOf = (action: string): number => (action === "ping" ? 8 : 0);
 /** A job the bot has not answered after this long is given up, so it never blocks the queue. */
-export const STALE_MS: Record<BotName, number> = { scan: 15 * 60_000 };
+export const STALE_MS: Record<BotName, number> = { scan: 15 * 60_000, scan_out: 15 * 60_000, scan_transfer: 15 * 60_000 };
 
 export interface QueueJob { id: string; action: string; bot: BotName; priority: number; request: Record<string, unknown> }
 export interface JobRow { id: string; action: string; status: "queued" | "sent" | "done" | "failed"; result: unknown; error: string | null }
@@ -36,7 +42,10 @@ export interface JobStore {
 }
 
 export interface BotLine { webhookUrl: string; webhookSecret: string }
-export interface GrokbotConfig extends BotLine { callbackSecret: string; callbackBase: string }
+export interface GrokbotConfig extends BotLine { callbackSecret: string; callbackBase: string; /** a bot with its own address and key (GROKBOT_SCAN_OUT_WEBHOOK_URL...); the others use the first scanner's */ lines?: Partial<Record<BotName, BotLine>> }
+
+/** The address and key a bot is called on: its own when it has one, else the first scanner's. */
+export const lineOf = (config: GrokbotConfig, bot: BotName): BotLine => config.lines?.[bot] ?? config;
 
 /**
  * Settings from the server's environment: GROKBOT_SCAN_WEBHOOK_URL and GROKBOT_SCAN_WEBHOOK_SECRET are the scanner's address and key.
@@ -48,7 +57,12 @@ export function grokbotConfig(env: Record<string, string | undefined> = process.
   const callbackSecret = (env.GROKBOT_CALLBACK_SECRET || "").trim();
   const callbackBase = (env.APP_BASE_URL || "").trim().replace(/\/+$/, "");
   if (!(webhookUrl && webhookSecret && callbackSecret && callbackBase)) return null;
-  return { webhookUrl, webhookSecret, callbackSecret, callbackBase };
+  const lines: Partial<Record<BotName, BotLine>> = {};
+  for (const [bot, name] of [["scan_out", "SCAN_OUT"], ["scan_transfer", "SCAN_TRANSFER"]] as const) {
+    const url = (env[`GROKBOT_${name}_WEBHOOK_URL`] ?? "").trim(), secret = (env[`GROKBOT_${name}_WEBHOOK_SECRET`] ?? "").trim();
+    if (url && secret) lines[bot] = { webhookUrl: url, webhookSecret: secret };
+  }
+  return { webhookUrl, webhookSecret, callbackSecret, callbackBase, ...(Object.keys(lines).length ? { lines } : {}) };
 }
 
 export const grokbotMissing = (env: Record<string, string | undefined> = process.env): string[] => [
@@ -76,7 +90,7 @@ export interface SendOptions { timeoutMs?: number; pollMs?: number; createdBy?: 
 /** How many jobs each bot may run at once. */
 export type Capacity = Record<BotName, number>;
 export interface Deps { store: JobStore; config: GrokbotConfig | null; capacity?: Capacity; /** called for a job that failed without an answer (refused, unreachable or given up), so its owner can react */ onFailed?: (jobId: string) => Promise<unknown>; fetch?: typeof fetch; rand?: () => string; now?: () => Date; sleep?: (ms: number) => Promise<void> }
-export const DEFAULT_CAPACITY: Capacity = { scan: 1 };
+export const DEFAULT_CAPACITY: Capacity = { scan: 1, scan_out: 1, scan_transfer: 1 };
 
 /**
  * Sends the waiting jobs the bots have room for. Called when a job is added, when an answer arrives, and by the scheduler, so the queue
@@ -87,13 +101,13 @@ export async function dispatch(deps: Deps): Promise<{ sent: number }> {
   if (!config) return { sent: 0 };
   const now = deps.now?.() ?? new Date(), doFetch = deps.fetch ?? fetch;
   let sent = 0;
-  for (const bot of ["scan"] as const) {
+  for (const bot of BOTS) {
     const before = new Date(now.getTime() - STALE_MS[bot]);
     for (const id of await store.expire(bot, before)) await deps.onFailed?.(id)?.catch(() => undefined);
     const free = (deps.capacity ?? DEFAULT_CAPACITY)[bot] - (await store.running(bot, before));
     if (free <= 0) continue;
     for (const job of await store.claim(bot, free)) {
-      const line = config;
+      const line = lineOf(config, bot);
       const body = { ...job.request, callback_token: tokenFor(config.callbackSecret, job.id) };
       let res: Response | null = null;
       try { res = await doFetch(line.webhookUrl, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${line.webhookSecret}` }, body: JSON.stringify(body), signal: AbortSignal.timeout(30_000) }); } catch { /* handled below */ }

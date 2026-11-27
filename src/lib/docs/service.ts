@@ -450,7 +450,7 @@ export async function uploadPhoto(input: { plate: string; actor: string; bytes: 
   const stamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
   const filename = `${stamp}_${input.label ?? "upload"}.jpg`;
   const uploaded = await deps.bridge.upload(folder.folder_id, filename, input.bytes, input.mime);
-  const record = { plate_no: key, drive_file_id: uploaded.id, filename, mime_type: input.mime, size_bytes: input.bytes.length, drive_url: uploaded.url, source: "upload", uploaded_by: input.actor };
+  const record = { plate_no: key, drive_file_id: uploaded.id, filename, mime_type: input.mime, size_bytes: input.bytes.length, drive_url: uploaded.url, source: "upload", uploaded_by: input.actor, stage: input.area === "out" ? "out" : "in" };
   // the folder check may have listed this very file a moment ago: then that row is the one (marked as an upload), never a second one
   let saved = await deps.admin.from("folder_files").upsert(record, { onConflict: "plate_no,drive_file_id" }).select("*").single();
   if (saved.error && /no unique or exclusion constraint/i.test(saved.error.message)) saved = await deps.admin.from("folder_files").insert(record).select("*").single();

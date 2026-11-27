@@ -1,7 +1,7 @@
 // What a bot job is, in words staff understand, and where it is in the line.
 
-const DOING: Record<string, string> = { docs_scan: "The bot is scanning the photos", ping: "The bot is answering a test" };
-const WAITING: Record<string, string> = { docs_scan: "Waiting for the scanner", ping: "Waiting for the bot" };
+const DOING: Record<string, string> = { docs_scan: "The bot is scanning the photos", docs_scan_out: "The OUT scanner is reading the photos", docs_scan_transfer: "The transfer scanner is reading the papers", ping: "The bot is answering a test" };
+const WAITING: Record<string, string> = { docs_scan: "Waiting for the scanner", docs_scan_out: "Waiting for the OUT scanner", docs_scan_transfer: "Waiting for the transfer scanner", ping: "Waiting for the bot" };
 
 export const ordinal = (n: number): string => { const v = n % 100; return `${n}${v >= 11 && v <= 13 ? "th" : n % 10 === 1 ? "st" : n % 10 === 2 ? "nd" : n % 10 === 3 ? "rd" : "th"}`; };
 
@@ -11,4 +11,4 @@ export function workLabel(action: string, status: "queued" | "sent", position: n
   return position && position > 1 ? `${base}: ${ordinal(position)} in line` : `${base}: next in line`;
 }
 
-export const BOT_NAME: Record<"scan", string> = { scan: "Scanner" };
+export const BOT_NAME: Record<"scan" | "scan_out" | "scan_transfer", string> = { scan: "Scanner (IN documents)", scan_out: "OUT scanner (after the sale)", scan_transfer: "Transfer scanner (papers back from Sir Jep)" };

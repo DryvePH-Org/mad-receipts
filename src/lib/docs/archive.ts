@@ -28,7 +28,8 @@ export async function uploadArchive(input: ArchiveInput, deps: DocsDeps = defaul
   const uploaded = await deps.bridge.upload(folder.folder_id, filename, input.bytes, input.mime);
   const row = {
     plate_no: key, drive_file_id: uploaded.id, filename, mime_type: input.mime, size_bytes: input.bytes.length, drive_url: uploaded.url, source: "upload", uploaded_by: input.actor,
-    read_status: "done", doc_types: [] as string[], archive: kind, archive_tag: tag, archive_amount: cleanAmount(input.amount), archive_on: day(input.on),
+    // the papers back from the transfer are read by the transfer scanner (when the bot is the reader); payment papers are never read
+    read_status: kind === "transfer" && process.env.DOCS_READER?.trim().toLowerCase() === "grokbot" ? "pending" : "done", stage: kind === "transfer" ? "transfer" : "in", doc_types: [] as string[], archive: kind, archive_tag: tag, archive_amount: cleanAmount(input.amount), archive_on: day(input.on),
     archive_note: typeof input.note === "string" ? input.note.trim().slice(0, 300) || null : null,
   };
   const saved = await deps.admin.from("folder_files").insert(row).select("id").single();

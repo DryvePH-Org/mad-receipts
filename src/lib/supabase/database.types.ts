@@ -481,6 +481,7 @@ export type Database = {
           archive_amount: number | null
           archive_on: string | null
           archive_note: string | null
+          stage: string
           read_status: string
           read_error: string | null
           read_at: string | null
@@ -508,6 +509,7 @@ export type Database = {
           archive_amount?: number | null
           archive_on?: string | null
           archive_note?: string | null
+          stage?: string
           read_status?: string
           read_error?: string | null
           read_at?: string | null
@@ -535,6 +537,7 @@ export type Database = {
           archive_amount?: number | null
           archive_on?: string | null
           archive_note?: string | null
+          stage?: string
           read_status?: string
           read_error?: string | null
           read_at?: string | null
