@@ -65,6 +65,9 @@ export function unitStatusFor(status: DealStatusKey): "Available" | "Reserved" |
   return status === "settled" ? "Sold" : status === "cancelled" ? "Available" : "Reserved";
 }
 
+/** Receipts, voids and cancelled deals are posted in the shared Telegram group. Off since the group was deleted; set `on` to true (with a new TELEGRAM_CHAT_ID) to bring it back. */
+export const groupFeed = { on: false };
+
 /**
  * Receipts are announced on Telegram, except on the days listed here: a day when many receipts of the past are entered at once (the owner's decision: 25 Nov 2026 only).
  * The day is the day the receipt was saved, so a job retried later stays quiet too.
@@ -93,6 +96,7 @@ export const syncTargets: Record<SyncTarget, (ctx: SyncContext, deps: SyncDeps) 
   async sheets() { return; },
 
   async telegram(ctx, deps) {
+    if (!groupFeed.on) return; // the shared group feed is off (the owner's decision, 27 Nov 2026): people get their own messages from MAD Notification instead. Old queued jobs for this target just end.
     if (isQuietDay(ctx)) return; // a quiet day: nothing is posted
     if (ctx.event === "confirm") {
       const image = (await ctx.proofs()).find((p) => p.mime.startsWith("image/"));

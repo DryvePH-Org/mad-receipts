@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { emptyForm } from "@/app/(app)/new/form-state";
 import { DEFAULT_SETTINGS, parseSettings } from "@/lib/deal/settings";
 import { createMockInventory } from "@/lib/inventory/mock";
-import { SyncConflict, cancelMessage, syncTargets, telegramCaption, unitStatusFor, voidMessage, type SyncContext, type SyncDeps } from "@/lib/sync/targets";
+import { SyncConflict, cancelMessage, groupFeed, syncTargets, telegramCaption, unitStatusFor, voidMessage, type SyncContext, type SyncDeps } from "@/lib/sync/targets";
 import type { TelegramClient } from "@/lib/telegram";
 
 const settings = parseSettings(DEFAULT_SETTINGS);
@@ -55,6 +55,16 @@ describe("sheets", () => {
 });
 
 describe("telegram", () => {
+  it("posts nothing while the group feed is off (the default)", async () => {
+    const a = deps();
+    await syncTargets.telegram(context(), a.d);
+    await syncTargets.telegram(context({ event: "void", receipt: { status: "void", void_reason: "Wrong amount" } }), a.d);
+    expect(a.telegram.sendPhoto).not.toHaveBeenCalled();
+    expect(a.telegram.sendMessage).not.toHaveBeenCalled();
+  });
+  describe("with the group feed on", () => {
+    beforeEach(() => { groupFeed.on = true; });
+    afterEach(() => { groupFeed.on = false; });
   it("sends the first proof photo with the caption, or just the message", async () => {
     const a = deps();
     await syncTargets.telegram(context(), a.d);
@@ -75,6 +85,7 @@ describe("telegram", () => {
     expect(a.telegram.sendMessage).toHaveBeenCalledTimes(2);
     expect(voidMessage(context({ receipt: { void_reason: "Wrong amount" } }))).toContain("Wrong amount");
     expect(cancelMessage(context({ deal: { cancel_reason: "Changed his mind", refund_amount: 5000 } }))).toContain("Refunded ₱5,000");
+  });
   });
 });
 
