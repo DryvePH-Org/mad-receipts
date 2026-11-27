@@ -35,10 +35,13 @@ export async function updateStockAction(raw: StockInput): Promise<StockResult> {
   const reservedOrSold = v.state === "Reserved" || v.state === "Sold";
   if (reservedOrSold && !clean(v.person)) return { ok: false, error: `Type who the car is ${v.state === "Sold" ? "sold" : "reserved"} for.` };
   // one record: prices, place, tools, note and the one status are all fields of the car (the two old status columns follow the state)
-  const { error } = await db.from("docs_units").update({
+  const patch = {
     list_price: v.listPrice, target_price: v.targetPrice, reprice: v.reprice, retarget: v.retarget, agreed_price: clean(v.agreedPrice) || null, location: clean(v.location) || null, tools: clean(v.tools) || null, stock_note: note,
     stock_state: v.state, state_for: reservedOrSold ? clean(v.person).toUpperCase() : null, state_on: reservedOrSold ? manilaToday() : null, updated_by: user.id, last_change_source: "app",
-  }).eq("id", row.id as string);
+  };
+  let { error } = await db.from("docs_units").update(patch).eq("id", row.id as string);
+  // before migration 77 is applied there is no agreed_price column: everything else is still saved
+  if (error && /agreed_price/.test(error.message)) { const { agreed_price: _skip, ...rest } = patch; void _skip; ({ error } = await db.from("docs_units").update(rest).eq("id", row.id as string)); }
   if (error) return { ok: false, error: `Could not save: ${error.message}` };
   revalidatePath("/cars");
   return { ok: true, message: "Saved." };

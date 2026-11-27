@@ -18,9 +18,11 @@ const CAR_COLS = "id, in_stock, plate_no, plate_display, arrival_date, year_mode
 
 export async function loadCars(): Promise<CarsData> {
   const db = docsDb();
-  const cols: string = `${CAR_COLS}, ${STOCK_COLS}`;
+  const read = (stock: string) => db.from("docs_units_current").select(`${CAR_COLS}, ${stock}`).order("in_stock", { ascending: false }).order("stock_order").limit(5000);
   // every car of the register (the latest arrival of each plate), the ones on the sale list first; cars that were sold stay for reference
-  const { data, error } = await db.from("docs_units_current").select(cols).order("in_stock", { ascending: false }).order("stock_order").limit(5000);
+  let { data, error } = await read(STOCK_COLS);
+  // before migration 77 is applied there is no agreed_price column: the list is read without it, so the page works either way
+  if (error && /agreed_price/.test(error.message)) ({ data, error } = await read(STOCK_COLS.replace("agreed_price, ", "")));
   if (error) throw new Error(`Car Inventory could not be read: ${error.message}`);
   // a car with no price yet is not in the inventory: it waits in "New cars to price" until an Admin sets its price
   const rows = ((data ?? []) as unknown as (CarFacts & StockFacts & { id: string; stock_note: string | null })[]).filter((r) => !awaitsPrice(r));
