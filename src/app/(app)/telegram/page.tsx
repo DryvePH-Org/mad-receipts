@@ -9,6 +9,9 @@ import { botToken, webhookInfo } from "@/lib/notify/bot";
 import { categoriesForRole } from "@/lib/notify/categories";
 import { allLinks, getLink, mutedCategories, notifyDb } from "@/lib/notify/store";
 import { ROLE_LABELS } from "@/lib/navigation";
+import { loadChain } from "@/lib/repairs/approval-chain";
+import { loadChainChoices } from "@/lib/repairs/chain-choices";
+import { ChainPanel } from "../repairs/chain-panel";
 import { AdminBot, Connect, Toggle } from "./telegram-parts";
 
 export default function TelegramPage() {
@@ -28,6 +31,8 @@ async function Content() {
     const byUser = new Map(links.map((l) => [l.userId, l]));
     people = (profiles ?? []).map((p) => ({ name: (p.full_name as string | null) ?? "(no name)", role: ROLE_LABELS[roleFromDb(p.role)], connected: byUser.has(String(p.id)), problem: byUser.get(String(p.id))?.lastError ?? null }));
   }
+
+  const chain = isSuper(user.role) ? { initial: (await loadChain().catch(() => [])).map((c) => ({ userId: c.userId, waitMinutes: c.waitMinutes })), candidates: await loadChainChoices().catch(() => []) } : null;
 
   return (
     <div className="space-y-6">
@@ -63,6 +68,7 @@ async function Content() {
                 {configured && <AdminBot done={!!hook?.url} />}
               </CardContent>
             </Card>
+            {chain && <ChainPanel open candidates={chain.candidates} initial={chain.initial} />}
             <Card>
               <CardHeader><CardTitle>Who is connected</CardTitle></CardHeader>
               <CardContent className="divide-y text-sm">

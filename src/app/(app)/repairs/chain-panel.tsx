@@ -13,7 +13,7 @@ const WAITS = [30, 60, 120, 180, 240, 480];
 const waitLabel = (m: number) => (m < 60 ? `${m} min` : `${m / 60} hour${m === 60 ? "" : "s"}`);
 
 /** Who is asked first to approve a repair report on Telegram, and who next when nobody decides in time. */
-export function ChainPanel({ candidates, initial }: { candidates: ChainCandidate[]; initial: ChainRow[] }) {
+export function ChainPanel({ candidates, initial, open = false }: { candidates: ChainCandidate[]; initial: ChainRow[]; open?: boolean }) {
   const [rows, setRows] = useState<ChainRow[]>(initial);
   const [busy, start] = useTransition();
   const by = new Map(candidates.map((c) => [c.userId, c]));
@@ -22,7 +22,7 @@ export function ChainPanel({ candidates, initial }: { candidates: ChainCandidate
   const save = () => start(async () => { const r = await saveApprovalChainAction(rows); if (r.ok) toast.success("Saved."); else toast.error(r.error); });
   const dirty = JSON.stringify(rows) !== JSON.stringify(initial);
   return (
-    <details className="rounded-xl ring-1 ring-foreground/10">
+    <details open={open} className="rounded-xl ring-1 ring-foreground/10">
       <summary className="cursor-pointer px-4 py-3 text-sm font-medium">Who approves repair reports on Telegram, in what order ({rows.length})</summary>
       <div className="space-y-3 border-t px-4 py-4 text-sm">
         <p className="text-muted-foreground">A new report goes to the first person, with Approve and Reject buttons in their MAD Notification chat. If nobody decides in the time shown, the next person is asked, and so on; after the last, it goes round again. Nothing is sent from 21:00 to 07:00. With nobody in the list, everyone who can decide is told, as before.</p>
