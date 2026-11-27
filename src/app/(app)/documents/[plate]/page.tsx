@@ -13,7 +13,9 @@ import { PaymentsPanel } from "./payments-card";
 import { ActivityList } from "./activity-list";
 import { loadCarActivity } from "@/lib/docs/activity";
 import type { ActivityEntry } from "@/lib/docs/activity-text";
-import { isAdmin, seesPrivateDocs, seesSales, type Role } from "@/lib/roles";
+import { approvesOut, isAdmin, seesPrivateDocs, seesSales, type Role } from "@/lib/roles";
+import { loadStageApprovals } from "@/lib/docs/stage-approval";
+import { stageApprovalRule } from "@/lib/docs/stage";
 import { getSettings } from "@/lib/data";
 import { isScanning, readerMode } from "@/lib/docs/bot-scan";
 import { readingNotes, reviewedOf, rotationOf, detectionsOf, wasEdited } from "@/lib/docs/car";
@@ -48,10 +50,12 @@ import { TransferList } from "../transfers/transfer-list";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listCarReceipts } from "@/lib/docs/receipts-drive";
 import { ReceiptsCard } from "./receipts-card";
-import { SoldUploadCard, type OutItem } from "./sold-upload-card";
+import { type OutItem } from "./sold-upload-card";
 import { RegisterCard } from "./register-card";
 import { TransferPapersCard } from "./transfer-papers-card";
-import { transferProgress } from "@/lib/docs/transfer-papers";
+import { StagePanel, type StageFile, type StageItem } from "./stage-panel";
+import { OutUploader, TransferUploader } from "./stage-uploaders";
+import { TRANSFER_PAPERS, transferProgress } from "@/lib/docs/transfer-papers";
 import { RemoveCarCard } from "./remove-car-card";
 import { SoldCard } from "./sold-card";
 import { StageCard } from "./stage-card";
@@ -76,10 +80,11 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
   const key = car.folder.plate_no;
   const admin = createAdminClient();
 
-  const [flow, settings, botWork, scanning, input, lastScanRow] = await Promise.all([
+  const [flow, settings, botWork, scanning, input, lastScanRow, approvals, scanningOut, scanningTransfer] = await Promise.all([
     loadWorkflow(key).catch(() => ({ workflow: EMPTY_WORKFLOW, details: cleanDetails({}), detailsSaved: false })),
     getSettings(), workForPlate(key).catch(() => []), isScanning(key).catch(() => false), loadStageInput(key, admin).catch(() => null),
     admin.from("grokbot_jobs").select("status, created_at, completed_at, request, error").eq("plate_no", key).eq("action", "docs_scan").in("status", ["done", "failed"]).order("created_at", { ascending: false }).limit(1).maybeSingle().then((r) => r.data, () => null),
+    loadStageApprovals(key).catch(() => ({ out: null, transfer: null })), isScanning(key, admin, undefined, "out").catch(() => false), isScanning(key, admin, undefined, "transfer").catch(() => false),
   ]);
   const linked = car.folder.match_status === "linked" && !!car.folder.folder_id;
   const stage = deriveStage(input ?? { linked, location: car.folder.location as "available" | "sold", filesTotal: car.files.length, pending: car.pending, failed: 0, scanning, flaggedFiles: 0, missingBefore: 0, missingSold: 0, hasDeal: !!deal, approved: !!flow.workflow.approvedAt, caseChosen: car.folder.case_source === "manual", handoffAt: flow.workflow.handoffAt, returnedAt: flow.workflow.handoffReturnedAt, receiver: settings.print.transmittalReceiver || "the receiver" });
@@ -132,7 +137,7 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
   const newOwnerFiles = seesSales(user.role) ? car.archive.filter((f) => f.archive === "transfer").map((f) => ({ id: f.id, name: f.filename, tag: f.archive_tag ?? "Other", addedAt: f.created_at, by: f.uploaded_by ? uploaderName.get(f.uploaded_by) ?? "Someone" : null })) : [];
   const detailsMissing = missingDetails(flow.details).length;
   const soldCar = data.location === "sold" || facts.unit?.stockState === "Sold";
-  const handData = { plate: key, location: data.location, soldCar, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffChecked, returnedAt: flow.workflow.handoffReturnedAt, releasedOn: hand?.releasedOn ?? null, deliveredOn: hand?.deliveredOn ?? null, stage: sale?.stage ?? hand?.stage ?? null,
+  const handData = { plate: key, location: data.location, soldCar, recipient, at: flow.workflow.handoffAt, note: flow.workflow.handoffNote, checked: flow.workflow.handoffAt || flow.workflow.handoffChecked.length ? flow.workflow.handoffChecked : items.filter((i) => i.present).map((i) => i.key), returnedAt: flow.workflow.handoffReturnedAt, releasedOn: hand?.releasedOn ?? null, deliveredOn: hand?.deliveredOn ?? null, stage: sale?.stage ?? hand?.stage ?? null, transferApproved: !!approvals.transfer,
     items: [...items].map((i) => ({ key: i.key, label: i.label, present: i.present, optional: i.optional })) };
   const before = items.filter((i) => i.stage === "available" && !i.optional);
   // the after-sale checklist: the signed AR (every AR that was uploaded is listed under it), the buyer's ID and the deed
@@ -140,10 +145,23 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
   const outItems: OutItem[] = items.filter((i) => i.stage === "sold").map((i) => ({
     key: i.key, label: i.label, present: i.present,
     // the AR line has no photo: it is the receipt saved in the app (see the Receipts tab); the other lines list the papers read from the folder
-    files: (i.key === "ack" ? [] : i.fileIds).map((id) => fileOf.get(id)).filter((f): f is NonNullable<typeof f> => !!f).map((f) => ({ id: f.id, name: f.filename, by: f.uploaded_by ? uploaderName.get(f.uploaded_by) ?? "Someone" : null, at: f.created_at, note: null })),
+    files: i.fileIds.map((id) => fileOf.get(id)).filter((f): f is NonNullable<typeof f> => !!f).map((f) => ({ id: f.id, name: f.filename, by: f.uploaded_by ? uploaderName.get(f.uploaded_by) ?? "Someone" : null, at: f.created_at, note: null })),
   }));
   const outHave = outItems.filter((i) => i.present).length;
   const buyerName = data.deal?.buyerName ?? sale?.buyer ?? null;
+  // the OUT documents and the papers back from the transfer, for the shared panel
+  const flagsOf = new Map(car.analysis.files.map((r) => [r.id, r.flags]));
+  const stageFile = (f: (typeof car.files)[number]): StageFile => ({ id: f.id, name: f.filename, readStatus: f.read_status, flags: flagsOf.get(f.id) ?? [], by: f.uploaded_by ? uploaderName.get(f.uploaded_by) ?? "Someone" : null, at: f.created_at, types: f.doc_types ?? [] });
+  const outStageItems: StageItem[] = items.filter((i) => i.stage === "sold").map((i) => ({ key: i.key, label: i.key === "ack" ? "AR: the physical copy, or the receipt saved in the app" : i.label, present: i.present, files: i.fileIds.map((id) => fileOf.get(id)).filter((f): f is NonNullable<typeof f> => !!f).map(stageFile) }));
+  const placedOut = new Set(outStageItems.flatMap((i) => i.files.map((f) => f.id)));
+  const outLoose = car.files.filter((f) => f.stage === "out" && !placedOut.has(f.id)).map(stageFile);
+  const outFiles = car.files.filter((f) => f.stage === "out");
+  const outCheck = { missing: outStageItems.filter((i) => !i.present && !i.optional).map((i) => i.label), pending: outFiles.filter((f) => f.read_status === "pending").length, failed: outFiles.filter((f) => f.read_status === "failed").length, flagged: outFiles.reduce((n, f) => n + ((flagsOf.get(f.id) ?? []).length ? 1 : 0), 0), scanning: scanningOut };
+  const transferFiles = car.archive.filter((f) => f.archive === "transfer");
+  const archiveFile = (f: (typeof car.archive)[number]): StageFile => ({ id: f.id, name: f.filename, readStatus: f.read_status, flags: [], by: f.uploaded_by ? uploaderName.get(f.uploaded_by) ?? "Someone" : null, at: f.created_at, types: [] });
+  const transferStageItems: StageItem[] = TRANSFER_PAPERS.map((p) => { const mine = transferFiles.filter((f) => f.archive_tag === p.key && f.read_status !== "pending"); return { key: p.key, label: p.long, present: mine.length > 0, files: mine.map(archiveFile) }; });
+  const transferLoose = transferFiles.filter((f) => f.read_status === "pending" || !TRANSFER_PAPERS.some((p) => p.key === f.archive_tag)).map(archiveFile);
+  const transferCheck = { missing: transferStageItems.filter((i) => !i.present).map((i) => i.key), pending: transferFiles.filter((f) => f.read_status === "pending").length, failed: transferFiles.filter((f) => f.read_status === "failed").length, flagged: 0, scanning: scanningTransfer };
   // what each person does next on this car
   const inNext = linked ? { anchor: stage.next.anchor, title: stage.next.title } : { anchor: "folder", title: "Add the car's documents" };
   const outNext = linked && transfers ? (!sale ? { anchor: "sold-upload", title: "Upload the AR" } : outHave < outItems.length ? { anchor: "sold-upload", title: `Upload the OUT documents (${outItems.length - outHave} to go)` } : null) : null;
@@ -168,14 +186,22 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
       </div>) : <NoFolder data={data} canAct={canAct} /> },
     ...((transfers || canUpload) && linked ? [{ key: "payments" as CarTab, label: "OUT documents", badge: `${outHave}/${outItems.length}`, tone: (outHave < outItems.length || !sale ? "amber" : "emerald") as Tone2, node: (
       <div className="space-y-6">
-        <SoldUploadCard plate={key} items={outItems} buyer={buyerName} canUpload={canUpload} />
+        {buyerName && transfers && <p className="text-sm text-muted-foreground">Buyer <b className="text-foreground">{buyerName}</b>.</p>}
+        <StagePanel stage="out" title="OUT documents" intro="After the sale: upload the three papers (the buyer's ID, the deed of sale signed with the buyer and the physical AR). The OUT scanner puts each in its place; Sales reviews and approves." plate={key} items={outStageItems} loose={outLoose}
+          pending={outCheck.pending} failed={outCheck.failed} scanning={scanningOut} botName="The OUT scanner" approval={approvals.out} rule={stageApprovalRule(outCheck)} canEdit={canUpload} canApprove={approvesOut(user.role)} isAdmin={data.isAdmin}
+          canMoveToSold={!soldCar && stage.rules.moveToSold.allowed && approvesOut(user.role)} uploader={<OutUploader plate={key} />} />
         {transfers && <PaymentsPanel plate={key} hasSale={!!sale} status={sale?.paymentStatus ?? null} files={archive} canEdit={canUpload} isAdmin={data.isAdmin} folderLinked={linked} />}
         <Card id="out-activity"><CardHeader><CardTitle>Activity on the OUT documents</CardTitle></CardHeader><CardContent><ActivityList entries={activity.filter((a) => a.area === "out")} /></CardContent></Card>
       </div>) }] : []),
     ...(transfers ? [{ key: "sale" as CarTab, label: "Sale and transfer", badge: sale ? STAGE_LABEL[sale.stage].split(" (")[0].split(",")[0].replace("In process at LTO", "In process") : null, tone: (sale?.flags.length ? "amber" : "zinc") as Tone2, node: (
       <div className="space-y-6">
         <HandoffCard isAdmin={data.isAdmin} canEdit={canTransfer} rules={stage.rules} data={handData} />
-        <TransferPapersCard plate={key} files={newOwnerFiles} canEdit={canTransfer} isAdmin={data.isAdmin} folderLinked={linked} backAtMad={!!flow.workflow.handoffReturnedAt} />
+        {data.botMode && linked ? (
+          <StagePanel stage="transfer" title="Papers back from the transfer" intro="When Sir Jep gives the originals back: upload the new OR, the new CR, the PNP clearance and the macro-etching. The transfer scanner puts each in its place; Documentation reviews and approves, and the car is ready to release to the buyer." plate={key} items={transferStageItems} loose={transferLoose}
+            pending={transferCheck.pending} failed={transferCheck.failed} scanning={scanningTransfer} botName="The transfer scanner" approval={approvals.transfer} rule={stageApprovalRule(transferCheck)} canEdit={canTransfer} canApprove={canTransfer} isAdmin={data.isAdmin} uploader={<TransferUploader plate={key} />} />
+        ) : (
+          <TransferPapersCard plate={key} files={newOwnerFiles} canEdit={canTransfer} isAdmin={data.isAdmin} folderLinked={linked} backAtMad={!!flow.workflow.handoffReturnedAt} />
+        )}
         <Card id="transfer"><CardHeader><CardTitle>The sale of this car</CardTitle></CardHeader><CardContent><TransferList transfers={transfers.transfers} cars={Object.fromEntries(transfers.cars)} today={manilaToday()} plate={key} showCar={false} /></CardContent></Card>
       </div>) }] : []),
     ...(canUpload && (receipts.length > 0 || data.deal) ? [{ key: "receipts" as CarTab, label: "Receipts", badge: receipts.length ? String(receipts.length) : null, tone: "zinc" as Tone2, node: (

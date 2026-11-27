@@ -20,6 +20,8 @@ const today = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Manila" }
 export interface HandoffData {
   plate: string; location: "available" | "sold"; soldCar?: boolean; recipient: string; at: string | null; note: string | null; checked: string[]; returnedAt: string | null;
   releasedOn: string | null; deliveredOn: string | null; stage?: string | null;
+  /** the papers back from the transfer were checked and approved */
+  transferApproved?: boolean;
   items: { key: string; label: string; present: boolean; optional?: boolean }[];
 }
 
@@ -67,7 +69,7 @@ export function HandoffCard({ data, rules, isAdmin = false, canEdit = true }: { 
                   ))}
                 </ul>}
                 <div className="space-y-1.5"><Label htmlFor="ho-note">Note (optional)</Label><Input id="ho-note" value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} /></div>
-                <Button disabled={busy || !rules.handoff.allowed} onClick={() => step("Hand off with things still open?", (c) => handoffAction(data.plate, note, c))}>{busy ? <Loader2 className="animate-spin" /> : <HandCoins />} Handed off to {data.recipient}</Button>
+                <Button disabled={busy || !rules.handoff.allowed} onClick={() => step("Hand off with things still open?", async (c) => { await setHandoffCheckedAction(data.plate, checked); return handoffAction(data.plate, note, c); })}>{busy ? <Loader2 className="animate-spin" /> : <HandCoins />} Handed off to {data.recipient}</Button>
                 {!rules.handoff.allowed && rules.handoff.reason && <p className="text-xs text-muted-foreground">{rules.handoff.reason}</p>}
               </>
             )}
@@ -81,7 +83,8 @@ export function HandoffCard({ data, rules, isAdmin = false, canEdit = true }: { 
 
             {canEdit && next === "released" && (
               <>
-                <p>The originals are back at MAD{data.returnedAt ? "" : " (the date was not recorded)"}. When they are given to the buyer or to the financing company, say who and when.</p>
+                {data.transferApproved && <p className="rounded-lg bg-emerald-50 p-3 font-medium text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200">The papers back from the transfer are checked and approved: ready for release to the buyer.</p>}
+                <p>The originals are back at MAD{data.returnedAt ? "" : " (the date was not recorded)"}. When they are given to the buyer or to the financing company, say who and when (this is the record of the release).</p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5"><Label htmlFor="rel-to">Given to</Label><Input id="rel-to" value={to} maxLength={70} placeholder="The buyer, GDFI, SAFC…" onChange={(e) => setTo(e.target.value)} /></div>
                   <div className="space-y-1.5"><Label htmlFor="rel-on">Date</Label><Input id="rel-on" type="date" value={when} onChange={(e) => setWhen(e.target.value)} /></div>

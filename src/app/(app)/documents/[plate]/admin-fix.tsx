@@ -8,12 +8,12 @@ import { Button } from "@/components/ui/button";
 import { adminFixAction } from "../actions";
 
 /** An Admin button that changes a step already taken (approval, handoff). It always asks first and says what will happen. */
-export function AdminFixButton({ plate, fix, label, title, warning, confirmLabel, disabled }: { plate: string; fix: unknown; label: string; title: string; warning: string; confirmLabel: string; disabled?: boolean }) {
+export function AdminFixButton({ plate, fix, label, title, warning, confirmLabel, disabled, run }: { plate: string; fix: unknown; label: string; title: string; warning: string; confirmLabel: string; disabled?: boolean; /** another action in place of the car's own fixes (the approval of OUT or of the transfer) */ run?: () => Promise<{ ok: boolean; message: string }> }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, start] = useTransition();
   const go = () => start(async () => {
-    const r = await adminFixAction(plate, fix);
+    const r = run ? await run() : await adminFixAction(plate, fix);
     if (r.ok) { toast.success(r.message); setOpen(false); } else toast.error(r.message);
     router.refresh();
   });

@@ -100,7 +100,7 @@ describe("what each role may do", () => {
     const buying = { editsIn: true, editsOut: false, seesSales: true }, sales = { editsIn: false, editsOut: true, seesSales: true }, marketing = { editsIn: false, editsOut: true, seesSales: false };
     expect(tabHint("documents", buying)).toMatch(/upload photos/);
     expect(tabHint("documents", sales)).toMatch(/for you to read/);
-    expect(tabHint("payments", sales)).toMatch(/upload the signed AR first/);
+    expect(tabHint("payments", sales)).toMatch(/upload the three papers/);
     expect(tabHint("overview", marketing)).toMatch(/add the OUT documents/);
     expect(tabHint("sale", { ...sales, editsTransfer: true })).toMatch(/hand them to Sir Jep/);
     expect(tabHint("sale", sales)).toMatch(/Documentation does the transfer/);

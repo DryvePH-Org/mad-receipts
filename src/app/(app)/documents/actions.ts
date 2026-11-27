@@ -11,7 +11,8 @@ import { addTransfer } from "@/lib/transfers/server";
 import { removeFile, resetFile, editReading, reviewFlag, chooseFolder, defaultDocsDeps, docsErrorText, linkFolder, previewCarFolder, type FolderPreview, moveToSold, readPending, refreshFolders, scanFolder, setCase, setFileTypes, type MoveResult, type ReadProgress } from "@/lib/docs/service";
 import { CASES, CHOOSABLE, type CaseType, type DocType } from "@/lib/docs/types";
 import { readerMode, scheduleScan, startBotScan } from "@/lib/docs/bot-scan";
-import { approveStage, withdrawStage } from "@/lib/docs/stage-approval";
+import { approveStage, loadStageApprovals, withdrawStage } from "@/lib/docs/stage-approval";
+import { isTransferTag } from "@/lib/docs/transfer-papers";
 import { outCheck, transferCheck } from "@/lib/docs/stage-checks";
 import { allowed } from "@/lib/docs/stage";
 import { stageFor } from "@/lib/docs/stage-server";
@@ -538,8 +539,12 @@ export async function approveTransferAction(plate: string, confirmIncomplete: bo
     }
     const r = await approveStage(p.data, "transfer", { id: user.id, name: user.fullName ?? "Someone" });
     if (!r.ok) return { ok: false as const, message: r.error };
+    // the papers are back and checked: the transfer moves to "Back at MAD" by itself (and "Handed off" first, when it was never recorded: Documentation may be setting an older car in place)
+    const before = await handoffOf(p.data).catch(() => null);
+    if (before && !before.handedOffAt) await handoffUnit(p.data, "Recorded when the papers back from the transfer were approved.", user.id, true).catch(() => undefined);
+    await returnUnit(p.data, user.id).catch(() => undefined);
     revalidatePath("/documents", "layout");
-    return { ok: true as const, message: "The papers are approved. The car is ready to be released to the buyer." };
+    return { ok: true as const, message: "The papers are approved and back at MAD. The car is ready to be released to the buyer." };
   }, (message) => ({ ok: false as const, message }));
 }
 
@@ -564,4 +569,41 @@ export async function scanStageAction(plate: string, stage: "out" | "transfer"):
   const r = await startBotScan(key, undefined, undefined, stage);
   revalidatePath(`/documents/${key}`);
   return r.started ? { ok: true, message: "The scanner is reading the photos. The result appears here by itself." } : { ok: !!r.message ? false : true, message: r.message ?? "There is nothing waiting to be read." };
+}
+
+
+/** A person says what a photo of the OUT documents is (or which of the four papers back from the transfer it is). Sales, Online Marketing and Documentation for OUT; Documentation for the transfer. */
+export async function setStageFileTypeAction(fileId: string, stage: "out" | "transfer", value: string): Promise<Done> {
+  const user = stage === "out" ? await requireModule("upload") : await requireModule("transfer");
+  if (!z.string().uuid().safeParse(fileId).success) return { ok: false, message: "That file was not found." };
+  const admin = createAdminClient();
+  const { data: file } = await admin.from("folder_files").select("id, plate_no, stage, archive").eq("id", fileId).maybeSingle();
+  if (!file || file.stage !== stage) return { ok: false, message: "That file was not found." };
+  return guard<Done>(async () => {
+    if (stage === "out") {
+      if (!(["buyer_id", "deed_to_buyer", "acknowledgement_receipt", "other"] as string[]).includes(value)) return { ok: false as const, message: "Choose one of the papers." };
+      await setFileTypes(fileId, [value as DocType], user.id);
+    } else {
+      if (!isTransferTag(value)) return { ok: false as const, message: "Choose one of the papers." };
+      await admin.from("folder_files").update({ archive_tag: value }).eq("id", fileId);
+    }
+    revalidatePath(`/documents/${file.plate_no}`);
+    return { ok: true as const, message: "Saved." };
+  }, (message) => ({ ok: false as const, message }));
+}
+
+/** Removes a photo of the OUT documents or of the transfer papers (a wrong photo). Once the stage is approved only an Admin can. */
+export async function removeStageFileAction(fileId: string, stage: "out" | "transfer"): Promise<Done> {
+  const user = stage === "out" ? await requireModule("upload") : await requireModule("transfer");
+  if (!z.string().uuid().safeParse(fileId).success) return { ok: false, message: "That file was not found." };
+  const admin = createAdminClient();
+  const { data: file } = await admin.from("folder_files").select("id, plate_no, stage").eq("id", fileId).maybeSingle();
+  if (!file || file.stage !== stage) return { ok: false, message: "That file was not found." };
+  if (!isAdmin(user.role) && (await loadStageApprovals(file.plate_no))[stage]) return { ok: false, message: "This stage is approved. Ask an Admin to take the approval back first." };
+  return guard<Done>(async () => {
+    if (stage === "transfer") { const r = await deleteArchiveFile(fileId, user.id); if (!r.ok) return { ok: false as const, message: r.message }; }
+    else await removeFile(fileId, user.id);
+    revalidatePath(`/documents/${file.plate_no}`);
+    return { ok: true as const, message: "Removed." };
+  }, (message) => ({ ok: false as const, message }));
 }

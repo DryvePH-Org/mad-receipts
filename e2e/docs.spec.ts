@@ -161,16 +161,18 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await expect(viewer.getByRole("button", { name: "Change what this is" })).toHaveCount(0);
   await expect(viewer.getByRole("combobox", { name: "Case" })).toBeDisabled();
   await expect(viewer.getByText("Activity on this car")).toBeVisible(); // the history is there for everyone to read
-  await expect(viewer.getByRole("tab", { name: /^OUT documents/ })).toHaveCount(0); // money and the after-sale papers are not for Online Marketing
+  await expect(viewer.getByRole("tab", { name: /^OUT documents/ })).toBeVisible(); // Online Marketing add the OUT papers (the buyer's ID, the deed, the AR) ...
+  await expect(viewer.getByRole("tab", { name: /^Sale and transfer/ })).toHaveCount(0); // ... but the sale, the money and the transfer are not for them
   await viewer.close();
   await sales.goto("/documents/ZZT7001?tab=payments");
   // Sales add the OUT documents here (the AR's buyer is shown)
-  await expect(sales.locator("#sold-upload")).toContainText(BUYER);
-  await expect(sales.getByText("Still needed")).toHaveCount(2); // the buyer's ID and the deed: the AR is the receipt saved in the app (the car has one)
+  await expect(sales.locator("#stage-out")).toBeVisible();
+  await expect(sales.getByText(BUYER).first()).toBeVisible();
+  await expect(sales.locator("#stage-out").getByText("Still needed")).toHaveCount(2); // the buyer's ID and the deed: the AR is the receipt saved in the app (the car has one)
   // a plate nobody has sold never gets a photo, whatever is sent to the server
   const refused = await sales.request.post("/api/docs/upload", { multipart: { plate: "ZZT 9999", file: { name: "p.jpg", mimeType: "image/jpeg", buffer: JPEG } } });
   expect(refused.status()).toBe(409);
-  expect((await refused.json()).error).toMatch(/No sale is recorded for ZZT 9999/);
+  expect((await refused.json()).error).toMatch(/no folder in Drive for this plate/); // a plate with no car folder is refused (a car with no sale yet is fine: the AR is one of the three OUT photos)
   // the old page is gone: its address leads to Car documents
   await sales.goto("/upload-documents");
   await expect(sales.getByRole("heading", { name: "Car documents" })).toBeVisible();
@@ -194,10 +196,10 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await expect(docs.locator("#papers")).toContainText("4 of 4 in the folder");
   await expect(docs.locator("#papers li", { hasText: "Buyer's ID" })).toHaveCount(0); // the OUT documents are not in the IN list ...
   await docs.getByRole("tab", { name: /^OUT documents/ }).click();
-  const outList = docs.getByRole("list", { name: "After-sale documents" });
+  const outList = docs.locator("#stage-out");
   await expect(outList).toContainText("Buyer's ID"); // ... they are on the OUT documents tab, with the AR line (the receipt saved in the app)
-  await expect(outList).toContainText("the receipt saved in New receipt");
-  await expect(outList.getByText("In the folder").first()).toBeVisible();
+  await expect(outList).toContainText("the receipt saved in the app");
+  await expect(outList.getByText("In", { exact: true }).first()).toBeVisible();
   await docs.goto("/documents/ZZT7001?tab=documents");
   // the activity history on the approval card: who did what, with the date and time
   const activity = docs.getByRole("list", { name: "Activity on this car" });
@@ -693,7 +695,7 @@ test("Payments: the sale is added by hand, the status is set, a payment paper is
   const viewer = await as(browser, "marketing");
   await viewer.goto("/documents/ZZT7005");
   await expect(viewer.getByRole("tab", { name: /^Overview/ })).toBeVisible({ timeout: 30_000 });
-  await expect(viewer.getByRole("tab", { name: /^OUT documents/ })).toHaveCount(0);
+  await expect(viewer.getByRole("tab", { name: /^OUT documents/ })).toBeVisible(); // Online Marketing add the OUT papers, but the payment papers are not theirs (404 above)
   expect((await viewer.request.get(`/api/docs/file/${file.id}`)).status()).toBe(404);
   await viewer.goto("/documents");
   await viewer.getByRole("button", { name: /^Filters/ }).click();
