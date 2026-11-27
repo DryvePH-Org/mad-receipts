@@ -1,13 +1,13 @@
 import { applyStatus, parseStatus } from "@/lib/inventory/remarks";
 import { monthDay, remarksText, type StockState } from "./state";
 import { fullYear } from "@/lib/inventory/year";
-import { availabilityOf, daysBetween, type Availability, type CarRow } from "./model";
+import { agreedLabel, availabilityOf, daysBetween, type Availability, type CarRow } from "./model";
 
 // A Car Inventory row made from the database: the stock row (prices, location, notes, and what the price list itself showed) + the car's record.
 // Pure code, so it can be tested; the reading is in read.ts.
 
 export interface StockFacts {
-  plate_no: string; body_group: string | null; list_price: number | string | null; target_price: number | string | null; reprice: number | string | null; retarget: number | string | null;
+  plate_no: string; agreed_price?: string | null; body_group: string | null; list_price: number | string | null; target_price: number | string | null; reprice: number | string | null; retarget: number | string | null;
   or_expiry: string | null; papers_with: string | null; tools?: string | null; location: string | null; repair_status: string | null; remarks: string | null;
 }
 export interface CarFacts {
@@ -52,8 +52,9 @@ export function carRowOf(s: StockFacts, u: CarFacts, today: string, extra: { agr
     remarks, reservedFor: st?.names ?? [], reservedOn: st?.date ?? (state === "Reserved" || state === "Sold" ? monthDay(u.state_on) || null : null),
     encumbrance, location, repairStatus, spareKey, orExp: u.or_expiry ?? s.or_expiry, docsCode: text(u.papers_with ?? s.papers_with),
     availability, sellable: (availability === "available" || availability === "asis") && u.in_stock !== false, listed: u.in_stock !== false,
-    agreedPrice: availability === "reserved" || availability === "sold" ? extra.agreedPrice ?? null : null,
+    // the car's own agreed price (text, written by staff) first, else the amount of its sale record
+    agreedPrice: availability === "reserved" || availability === "sold" ? agreedLabel(text(s.agreed_price) || extra.agreedPrice) || null : null,
     toCebu: /CEBU/i.test(bodyType) || /CEBU/i.test(location) || state === "Shipped to Cebu",
-    raw: { listPrice: num(s.list_price), targetPrice: num(s.target_price), reprice, retarget: num(s.retarget), tools: text(s.tools), papersWith: text(u.papers_with ?? s.papers_with), note: noteOf(remarks), state },
+    raw: { listPrice: num(s.list_price), targetPrice: num(s.target_price), reprice, retarget: num(s.retarget), agreedPrice: text(s.agreed_price) || (extra.agreedPrice ? Number(extra.agreedPrice).toLocaleString("en-PH") : ""), tools: text(s.tools), papersWith: text(u.papers_with ?? s.papers_with), note: noteOf(remarks), state },
   };
 }

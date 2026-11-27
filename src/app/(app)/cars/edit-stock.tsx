@@ -32,7 +32,7 @@ export function EditStock({ car, locations, onClose }: { car: CarRow; locations:
   const raw = car.raw!;
   const [state, setState] = useState<State>((raw.state as State | null) ?? (car.availability === "sold" ? "Sold" : car.availability === "reserved" ? "Reserved" : car.availability === "repair" ? "For repair" : car.availability === "asis" ? "Sell as is" : car.availability === "notforsale" ? "Not for sale" : car.toCebu ? "Shipped to Cebu" : "Onhand"));
   const [f, setF] = useState({
-    listPrice: asText(raw.listPrice), reprice: asText(raw.reprice), targetPrice: asText(raw.targetPrice), retarget: asText(raw.retarget),
+    listPrice: asText(raw.listPrice), reprice: asText(raw.reprice), targetPrice: asText(raw.targetPrice), retarget: asText(raw.retarget), agreedPrice: raw.agreedPrice,
     person: car.reservedFor.join(" "), note: raw.note, location: car.location, tools: raw.tools,
   });
   const set = (k: keyof typeof f, v: string) => setF((x) => ({ ...x, [k]: v }));
@@ -41,7 +41,7 @@ export function EditStock({ car, locations, onClose }: { car: CarRow; locations:
   const needsPerson = (state === "Reserved" || state === "Sold") && !f.person.trim();
 
   const save = () => start(async () => {
-    const r = await updateStockAction({ plate: car.plate, listPrice: toNum(f.listPrice), reprice: toNum(f.reprice), targetPrice: toNum(f.targetPrice), retarget: toNum(f.retarget), state, person: f.person, note: f.note, location: f.location, tools: f.tools });
+    const r = await updateStockAction({ plate: car.plate, listPrice: toNum(f.listPrice), reprice: toNum(f.reprice), targetPrice: toNum(f.targetPrice), retarget: toNum(f.retarget), agreedPrice: f.agreedPrice, state, person: f.person, note: f.note, location: f.location, tools: f.tools });
     if (r.ok) { toast.success(r.message); router.refresh(); onClose(); } else toast.error(r.error);
   });
   const takeOff = () => start(async () => { const r = await takeOffStockAction(car.plate); if (r.ok) { toast.success(r.message); router.refresh(); onClose(); } else toast.error(r.error); });
@@ -62,6 +62,9 @@ export function EditStock({ car, locations, onClose }: { car: CarRow; locations:
         </div>
         {(state === "Reserved" || state === "Sold") && (
           <div className="space-y-1"><Label htmlFor="e-person">For whom? (the salesperson, as in the sheet: DAVID)</Label><Input id="e-person" value={f.person} onChange={(e) => set("person", e.target.value.toUpperCase())} aria-invalid={needsPerson} /></div>
+        )}
+        {(state === "Reserved" || state === "Sold" || f.agreedPrice.trim() !== "") && (
+          <div className="space-y-1"><Label htmlFor="e-agreed">Agreed price</Label><Input id="e-agreed" value={f.agreedPrice} maxLength={60} onChange={(e) => set("agreedPrice", e.target.value)} placeholder="₱ 471,000" /><p className="text-xs text-muted-foreground">The price agreed with the buyer. Type it the way you know it (an amount, or a few words).</p></div>
         )}
         <div className="space-y-1"><Label htmlFor="e-note">Note (optional)</Label><Input id="e-note" value={f.note} onChange={(e) => set("note", e.target.value)} placeholder="e.g. 48V battery arrived, installation in progress" /></div>
       </fieldset>

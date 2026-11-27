@@ -93,7 +93,7 @@ export function CarRecord({ car, onClose, canEditStatus, canEditDetails, canOpen
               <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
                 <Row k={FIELD_NAME.stock_state} v={AVAILABILITY_LABEL[car.availability]} />
                 {car.reservedFor.length > 0 && <Row k={car.availability === "sold" ? "Sold to" : "Reserved by"} v={`${car.reservedFor.join(", ")}${car.reservedOn ? ` · ${car.reservedOn}` : ""}`} />}
-                {car.agreedPrice ? <Row k="Agreed price" v={peso(car.agreedPrice)} /> : null}
+                {car.agreedPrice ? <Row k={FIELD_NAME.agreed_price} v={car.agreedPrice} /> : null}
                 <Row k={FIELD_NAME.list_price} v={car.listed === false ? "Off the sale list" : peso(car.price)} />
                 {car.repriced && <Row k="Original price" v={peso(car.originalPrice)} />}
                 {showTarget && role !== "marketing" && <Row k={FIELD_NAME.target_price} v={peso(car.target)} />}

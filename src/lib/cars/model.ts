@@ -20,13 +20,21 @@ export interface CarRow {
   availability: Availability; sellable: boolean; toCebu: boolean;
   /** on the sale list (false: a car of the register that left it, sold before: it stays here for reference) */
   listed?: boolean;
-  /** the price agreed with the buyer, for a car that is reserved or sold (from its sale record); hidden from the roles that do not see sales */
-  agreedPrice?: number | null;
+  /** the price agreed with the buyer, for a car that is reserved or sold, as it is shown ("₱471,000", or the words someone wrote); hidden from the roles that do not see sales */
+  agreedPrice?: string | null;
   /** the stock row's own values, for the edit screen (Admin and Approver only; removed for everyone else) */
   /** the car record's own values of its details, as stored (the form edits these) */
   unitId?: string;
   record?: Record<"year_model" | "make" | "model_variant" | "color" | "body_type" | "trans" | "fuel" | "mileage" | "spare_key" | "buying_source", string | null>;
-  raw?: { listPrice: number | null; targetPrice: number | null; reprice: number | null; retarget: number | null; tools: string; papersWith: string; note: string; state: string | null };
+  raw?: { listPrice: number | null; targetPrice: number | null; reprice: number | null; retarget: number | null; agreedPrice: string; tools: string; papersWith: string; note: string; state: string | null };
+}
+
+/** The agreed price as the person wrote it: a plain amount gets the peso sign and commas ("471000" becomes "₱471,000"); any other words are shown as written. */
+export function agreedLabel(v: string | number | null | undefined): string {
+  const t = String(v ?? "").trim();
+  if (!t) return "";
+  const m = /^(?:₱|php|p)?\s*(\d[\d,]*(?:\.\d+)?)$/i.exec(t);
+  return m ? `₱${Number(m[1].replace(/,/g, "")).toLocaleString("en-PH")}` : t;
 }
 
 // ---------------- tidying the sheet's text ----------------

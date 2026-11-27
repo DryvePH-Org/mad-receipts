@@ -13,6 +13,8 @@ const price = z.union([z.number().int().min(0).max(99_999_999), z.null()]);
 const input = z.object({
   plate: z.string().min(5).max(20),
   listPrice: price, targetPrice: price, reprice: price, retarget: price,
+  /** the price agreed with the buyer, as written (text: "476,000", "600,000 plus the fee"...) */
+  agreedPrice: z.string().max(60),
   state: z.enum(["Onhand", "Reserved", "Sold", "Not for sale", "For repair", "Sell as is", "Shipped to Cebu"]),
   person: z.string().max(60), note: z.string().max(280), location: z.string().max(60), tools: z.string().max(120),
 });
@@ -34,7 +36,7 @@ export async function updateStockAction(raw: StockInput): Promise<StockResult> {
   if (reservedOrSold && !clean(v.person)) return { ok: false, error: `Type who the car is ${v.state === "Sold" ? "sold" : "reserved"} for.` };
   // one record: prices, place, tools, note and the one status are all fields of the car (the two old status columns follow the state)
   const { error } = await db.from("docs_units").update({
-    list_price: v.listPrice, target_price: v.targetPrice, reprice: v.reprice, retarget: v.retarget, location: clean(v.location) || null, tools: clean(v.tools) || null, stock_note: note,
+    list_price: v.listPrice, target_price: v.targetPrice, reprice: v.reprice, retarget: v.retarget, agreed_price: clean(v.agreedPrice) || null, location: clean(v.location) || null, tools: clean(v.tools) || null, stock_note: note,
     stock_state: v.state, state_for: reservedOrSold ? clean(v.person).toUpperCase() : null, state_on: reservedOrSold ? manilaToday() : null, updated_by: user.id, last_change_source: "app",
   }).eq("id", row.id as string);
   if (error) return { ok: false, error: `Could not save: ${error.message}` };

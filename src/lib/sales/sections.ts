@@ -4,7 +4,7 @@
 export type SaleSectionId = "sale" | "payment" | "transfer" | "originals" | "notes";
 
 export const SALE_FIELD_NAME: Record<string, string> = {
-  buyer: "Buyer", address: "Buyer's address", contact: "Buyer's number", soldOn: "Sold on", agreedPrice: "Agreed price", sales: "Salesperson", financing: "Financing company",
+  buyer: "Buyer", address: "Buyer's address", contact: "Buyer's number", soldOn: "Sold on", agreedPrice: "Sale price", sales: "Salesperson", financing: "Financing company",
   paymentStatus: "Payment", balance: "Balance",
   route: "Who does the transfer", stage: "Stage", liaison: "Liaison", particular: "Work to do", crDate: "CR date", transactionDate: "Transaction date", nextStep: "Next step",
   originalsAt: "Originals now with", handedOffAt: "Sent to the liaison", backAt: "Back at MAD", releasedOn: "Released on", deliveredOn: "Delivered on", doneOn: "Finished on",

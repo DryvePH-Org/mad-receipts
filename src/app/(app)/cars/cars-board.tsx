@@ -109,7 +109,7 @@ export function CarsBoard({ cars, role, canEdit, canEditDetails, canOpenDocs, do
                 <div className="flex items-start gap-2"><div className="min-w-0 flex-1"><p className="truncate font-medium">{title(c)}</p><p className="font-mono text-xs text-muted-foreground">{c.plateDisplay}</p></div><Pill tone={TONE[c.availability]}>{AVAILABILITY_LABEL[c.availability]}</Pill></div>
                 <p className="text-xs text-muted-foreground">{[c.color, c.mileage, c.trans, c.fuel].filter(Boolean).join(" · ") || "—"}</p>
                 <div className="mt-auto flex items-end justify-between gap-2">
-                  <div><p className="text-lg font-semibold tabular-nums">{c.listed === false ? "Off the list" : peso(c.price)}</p>{c.repriced && c.originalPrice && c.listed !== false && <p className="text-xs text-muted-foreground line-through">{peso(c.originalPrice)}</p>}{c.agreedPrice && <p className="text-xs font-medium text-blue-900 dark:text-blue-200">Agreed {peso(c.agreedPrice)}</p>}</div>
+                  <div><p className="text-lg font-semibold tabular-nums">{c.listed === false ? "Off the list" : peso(c.price)}</p>{c.repriced && c.originalPrice && c.listed !== false && <p className="text-xs text-muted-foreground line-through">{peso(c.originalPrice)}</p>}{c.agreedPrice && <p className="text-xs font-medium text-blue-900 dark:text-blue-200">Agreed {c.agreedPrice}</p>}</div>
                   <p className="text-right text-xs text-muted-foreground">{c.daysInStock !== null ? `${c.daysInStock} days` : "arrival unknown"}</p>
                 </div>
                 <div className="flex flex-wrap gap-1.5 text-xs">
@@ -133,7 +133,7 @@ export function CarsBoard({ cars, role, canEdit, canEditDetails, canOpenDocs, do
                   <td className="px-3 py-2 font-mono text-xs">{c.plateDisplay}</td>
                   <td className="px-3 py-2"><button type="button" className="text-left font-medium underline-offset-2 hover:underline" onClick={(e) => { e.stopPropagation(); setOpen(c); }}>{title(c)}</button></td>
                   <td className="px-3 py-2 text-muted-foreground">{c.color || "—"}</td>
-                  <td className="px-3 py-2 tabular-nums">{c.listed === false ? <span className="text-muted-foreground">Off the list</span> : peso(c.price)}{c.repriced && c.listed !== false && <span className="ml-1 text-xs text-muted-foreground line-through">{peso(c.originalPrice)}</span>}{c.agreedPrice && <span className="block text-xs font-medium text-blue-900 dark:text-blue-200">Agreed {peso(c.agreedPrice)}</span>}</td>
+                  <td className="px-3 py-2 tabular-nums">{c.listed === false ? <span className="text-muted-foreground">Off the list</span> : peso(c.price)}{c.repriced && c.listed !== false && <span className="ml-1 text-xs text-muted-foreground line-through">{peso(c.originalPrice)}</span>}{c.agreedPrice && <span className="block text-xs font-medium text-blue-900 dark:text-blue-200">Agreed {c.agreedPrice}</span>}</td>
                   <td className="px-3 py-2"><Pill tone={TONE[c.availability]}>{AVAILABILITY_LABEL[c.availability]}</Pill></td>
                   <td className="px-3 py-2">{docs[c.plate] ? <Pill tone={docs[c.plate].tone}>{docs[c.plate].label}</Pill> : <span className="text-muted-foreground">Not started</span>}</td>
                   <td className="px-3 py-2 tabular-nums">{c.daysInStock ?? "—"}</td>
