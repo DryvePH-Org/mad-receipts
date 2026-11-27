@@ -13,7 +13,7 @@ import { PaymentsPanel } from "./payments-card";
 import { ActivityList } from "./activity-list";
 import { loadCarActivity } from "@/lib/docs/activity";
 import type { ActivityEntry } from "@/lib/docs/activity-text";
-import { approvesOut, isAdmin, seesPrivateDocs, seesSales, type Role } from "@/lib/roles";
+import { approvesOut, isAdmin, movesToSold, seesPrivateDocs, seesSales, type Role } from "@/lib/roles";
 import { loadStageApprovals } from "@/lib/docs/stage-approval";
 import { stageApprovalRule } from "@/lib/docs/stage";
 import { getSettings } from "@/lib/data";
@@ -180,7 +180,6 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
         <aside className="space-y-6">
           {canAct ? <ApprovalCard isAdmin={data.isAdmin} plate={key} approvedAt={flow.workflow.approvedAt} approvedBy={flow.workflow.approvedByName} marketingNotifiedAt={flow.workflow.marketingNotifiedAt} rule={stage.rules.approve} activity={activity} />
             : <Card id="approval"><CardHeader><CardTitle className="flex flex-wrap items-center gap-3">Approval{flow.workflow.approvedAt ? <Pill tone="emerald">Approved</Pill> : <Pill tone="zinc">Not approved yet</Pill>}</CardTitle></CardHeader><CardContent className="space-y-3 text-sm">{flow.workflow.approvedAt && <p className="font-medium">Approved by {flow.workflow.approvedByName ?? "someone"}.</p>}<div className="space-y-1 border-t pt-3"><p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Activity on this car</p><ActivityList entries={activity} /></div></CardContent></Card>}
-          {canAct && <SoldCard plate={key} location={data.location} items={soldItems} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />}
           {canAct && <ChecksHelp />}
         </aside>
       </div>) : <NoFolder data={data} canAct={canAct} /> },
@@ -190,6 +189,7 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
         <StagePanel stage="out" title="OUT documents" intro="After the sale: upload the three papers (the buyer's ID, the deed of sale signed with the buyer and the physical AR). The OUT scanner puts each in its place; Sales reviews and approves." plate={key} items={outStageItems} loose={outLoose}
           pending={outCheck.pending} failed={outCheck.failed} scanning={scanningOut} botName="The OUT scanner" approval={approvals.out} rule={stageApprovalRule(outCheck)} canEdit={canUpload} canApprove={approvesOut(user.role)} isAdmin={data.isAdmin}
           canMoveToSold={!soldCar && stage.rules.moveToSold.allowed && approvesOut(user.role)} uploader={<OutUploader plate={key} />} />
+        {movesToSold(user.role) && <SoldCard plate={key} location={data.location} items={soldItems} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />}
         {transfers && <PaymentsPanel plate={key} hasSale={!!sale} status={sale?.paymentStatus ?? null} files={archive} canEdit={canUpload} isAdmin={data.isAdmin} folderLinked={linked} />}
         <Card id="out-activity"><CardHeader><CardTitle>Activity on the OUT documents</CardTitle></CardHeader><CardContent><ActivityList entries={activity.filter((a) => a.area === "out")} /></CardContent></Card>
       </div>) }] : []),

@@ -25,6 +25,8 @@ export const editsPapers = (r: Role): boolean => r === "super_admin" || r === "a
 export const editsOut = (r: Role): boolean => r !== "buying";
 /** Reviews and approves the OUT documents: Sales (and the Admins). Online Marketing and Documentation add the photos; they do not approve them. */
 export const approvesOut = (r: Role): boolean => r === "super_admin" || r === "admin" || r === "sales";
+/** Moves a car's folder to Sold (from the OUT documents): Sales and Documentation, and the Admins. */
+export const movesToSold = (r: Role): boolean => r === "super_admin" || r === "admin" || r === "sales" || r === "documentation";
 /** Changes the Sale and transfer tab: hands the originals to Sir Jep, takes them back, releases them to the buyer. Everyone else who sees the sale only looks. */
 export const editsTransfer = (r: Role): boolean => r === "super_admin" || r === "admin" || r === "documentation";
 /** Changes prices and states in Car Inventory, and decides on repairs. */

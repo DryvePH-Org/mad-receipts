@@ -206,9 +206,11 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await expect(activity).toContainText("Uploaded an OUT document, read as"); // what Sales added, and what it was read as
   await expect(activity.locator("time").first()).toBeVisible();
 
-  // the buttons follow the workflow: the folder cannot move before the documents are approved
-  await expect(docs.getByRole("button", { name: "Move to Sold" })).toBeDisabled();
+  // the buttons follow the workflow: the folder cannot move before the documents are approved (Move to Sold is on the OUT documents tab)
+  await docs.goto("/documents/ZZT7001?tab=payments");
+  await expect(docs.getByRole("button", { name: "Move to Sold", exact: true })).toBeDisabled();
   await expect(docs.getByText("Approve the documents first.").first()).toBeVisible();
+  await docs.goto("/documents/ZZT7001?tab=documents");
   // the bot only suggests the case: approval waits until a person chooses it
   await expect(docs.getByText("Choose the case first").first()).toBeVisible();
   await docs.getByRole("combobox", { name: "Case" }).selectOption({ label: "Clean" });
@@ -217,11 +219,11 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await expect(docs.getByRole("heading", { name: "Approve with things still open?" })).toBeVisible(); // the details about the car are still blank
   await docs.getByRole("dialog").getByRole("button", { name: "Go on anyway" }).click();
   await expect(docs.getByText(/^Approved /).first()).toBeVisible({ timeout: 20_000 });
-  await docs.reload();
-  await expect(docs.getByRole("button", { name: "Move to Sold" })).toBeEnabled();
-  await docs.getByRole("button", { name: "Move to Sold" }).click();
+  await docs.goto("/documents/ZZT7001?tab=payments");
+  await expect(docs.getByRole("button", { name: "Move to Sold", exact: true })).toBeEnabled();
+  await docs.getByRole("button", { name: "Move to Sold", exact: true }).click();
   await expect(docs.getByRole("dialog").getByRole("heading", { name: "Move to Sold?" })).toBeVisible();
-  await docs.getByRole("dialog").getByRole("button", { name: "Move to Sold" }).click();
+  await docs.getByRole("dialog").getByRole("button", { name: "Move to Sold", exact: true }).click();
   await expect(docs.getByText("In Sold units").first()).toBeVisible({ timeout: 20_000 });
   // the register tells the same story as the folder: the car is SOLD there too
   await expect.poll(async () => (await (adminClient() as unknown as { from: (t: string) => any }).from("docs_units_current").select("stock_state").eq("plate_no", "ZZT7001").maybeSingle()).data, { timeout: 15_000 }).toMatchObject({ stock_state: "Sold" }); // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -293,8 +295,8 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await boss.close();
 
   // a car that is not approved cannot be moved (only an Admin may go past that), and it says why
-  await docs.goto("/documents/ZZT7002?tab=documents");
-  await expect(docs.getByRole("button", { name: "Move to Sold" })).toBeDisabled();
+  await docs.goto("/documents/ZZT7002?tab=payments");
+  await expect(docs.getByRole("button", { name: "Move to Sold", exact: true })).toBeDisabled();
   await expect(docs.getByText(/Approve the documents first\./).first()).toBeVisible();
   await expect(docs.getByRole("button", { name: /Move anyway/ })).toHaveCount(0); // that button is the Admin's
 

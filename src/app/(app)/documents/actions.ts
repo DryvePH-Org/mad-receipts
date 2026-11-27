@@ -218,7 +218,7 @@ export async function chooseFolderAction(plate: string, folderId: string): Promi
 }
 
 export async function moveToSoldAction(plate: string, confirmIncomplete: boolean): Promise<MoveResult> {
-  const user = await requireModule("documents");
+  const user = await requireRole("super_admin", "admin", "sales", "documentation");
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { ok: false, error: "Bad plate." };
   return guard<MoveResult>(async () => {
