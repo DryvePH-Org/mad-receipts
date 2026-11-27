@@ -70,6 +70,7 @@ export type Database = {
           role: string
           module_grants: string[]
           module_denies: string[]
+          disabled: boolean
           created_at: string
         }
         Insert: {
@@ -78,6 +79,7 @@ export type Database = {
           role?: string
           module_grants?: string[]
           module_denies?: string[]
+          disabled?: boolean
           created_at?: string
         }
         Update: {
@@ -86,6 +88,7 @@ export type Database = {
           role?: string
           module_grants?: string[]
           module_denies?: string[]
+          disabled?: boolean
           created_at?: string
         }
         Relationships: []

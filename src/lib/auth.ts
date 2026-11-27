@@ -19,26 +19,31 @@ export interface CurrentUser {
   denies: string[];
 }
 
-// The logged-in user and their role, verified with the auth server.
-// Cached per request, so calling it from several components is cheap.
+// The logged-in user and their role.
+// The signed session is checked on this server against the project's public keys (no trip to the sign-in server on every page), and the person's profile is read
+// in ONE query. A switched-off account is caught by the profile's `disabled` flag, so it stops at once. Cached per request, so calling it from several components is cheap.
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  if (!claims?.sub) return null;
+  const id = claims.sub;
 
-  const { data: profile } = await supabase.from("profiles").select("full_name, role").eq("id", user.id).single();
-
-  // The per-person changes live in two extra columns. If they cannot be read (the migration is not applied yet), the role's own modules apply.
-  const { data: extra } = await supabase.from("profiles").select("module_grants, module_denies").eq("id", user.id).single();
-  const grants = Array.isArray(extra?.module_grants) ? (extra.module_grants as string[]) : [];
-  const denies = Array.isArray(extra?.module_denies) ? (extra.module_denies as string[]) : [];
+  // One query for everything. If the newest columns are not there yet (a database update is not applied), the older, narrower reads are tried.
+  let row: Record<string, unknown> | null = null;
+  for (const cols of ["full_name, role, module_grants, module_denies, disabled", "full_name, role, module_grants, module_denies", "full_name, role"]) {
+    const r = await supabase.from("profiles").select(cols).eq("id", id).single();
+    if (!r.error) { row = r.data as unknown as Record<string, unknown>; break; }
+  }
+  if (row?.disabled === true) return null; // switched off: the same as signed out
+  const grants = Array.isArray(row?.module_grants) ? (row.module_grants as string[]) : [];
+  const denies = Array.isArray(row?.module_denies) ? (row.module_denies as string[]) : [];
+  const profile = row as { full_name?: string | null; role?: string | null } | null;
   const role: Role = roleFromDb(profile?.role);
 
   return {
-    id: user.id,
-    email: user.email ?? "",
+    id,
+    email: typeof claims.email === "string" ? claims.email : "",
     fullName: profile?.full_name ?? null,
     // No profile row means no elevated rights.
     role,

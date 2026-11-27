@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { saleOfPlate } from "./service";
 import { normalizePlate } from "@/lib/rules/plate";
 import { CASE_LABELS } from "./types";
+import { selectAll } from "@/lib/supabase/select-all";
 
 // Reads for the document pages. Callers check the role first (the pages do), then use the server's access.
 
@@ -37,14 +38,15 @@ export interface CarRow {
 
 export async function listCarRows(): Promise<CarRow[]> {
   const admin = createAdminClient();
-  const [{ data: folders }, { data: files }] = await Promise.all([
+  // everything is asked at the same time; the files come in pages (the database gives 1000 rows at most per request)
+  const [{ data: folders }, files, { data: sold }] = await Promise.all([
     admin.from("unit_folders").select("*").order("plate_display").limit(5000),
-    admin.from("folder_files").select("*").limit(20000),
+    selectAll<FileRow>((from, to) => admin.from("folder_files").select("*").order("id").range(from, to) as unknown as PromiseLike<{ data: FileRow[] | null; error: { message: string } | null }>),
+    (admin as unknown as SupabaseClient).from("car_sales").select("plate_no, buyer, payment_status").neq("stage", "cancelled").eq("is_reference", false).limit(6000),
   ]);
   const byPlate = new Map<string, FileRow[]>();
-  for (const f of files ?? []) byPlate.set(f.plate_no, [...(byPlate.get(f.plate_no) ?? []), f]);
+  for (const f of files) byPlate.set(f.plate_no, [...(byPlate.get(f.plate_no) ?? []), f]);
   const deals = await dealsById([...new Set((folders ?? []).map((f) => f.deal_id).filter((x): x is string => !!x))]);
-  const { data: sold } = await (admin as unknown as SupabaseClient).from("car_sales").select("plate_no, buyer, payment_status").neq("stage", "cancelled").eq("is_reference", false).limit(6000);
   const saleBy = new Map(((sold ?? []) as { plate_no: string; buyer: string | null; payment_status: string | null }[]).map((s) => [s.plate_no, s]));
   return (folders ?? []).map((folder: FolderRow) => {
     const deal = folder.deal_id ? deals.get(folder.deal_id) ?? null : null;

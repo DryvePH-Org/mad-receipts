@@ -6,8 +6,8 @@ import { createClient } from "@/lib/supabase/server";
  */
 export async function GET() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return Response.json({ error: "Not logged in" }, { status: 401 });
+  const { data: claims } = await supabase.auth.getClaims();
+  if (!claims?.claims?.sub) return Response.json({ error: "Not logged in" }, { status: 401 });
 
   const head = { count: "exact" as const, head: true };
   const [pending, approved, rejected, voided, deals, lastReview, lastSubmit, lastDeal] = await Promise.all([

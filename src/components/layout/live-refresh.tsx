@@ -8,7 +8,7 @@ import { Check } from "lucide-react";
 // asks "did anything change?"; only when it did does the screen reload its data, with a thin bar at the top while it does.
 // Your typing is kept, and the form pages are left alone.
 const WATCHED = ["/deals", "/reminders", "/activity", "/admin"];
-const EVERY_MS = 8_000;
+const EVERY_MS = 15_000;
 
 export function LiveRefresh() {
   const router = useRouter();

@@ -160,6 +160,7 @@ export async function setUserActive(userId: string, active: boolean): Promise<{ 
   if (!active && target?.role === "super_admin" && (await adminCount(admin)) <= 1) return { ok: false, message: "That is the only Super Admin." };
   const { error } = await admin.auth.admin.updateUserById(id.data, { ban_duration: active ? "none" : "876000h" });
   if (error) return { ok: false, message: active ? "Could not enable the account." : "Could not disable the account." };
+  await admin.from("profiles").update({ disabled: !active }).eq("id", id.data); // the app checks this on every page, so a switched-off account stops at once
   await admin.from("audit_logs").insert({ actor_id: actor.id, action: active ? "user.enable" : "user.disable", entity: "user", entity_id: id.data, after: { full_name: target?.full_name } });
   revalidatePath("/admin/users");
   return { ok: true, message: active ? "Account enabled." : "Account disabled. They can no longer log in." };

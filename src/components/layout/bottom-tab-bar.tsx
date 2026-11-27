@@ -56,7 +56,7 @@ function View({ role, modules, name, badges = {}, pathname }: Props & { pathname
             return (
               <li key={item.href} className="flex-1">
                 <Link
-                  href={item.href}
+                  href={item.to ?? item.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(tab, active ? "text-foreground" : "text-muted-foreground")}
                 >
@@ -86,7 +86,7 @@ function View({ role, modules, name, badges = {}, pathname }: Props & { pathname
               {more.map((item) => (
                 <li key={item.href}>
                   <Link
-                    href={item.href}
+                    href={item.to ?? item.href}
                     onClick={() => setMoreOpen(false)}
                     aria-current={isActivePath(item.href, pathname) ? "page" : undefined}
                     className="flex items-center gap-3 px-3 py-3 text-sm font-medium"

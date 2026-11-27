@@ -33,6 +33,8 @@ export interface NavItem {
   menu?: false;
   /** Which live count (if any) is shown beside the item. */
   badge?: "reminders" | "pricing";
+  /** where the link goes when that is not the item's own address (the Dashboard opens straight on Buy, with no redirect in between) */
+  to?: string;
   /** a menu entry that is not a module of its own: it is shown to whoever has this other module (so it cannot be given or hidden alone) */
   via?: ModuleId;
 }
@@ -43,7 +45,7 @@ const SUPER: Role[] = ["super_admin"];
 
 // Menus are data, not markup: the sidebar, the phone tab bar and its "More" sheet all read this.
 export const NAV_ITEMS: NavItem[] = [
-  { id: "dashboard", href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, group: "Overview", roles: ADMINS },
+  { id: "dashboard", href: "/dashboard", to: "/dashboard/buy", label: "Dashboard", icon: LayoutDashboard, group: "Overview", roles: ADMINS },
   { id: "activity", href: "/activity", label: "Activity log", icon: History, group: "Overview", roles: ADMINS },
   { id: "new", href: "/new", label: "New receipt", icon: Receipt, group: "Receipts", roles: SUPER },
   { id: "deals", href: "/deals", label: "Transactions", icon: Car, group: "Receipts", roles: SUPER },

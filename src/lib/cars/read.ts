@@ -44,5 +44,19 @@ export async function loadAwaitingPrice(): Promise<AwaitingCar[]> {
   }));
 }
 
-/** How many cars wait for a price (the number beside the menu entry). */
-export const countAwaitingPrice = () => loadAwaitingPrice().then((c) => c.length, () => 0);
+/**
+ * How many cars wait for a price (the number beside the menu entry, read on every page, so it is cheap): one count, no rows, and the answer is kept for 30 seconds.
+ * The rule is the same as `awaitsPrice` (on the sale list, ready, no price and no reprice).
+ */
+export async function countAwaitingPrice(): Promise<number> {
+  if (awaitingCount && Date.now() - awaitingCount.at < 30_000) return awaitingCount.n;
+  const { count, error } = await docsDb().from("docs_units_current").select("id", { count: "exact", head: true }).eq("in_stock", true)
+    .or("stock_state.is.null,stock_state.eq.Onhand").or("list_price.is.null,list_price.lte.0").or("reprice.is.null,reprice.lte.0");
+  if (error) return awaitingCount?.n ?? 0;
+  awaitingCount = { at: Date.now(), n: count ?? 0 };
+  return awaitingCount.n;
+}
+
+let awaitingCount: { at: number; n: number } | null = null;
+/** Forgets the saved number of cars waiting for a price (after one was priced), so the menu shows the new number at once. */
+export const forgetAwaitingCount = () => { awaitingCount = null; };

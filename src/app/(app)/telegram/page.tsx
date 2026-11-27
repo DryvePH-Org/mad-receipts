@@ -20,19 +20,27 @@ export default function TelegramPage() {
 
 async function Content() {
   const user = await requireUser();
-  const [link, muted] = await Promise.all([getLink(user.id).catch(() => null), mutedCategories(user.id).catch(() => new Set<string>())]);
   const mine = categoriesForRole(user.role);
   const configured = !!botToken();
-  const hook = isSuper(user.role) && configured ? await webhookInfo().catch(() => null) : null;
+  const sup = isSuper(user.role);
+  // everything is asked at the same time (it used to be one thing after the other)
+  const [link, muted, hook, everyone, chainRows, candidates] = await Promise.all([
+    getLink(user.id).catch(() => null),
+    mutedCategories(user.id).catch(() => new Set<string>()),
+    sup && configured ? webhookInfo().catch(() => null) : null,
+    sup ? Promise.all([allLinks().catch(() => []), notifyDb().from("profiles").select("id, full_name, role").order("full_name")]) : null,
+    sup ? loadChain().catch(() => []) : null,
+    sup ? loadChainChoices().catch(() => []) : null,
+  ]);
 
   let people: { name: string; role: string; connected: boolean; problem: string | null }[] = [];
-  if (isSuper(user.role)) {
-    const [links, { data: profiles }] = await Promise.all([allLinks().catch(() => []), notifyDb().from("profiles").select("id, full_name, role").order("full_name")]);
+  if (everyone) {
+    const [links, { data: profiles }] = everyone;
     const byUser = new Map(links.map((l) => [l.userId, l]));
     people = (profiles ?? []).map((p) => ({ name: (p.full_name as string | null) ?? "(no name)", role: ROLE_LABELS[roleFromDb(p.role)], connected: byUser.has(String(p.id)), problem: byUser.get(String(p.id))?.lastError ?? null }));
   }
 
-  const chain = isSuper(user.role) ? { initial: (await loadChain().catch(() => [])).map((c) => ({ userId: c.userId, waitMinutes: c.waitMinutes })), candidates: await loadChainChoices().catch(() => []) } : null;
+  const chain = chainRows && candidates ? { initial: chainRows.map((c) => ({ userId: c.userId, waitMinutes: c.waitMinutes })), candidates } : null;
 
   return (
     <div className="space-y-6">

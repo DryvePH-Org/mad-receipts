@@ -13,13 +13,13 @@ const FOLDER_KEY: Record<string, StageFacts["folderStatus"]> = { unlinked: "unli
 /** The register (400 cars) joined, by plate, with the folders, scans and workflow. Both lists the page needs come from one read. */
 export async function loadUnified(): Promise<{ rows: UnifiedRow[]; grid: GridRow[] }> {
   const admin = createAdminClient();
-  const [grid, folders, flows] = await Promise.all([
+  const [grid, folders, flows, hand] = await Promise.all([
     loadGrid(),
     listCarRows(),
     admin.from("unit_workflow").select("plate_no, docs_approved_at").limit(5000),
+    handoffMap().catch(() => new Map<string, HandoffInfo>()), // the handoff is kept on the car's sale/transfer record
   ]);
   const flow = new Map((flows.data ?? []).map((f) => [f.plate_no, f]));
-  const hand = await handoffMap().catch(() => new Map<string, HandoffInfo>()); // the handoff is kept on the car's sale/transfer record
   const folder = new Map(folders.map((f) => [f.plate, f]));
   const out: UnifiedRow[] = [];
   const today = manilaToday();

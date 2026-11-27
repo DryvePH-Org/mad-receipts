@@ -3,6 +3,7 @@ import { isAdmin } from "@/lib/roles";
 import { COLUMN_BY_KEY, canEditColumn, checkEdit, COLUMNS, type GridRow, type Role } from "./grid";
 import { completeOf, finishMarks, PAPER_COLUMNS } from "./marks";
 import { docsDb } from "./review-server";
+import { selectAll } from "@/lib/supabase/select-all";
 
 export interface HistoryRow { field: string; before: string | null; after: string | null; actor: string | null; source: string; at: string }
 
@@ -10,7 +11,7 @@ export async function loadGrid(): Promise<GridRow[]> {
   const db = docsDb();
   const [units, files, open] = await Promise.all([
     db.from("docs_units_current").select("*").order("arrival_date", { ascending: false, nullsFirst: false }).limit(5000),
-    db.from("folder_files").select("plate_no, doc_types").is("archive", null).limit(20000),
+    selectAll<{ plate_no: string; doc_types: string[] | null }>((from, to) => db.from("folder_files").select("plate_no, doc_types").is("archive", null).order("id").range(from, to) as unknown as PromiseLike<{ data: { plate_no: string; doc_types: string[] | null }[] | null; error: { message: string } | null }>).then((data) => ({ data })),
     db.from("docs_review_items").select("unit_id, plate_no").eq("status", "open").limit(5000),
   ]);
   if (units.error) throw new Error(`Could not read the register: ${units.error.message}`);

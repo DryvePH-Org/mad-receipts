@@ -20,16 +20,24 @@ export default function RepairsPage() {
 
 async function Content() {
   const user = await requireModule("repairs");
-  const repairs = await loadRepairs();
   const canDecide = editsCars(user.role);
-  const people = isSuper(user.role) ? ((await docsDb().from("repair_people").select("tg_id, name, role").eq("active", true).order("name")).data ?? []).map((p) => ({ tgId: Number(p.tg_id), name: p.name as string, role: p.role as string })) : null;
-  const chain = isSuper(user.role) ? { initial: (await loadChain().catch(() => [])).map((c) => ({ userId: c.userId, waitMinutes: c.waitMinutes })), candidates: await loadChainChoices().catch(() => []) } : null;
+  const sup = isSuper(user.role);
+  // everything is asked at the same time
+  const [repairs, peopleRows, chainRows, candidates, webhook] = await Promise.all([
+    loadRepairs(),
+    sup ? docsDb().from("repair_people").select("tg_id, name, role").eq("active", true).order("name").then((r) => r.data ?? []) : null,
+    sup ? loadChain().catch(() => []) : null,
+    sup ? loadChainChoices().catch(() => []) : null,
+    sup && process.env.REPAIRS_TELEGRAM_BOT_TOKEN ? botStateAction() : null,
+  ]);
+  const people = peopleRows ? peopleRows.map((p) => ({ tgId: Number(p.tg_id), name: p.name as string, role: p.role as string })) : null;
+  const chain = chainRows && candidates ? { initial: chainRows.map((c) => ({ userId: c.userId, waitMinutes: c.waitMinutes })), candidates } : null;
   return (
     <>
       <PageHeader title="Repairs" description="Every repair report on the cars. An approved job that cannot be displayed and is not done keeps its car marked For repair." />
       <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">{pageNote("repairs", user.role)}</p>
       {chain && <ChainPanel candidates={chain.candidates} initial={chain.initial} />}
-      {people && <PeoplePanel people={people} botReady={!!process.env.REPAIRS_TELEGRAM_BOT_TOKEN} webhook={await botStateAction()} />}
+      {people && <PeoplePanel people={people} botReady={!!process.env.REPAIRS_TELEGRAM_BOT_TOKEN} webhook={webhook} />}
       <RepairsBoard repairs={repairs} today={manilaToday()} canDecide={canDecide} />
     </>
   );

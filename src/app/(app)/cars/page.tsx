@@ -26,26 +26,29 @@ export default function CarsPage() {
 
 async function Content() {
   const user = await requireModule("cars");
-  let data: CarsData;
-  try {
-    data = await loadCars();
-  } catch (e) {
+  const canOpenSheet = editsCars(user.role); // the roles that edit the price list
+  const canCheck = editsPapers(user.role);
+  // everything the page needs is asked at the same time (it used to be one after the other)
+  const [loaded, docsMap, inApp, openChecks, tidyCount, waiting] = await Promise.all([
+    loadCars().then((d) => ({ ok: true as const, d }), (e: unknown) => ({ ok: false as const, e })),
+    loadDocsSummaries().catch(() => new Map()),
+    // the Excel copy in the price list's layout, once the price list is in the database (for the roles that edit it)
+    canOpenSheet ? docsDb().from("docs_units").select("id", { count: "exact", head: true }).eq("in_stock", true).then((r) => (r.error ? 0 : r.count ?? 0), () => 0) : 0,
+    canCheck ? countOpenSyncItems() : 0,
+    isAdmin(user.role) ? loadTidy().then((t) => t.length, () => 0) : 0, // details written in different ways, for the Admins to tidy
+    user.modules.includes("pricing") ? countAwaitingPrice() : 0, // new cars with no price yet are not in this list
+  ]);
+  if (!loaded.ok) {
     return (
       <div role="alert" className="flex gap-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100">
         <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-        <p>{e instanceof Error ? e.message : "Car Inventory could not be read."} Try again in a moment.</p>
+        <p>{loaded.e instanceof Error ? loaded.e.message : "Car Inventory could not be read."} Try again in a moment.</p>
       </div>
     );
   }
-  const docs = Object.fromEntries(await loadDocsSummaries().catch(() => new Map()));
-  const canOpenSheet = editsCars(user.role); // the roles that edit the price list
-  // the Excel copy in the price list's layout, once the price list is in the database (for the roles that edit it)
-  const inApp = canOpenSheet ? await docsDb().from("docs_units").select("id", { count: "exact", head: true }).eq("in_stock", true).then((r) => (r.error ? 0 : r.count ?? 0), () => 0) : 0;
-  const canCheck = editsPapers(user.role);
-  const openChecks = canCheck ? await countOpenSyncItems() : 0;
+  const data: CarsData = loaded.d;
+  const docs = Object.fromEntries(docsMap);
   const orcr = orcrSheetUrl();
-  const tidyCount = isAdmin(user.role) ? await loadTidy().then((t) => t.length, () => 0) : 0; // details written in different ways, for the Admins to tidy
-  const waiting = user.modules.includes("pricing") ? await countAwaitingPrice() : 0; // new cars with no price yet are not in this list
   return (
     <>
       <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">{pageNote("cars", user.role)}</p>

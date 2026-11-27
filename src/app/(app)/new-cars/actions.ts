@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireModule } from "@/lib/auth";
 import { docsDb } from "@/lib/docsbible/review-server";
+import { forgetAwaitingCount } from "@/lib/cars/read";
 
 export type PriceResult = { ok: true; message: string } | { ok: false; error: string };
 
@@ -23,6 +24,7 @@ export async function setFirstPriceAction(raw: z.input<typeof input>): Promise<P
   if (Number(row.list_price) > 0 || Number(row.reprice) > 0) return { ok: false, error: "That car already has a price." };
   const { error } = await db.from("docs_units").update({ list_price: v.listPrice, target_price: v.targetPrice, updated_by: user.id, last_change_source: "app" }).eq("id", row.id as string);
   if (error) return { ok: false, error: `Could not save: ${error.message}` };
+  forgetAwaitingCount();
   revalidatePath("/", "layout");
   return { ok: true, message: `${plate} is priced and now in Car Inventory.` };
 }
