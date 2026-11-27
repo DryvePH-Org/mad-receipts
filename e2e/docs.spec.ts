@@ -168,7 +168,7 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   // Sales add the OUT documents here (the AR's buyer is shown)
   await expect(sales.locator("#stage-out")).toBeVisible();
   await expect(sales.getByText(BUYER).first()).toBeVisible();
-  await expect(sales.locator("#stage-out").getByText("Still needed")).toHaveCount(2); // the buyer's ID and the deed: the AR is the receipt saved in the app (the car has one)
+  await expect(sales.locator("#stage-out").getByText("Still needed")).toHaveCount(3); // the three photos: the AR, the buyer's ID and the deed
   // a plate nobody has sold never gets a photo, whatever is sent to the server
   const refused = await sales.request.post("/api/docs/upload", { multipart: { plate: "ZZT 9999", file: { name: "p.jpg", mimeType: "image/jpeg", buffer: JPEG } } });
   expect(refused.status()).toBe(409);
@@ -181,11 +181,12 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
 
   // a photo through the screen (the stand-in reader cannot tell what it is) ...
   await sales.waitForTimeout(2500); // the page must be ready (hydrated) before a file is given to it; the car page keeps polling, so "network idle" never comes
+  await sales.locator("#stage-out").getByRole("button", { name: "Upload documents" }).click(); // the same button as on the IN documents
   await sales.locator("#doc-photos").setInputFiles({ name: "x.jpg", mimeType: "image/jpeg", buffer: JPEG });
   await expect(sales.getByText("Saved ✓")).toBeVisible({ timeout: 30_000 });
   await expect(sales.getByText(/Not recognised\. It is in the folder/)).toBeVisible();
-  // ... and the two papers Sales provides (named so the stand-in reader knows them); the AR is the receipt saved in the app
-  for (const label of ["id-ZZT_E2E_Docs_Buyer", "deed-buyer-ZZT_E2E_Docs_Buyer"]) {
+  // ... and the three papers Sales provides (named so the stand-in reader knows them): the buyer's ID, the deed and the physical AR
+  for (const label of ["id-ZZT_E2E_Docs_Buyer", "deed-buyer-ZZT_E2E_Docs_Buyer", "ar-ZZT_E2E_Docs_Buyer"]) {
     const res = await sales.request.post("/api/docs/upload", { multipart: { plate: "ZZT 7001", label, file: { name: "p.jpg", mimeType: "image/jpeg", buffer: JPEG } } });
     expect(res.ok(), label).toBe(true);
     expect((await res.json()).result.types.length).toBeGreaterThan(0);
@@ -198,13 +199,15 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
   await docs.getByRole("tab", { name: /^OUT documents/ }).click();
   const outList = docs.locator("#stage-out");
   await expect(outList).toContainText("Buyer's ID"); // ... they are on the OUT documents tab, with the AR line (the receipt saved in the app)
-  await expect(outList).toContainText("the receipt saved in the app");
+  await expect(outList).toContainText("AR: photo of the physical copy");
   await expect(outList.getByText("In", { exact: true }).first()).toBeVisible();
-  await docs.goto("/documents/ZZT7001?tab=documents");
-  // the activity history on the approval card: who did what, with the date and time
-  const activity = docs.getByRole("list", { name: "Activity on this car" });
+  // the activity history: who did what, with the date and time; each tab has its own (the OUT uploads are on the OUT tab, not on the IN documents)
+  await docs.goto("/documents/ZZT7001?tab=payments");
+  const activity = docs.locator("#out-activity").getByRole("list", { name: "Activity on this car" });
   await expect(activity).toContainText("Uploaded an OUT document, read as"); // what Sales added, and what it was read as
   await expect(activity.locator("time").first()).toBeVisible();
+  await docs.goto("/documents/ZZT7001?tab=documents");
+  await expect(docs.getByText("Uploaded an OUT document")).toHaveCount(0);
 
   // the buttons follow the workflow: the folder cannot move before the documents are approved (Move to Sold is on the OUT documents tab)
   await docs.goto("/documents/ZZT7001?tab=payments");
@@ -638,7 +641,7 @@ test("A saved receipt makes the sale record of its car, or joins the one that is
   await admin.close();
 });
 
-test("Payments: the sale is added by hand, the status is set, a payment paper is kept, and Online Marketing sees none of it", async ({ browser }) => {
+test("OUT documents: no payments and no add-the-sale cards; each tab has its own history; Online Marketing see no money", async ({ browser }) => {
   test.setTimeout(150_000);
   const db = adminClient() as unknown as { from: (t: string) => { upsert: (v: object, o?: object) => Promise<{ error: unknown }>; delete: () => { like: (c: string, v: string) => Promise<unknown> } } };
   // a car with a linked folder (the one the stand-in Drive keeps for ZZT-7003) and no sale of its own
@@ -648,57 +651,24 @@ test("Payments: the sale is added by hand, the status is set, a payment paper is
 
   const docs = await as(browser, "docs");
   await docs.goto("/documents/ZZT7005?tab=payments");
-  await expect(docs.locator("#add-sale")).toBeVisible({ timeout: 30_000 });
-  await expect(docs.getByText("The payment status can be set once the sale is added.")).toBeVisible();
-  await docs.getByText("No AR to upload? Add the sale by hand").click();
-  await docs.getByLabel("Buyer", { exact: true }).fill("ZZT E2E Pay Buyer");
-  await docs.getByLabel(/Agreed price/).fill("588,000");
-  await docs.getByLabel("Salesperson").fill("ZZT E2E Seller");
-  await docs.getByRole("button", { name: "Add the sale" }).click();
-  await expect(docs.getByRole("group", { name: "Payment status" })).toBeVisible({ timeout: 30_000 });
+  await expect(docs.locator("#stage-out")).toBeVisible({ timeout: 30_000 });
+  // the OUT tab is the three papers only: no payments card and no "add the sale by hand" card
   await expect(docs.locator("#add-sale")).toHaveCount(0);
-
-  // the status is one tap, and tapping it again clears it
-  const partly = docs.getByRole("button", { name: "Partly paid", exact: true });
-  await partly.click();
-  await expect(partly).toHaveAttribute("aria-pressed", "true", { timeout: 30_000 });
-  await expect(docs.getByRole("tab", { name: /^OUT documents/ })).toBeVisible();
-
-  // a payment paper: what it is, the amount, the date; it appears in the list with a download
-  await docs.waitForTimeout(2000); // the page must be ready before a file is given to it
-  await docs.getByLabel("What are they").selectOption("Down payment");
-  await docs.getByLabel(/Amount, if it shows one/).fill("50,000");
-  await docs.getByLabel("Note (optional)").fill("BDO deposit slip");
-  await docs.locator("#pay-file").setInputFiles({ name: "slip.jpg", mimeType: "image/jpeg", buffer: JPEG });
-  await docs.getByRole("button", { name: "Add to the payments" }).click();
-  const list = docs.getByRole("list", { name: "Payment papers" });
-  await expect(list).toContainText("Down payment", { timeout: 30_000 });
-  await expect(list).toContainText("₱50,000");
-  await expect(list).toContainText("BDO deposit slip");
-  await expect(list.getByRole("link", { name: /Download/ })).toBeVisible();
-  // the OUT tab has its own history: the sale and the payment paper, with who did it
-  await expect(docs.locator("#out-activity")).toContainText("Added the sale for ZZT E2E PAY BUYER");
-  await expect(docs.locator("#out-activity")).toContainText("Added a payment paper: Down payment");
-  // it is kept apart from the papers: not on the Papers checklist and not counted as a photo
-  await openTab(docs, "IN documents");
-  await expect(docs.locator("#papers").getByText(/PAY_/)).toHaveCount(0);
+  await expect(docs.getByRole("group", { name: "Payment status" })).toHaveCount(0);
+  await expect(docs.getByText("No AR to upload?")).toHaveCount(0);
+  await expect(docs.locator("#stage-out").getByRole("button", { name: "Upload documents" })).toBeVisible();
+  await expect(docs.locator("#out-activity")).toBeVisible();
+  // the Sale and transfer tab has no "sale of this car" card and its own history
+  await docs.goto("/documents/ZZT7005?tab=sale");
+  await expect(docs.getByText("The sale of this car")).toHaveCount(0);
+  await expect(docs.locator("#transfer-activity")).toBeVisible({ timeout: 30_000 });
   await docs.close();
 
-  // the Documents list shows and filters by the payment status
-  const list2 = await as(browser, "admin");
-  await list2.goto("/documents");
-  await list2.getByRole("button", { name: /^Filters/ }).click();
-  await list2.getByLabel("Payment").selectOption("partial");
-  await expect(list2.getByText("ZZT 7005").first()).toBeVisible();
-  await list2.close();
-
-  // Online Marketing see no payments: no tab, no money on the list, and the paper itself is not found
-  const file = (await adminClient().from("folder_files").select("id").eq("plate_no", "ZZT7005").eq("archive", "payment").single()).data as { id: string };
+  // Online Marketing add the OUT papers but see no money: no payment filter on the list
   const viewer = await as(browser, "marketing");
   await viewer.goto("/documents/ZZT7005");
   await expect(viewer.getByRole("tab", { name: /^Overview/ })).toBeVisible({ timeout: 30_000 });
-  await expect(viewer.getByRole("tab", { name: /^OUT documents/ })).toBeVisible(); // Online Marketing add the OUT papers, but the payment papers are not theirs (404 above)
-  expect((await viewer.request.get(`/api/docs/file/${file.id}`)).status()).toBe(404);
+  await expect(viewer.getByRole("tab", { name: /^OUT documents/ })).toBeVisible();
   await viewer.goto("/documents");
   await viewer.getByRole("button", { name: /^Filters/ }).click();
   await expect(viewer.getByLabel("Payment")).toHaveCount(0);

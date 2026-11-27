@@ -89,7 +89,8 @@ export const REQUIRED_BY_CASE: Record<CaseType, DocType[]> = {
 
 /** Added for every case when the car is sold. Sales uploads the signed acknowledgement of payment (the AR) with the buyer's ID and the deed. */
 export const SOLD_EXTRAS: DocType[] = ["buyer_id", "deed_to_buyer"];
-export const ACK_LABEL = "AR: the receipt saved in New receipt";
+export const ACK_LABEL = "AR: the receipt saved in the app";
+export const AR_PHOTO_LABEL = "AR: photo of the physical copy";
 
 /** A photo's reading, as stored. */
 export interface Detection {

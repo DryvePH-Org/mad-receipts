@@ -121,7 +121,7 @@ export async function afterReading(plate: string, deps: WorkflowDeps = defaultWo
     const failedFiles = car.files.filter((f) => f.read_status === "failed").length;
     await tell({ category: "scan_result", dedupe: `scan:${key}:${new Date().toISOString().slice(0, 13)}`, text: `${failedFiles ? "⚠️ Scan finished, some photos could not be read" : flagged || missing ? "🔎 Scan finished with warnings" : "🔎 Scan finished, no warnings"}\n${carName(car)}${flagged ? `\n${flagged} file${flagged === 1 ? "" : "s"} to check` : ""}${missing ? `\n${missing} paper${missing === 1 ? "" : "s"} missing` : ""}${failedFiles ? `\n${failedFiles} photo${failedFiles === 1 ? "" : "s"} not readable` : ""}\n${appUrl(`/documents/${key}`)}` });
   }
-  if (!workflow.soldReadyNotifiedAt && car.checklist.items.find((i) => i.key === "ack")?.present && car.folder.location === "available" && car.checklist.complete) {
+  if (!workflow.soldReadyNotifiedAt && car.checklist.items.find((i) => i.key === "ack_photo")?.present && car.folder.location === "available" && car.checklist.complete) {
     await upsertWorkflow(deps.admin, key, { sold_ready_notified_at: new Date().toISOString() });
     await deps.notify(`📦 Sold, documents complete\n${carName(car)}\nMove the folder to Sold, then review it for handoff.`).catch(() => undefined);
     await tell({ category: "ready_to_sold", dedupe: `ready:${key}`, text: `📦 Documents complete: move to Sold\n${carName(car)}\n${appUrl(`/documents/${key}`)}` });

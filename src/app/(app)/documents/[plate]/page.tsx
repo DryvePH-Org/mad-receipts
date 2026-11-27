@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 import { requireModule } from "@/lib/auth";
 import { PRIVATE_DOCS } from "@/lib/docs/types";
-import { archiveTotal, PAYMENT_LABEL, type ArchiveFile } from "@/lib/docs/payments";
-import { PaymentsPanel } from "./payments-card";
+import { archiveTotal, type ArchiveFile } from "@/lib/docs/payments";
 import { ActivityList } from "./activity-list";
 import { loadCarActivity } from "@/lib/docs/activity";
 import type { ActivityEntry } from "@/lib/docs/activity-text";
@@ -47,7 +46,6 @@ import { STAGE_LABEL, type Transfer } from "@/lib/transfers/model";
 import { Overview } from "./overview";
 import { TabBar } from "./tab-bar";
 import { hrefOfAnchor, isTab, tabHint, type CarTab } from "./tabs";
-import { TransferList } from "../transfers/transfer-list";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listCarReceipts } from "@/lib/docs/receipts-drive";
 import { ReceiptsCard } from "./receipts-card";
@@ -99,6 +97,8 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
   const stage = deriveStage(stageInputOf(car, flow.workflow, settings, scanning));
   const orDate = orRow.data?.or_expiry ? String(orRow.data.or_expiry).slice(0, 10) : null;
 
+  // each tab shows its own history: the IN documents (and the car as a whole), the OUT documents, the transfer
+  const inActivity = activity.filter((a) => a.area === "in" || a.area === null), outActivity = activity.filter((a) => a.area === "out"), transferActivity = activity.filter((a) => a.area === "transfer");
   const recipient = settings.print.transmittalReceiver || "the receiver";
   // who uploaded each photo: the names of the people of the app (a photo that was already in the Drive folder has no uploader)
   const uploaderIds = [...new Set([...car.files, ...car.archive].map((f) => f.uploaded_by).filter((x): x is string => !!x))];
@@ -157,7 +157,7 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
   const buyerName = data.deal?.buyerName ?? sale?.buyer ?? null;
   // the OUT documents and the papers back from the transfer, for the shared panel
   const flagsOf = new Map(car.analysis.files.map((r) => [r.id, r.flags]));
-  const outStageItems: StageItem[] = items.filter((i) => i.stage === "sold").map((i) => ({ key: i.key, label: i.key === "ack" ? "AR: the physical copy, or the receipt saved in the app" : i.label, present: i.present, files: i.fileIds.map((id) => fileOf.get(id)).filter((f): f is NonNullable<typeof f> => !!f).map(fileView) }));
+  const outStageItems: StageItem[] = items.filter((i) => i.stage === "sold" && i.key !== "ack").map((i) => ({ key: i.key, label: i.label, present: i.present, files: i.fileIds.map((id) => fileOf.get(id)).filter((f): f is NonNullable<typeof f> => !!f).map(fileView) }));
   const placedOut = new Set(outStageItems.flatMap((i) => i.files.map((f) => f.id)));
   const outLoose = car.files.filter((f) => f.stage === "out" && !placedOut.has(f.id)).map(fileView);
   const outFiles = car.files.filter((f) => f.stage === "out");
@@ -182,8 +182,8 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
       <div className="space-y-6">
         <PapersCard approved={!!flow.workflow.approvedAt} data={data} rules={stage.rules} readOnly={!canAct} confirmEdits={data.isAdmin && data.location === "sold"} register={register ? { id: register.id, values: register.values } : null} canEditRegister={canAct} differs={register && car.folder.case_source === "manual" ? registerDiff(car, register.values) : null} />
         <div className="space-y-6">
-          {canAct ? <ApprovalCard isAdmin={data.isAdmin} plate={key} approvedAt={flow.workflow.approvedAt} approvedBy={flow.workflow.approvedByName} marketingNotifiedAt={flow.workflow.marketingNotifiedAt} rule={stage.rules.approve} activity={activity} />
-            : <Card id="approval"><CardHeader><CardTitle className="flex flex-wrap items-center gap-3">Approval{flow.workflow.approvedAt ? <Pill tone="emerald">Approved</Pill> : <Pill tone="zinc">Not approved yet</Pill>}</CardTitle></CardHeader><CardContent className="space-y-3 text-sm">{flow.workflow.approvedAt && <p className="font-medium">Approved by {flow.workflow.approvedByName ?? "someone"}.</p>}<div className="space-y-1 border-t pt-3"><p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Activity on this car</p><ActivityList entries={activity} /></div></CardContent></Card>}
+          {canAct ? <ApprovalCard isAdmin={data.isAdmin} plate={key} approvedAt={flow.workflow.approvedAt} approvedBy={flow.workflow.approvedByName} marketingNotifiedAt={flow.workflow.marketingNotifiedAt} rule={stage.rules.approve} activity={inActivity} />
+            : <Card id="approval"><CardHeader><CardTitle className="flex flex-wrap items-center gap-3">Approval{flow.workflow.approvedAt ? <Pill tone="emerald">Approved</Pill> : <Pill tone="zinc">Not approved yet</Pill>}</CardTitle></CardHeader><CardContent className="space-y-3 text-sm">{flow.workflow.approvedAt && <p className="font-medium">Approved by {flow.workflow.approvedByName ?? "someone"}.</p>}<div className="space-y-1 border-t pt-3"><p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Activity on this car</p><ActivityList entries={inActivity} /></div></CardContent></Card>}
           {canAct && <ChecksHelp />}
         </div>
       </div>) : <NoFolder data={data} canAct={canAct} /> },
@@ -192,21 +192,20 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
         {buyerName && transfers && <p className="text-sm text-muted-foreground">Buyer <b className="text-foreground">{buyerName}</b>.</p>}
         <StagePanel stage="out" title="OUT documents" intro="After the sale: upload the three papers (the buyer's ID, the deed of sale signed with the buyer and the physical AR). The OUT scanner puts each in its place; Sales reviews and approves." plate={key} items={outStageItems} loose={outLoose}
           pending={outCheck.pending} failed={outCheck.failed} scanning={scanningOut} botName="The OUT scanner" approval={approvals.out} rule={stageApprovalRule(outCheck)} canEdit={canUpload} canApprove={approvesOut(user.role)} isAdmin={data.isAdmin}
-          canMoveToSold={!soldCar && stage.rules.moveToSold.allowed && approvesOut(user.role)} uploader={<OutUploader plate={key} />} />
+          canMoveToSold={!soldCar && stage.rules.moveToSold.allowed && approvesOut(user.role)} uploadTitle="Upload the OUT documents" uploadDescription="After the sale: the buyer's ID, the deed of sale signed with the buyer and the physical AR. One photo for each paper, in any order: the OUT scanner puts each in its place." uploader={<OutUploader plate={key} />} />
         {movesToSold(user.role) && <SoldCard plate={key} location={data.location} items={soldItems} rule={stage.rules.moveToSold} isAdmin={data.isAdmin} openItems={openItems} />}
-        {transfers && <PaymentsPanel plate={key} hasSale={!!sale} status={sale?.paymentStatus ?? null} files={archive} canEdit={canUpload} isAdmin={data.isAdmin} folderLinked={linked} />}
-        <Card id="out-activity"><CardHeader><CardTitle>Activity on the OUT documents</CardTitle></CardHeader><CardContent><ActivityList entries={activity.filter((a) => a.area === "out")} /></CardContent></Card>
+        <Card id="out-activity"><CardHeader><CardTitle>Activity on the OUT documents</CardTitle></CardHeader><CardContent><ActivityList entries={outActivity} /></CardContent></Card>
       </div>) }] : []),
     ...(transfers ? [{ key: "sale" as CarTab, label: "Sale and transfer", badge: sale ? STAGE_LABEL[sale.stage].split(" (")[0].split(",")[0].replace("In process at LTO", "In process") : null, tone: (sale?.flags.length ? "amber" : "zinc") as Tone2, node: (
       <div className="space-y-6">
         <HandoffCard isAdmin={data.isAdmin} canEdit={canTransfer} rules={stage.rules} data={handData} />
         {data.botMode && linked ? (
           <StagePanel stage="transfer" title="Papers back from the transfer" intro="When Sir Jep gives the originals back: upload the new OR, the new CR, the PNP clearance and the macro-etching. The transfer scanner puts each in its place; Documentation reviews and approves, and the car is ready to release to the buyer." plate={key} items={transferStageItems} loose={transferLoose}
-            pending={transferCheck.pending} failed={transferCheck.failed} scanning={scanningTransfer} botName="The transfer scanner" approval={approvals.transfer} rule={stageApprovalRule(transferCheck)} canEdit={canTransfer} canApprove={canTransfer} isAdmin={data.isAdmin} uploader={<TransferUploader plate={key} />} />
+            pending={transferCheck.pending} failed={transferCheck.failed} scanning={scanningTransfer} botName="The transfer scanner" approval={approvals.transfer} rule={stageApprovalRule(transferCheck)} canEdit={canTransfer} canApprove={canTransfer} isAdmin={data.isAdmin} uploadTitle="Upload the papers back from the transfer" uploadDescription="The new OR, the new CR, the PNP clearance and the macro-etching: photos or PDFs, in any order. The transfer scanner puts each in its place." uploader={<TransferUploader plate={key} />} />
         ) : (
           <TransferPapersCard plate={key} files={newOwnerFiles} canEdit={canTransfer} isAdmin={data.isAdmin} folderLinked={linked} backAtMad={!!flow.workflow.handoffReturnedAt} />
         )}
-        <Card id="transfer"><CardHeader><CardTitle>The sale of this car</CardTitle></CardHeader><CardContent><TransferList transfers={transfers.transfers} cars={Object.fromEntries(transfers.cars)} today={manilaToday()} plate={key} showCar={false} /></CardContent></Card>
+        <Card id="transfer-activity"><CardHeader><CardTitle>Activity on the transfer</CardTitle></CardHeader><CardContent><ActivityList entries={transferActivity} /></CardContent></Card>
       </div>) }] : []),
     ...(canUpload && (receipts.length > 0 || data.deal) ? [{ key: "receipts" as CarTab, label: "Receipts", badge: receipts.length ? String(receipts.length) : null, tone: "zinc" as Tone2, node: (
       <div className="space-y-6">
@@ -298,12 +297,10 @@ async function RegisterOnly({ plate, role, modules, canAct, canUpload, wanted }:
   const panels: Panel[] = [
     { key: "overview", label: "Overview", node: <Overview buyerPapers={null} data={data} facts={facts} sale={sale} steps={hand ? { ...hand, stage: sale?.stage ?? hand.stage } : sale ? { handedOffAt: null, backAt: null, releasedOn: null, deliveredOn: null, stage: sale.stage } : null} approval={{ at: null, by: null }} payments={seesSales(role) ? { count: archive.length, total: archiveTotal(archive) } : null} canSale={!!transfers} detailsMissing={0} carDescription={[register.values.year_model, register.values.make, register.values.model_variant, register.values.color].filter(Boolean).join(" ") || null} /> },
     { key: "documents", label: "IN documents", node: <NoFolder data={data} canAct={canAct} /> },
-    ...(transfers ? [{ key: "payments" as CarTab, label: "OUT documents", badge: sale?.paymentStatus ? PAYMENT_LABEL[sale.paymentStatus] : sale ? null : "Add the sale", tone: (!sale || sale.paymentStatus === "unpaid" || sale.paymentStatus === "partial" ? "amber" : sale.paymentStatus ? "emerald" : "zinc") as Tone2, node: (
-      <PaymentsPanel plate={key} hasSale={!!sale} status={sale?.paymentStatus ?? null} files={[]} canEdit={canUpload} isAdmin={data.isAdmin} folderLinked={false} />) }] : []),
+    ...(transfers ? [{ key: "payments" as CarTab, label: "OUT documents", tone: "zinc" as Tone2, node: <Empty>This car has no folder in Drive yet, so there are no OUT documents. Documentation adds the car&apos;s folder first.</Empty> }] : []),
     ...(transfers ? [{ key: "sale" as CarTab, label: "Sale and transfer", badge: sale ? STAGE_LABEL[sale.stage].split(" (")[0].split(",")[0].replace("In process at LTO", "In process") : null, tone: (sale?.flags.length ? "amber" : "zinc") as Tone2, node: (
       <div className="space-y-6">
         <HandoffCard isAdmin={isAdmin(role)} canEdit={modules.includes("transfer")} rules={rules} data={handData} />
-        <Card id="transfer"><CardHeader><CardTitle>The sale of this car</CardTitle></CardHeader><CardContent><TransferList transfers={transfers.transfers} cars={Object.fromEntries(transfers.cars)} today={manilaToday()} plate={key} showCar={false} /></CardContent></Card>
       </div>) }] : []),
     { key: "details", label: "Details", node: (
       <div className="space-y-6">

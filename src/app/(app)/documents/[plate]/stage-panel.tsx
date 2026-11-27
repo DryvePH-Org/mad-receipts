@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { BadgeCheck, Check, ChevronRight, CircleAlert, FolderInput, Loader2, ScanText, X } from "lucide-react";
+import { BadgeCheck, Camera, Check, ChevronRight, CircleAlert, FolderInput, Loader2, ScanText, X } from "lucide-react";
 import { toast } from "sonner";
+import { ResponsiveDialog } from "@/components/shared/responsive-dialog";
 import { Pill } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,8 +39,9 @@ export interface StagePanelProps {
   isAdmin: boolean;
   /** OUT: the car can be moved to Sold with the approval (its IN documents are approved and it is not in Sold yet) */
   canMoveToSold?: boolean;
-  /** the uploader of this stage, made by the page */
+  /** the uploader of this stage (the box where photos are dropped), made by the page; it opens from the Upload documents button, like on the IN documents */
   uploader: React.ReactNode;
+  uploadTitle: string; uploadDescription: string;
 }
 
 /**
@@ -51,6 +53,7 @@ export function StagePanel(p: StagePanelProps) {
   const [busy, start] = useTransition();
   const { busy: stepBusy, step, dialog } = useStep();
   const [open, setOpen] = useState<string | null>(null); // an item's key, or "file:<id>"
+  const [uploadOpen, setUploadOpen] = useState(false);
   const have = p.items.filter((i) => i.present && !i.optional).length, needed = p.items.filter((i) => !i.optional).length;
   const unchecked = p.scanning || p.pending > 0;
   const label = p.scanning ? "The bot is reading…" : p.pending ? `Scan ${p.pending} photo${p.pending === 1 ? "" : "s"}` : p.failed ? `Scan ${p.failed} again` : "All scanned";
@@ -98,13 +101,15 @@ export function StagePanel(p: StagePanelProps) {
         <CardTitle className="flex flex-wrap items-center gap-3">{p.title}
           <span className="text-sm font-normal text-muted-foreground">{unchecked ? "Not final until every photo is read" : `${have} of ${needed} in`}</span>
           {p.approval ? <Pill tone="emerald">Approved</Pill> : <Pill tone="zinc">Not approved yet</Pill>}
-          {p.canEdit && total > 0 && !locked && <Button className="ml-auto" size="sm" disabled={busy || p.scanning || (p.pending === 0 && p.failed === 0)} onClick={scan}>{busy || p.scanning ? <Loader2 className="animate-spin" /> : <ScanText />}{label}</Button>}
+          <span className="ml-auto flex flex-wrap gap-2">
+            {p.canEdit && !locked && <Button size="sm" onClick={() => setUploadOpen(true)}><Camera /> Upload documents</Button>}
+            {p.canEdit && !locked && <Button size="sm" disabled={busy || p.scanning || (p.pending === 0 && p.failed === 0)} onClick={scan}>{busy || p.scanning ? <Loader2 className="animate-spin" /> : <ScanText />}{label}</Button>}
+          </span>
         </CardTitle>
         <p className="text-sm text-muted-foreground">{p.intro}</p>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
         {p.approval && <p className="font-medium">Approved by {p.approval.byName ?? "someone"} on {stamp(p.approval.at)} (Manila time).</p>}
-        {p.canEdit && !locked && p.uploader}
         {p.scanning && <p className="rounded-lg bg-muted p-3 text-muted-foreground" role="status">{p.botName} is reading the photos. They fill into the list by themselves; you do not need to wait here.</p>}
         <ul className="divide-y rounded-lg ring-1 ring-foreground/10" aria-label={p.title}>
           {p.items.map((i) => row(i.key, i.label, i.present, i.files, i.present ? "In" : unchecked ? "Not checked yet" : i.optional ? "Optional" : "Still needed"))}
@@ -128,6 +133,7 @@ export function StagePanel(p: StagePanelProps) {
         {p.approval && p.isAdmin && <AdminFixButton plate={p.plate} fix={{ kind: "approval" }} label="Withdraw the approval (Admin)" title="Withdraw the approval?" warning="The stage goes back to Not approved, so a mistake can be corrected and approved again." confirmLabel="Yes, withdraw it" run={() => withdrawStageAction(p.plate, p.stage)} />}
         {dialog}
       </CardContent>
+      {p.canEdit && !locked && <ResponsiveDialog open={uploadOpen} onOpenChange={setUploadOpen} size="lg" title={p.uploadTitle} description={p.uploadDescription}>{p.uploader}</ResponsiveDialog>}
       <PaperViewer
         open={open !== null && (selectedItem !== null || selectedFiles.length > 0)} onOpenChange={(o) => !o && setOpen(null)}
         title={selectedItem ? selectedItem.label : selectedFiles[0]?.name ?? ""}

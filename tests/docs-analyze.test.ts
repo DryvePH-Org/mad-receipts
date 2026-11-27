@@ -14,13 +14,21 @@ const deal = { buyerName: "Juan Dela Cruz", hasReceipt: true };
 const OWNER = "LIM, MARIA LEONILA";
 const types = (a: ReturnType<typeof analyze>, i: number) => a.files[i].types;
 
-describe("the AR on the checklist is the receipt saved in the app", () => {
-  it("is on the list once the car's deal has a saved receipt, or once the physical AR is photographed and read", () => {
-    expect(checklist("clean", analyze([], folder, { ...deal, hasReceipt: true }).files, { ...deal, hasReceipt: true }).items.find((i) => i.key === "ack")?.present).toBe(true);
+describe("the AR on the checklist is a photo of the physical copy", () => {
+  it("the AR photo line needs the photo; the receipt saved in the app is a separate line that is never required", () => {
+    const none = checklist("clean", analyze([], folder, { ...deal, hasReceipt: true }).files, { ...deal, hasReceipt: true });
+    expect(none.items.find((i) => i.key === "ack")).toMatchObject({ present: true, optional: true });
+    expect(none.items.find((i) => i.key === "ack_photo")?.present).toBe(false);
+    expect(none.missing.map((m) => m.key)).toContain("ack_photo");
     const photoOnly = analyze([file([det("acknowledgement_receipt", { buyerName: "Juan Dela Cruz", documentNumber: "2516" })])], folder, { ...deal, hasReceipt: false });
-    expect(checklist("clean", photoOnly.files, { ...deal, hasReceipt: false }).items.find((i) => i.key === "ack")?.present).toBe(true);
-    // with neither a receipt nor a photo, and no sale linked, the line is not on the list
-    expect(checklist("clean", analyze([], folder, { ...deal, linked: false, hasReceipt: false }).files, { ...deal, linked: false, hasReceipt: false }).items.find((i) => i.key === "ack")).toBeUndefined();
+    const withPhoto = checklist("clean", photoOnly.files, { ...deal, hasReceipt: false });
+    expect(withPhoto.items.find((i) => i.key === "ack_photo")?.present).toBe(true);
+    expect(withPhoto.items.find((i) => i.key === "ack_photo")?.fileIds.length).toBe(1);
+    expect(withPhoto.items.find((i) => i.key === "ack")?.present).toBe(false);
+    // with no sale linked there is no receipt line, but the photo line is always there
+    const unlinked = checklist("clean", analyze([], folder, { ...deal, linked: false, hasReceipt: false }).files, { ...deal, linked: false, hasReceipt: false });
+    expect(unlinked.items.find((i) => i.key === "ack")).toBeUndefined();
+    expect(unlinked.items.find((i) => i.key === "ack_photo")).toBeTruthy();
   });
 });
 
@@ -145,24 +153,24 @@ describe("the checklist", () => {
     const a = analyze(clean, folder, deal);
     const c = checklist("clean", a.files, deal);
     expect(c.items.filter((i) => i.stage === "available" && !i.optional).every((i) => i.present)).toBe(true);
-    expect(c.missing.map((m) => m.key)).toEqual(["buyer_id", "deed_to_buyer"]); // the AR is there: the deal has a saved receipt
+    expect(c.missing.map((m) => m.key)).toEqual(["ack_photo", "buyer_id", "deed_to_buyer"]); // the AR is there: the deal has a saved receipt
     expect(c.complete).toBe(false);
   });
   it("complete once the buyer's ID and the signed deed are uploaded and the deal has a saved receipt", () => {
     const more = [...clean, file([det("government_id", { holderName: "Juan Dela Cruz" })]), file([det("deed_of_sale", { sellerName: OWNER, buyerName: "Juan Dela Cruz" })]), file([det("acknowledgement_receipt", { buyerName: "Juan Dela Cruz" })])];
     const a = analyze(more, folder, deal);
     expect(checklist("clean", a.files, deal).complete).toBe(true);
-    // the physical AR photo is on the list too: with neither a receipt nor an AR photo, the AR is missing
-    const noReceipt = { ...deal, hasReceipt: false };
+    // the AR is its photo: without the photo it is missing (a saved receipt does not replace it), with the photo it is complete
     const noAr = more.filter((f) => !f.detections?.some((d) => d.type === "acknowledgement_receipt"));
-    expect(checklist("clean", analyze(noAr, folder, noReceipt).files, noReceipt).missing.map((m) => m.key)).toEqual(["ack"]);
+    expect(checklist("clean", analyze(noAr, folder, deal).files, deal).missing.map((m) => m.key)).toEqual(["ack_photo"]);
+    const noReceipt = { ...deal, hasReceipt: false };
     expect(checklist("clean", analyze(more, folder, noReceipt).files, noReceipt).missing).toEqual([]);
   });
   it("each case asks for its own papers", () => {
     const a = analyze(clean, folder, deal);
-    expect(checklist("encumbered", a.files, deal).missing.map((m) => m.key)).toEqual(["chattel_cancellation", "promissory_note", "buyer_id", "deed_to_buyer"]);
-    expect(checklist("repo_bank", a.files, deal).missing.map((m) => m.key)).toEqual(["chattel_cancellation", "promissory_note", "secretary_certificate", "secretary_id", "buyer_id", "deed_to_buyer"]);
-    expect(checklist("company", a.files, deal).missing.map((m) => m.key)).toEqual(["representative_id", "secretary_certificate", "secretary_id", "board_resolution", "buyer_id", "deed_to_buyer"]);
+    expect(checklist("encumbered", a.files, deal).missing.map((m) => m.key)).toEqual(["chattel_cancellation", "promissory_note", "ack_photo", "buyer_id", "deed_to_buyer"]);
+    expect(checklist("repo_bank", a.files, deal).missing.map((m) => m.key)).toEqual(["chattel_cancellation", "promissory_note", "secretary_certificate", "secretary_id", "ack_photo", "buyer_id", "deed_to_buyer"]);
+    expect(checklist("company", a.files, deal).missing.map((m) => m.key)).toEqual(["representative_id", "secretary_certificate", "secretary_id", "board_resolution", "ack_photo", "buyer_id", "deed_to_buyer"]);
   });
   it("a duplicate photo does not count twice but the document still counts", () => {
     const a = analyze([file([det("certificate_of_registration", { documentNumber: "1" })]), file([det("certificate_of_registration", { documentNumber: "1" })])], folder, deal);

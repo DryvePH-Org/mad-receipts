@@ -343,11 +343,11 @@ const log = (admin: Admin, actor: string, action: string, entityId: string, afte
 /** A person says what a file is (or null: go back to the reading). */
 export async function setFileTypes(fileId: string, types: DocType[] | null, actor: string, deps: DocsDeps = defaultDocsDeps()): Promise<void> {
   if (types && !types.every((t) => (DOC_TYPES as readonly string[]).includes(t))) throw new Error("That is not a document type.");
-  const { data: file } = await deps.admin.from("folder_files").select("plate_no, filename").eq("id", fileId).single();
+  const { data: file } = await deps.admin.from("folder_files").select("plate_no, filename, stage").eq("id", fileId).single();
   if (!file) throw new Error("File not found.");
   await deps.admin.from("folder_files").update(types ? { doc_types: types, doc_types_source: "manual" } : { doc_types_source: "auto" }).eq("id", fileId);
   await recompute(file.plate_no, deps);
-  await log(deps.admin, actor, "docs.set_types", file.plate_no, { file: file.filename, types });
+  await log(deps.admin, actor, "docs.set_types", file.plate_no, { file: file.filename, types, area: file.stage });
 }
 
 const EDITABLE = ["documentNumber", "plate", "motorNo", "chassisNo", "ownerName", "holderName", "sellerName", "buyerName", "secretaryName", "representativeName", "idType", "validUntil", "lender"] as const;
@@ -355,7 +355,7 @@ export type ReadingPatch = Partial<Record<(typeof EDITABLE)[number], string>> & 
 
 /** A person corrects what the bot read on one document of a photo. Only known fields, trimmed and limited; the original reading is kept in `original`. */
 export async function editReading(fileId: string, index: number, patch: ReadingPatch, actor: string, deps: DocsDeps = defaultDocsDeps()): Promise<void> {
-  const { data: file } = await deps.admin.from("folder_files").select("plate_no, filename, details").eq("id", fileId).single();
+  const { data: file } = await deps.admin.from("folder_files").select("plate_no, filename, details, stage").eq("id", fileId).single();
   if (!file) throw new Error("File not found.");
   const details = (file.details && typeof file.details === "object" && !Array.isArray(file.details) ? file.details : {}) as Record<string, unknown>;
   const dets = Array.isArray(details.detections) ? ([...details.detections] as Record<string, unknown>[]) : [];
@@ -374,12 +374,12 @@ export async function editReading(fileId: string, index: number, patch: ReadingP
   const original = details.original ?? details.detections;
   await deps.admin.from("folder_files").update({ details: { ...details, detections: dets, original, edited: true, reviewed: [] } as unknown as Json }).eq("id", fileId);
   await recompute(file.plate_no, deps);
-  await log(deps.admin, actor, "docs.edit_reading", file.plate_no, { file: file.filename, index, fields: Object.keys(patch) });
+  await log(deps.admin, actor, "docs.edit_reading", file.plate_no, { file: file.filename, index, fields: Object.keys(patch), area: file.stage });
 }
 
 /** "Checked, this is fine": the warning is not raised again for this file (until the photo is scanned again). */
 export async function reviewFlag(fileId: string, flag: string, accept: boolean, actor: string, deps: DocsDeps = defaultDocsDeps()): Promise<void> {
-  const { data: file } = await deps.admin.from("folder_files").select("plate_no, filename, details, flags").eq("id", fileId).single();
+  const { data: file } = await deps.admin.from("folder_files").select("plate_no, filename, details, flags, stage").eq("id", fileId).single();
   if (!file) throw new Error("File not found.");
   const details = (file.details && typeof file.details === "object" && !Array.isArray(file.details) ? file.details : {}) as Record<string, unknown>;
   const now = Array.isArray(details.reviewed) ? (details.reviewed as string[]) : [];
@@ -387,28 +387,28 @@ export async function reviewFlag(fileId: string, flag: string, accept: boolean, 
   const reviewed = accept ? [...new Set([...now, flag.slice(0, 300)])] : now.filter((x) => x !== flag);
   await deps.admin.from("folder_files").update({ details: { ...details, reviewed } as unknown as Json }).eq("id", fileId);
   await recompute(file.plate_no, deps);
-  await log(deps.admin, actor, accept ? "docs.accept_flag" : "docs.unaccept_flag", file.plate_no, { file: file.filename });
+  await log(deps.admin, actor, accept ? "docs.accept_flag" : "docs.unaccept_flag", file.plate_no, { file: file.filename, area: file.stage });
 }
 
 /** Puts one photo back to "not read yet" so the next scan reads it again (a person's corrections on it are dropped). */
 export async function resetFile(fileId: string, actor: string, deps: DocsDeps = defaultDocsDeps()): Promise<string> {
-  const { data: file } = await deps.admin.from("folder_files").select("plate_no, filename").eq("id", fileId).single();
+  const { data: file } = await deps.admin.from("folder_files").select("plate_no, filename, stage").eq("id", fileId).single();
   if (!file) throw new Error("File not found.");
   await deps.admin.from("folder_files").update({ read_status: "pending", read_error: null, details: {}, confidence: null, doc_types_source: "auto" }).eq("id", fileId);
   await recompute(file.plate_no, deps);
-  await log(deps.admin, actor, "docs.reset_file", file.plate_no, { file: file.filename });
+  await log(deps.admin, actor, "docs.reset_file", file.plate_no, { file: file.filename, area: file.stage });
   return file.plate_no;
 }
 
 /** Takes a photo out of the car's folder: it goes to the Drive trash (30 days to restore it there) and leaves the checklist. */
 export async function removeFile(fileId: string, actor: string, deps: DocsDeps = defaultDocsDeps()): Promise<{ plate: string; name: string }> {
-  const { data: file } = await deps.admin.from("folder_files").select("plate_no, filename, drive_file_id").eq("id", fileId).single();
+  const { data: file } = await deps.admin.from("folder_files").select("plate_no, filename, drive_file_id, stage").eq("id", fileId).single();
   if (!file) throw new Error("File not found.");
   await deps.bridge.trashFile(file.drive_file_id);
   const { error } = await deps.admin.from("folder_files").delete().eq("id", fileId);
   if (error) throw new Error(`The file is in the Drive trash, but could not be taken off the list: ${error.message}`);
   await recompute(file.plate_no, deps);
-  await log(deps.admin, actor, "docs.remove_file", file.plate_no, { file: file.filename, driveFileId: file.drive_file_id });
+  await log(deps.admin, actor, "docs.remove_file", file.plate_no, { file: file.filename, driveFileId: file.drive_file_id, area: file.stage });
   return { plate: file.plate_no, name: file.filename };
 }
 

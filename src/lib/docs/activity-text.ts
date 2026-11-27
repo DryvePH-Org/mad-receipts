@@ -33,6 +33,10 @@ export function describeActivity(action: string, afterRaw: unknown): string {
     case "docs.reset_file": return `Went back to the bot's reading${f}`;
     case "docs.remove_file": return `Removed a photo from the folder${f}`;
     case "docs.transmittal": return "Saved the transmittal receipt";
+    case "docs.out_approved": return "Approved the OUT documents";
+    case "docs.out_approval_withdrawn": return "An Admin withdrew the approval of the OUT documents";
+    case "docs.transfer_approved": return "Approved the papers back from the transfer";
+    case "docs.transfer_approval_withdrawn": return "An Admin withdrew the approval of the papers back from the transfer";
     case "docs.admin_approval": return "An Admin withdrew the approval";
     case "docs.admin_handoff_reopen": return "An Admin reopened the handoff";
     case "docs.admin_handoff_undo": return "An Admin took the handoff back";
@@ -43,13 +47,16 @@ export function describeActivity(action: string, afterRaw: unknown): string {
   }
 }
 
-/** `area`: IN documents, OUT documents (after the sale), or both/neither (the car as a whole). */
-export interface ActivityEntry { id: string; at: string; who: string; text: string; area: "in" | "out" | null }
+/** `area`: IN documents, OUT documents (after the sale) or the transfer; null for the car as a whole (shown with the IN documents). */
+export type ActivityArea = "in" | "out" | "transfer";
+export interface ActivityEntry { id: string; at: string; who: string; text: string; area: ActivityArea | null }
 
-const OUT_ACTIONS = new Set(["docs.archive_add", "docs.archive_remove", "docs.transfer_paper_add", "docs.transfer_paper_remove", "docs.sale_add", "docs.sale_from_ar", "docs.payment_status", "docs.transfer_released", "docs.transfer_delivered"]);
-/** Which part of the car's documents an entry belongs to, so the OUT tab can show its own history. */
-export function areaOf(action: string, afterRaw: unknown): "in" | "out" | null {
+const OUT_ACTIONS = new Set(["docs.archive_add", "docs.archive_remove", "docs.sale_add", "docs.sale_from_ar", "docs.payment_status", "docs.move_to_sold", "docs.out_approved", "docs.out_approval_withdrawn"]);
+const TRANSFER_ACTIONS = new Set(["docs.transfer_paper_add", "docs.transfer_paper_remove", "docs.transfer_released", "docs.transfer_delivered", "docs.handoff", "docs.handoff_returned", "docs.transmittal", "docs.transfer_approved", "docs.transfer_approval_withdrawn", "docs.admin_handoff_reopen", "docs.admin_handoff_undo", "docs.admin_handoff_edit", "docs.admin_step_back"]);
+/** Which part of the car's documents an entry belongs to, so each tab shows its own history. */
+export function areaOf(action: string, afterRaw: unknown): ActivityArea | null {
   if (OUT_ACTIONS.has(action)) return "out";
+  if (TRANSFER_ACTIONS.has(action)) return "transfer";
   const area = asObj(afterRaw).area;
-  return area === "in" || area === "out" ? area : null;
+  return area === "in" || area === "out" || area === "transfer" ? area : null;
 }
