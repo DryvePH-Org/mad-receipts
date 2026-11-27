@@ -20,7 +20,7 @@ import {
 import type { Role } from "@/lib/roles";
 export { ROLE_LABELS, type Role } from "@/lib/roles";
 
-export type ModuleId = "dashboard" | "cars" | "register" | "new" | "deals" | "reminders" | "documents" | "repairs" | "upload" | "activity" | "settings" | "users" | "sync" | "add" | "pricing";
+export type ModuleId = "dashboard" | "cars" | "register" | "new" | "deals" | "reminders" | "documents" | "repairs" | "upload" | "activity" | "settings" | "users" | "sync" | "add" | "pricing" | "transfer";
 
 export interface NavItem {
   id: ModuleId;
@@ -37,7 +37,7 @@ export interface NavItem {
   via?: ModuleId;
 }
 
-const ALL: Role[] = ["super_admin", "admin", "buying", "marketing", "sales"];
+const ALL: Role[] = ["super_admin", "admin", "buying", "documentation", "marketing", "sales"];
 const ADMINS: Role[] = ["super_admin", "admin"];
 const SUPER: Role[] = ["super_admin"];
 
@@ -50,11 +50,12 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "reminders", href: "/reminders", label: "Reminders", icon: Bell, group: "Receipts", roles: SUPER, badge: "reminders" },
   { id: "cars", href: "/cars", label: "Car Inventory", icon: CarFront, group: "Cars", roles: ALL },
   { id: "pricing", href: "/new-cars", label: "New cars to price", icon: Tag, group: "Cars", roles: ADMINS, badge: "pricing" }, // a new car waits here until an Admin sets its price; then it goes into Car Inventory
-  { id: "documents", href: "/documents", label: "Car documents (act)", icon: FolderCheck, group: "Cars", roles: ["super_admin", "admin", "buying"], menu: false }, // scan, approve, move, hand off: the menu entry is "register" below
+  { id: "documents", href: "/documents", label: "Car documents (act)", icon: FolderCheck, group: "Cars", roles: ["super_admin", "admin", "buying", "documentation"], menu: false }, // the IN documents: scan, check, approve: the menu entry is "register" below
   { id: "register", href: "/documents", label: "Car documents", icon: BookOpenCheck, group: "Cars", roles: ALL },
   { id: "add", href: "/documents/add", label: "Add a car", icon: CirclePlus, group: "Cars", roles: [], via: "documents" }, // Buying and the Admins: the way in to add a car and its IN documents
   { id: "repairs", href: "/repairs", label: "Repairs", icon: Wrench, group: "Cars", roles: ALL },
-  { id: "upload", href: "/upload-documents", label: "Sold papers (add)", icon: Upload, group: "Cars", roles: ["super_admin", "admin", "sales"], menu: false }, // the module that lets someone add the sold papers on a car page of Car documents
+  { id: "upload", href: "/upload-documents", label: "Sold papers (add)", icon: Upload, group: "Cars", roles: ["super_admin", "admin", "documentation", "sales", "marketing"], menu: false }, // the OUT documents: the module that lets someone add the sold papers on a car page of Car documents
+  { id: "transfer", href: "/documents/transfers", label: "Sale and transfer (act)", icon: FolderCheck, group: "Cars", roles: ["super_admin", "admin", "documentation"], menu: false }, // hand the originals to Sir Jep, take them back, release them to the buyer
   { id: "settings", href: "/settings", label: "Settings", icon: Settings, group: "Administration", roles: SUPER },
   { id: "users", href: "/admin/users", label: "Users", icon: Users, group: "Administration", roles: SUPER },
   { id: "sync", href: "/admin/sync", label: "Sync jobs", icon: RefreshCw, group: "Administration", roles: SUPER },

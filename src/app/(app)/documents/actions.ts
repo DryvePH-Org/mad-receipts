@@ -261,7 +261,7 @@ export async function approveUnitAction(plate: string, confirmIncomplete: boolea
 }
 
 export async function setHandoffCheckedAction(plate: string, keys: string[]): Promise<Done> {
-  const user = await requireModule("documents");
+  const user = await requireModule("transfer");
   const p = plateSchema.safeParse(plate);
   if (!p.success || !Array.isArray(keys)) return { ok: false, message: "Bad request." };
   return guard<Done>(async () => {
@@ -272,7 +272,7 @@ export async function setHandoffCheckedAction(plate: string, keys: string[]): Pr
 }
 
 export async function handoffAction(plate: string, note: string, confirmIncomplete: boolean): Promise<StepOutcome> {
-  const user = await requireModule("documents");
+  const user = await requireModule("transfer");
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { ok: false, message: "Bad plate." };
   return guard<StepOutcome>(async () => {
@@ -285,7 +285,7 @@ export async function handoffAction(plate: string, note: string, confirmIncomple
 }
 
 export async function returnUnitAction(plate: string): Promise<Done> {
-  const user = await requireModule("documents");
+  const user = await requireModule("transfer");
   const p = plateSchema.safeParse(plate);
   if (!p.success) return { ok: false, message: "Bad plate." };
   return guard<Done>(async () => {
@@ -426,7 +426,7 @@ const dayText = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a date.");
 
 /** The originals are given to the buyer or to the financing company. Documentation and Admin. */
 export async function releaseTransferAction(plate: string, to: string, on: string): Promise<Done> {
-  const user = await requireModule("documents");
+  const user = await requireModule("transfer");
   const p = plateSchema.safeParse(plate), d = dayText.safeParse(on), who = z.string().max(70).safeParse(to);
   if (!p.success || !d.success || !who.success) return { ok: false, message: d.success ? "Bad request." : "Choose a date." };
   return guard<Done>(async () => {
@@ -438,7 +438,7 @@ export async function releaseTransferAction(plate: string, to: string, on: strin
 
 /** The buyer or the bank confirmed they have the originals: the transfer is finished. */
 export async function deliverTransferAction(plate: string, on: string): Promise<Done> {
-  const user = await requireModule("documents");
+  const user = await requireModule("transfer");
   const p = plateSchema.safeParse(plate), d = dayText.safeParse(on);
   if (!p.success || !d.success) return { ok: false, message: "Choose a date." };
   return guard<Done>(async () => {
@@ -452,7 +452,7 @@ export async function deliverTransferAction(plate: string, on: string): Promise<
 
 /** Sales, Buying and the Admins say how the sale is being paid. */
 export async function setPaymentStatusAction(plate: string, status: string): Promise<Done> {
-  const user = await requireAnyModule("documents", "upload");
+  const user = await requireModule("upload");
   const p = plateSchema.safeParse(plate);
   if (!p.success || !seesSales(user.role) || !(status === "" || isPaymentStatus(status))) return { ok: false, message: "Bad request." };
   return guard<Done>(async () => {
@@ -480,7 +480,7 @@ const saleSchema = z.object({ buyer: z.string().trim().min(2, "Type the buyer's 
 
 /** Sales, Buying and the Admins add the sale of a car (no digital receipt makes it any more): buyer, agreed price, date and salesperson. */
 export async function addSaleAction(plate: string, raw: z.input<typeof saleSchema>): Promise<Done> {
-  const user = await requireAnyModule("documents", "upload");
+  const user = await requireModule("upload");
   const p = plateSchema.safeParse(plate), v = saleSchema.safeParse(raw);
   if (!p.success || !seesSales(user.role)) return { ok: false, message: "Bad request." };
   if (!v.success) return { ok: false, message: v.error.issues[0]?.message ?? "Some values are not valid." };

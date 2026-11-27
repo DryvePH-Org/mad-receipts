@@ -67,7 +67,8 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
   const wanted = (await searchParams).tab;
   const user = await requireModule("register");
   const canAct = user.modules.includes("documents");
-  const canUpload = canAct || user.modules.includes("upload"); // Sales add the sold papers here; they have no other button
+  const canUpload = user.modules.includes("upload"); // the OUT documents: Sales, Online Marketing and Documentation add them; Buying only reads them
+  const canTransfer = user.modules.includes("transfer"); // the Sale and transfer tab: Documentation and the Admins; everyone else only looks
   const { plate } = await params;
   const detail = await getCarDetail(plate);
   if (!detail) return <RegisterOnly plate={plate} role={user.role} modules={user.modules} canAct={canAct} canUpload={canUpload} wanted={wanted} />;
@@ -147,7 +148,7 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
   const inNext = linked ? { anchor: stage.next.anchor, title: stage.next.title } : { anchor: "folder", title: "Add the car's documents" };
   const outNext = linked && transfers ? (!sale ? { anchor: "sold-upload", title: "Upload the AR" } : outHave < outItems.length ? { anchor: "sold-upload", title: `Upload the OUT documents (${outItems.length - outHave} to go)` } : null) : null;
   const next = canAct ? inNext : canUpload ? outNext : null;
-  const who = { editsIn: canAct, editsOut: canUpload, seesSales: !!transfers };
+  const who = { editsIn: canAct, editsOut: canUpload, seesSales: !!transfers, editsTransfer: canTransfer };
   const panels: Panel[] = [
     { key: "overview", label: "Overview", node: (
       <div className="space-y-4">
@@ -165,16 +166,16 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
           {canAct && <ChecksHelp />}
         </aside>
       </div>) : <NoFolder data={data} canAct={canAct} /> },
-    ...(transfers && linked ? [{ key: "payments" as CarTab, label: "OUT documents", badge: `${outHave}/${outItems.length}`, tone: (outHave < outItems.length || !sale ? "amber" : "emerald") as Tone2, node: (
+    ...((transfers || canUpload) && linked ? [{ key: "payments" as CarTab, label: "OUT documents", badge: `${outHave}/${outItems.length}`, tone: (outHave < outItems.length || !sale ? "amber" : "emerald") as Tone2, node: (
       <div className="space-y-6">
         <SoldUploadCard plate={key} items={outItems} buyer={buyerName} canUpload={canUpload} />
-        <PaymentsPanel plate={key} hasSale={!!sale} status={sale?.paymentStatus ?? null} files={archive} canEdit={canUpload} isAdmin={data.isAdmin} folderLinked={linked} />
+        {transfers && <PaymentsPanel plate={key} hasSale={!!sale} status={sale?.paymentStatus ?? null} files={archive} canEdit={canUpload} isAdmin={data.isAdmin} folderLinked={linked} />}
         <Card id="out-activity"><CardHeader><CardTitle>Activity on the OUT documents</CardTitle></CardHeader><CardContent><ActivityList entries={activity.filter((a) => a.area === "out")} /></CardContent></Card>
       </div>) }] : []),
     ...(transfers ? [{ key: "sale" as CarTab, label: "Sale and transfer", badge: sale ? STAGE_LABEL[sale.stage].split(" (")[0].split(",")[0].replace("In process at LTO", "In process") : null, tone: (sale?.flags.length ? "amber" : "zinc") as Tone2, node: (
       <div className="space-y-6">
-        <HandoffCard isAdmin={data.isAdmin} rules={stage.rules} data={handData} />
-        <TransferPapersCard plate={key} files={newOwnerFiles} canEdit={canUpload} isAdmin={data.isAdmin} folderLinked={linked} backAtMad={!!flow.workflow.handoffReturnedAt} />
+        <HandoffCard isAdmin={data.isAdmin} canEdit={canTransfer} rules={stage.rules} data={handData} />
+        <TransferPapersCard plate={key} files={newOwnerFiles} canEdit={canTransfer} isAdmin={data.isAdmin} folderLinked={linked} backAtMad={!!flow.workflow.handoffReturnedAt} />
         <Card id="transfer"><CardHeader><CardTitle>The sale of this car</CardTitle></CardHeader><CardContent><TransferList transfers={transfers.transfers} cars={Object.fromEntries(transfers.cars)} today={manilaToday()} plate={key} showCar={false} /></CardContent></Card>
       </div>) }] : []),
     ...(canUpload && (receipts.length > 0 || data.deal) ? [{ key: "receipts" as CarTab, label: "Receipts", badge: receipts.length ? String(receipts.length) : null, tone: "zinc" as Tone2, node: (
@@ -206,7 +207,7 @@ function NoFolder({ data, canAct }: { data: CarViewData; canAct: boolean }) {
 
 const Empty = ({ children }: { children: React.ReactNode }) => <Card><CardContent className="pt-4 text-sm text-muted-foreground">{children}</CardContent></Card>;
 
-type Who = { editsIn: boolean; editsOut: boolean; seesSales: boolean };
+type Who = { editsIn: boolean; editsOut: boolean; seesSales: boolean; editsTransfer: boolean };
 
 /** For the people who do not act on the IN documents: what this page is for them, and their next step (if there is one). */
 function YourPart({ hint, next, plate }: { hint: string; next: { anchor: string | null; title: string } | null; plate: string }) {
@@ -271,7 +272,7 @@ async function RegisterOnly({ plate, role, modules, canAct, canUpload, wanted }:
       <PaymentsPanel plate={key} hasSale={!!sale} status={sale?.paymentStatus ?? null} files={[]} canEdit={canUpload} isAdmin={data.isAdmin} folderLinked={false} />) }] : []),
     ...(transfers ? [{ key: "sale" as CarTab, label: "Sale and transfer", badge: sale ? STAGE_LABEL[sale.stage].split(" (")[0].split(",")[0].replace("In process at LTO", "In process") : null, tone: (sale?.flags.length ? "amber" : "zinc") as Tone2, node: (
       <div className="space-y-6">
-        <HandoffCard isAdmin={isAdmin(role)} rules={rules} data={handData} />
+        <HandoffCard isAdmin={isAdmin(role)} canEdit={modules.includes("transfer")} rules={rules} data={handData} />
         <Card id="transfer"><CardHeader><CardTitle>The sale of this car</CardTitle></CardHeader><CardContent><TransferList transfers={transfers.transfers} cars={Object.fromEntries(transfers.cars)} today={manilaToday()} plate={key} showCar={false} /></CardContent></Card>
       </div>) }] : []),
     { key: "details", label: "Details", node: (
@@ -282,5 +283,5 @@ async function RegisterOnly({ plate, role, modules, canAct, canUpload, wanted }:
       </div>) },
   ];
   void canUpload;
-  return <Shell data={data} who={{ editsIn: canAct, editsOut: canUpload, seesSales: !!transfers }} linked={false} busy={false} canSync={canAct} next={canAct ? { anchor: "folder", title: "Add the car's documents" } : null} panels={panels} wanted={wanted} />;
+  return <Shell data={data} who={{ editsIn: canAct, editsOut: canUpload, seesSales: !!transfers, editsTransfer: modules.includes("transfer") }} linked={false} busy={false} canSync={canAct} next={canAct ? { anchor: "folder", title: "Add the car's documents" } : null} panels={panels} wanted={wanted} />;
 }

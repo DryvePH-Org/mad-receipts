@@ -140,7 +140,7 @@ export type SensitiveField = "target" | "encumbrance" | "orExp" | "docsCode";
 /** Everyone sees the car, its quoted price, whether it can be sold, its repair status and where it is. The rest depends on the role. */
 export function hiddenFields(role: Role): ReadonlySet<SensitiveField> {
   if (editsCars(role)) return new Set(); // Super Admin, Admin and Sales change the price list, so they see all of it
-  if (role === "buying") return new Set<SensitiveField>(["target"]);
+  if (role === "buying" || role === "documentation") return new Set<SensitiveField>(["target"]);
   return new Set<SensitiveField>(["target", "encumbrance", "orExp", "docsCode"]); // Online Marketing
 }
 

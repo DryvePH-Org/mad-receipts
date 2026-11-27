@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ALL_MODULE_IDS, NAV_ITEMS, effectiveModules, isActivePath, navFor, navGroups, roleModules, tabBarItems } from "@/lib/navigation";
-import { editsCars, editsOut, editsPapers, isAdmin, isSuper, roleFromDb, seesSales } from "@/lib/roles";
+import { editsCars, editsOut, editsPapers, editsTransfer, isAdmin, isSuper, roleFromDb, seesSales } from "@/lib/roles";
 import { tabHint } from "@/app/(app)/documents/[plate]/tabs";
 
 describe("navigation", () => {
@@ -83,22 +83,32 @@ describe("what each role may do", () => {
     expect([isSuper("super_admin"), isSuper("admin")]).toEqual([true, false]);
     for (const r of ["super_admin", "admin"] as const) expect([isAdmin(r), editsPapers(r), editsOut(r), editsCars(r), seesSales(r)]).toEqual([true, true, true, true, true]);
   });
-  it("Buying handles the IN documents, Sales add the OUT documents and change the price list and repairs, Online Marketing only looks", () => {
-    expect([editsPapers("buying"), editsOut("buying"), editsCars("buying"), seesSales("buying"), isAdmin("buying")]).toEqual([true, true, false, true, false]);
+  it("Buying handles the IN documents, Sales and Online Marketing add the OUT documents, Documentation does every tab", () => {
+    expect([editsPapers("buying"), editsOut("buying"), editsTransfer("buying"), editsCars("buying"), seesSales("buying"), isAdmin("buying")]).toEqual([true, false, false, false, true, false]);
+    expect([editsPapers("documentation"), editsOut("documentation"), editsTransfer("documentation"), editsCars("documentation"), seesSales("documentation"), isAdmin("documentation")]).toEqual([true, true, true, false, true, false]);
     expect([editsPapers("sales"), editsOut("sales"), editsCars("sales"), seesSales("sales"), isAdmin("sales")]).toEqual([false, true, true, true, false]);
-    expect([editsPapers("marketing"), editsOut("marketing"), editsCars("marketing"), seesSales("marketing"), isAdmin("marketing")]).toEqual([false, false, false, false, false]);
+    expect([editsPapers("marketing"), editsOut("marketing"), editsTransfer("marketing"), editsCars("marketing"), seesSales("marketing"), isAdmin("marketing")]).toEqual([false, true, false, false, false, false]);
+    expect([editsTransfer("sales"), editsTransfer("admin"), editsTransfer("super_admin")]).toEqual([false, true, true]);
+  });
+  it("the modules behind the tabs: IN for Buying and Documentation, OUT for Sales, Online Marketing and Documentation, Sale and transfer for Documentation", () => {
+    const has = (r: Parameters<typeof roleModules>[0], m: string) => (roleModules(r) as string[]).includes(m);
+    expect(["buying", "documentation", "sales", "marketing"].map((r) => has(r as never, "documents"))).toEqual([true, true, false, false]);
+    expect(["buying", "documentation", "sales", "marketing"].map((r) => has(r as never, "upload"))).toEqual([false, true, true, true]);
+    expect(["buying", "documentation", "sales", "marketing", "admin"].map((r) => has(r as never, "transfer"))).toEqual([false, true, false, false, true]);
   });
   it("every tab says in a line what it is and what this person does there", () => {
-    const buying = { editsIn: true, editsOut: true, seesSales: true }, sales = { editsIn: false, editsOut: true, seesSales: true }, marketing = { editsIn: false, editsOut: false, seesSales: false };
+    const buying = { editsIn: true, editsOut: false, seesSales: true }, sales = { editsIn: false, editsOut: true, seesSales: true }, marketing = { editsIn: false, editsOut: true, seesSales: false };
     expect(tabHint("documents", buying)).toMatch(/upload photos/);
     expect(tabHint("documents", sales)).toMatch(/for you to read/);
     expect(tabHint("payments", sales)).toMatch(/upload the signed AR first/);
-    expect(tabHint("overview", marketing)).toMatch(/for you to read/);
+    expect(tabHint("overview", marketing)).toMatch(/add the OUT documents/);
+    expect(tabHint("sale", { ...sales, editsTransfer: true })).toMatch(/hand them to Sir Jep/);
+    expect(tabHint("sale", sales)).toMatch(/Documentation does the transfer/);
     for (const t of ["overview", "documents", "payments", "sale", "receipts", "details"] as const) for (const w of [buying, sales, marketing]) expect(tabHint(t, w).length).toBeGreaterThan(20);
   });
-  it("what the database held before the five roles still reads correctly", () => {
+  it("what the database held before the roles still reads correctly", () => {
     expect(roleFromDb("approver")).toBe("admin");
-    expect(roleFromDb("documentation")).toBe("buying");
+    expect(roleFromDb("documentation")).toBe("documentation");
     expect(roleFromDb("super_admin")).toBe("super_admin");
     expect(roleFromDb("nonsense")).toBe("sales");
     expect(roleFromDb(undefined)).toBe("sales");

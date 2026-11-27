@@ -12,6 +12,7 @@ export function RoleSelect({ userId, role, canMakeAdmin = true }: { userId: stri
       <NativeSelect aria-label="Role" value={role} disabled={pending} onChange={(e) => start(async () => { const r = await changeRole(userId, e.target.value); if (r.ok) toast.success(r.message); else toast.error(r.message); })}>
         <option value="sales">Sales</option>
         <option value="buying">Buying</option>
+        <option value="documentation">Documentation</option>
         <option value="marketing">Online Marketing</option>
         {(canMakeAdmin || role === "admin") && <option value="admin">Admin</option>}
         {(canMakeAdmin || role === "super_admin") && <option value="super_admin">Super Admin</option>}

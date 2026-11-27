@@ -13,8 +13,10 @@ const fail = (error: string, status: number) => Response.json({ error }, { statu
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return fail("Not logged in", 401);
-  if (!seesSales(user.role) || (!user.modules.includes("upload") && !user.modules.includes("documents"))) return fail("You cannot add papers here.", 403);
   const form = await request.formData().catch(() => null);
+  // the papers for the new owner belong to the transfer (Documentation, Admins); the payment papers to the OUT documents (not for Online Marketing: they are money)
+  const transfer = form?.get("kind") === "transfer";
+  if (!seesSales(user.role) || !user.modules.includes(transfer ? "transfer" : "upload")) return fail("You cannot add papers here.", 403);
   const plate = String(form?.get("plate") ?? "").slice(0, 20);
   const file = form?.get("file");
   if (!form || !plate || !(file instanceof File) || file.size === 0) return fail("Choose a car and a file.", 400);

@@ -69,7 +69,7 @@ async function UsersContent() {
                 <p className="truncate font-medium">{u.name}</p>
                 <p className="truncate text-sm text-muted-foreground">{u.email}</p>
                 <div className="mt-1 flex flex-wrap gap-1.5">
-                  {u.role === "super_admin" ? <Badge>Super Admin</Badge> : u.role === "admin" ? <Badge variant="secondary">Admin</Badge> : u.role === "buying" ? <Pill tone="blue">Buying</Pill> : u.role === "marketing" ? <Pill tone="purple">Online Marketing</Pill> : <Pill tone="grey">Sales</Pill>}
+                  {u.role === "super_admin" ? <Badge>Super Admin</Badge> : u.role === "admin" ? <Badge variant="secondary">Admin</Badge> : u.role === "buying" ? <Pill tone="blue">Buying</Pill> : u.role === "documentation" ? <Pill tone="emerald">Documentation</Pill> : u.role === "marketing" ? <Pill tone="purple">Online Marketing</Pill> : <Pill tone="grey">Sales</Pill>}
                   {u.disabled && <Pill tone="red">Disabled</Pill>}
                 </div>
               </div>

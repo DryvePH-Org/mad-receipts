@@ -27,14 +27,14 @@ export interface HandoffData {
  * The transfer of the originals after the sale, in four steps on the car's sale record: With the liaison (the papers are handed to the receiver),
  * Back at MAD (the new CR is here), Released (given to the buyer or the financing company), Delivered (they confirmed). Available only after the folder is in Sold.
  */
-export function HandoffCard({ data, rules, isAdmin = false }: { data: HandoffData; rules: Pick<Rules, "handoff" | "markReturned">; isAdmin?: boolean }) {
+export function HandoffCard({ data, rules, isAdmin = false, canEdit = true }: { data: HandoffData; rules: Pick<Rules, "handoff" | "markReturned">; isAdmin?: boolean; canEdit?: boolean }) {
   const soldCar = data.soldCar ?? data.location === "sold";
   const { busy, start, step, done, dialog } = useStep();
   const [checked, setChecked] = useState<string[]>(data.checked);
   const [note, setNote] = useState(data.note ?? "");
   const [to, setTo] = useState("");
   const [when, setWhen] = useState(today());
-  const tick = (key: string, on: boolean) => { const next = on ? [...checked, key] : checked.filter((k) => k !== key); setChecked(next); void setHandoffCheckedAction(data.plate, next); };
+  const tick = (key: string, on: boolean) => { if (!canEdit) return; const next = on ? [...checked, key] : checked.filter((k) => k !== key); setChecked(next); void setHandoffCheckedAction(data.plate, next); };
   const { steps, next } = stepsOf({ handedOffAt: data.at, backAt: data.returnedAt, releasedOn: data.releasedOn, deliveredOn: data.deliveredOn, stage: data.stage });
   const out = !!data.at && !data.returnedAt;
   const title = next === null ? <Pill tone="emerald">Delivered{data.deliveredOn ? ` ${day(data.deliveredOn)}` : ""}</Pill> : next === "back" ? <Pill tone="amber">With {data.recipient} for {daysSince(data.at!)} days</Pill>
@@ -56,7 +56,8 @@ export function HandoffCard({ data, rules, isAdmin = false }: { data: HandoffDat
               ))}
             </ol>
 
-            {next === "out" && (
+            {!canEdit && next !== null && <p className="text-muted-foreground">Documentation does this transfer. You can follow where the papers are here.</p>}
+            {canEdit && next === "out" && (
               <>
                 <p className="text-muted-foreground">{data.returnedAt ? `The papers came back on ${day(data.returnedAt)}. You can hand them off again. ` : ""}Check each paper against the folder, then hand them off.</p>
                 {data.items.length > 0 && <ul className="divide-y rounded-lg ring-1 ring-foreground/10">
@@ -71,14 +72,14 @@ export function HandoffCard({ data, rules, isAdmin = false }: { data: HandoffDat
               </>
             )}
 
-            {next === "back" && (
+            {canEdit && next === "back" && (
               <>
                 <p>Handed off on {day(data.at!)}{data.note ? `: ${data.note}` : ""}. You are reminded on Telegram every 3 days until the papers are back.</p>
                 <Button disabled={busy || !rules.markReturned.allowed} onClick={() => start(async () => done(await returnUnitAction(data.plate)))}>{busy ? <Loader2 className="animate-spin" /> : <PackageCheck />} Mark as done: documents are back</Button>
               </>
             )}
 
-            {next === "released" && (
+            {canEdit && next === "released" && (
               <>
                 <p>The originals are back at MAD{data.returnedAt ? "" : " (the date was not recorded)"}. When they are given to the buyer or to the financing company, say who and when.</p>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -89,7 +90,7 @@ export function HandoffCard({ data, rules, isAdmin = false }: { data: HandoffDat
               </>
             )}
 
-            {next === "delivered" && (
+            {canEdit && next === "delivered" && (
               <>
                 <p>Released{data.releasedOn ? ` on ${day(data.releasedOn)}` : ""}. When the buyer or the bank confirms they have the originals, the transfer is finished.</p>
                 <div className="max-w-xs space-y-1.5"><Label htmlFor="del-on">Date they received it</Label><Input id="del-on" type="date" value={when} onChange={(e) => setWhen(e.target.value)} /></div>
@@ -101,7 +102,7 @@ export function HandoffCard({ data, rules, isAdmin = false }: { data: HandoffDat
           </>
         )}
 
-        {isAdmin && !!data.at && soldCar && (
+        {isAdmin && canEdit && !!data.at && soldCar && (
           <div className="space-y-3 border-t pt-4">
             <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Admin: correct this transfer</p>
             {(out || data.returnedAt) && (

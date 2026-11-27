@@ -25,11 +25,11 @@ beforeAll(async () => {
   docs = await user("docs@example.test", "buying");
 }, 60_000);
 
-describe("the five roles", () => {
+describe("the six roles", () => {
   it("are valid, the old ones are gone, and unknown roles are refused", async () => {
     expect((await db.query<{ role: string }>("select role from public.profiles where id = $1", [docs])).rows[0].role).toBe("buying");
-    for (const role of ["super_admin", "admin", "buying", "marketing", "sales"]) await db.query("update public.profiles set role = $2 where id = $1", [docs, role]);
-    for (const old of ["approver", "documentation"]) await expect(db.query("update public.profiles set role = $2 where id = $1", [docs, old])).rejects.toThrow();
+    for (const role of ["super_admin", "admin", "buying", "documentation", "marketing", "sales"]) await db.query("update public.profiles set role = $2 where id = $1", [docs, role]);
+    for (const old of ["approver"]) await expect(db.query("update public.profiles set role = $2 where id = $1", [docs, old])).rejects.toThrow();
     await db.query("update public.profiles set role = 'buying' where id = $1", [docs]);
     await expect(db.query("update public.profiles set role = 'janitor' where id = $1", [docs])).rejects.toThrow();
   });

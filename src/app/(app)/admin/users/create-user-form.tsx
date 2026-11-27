@@ -31,10 +31,11 @@ export function CreateUserForm({ onDone, canMakeAdmin = true }: { onDone?: () =>
       <FormField id="email" label="Email" error={errors.email?.message}>
         <Input id="email" type="email" inputMode="email" aria-invalid={!!errors.email} {...register("email")} />
       </FormField>
-      <FormField id="role" label="Role" hint="Sales and Buying work on the cars, Online Marketing only looks, the Admin oversees every module, the Super Admin also runs Settings, Users and Sync jobs.">
+      <FormField id="role" label="Role" hint="Sales, Buying and Documentation work on the cars, Online Marketing only looks, the Admin oversees every module, the Super Admin also runs Settings, Users and Sync jobs.">
         <NativeSelect id="role" {...register("role")}>
           <option value="sales">Sales</option>
           <option value="buying">Buying</option>
+          <option value="documentation">Documentation</option>
           <option value="marketing">Online Marketing</option>
           {canMakeAdmin && <option value="admin">Admin</option>}
           {canMakeAdmin && <option value="super_admin">Super Admin</option>}

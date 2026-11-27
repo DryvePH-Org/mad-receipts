@@ -12,7 +12,7 @@ export default function TransfersPage() {
 }
 
 async function Content() {
-  await requireRole("super_admin", "admin", "buying", "sales");
+  await requireRole("super_admin", "admin", "buying", "documentation", "sales");
   const { transfers, cars } = await loadTransfers();
   const open = transfers.filter(isOpen).length, check = transfers.filter((t) => t.flags.length > 0).length;
   return (

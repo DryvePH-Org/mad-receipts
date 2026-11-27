@@ -4,10 +4,10 @@ import { createClient } from "@supabase/supabase-js";
 
 export const credentials = {
   sales: { email: "zzt-e2e-sales@example.test", password: `Zz1-${"e2e-sales-pass"}`, role: "sales" },
-  // the keys keep their old names: `admin` is the Super Admin (the administration tools and the receipts), `approver` the Admin who oversees, `docs` Buying
+  // the keys keep their old names: `admin` is the Super Admin (the administration tools and the receipts), `approver` the Admin who oversees, `docs` Documentation (every tab, since 27 Nov 2026; needs migration 74)
   approver: { email: "zzt-e2e-approver@example.test", password: `Zz1-${"e2e-approver-pass"}`, role: "admin" },
   admin: { email: "zzt-e2e-admin@example.test", password: `Zz1-${"e2e-admin-pass"}`, role: "super_admin" },
-  docs: { email: "zzt-e2e-docs@example.test", password: `Zz1-${"e2e-docs-pass"}`, role: "buying" },
+  docs: { email: "zzt-e2e-docs@example.test", password: `Zz1-${"e2e-docs-pass"}`, role: "documentation" },
   marketing: { email: "zzt-e2e-marketing@example.test", password: `Zz1-${"e2e-marketing-pass"}`, role: "marketing" },
 } as const;
 
