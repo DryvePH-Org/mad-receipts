@@ -8,7 +8,7 @@ async function login(page: Page, who: keyof typeof credentials) {
   await page.getByLabel("Email").fill(credentials[who].email);
   await page.getByLabel("Password").fill(credentials[who].password);
   await page.getByRole("button", { name: "Log in" }).click();
-  await page.waitForURL("**/deals");
+  await page.waitForURL("**/home");
 }
 async function as(browser: Browser, who: keyof typeof credentials) {
   const context = await browser.newContext();
@@ -198,7 +198,7 @@ test("nothing is red when the form opens; what is missing shows when you try to 
   const lieu = sales.getByText("Hold the documents as collateral");
   if (await lieu.count()) {
     await lieu.click();
-    await sales.getByLabel("Amount covered by the documents").fill("25000");
+    await sales.getByLabel("Amount to be paid after the documents are transferred").fill("25000");
     await sales.getByLabel("Pay on or before").fill("2026-12-20");
     await sales.getByRole("button", { name: /Payment\s+Money/ }).click();
     await expect(sales.locator("p", { hasText: "In lieu of documents" }).first()).toContainText("₱25,000");

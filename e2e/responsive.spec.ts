@@ -15,7 +15,7 @@ async function login(page: Page, who: keyof typeof credentials) {
   await page.getByLabel("Email").fill(credentials[who].email);
   await page.getByLabel("Password").fill(credentials[who].password);
   await page.getByRole("button", { name: "Log in" }).click();
-  await page.waitForURL("**/deals");
+  await page.waitForURL("**/home");
 }
 
 test("no page scrolls sideways at any size", async ({ browser }) => {

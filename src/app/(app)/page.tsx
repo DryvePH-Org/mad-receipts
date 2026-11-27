@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-// Transactions is the home page.
+// Home is everyone's landing page (their own work and what needs them).
 export default function Home() {
-  redirect("/deals");
+  redirect("/home");
 }

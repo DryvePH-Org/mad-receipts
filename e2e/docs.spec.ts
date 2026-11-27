@@ -9,7 +9,7 @@ async function login(page: Page, who: keyof typeof credentials) {
   await page.getByLabel("Email").fill(credentials[who].email);
   await page.getByLabel("Password").fill(credentials[who].password);
   await page.getByRole("button", { name: "Log in" }).click();
-  await page.waitForURL("**/deals");
+  await page.waitForURL("**/home");
 }
 async function as(browser: Browser, who: keyof typeof credentials) {
   const page = await (await browser.newContext()).newPage();
@@ -191,6 +191,13 @@ test("an AR finds its car folder; Documentation checks the papers, Sales adds th
     expect(res.ok(), label).toBe(true);
     expect((await res.json()).result.types.length).toBeGreaterThan(0);
   }
+
+  // Sales see their own upload on Home: the car, the stage, and where it is (the stand-in reader answers at once, so the photos are read)
+  await sales.goto("/home");
+  const mine = sales.getByRole("region", { name: "My work right now" });
+  await expect(mine).toContainText("ZZT 7001", { timeout: 30_000 });
+  await expect(mine).toContainText("OUT documents");
+  await expect(mine.getByRole("list", { name: "Where it is" }).first()).toContainText("Uploaded");
 
   // Documentation sees it complete, and moving asks first
   await docs.reload();

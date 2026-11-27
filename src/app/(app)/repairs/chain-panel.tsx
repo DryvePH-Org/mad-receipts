@@ -50,7 +50,7 @@ export function ChainPanel({ candidates, initial, open = false }: { candidates: 
           </ol>
         )}
         <div className="flex flex-wrap items-center gap-2">
-          <select className="h-9 rounded-md border bg-background px-2" aria-label="Add a person" value="" onChange={(e) => { if (e.target.value) setRows((x) => [...x, { userId: e.target.value, waitMinutes: 120 }]); }}>
+          <select className="h-9 w-full min-w-0 rounded-md border bg-background px-2 sm:w-auto sm:max-w-xs" aria-label="Add a person" value="" onChange={(e) => { if (e.target.value) setRows((x) => [...x, { userId: e.target.value, waitMinutes: 120 }]); }}>
             <option value="">Add a person…</option>
             {free.map((c) => <option key={c.userId} value={c.userId}>{c.name} ({c.role}){c.connected ? "" : " · Telegram not connected"}</option>)}
           </select>

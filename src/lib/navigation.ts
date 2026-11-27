@@ -7,6 +7,7 @@ import {
   CarFront,
   FolderCheck,
   History,
+  House,
   LayoutDashboard,
   Receipt,
   Wrench,
@@ -20,7 +21,7 @@ import {
 import type { Role } from "@/lib/roles";
 export { ROLE_LABELS, type Role } from "@/lib/roles";
 
-export type ModuleId = "dashboard" | "cars" | "register" | "new" | "deals" | "reminders" | "documents" | "repairs" | "upload" | "activity" | "settings" | "users" | "sync" | "add" | "pricing" | "transfer";
+export type ModuleId = "home" | "dashboard" | "cars" | "register" | "new" | "deals" | "reminders" | "documents" | "repairs" | "upload" | "activity" | "settings" | "users" | "sync" | "add" | "pricing" | "transfer";
 
 export interface NavItem {
   id: ModuleId;
@@ -45,6 +46,7 @@ const SUPER: Role[] = ["super_admin"];
 
 // Menus are data, not markup: the sidebar, the phone tab bar and its "More" sheet all read this.
 export const NAV_ITEMS: NavItem[] = [
+  { id: "home", href: "/home", label: "Home", icon: House, group: "Overview", roles: ALL }, // each person's own home: what they are working on and what needs them
   { id: "dashboard", href: "/dashboard", to: "/dashboard/buy", label: "Dashboard", icon: LayoutDashboard, group: "Overview", roles: ADMINS },
   { id: "activity", href: "/activity", label: "Activity log", icon: History, group: "Overview", roles: ADMINS },
   { id: "new", href: "/new", label: "New receipt", icon: Receipt, group: "Receipts", roles: SUPER },

@@ -7,7 +7,7 @@ test("Users: adding a person is behind a button, and the page offers disable and
   await page.getByLabel("Email").fill(credentials.admin.email);
   await page.getByLabel("Password").fill(credentials.admin.password);
   await page.getByRole("button", { name: "Log in" }).click();
-  await page.waitForURL("**/deals");
+  await page.waitForURL("**/home");
   await page.goto("/admin/users");
   await expect(page.getByText(/^All users/)).toBeVisible({ timeout: 30_000 });
   // the form is not on the page until the button is pressed
@@ -35,7 +35,7 @@ test("Settings → Delete data: each button needs its exact words (nothing is de
   await page.getByLabel("Email").fill(credentials.admin.email);
   await page.getByLabel("Password").fill(credentials.admin.password);
   await page.getByRole("button", { name: "Log in" }).click();
-  await page.waitForURL("**/deals");
+  await page.waitForURL("**/home");
   await page.goto("/settings");
   await page.getByRole("tab", { name: "Delete data" }).click();
   await expect(page.getByText("Deleted data cannot be brought back.")).toBeVisible();
@@ -55,7 +55,7 @@ test("Sync jobs: the page lists the jobs of the app, and there is no sheet repla
   await page.getByLabel("Email").fill(credentials.admin.email);
   await page.getByLabel("Password").fill(credentials.admin.password);
   await page.getByRole("button", { name: "Log in" }).click();
-  await page.waitForURL("**/deals");
+  await page.waitForURL("**/home");
   await page.goto("/admin/sync");
   await expect(page.getByRole("heading", { name: "Sync jobs" })).toBeVisible();
   await expect(page.getByText(/saves the audit copy in Drive and tells Telegram/)).toBeVisible();
@@ -69,7 +69,7 @@ test("Settings → Print and company: the print layout editor shows the real pap
   await page.getByLabel("Email").fill(credentials.admin.email);
   await page.getByLabel("Password").fill(credentials.admin.password);
   await page.getByRole("button", { name: "Log in" }).click();
-  await page.waitForURL("**/deals");
+  await page.waitForURL("**/home");
   await page.goto("/settings");
   await page.getByRole("tab", { name: "Print and company" }).click();
   await expect(page.getByText("Live preview")).toBeVisible();
@@ -89,7 +89,7 @@ test("Users: a new person needs the password twice (with an eye to check it), an
   await page.getByLabel("Email").fill(credentials.admin.email);
   await page.getByLabel("Password").fill(credentials.admin.password);
   await page.getByRole("button", { name: "Log in" }).click();
-  await page.waitForURL("**/deals");
+  await page.waitForURL("**/home");
   await page.goto("/admin/users");
   await expect(page.getByText(/^All users/)).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Add a user" }).click();
