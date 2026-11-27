@@ -28,7 +28,7 @@ const REG_CHIP: Record<string, string> = { "Yes": "bg-emerald-100 text-emerald-9
  * warning if something needs a look. Click a paper to see its photos large, what the bot read, and to correct it. What a person corrects shows
  * here at once, and Car documents says the same thing (or says it differs and offers to update it).
  */
-export function PapersCard({ data, rules, readOnly = false, confirmEdits = false, register, canEditRegister, differs }: { confirmEdits?: boolean; data: CarViewData; rules: Rules; readOnly?: boolean; register: { id: string; values: Record<string, string | null> } | null; canEditRegister: boolean; differs: number | null }) {
+export function PapersCard({ approved = false, data, rules, readOnly = false, confirmEdits = false, register, canEditRegister, differs }: { approved?: boolean; confirmEdits?: boolean; data: CarViewData; rules: Rules; readOnly?: boolean; register: { id: string; values: Record<string, string | null> } | null; canEditRegister: boolean; differs: number | null }) {
   const router = useRouter();
   const [busy, start] = useTransition();
   const [reading, setReading] = useState<string | null>(null);
@@ -104,6 +104,7 @@ export function PapersCard({ data, rules, readOnly = false, confirmEdits = false
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center gap-3">IN documents
           <span className="text-sm font-normal text-muted-foreground">{!data.scanned ? "Looking at the folder…" : unchecked ? "Not final until every photo is scanned" : `${inFolder} of ${needed} in the folder`}</span>
+          {approved ? <Pill tone="emerald">Approved</Pill> : <Pill tone="zinc">Not approved yet</Pill>}
           <span className="ml-auto flex flex-wrap gap-2">
           {data.files.length > 0 && <DownloadAll files={data.files.map((f) => ({ id: f.id }))} />}
           {!readOnly && <>

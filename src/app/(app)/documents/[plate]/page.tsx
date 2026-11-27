@@ -53,13 +53,13 @@ import { ReceiptsCard } from "./receipts-card";
 import { type OutItem } from "./sold-upload-card";
 import { RegisterCard } from "./register-card";
 import { TransferPapersCard } from "./transfer-papers-card";
-import { StagePanel, type StageFile, type StageItem } from "./stage-panel";
+import { StagePanel, type StageItem } from "./stage-panel";
 import { OutUploader, TransferUploader } from "./stage-uploaders";
 import { TRANSFER_PAPERS, transferProgress } from "@/lib/docs/transfer-papers";
 import { RemoveCarCard } from "./remove-car-card";
 import { SoldCard } from "./sold-card";
 import { StageCard } from "./stage-card";
-import type { CarViewData } from "./types";
+import type { CarViewData, FileView } from "./types";
 
 export default function CarPage({ params, searchParams }: PageProps<"/documents/[plate]">) {
   return <Suspense fallback={<PageSkeleton />}><Content params={params} searchParams={searchParams} /></Suspense>;
@@ -102,20 +102,22 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
   const seesPrivate = seesPrivateDocs(user.role); // the notarized closed deed is kept from Sales and Online Marketing: not on the checklist, no photo, no download
   const isPrivate = (types: string[]) => types.some((t) => (PRIVATE_DOCS as string[]).includes(t));
   const items = car.checklist.items.filter((i) => seesPrivate || !(PRIVATE_DOCS as string[]).includes(i.type)).map((i) => ({ key: i.key, label: i.label, stage: i.stage, present: i.present, fileIds: i.fileIds, optional: !!i.optional }));
+  /** One photo as the viewer shows it: the picture, what the bot saw, and what a person changed (the same for the IN, OUT and transfer papers). */
+  const fileView = (f: (typeof car.files)[number]): FileView => {
+    const r = car.analysis.files.find((x) => x.id === f.id);
+    return {
+      id: f.id, uploadedBy: f.uploaded_by ? uploaderName.get(f.uploaded_by) ?? "Someone" : null, addedAt: f.created_at, rotation: rotationOf(f.details), name: f.filename, url: f.drive_url, source: f.source, readStatus: f.read_status, readError: f.read_error, types: f.doc_types, manual: f.doc_types_source === "manual", edited: wasEdited(f.details), reviewed: reviewedOf(f.details),
+      flags: f.flags, duplicateOf: r?.duplicateOf ? car.files.find((x) => x.id === r.duplicateOf)?.filename ?? null : null, confidence: f.confidence,
+      seen: { detections: detectionsOf(f.details) ?? [], notes: readingNotes(f.details).notes },
+    };
+  };
   const data: CarViewData = {
     plate: key, plateDisplay: car.folder.plate_display, name: car.folder.folder_name ?? car.folder.plate_display, location: car.folder.location as "available" | "sold",
     match: car.folder.match_status as "linked" | "none" | "several", folderUrl: car.folder.folder_url, candidates: (car.folder.candidates ?? []) as unknown as { id: string; name: string; url: string; root: string }[],
     caseType: car.caseType, suggestedCase: car.suggestedCase, caseReason: car.caseReason, caseSource: car.folder.case_source as "auto" | "manual",
     deal: deal ? { id: deal.id, dealNo: deal.dealNo, buyerName: deal.buyerName, hasReceipt: deal.hasReceipt } : null,
     items,
-    files: car.files.filter((f) => seesPrivate || !isPrivate(f.doc_types)).map((f) => {
-      const r = car.analysis.files.find((x) => x.id === f.id);
-      return {
-        id: f.id, uploadedBy: f.uploaded_by ? uploaderName.get(f.uploaded_by) ?? "Someone" : null, addedAt: f.created_at, rotation: rotationOf(f.details), name: f.filename, url: f.drive_url, source: f.source, readStatus: f.read_status, readError: f.read_error, types: f.doc_types, manual: f.doc_types_source === "manual", edited: wasEdited(f.details), reviewed: reviewedOf(f.details),
-        flags: f.flags, duplicateOf: r?.duplicateOf ? car.files.find((x) => x.id === r.duplicateOf)?.filename ?? null : null, confidence: f.confidence,
-        seen: { detections: detectionsOf(f.details) ?? [], notes: readingNotes(f.details).notes },
-      };
-    }),
+    files: car.files.filter((f) => seesPrivate || !isPrivate(f.doc_types)).map(fileView),
     botMode: readerMode() === "grokbot", scanning, orExpiry: orDate, orState: orStatus(orDate, manilaToday()),
     lastScan: lastScanRow ? { at: lastScanRow.completed_at ?? lastScanRow.created_at, seconds: lastScanRow.completed_at ? Math.round((Date.parse(lastScanRow.completed_at) - Date.parse(lastScanRow.created_at)) / 1000) : null, photos: Array.isArray((lastScanRow.request as { files?: unknown[] } | null)?.files) ? ((lastScanRow.request as { files: unknown[] }).files.length) : 0, ok: lastScanRow.status === "done", error: lastScanRow.error } : null,
     botWork: botWork.map((w) => ({ label: workLabel(w.action, w.status, w.position), waiting: w.status === "queued" })),
@@ -151,16 +153,14 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
   const buyerName = data.deal?.buyerName ?? sale?.buyer ?? null;
   // the OUT documents and the papers back from the transfer, for the shared panel
   const flagsOf = new Map(car.analysis.files.map((r) => [r.id, r.flags]));
-  const stageFile = (f: (typeof car.files)[number]): StageFile => ({ id: f.id, name: f.filename, readStatus: f.read_status, flags: flagsOf.get(f.id) ?? [], by: f.uploaded_by ? uploaderName.get(f.uploaded_by) ?? "Someone" : null, at: f.created_at, types: f.doc_types ?? [] });
-  const outStageItems: StageItem[] = items.filter((i) => i.stage === "sold").map((i) => ({ key: i.key, label: i.key === "ack" ? "AR: the physical copy, or the receipt saved in the app" : i.label, present: i.present, files: i.fileIds.map((id) => fileOf.get(id)).filter((f): f is NonNullable<typeof f> => !!f).map(stageFile) }));
+  const outStageItems: StageItem[] = items.filter((i) => i.stage === "sold").map((i) => ({ key: i.key, label: i.key === "ack" ? "AR: the physical copy, or the receipt saved in the app" : i.label, present: i.present, files: i.fileIds.map((id) => fileOf.get(id)).filter((f): f is NonNullable<typeof f> => !!f).map(fileView) }));
   const placedOut = new Set(outStageItems.flatMap((i) => i.files.map((f) => f.id)));
-  const outLoose = car.files.filter((f) => f.stage === "out" && !placedOut.has(f.id)).map(stageFile);
+  const outLoose = car.files.filter((f) => f.stage === "out" && !placedOut.has(f.id)).map(fileView);
   const outFiles = car.files.filter((f) => f.stage === "out");
   const outCheck = { missing: outStageItems.filter((i) => !i.present && !i.optional).map((i) => i.label), pending: outFiles.filter((f) => f.read_status === "pending").length, failed: outFiles.filter((f) => f.read_status === "failed").length, flagged: outFiles.reduce((n, f) => n + ((flagsOf.get(f.id) ?? []).length ? 1 : 0), 0), scanning: scanningOut };
   const transferFiles = car.archive.filter((f) => f.archive === "transfer");
-  const archiveFile = (f: (typeof car.archive)[number]): StageFile => ({ id: f.id, name: f.filename, readStatus: f.read_status, flags: [], by: f.uploaded_by ? uploaderName.get(f.uploaded_by) ?? "Someone" : null, at: f.created_at, types: [] });
-  const transferStageItems: StageItem[] = TRANSFER_PAPERS.map((p) => { const mine = transferFiles.filter((f) => f.archive_tag === p.key && f.read_status !== "pending"); return { key: p.key, label: p.long, present: mine.length > 0, files: mine.map(archiveFile) }; });
-  const transferLoose = transferFiles.filter((f) => f.read_status === "pending" || !TRANSFER_PAPERS.some((p) => p.key === f.archive_tag)).map(archiveFile);
+  const transferStageItems: StageItem[] = TRANSFER_PAPERS.map((p) => { const mine = transferFiles.filter((f) => f.archive_tag === p.key && f.read_status !== "pending"); return { key: p.key, label: p.long, present: mine.length > 0, files: mine.map(fileView) }; });
+  const transferLoose = transferFiles.filter((f) => f.read_status === "pending" || !TRANSFER_PAPERS.some((p) => p.key === f.archive_tag)).map(fileView);
   const transferCheck = { missing: transferStageItems.filter((i) => !i.present).map((i) => i.key), pending: transferFiles.filter((f) => f.read_status === "pending").length, failed: transferFiles.filter((f) => f.read_status === "failed").length, flagged: 0, scanning: scanningTransfer };
   // what each person does next on this car
   const inNext = linked ? { anchor: stage.next.anchor, title: stage.next.title } : { anchor: "folder", title: "Add the car's documents" };
@@ -175,13 +175,13 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
         <Overview buyerPapers={transferProgress(newOwnerFiles.map((f) => f.tag))} data={data} facts={facts} sale={sale} steps={hand ? { ...hand, stage: sale?.stage ?? hand.stage } : sale ? { handedOffAt: null, backAt: null, releasedOn: null, deliveredOn: null, stage: sale.stage } : null} approval={{ at: flow.workflow.approvedAt, by: flow.workflow.approvedByName }} payments={seesSales(user.role) ? { count: archive.length, total: archiveTotal(archive) } : null} canSale={!!transfers} detailsMissing={detailsMissing} carDescription={null} />
       </div>) },
     { key: "documents", label: "IN documents", badge: linked ? `${before.filter((i) => i.present).length}/${before.length}` : null, tone: linked && before.some((i) => !i.present) ? "amber" : "emerald", node: linked ? (
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start">
-        <PapersCard data={data} rules={stage.rules} readOnly={!canAct} confirmEdits={data.isAdmin && data.location === "sold"} register={register ? { id: register.id, values: register.values } : null} canEditRegister={canAct} differs={register && car.folder.case_source === "manual" ? registerDiff(car, register.values) : null} />
-        <aside className="space-y-6">
+      <div className="space-y-6">
+        <PapersCard approved={!!flow.workflow.approvedAt} data={data} rules={stage.rules} readOnly={!canAct} confirmEdits={data.isAdmin && data.location === "sold"} register={register ? { id: register.id, values: register.values } : null} canEditRegister={canAct} differs={register && car.folder.case_source === "manual" ? registerDiff(car, register.values) : null} />
+        <div className="space-y-6">
           {canAct ? <ApprovalCard isAdmin={data.isAdmin} plate={key} approvedAt={flow.workflow.approvedAt} approvedBy={flow.workflow.approvedByName} marketingNotifiedAt={flow.workflow.marketingNotifiedAt} rule={stage.rules.approve} activity={activity} />
             : <Card id="approval"><CardHeader><CardTitle className="flex flex-wrap items-center gap-3">Approval{flow.workflow.approvedAt ? <Pill tone="emerald">Approved</Pill> : <Pill tone="zinc">Not approved yet</Pill>}</CardTitle></CardHeader><CardContent className="space-y-3 text-sm">{flow.workflow.approvedAt && <p className="font-medium">Approved by {flow.workflow.approvedByName ?? "someone"}.</p>}<div className="space-y-1 border-t pt-3"><p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Activity on this car</p><ActivityList entries={activity} /></div></CardContent></Card>}
           {canAct && <ChecksHelp />}
-        </aside>
+        </div>
       </div>) : <NoFolder data={data} canAct={canAct} /> },
     ...((transfers || canUpload) && linked ? [{ key: "payments" as CarTab, label: "OUT documents", badge: `${outHave}/${outItems.length}`, tone: (outHave < outItems.length || !sale ? "amber" : "emerald") as Tone2, node: (
       <div className="space-y-6">

@@ -110,8 +110,15 @@ export async function readNextAction(plate: string, retryFailed = false): Promis
   }, (error) => ({ read: 0, remaining: 0, waitSeconds: null, error }));
 }
 
+/** Who may work on a file depends on its stage: the IN papers need the Car documents module, the OUT papers the OUT module (Sales, Online Marketing, Documentation), the papers back from the transfer the transfer module. */
+async function requireFileModule(fileId: string) {
+  const { data } = z.uuid().safeParse(fileId).success ? await createAdminClient().from("folder_files").select("stage").eq("id", fileId).maybeSingle() : { data: null };
+  const stage = data?.stage ?? "in";
+  return requireModule(stage === "out" ? "upload" : stage === "transfer" ? "transfer" : "documents");
+}
+
 export async function setFileTypesAction(fileId: string, types: string[] | null): Promise<Done> {
-  const user = await requireModule("documents");
+  const user = await requireFileModule(fileId);
   const id = z.uuid().safeParse(fileId);
   if (!id.success) return { ok: false, message: "Bad file." };
   const chosen = types ? types.filter((t): t is DocType => (CHOOSABLE as string[]).includes(t)) : null;
@@ -132,7 +139,7 @@ const patchSchema = z.object({
 
 /** The staff correct what the bot read on one document of a photo. */
 export async function editReadingAction(fileId: string, index: number, patch: unknown): Promise<Done> {
-  const user = await requireModule("documents");
+  const user = await requireFileModule(fileId);
   const id = z.uuid().safeParse(fileId), p = patchSchema.safeParse(patch);
   if (!id.success || !p.success || !Number.isInteger(index) || index < 0 || index > 9) return { ok: false, message: "Bad request." };
   return guard<Done>(async () => {
@@ -144,7 +151,7 @@ export async function editReadingAction(fileId: string, index: number, patch: un
 
 /** Read one photo again from scratch. */
 export async function rescanFileAction(fileId: string): Promise<Done> {
-  const user = await requireModule("documents");
+  const user = await requireFileModule(fileId);
   const id = z.uuid().safeParse(fileId);
   if (!id.success) return { ok: false, message: "Bad file." };
   return guard<Done>(async () => {
@@ -156,7 +163,7 @@ export async function rescanFileAction(fileId: string): Promise<Done> {
 
 /** Remove a photo from the car's folder (Drive trash, restorable for 30 days). Documentation and Admin work in this module; the server asks for the module again. */
 export async function removeFileAction(fileId: string): Promise<Done> {
-  const user = await requireModule("documents");
+  const user = await requireFileModule(fileId);
   const id = z.uuid().safeParse(fileId);
   if (!id.success) return { ok: false, message: "Bad file." };
   return guard<Done>(async () => {
@@ -168,7 +175,7 @@ export async function removeFileAction(fileId: string): Promise<Done> {
 
 /** "Checked, this is fine" on a warning (or take it back). */
 export async function reviewFlagAction(fileId: string, flag: string, accept: boolean): Promise<Done> {
-  const user = await requireModule("documents");
+  const user = await requireFileModule(fileId);
   const id = z.uuid().safeParse(fileId);
   if (!id.success || typeof flag !== "string" || !flag || flag.length > 300) return { ok: false, message: "Bad request." };
   return guard<Done>(async () => {
