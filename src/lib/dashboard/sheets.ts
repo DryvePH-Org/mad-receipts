@@ -57,7 +57,7 @@ export async function listTabInfo(sheetId: string): Promise<{ name: string; gid:
 
 export async function listTabInfoChecked(sheetId: string): Promise<{ tabs: { name: string; gid: string }[]; at: number; stale: boolean }> {
   "use cache";
-  cacheLife({ stale: 60, revalidate: 300, expire: 3600 });
+  cacheLife({ stale: 60, revalidate: 300, expire: 86_400 });
   cacheTag(DASHBOARD_TAG);
   const r = await withFallback(`tabs:${sheetId}`, () => loadTabInfo(sheetId));
   return { tabs: r.value, at: r.at, stale: r.stale };
@@ -80,7 +80,7 @@ export const rowLink = (sheetId: string, gid: string | undefined, row: number) =
 /** Every cell of one tab, as the sheet shows it, with when it was read and whether it is an older copy because Google could not be reached. */
 export async function readTab(sheetId: string, tab: string): Promise<{ rows: string[][]; at: number; stale: boolean }> {
   "use cache";
-  cacheLife({ stale: 15, revalidate: 30, expire: 600 });
+  cacheLife({ stale: 15, revalidate: 60, expire: 86_400 }); // an older copy is shown while a fresh one is read, so nobody waits for Google after a quiet spell
   cacheTag(DASHBOARD_TAG);
   const r = await withFallback(`tab:${sheetId}:${tab}`, async () => {
     const text = await fetchText(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`);

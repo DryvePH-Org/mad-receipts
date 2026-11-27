@@ -27,4 +27,9 @@ export const editTo = (chatId: number | string, messageId: number, text: string)
 export const answerCallback = (id: string, text?: string) => api("answerCallbackQuery", { callback_query_id: id, ...(text ? { text: text.slice(0, 190) } : {}) });
 export const botName = async (): Promise<string> => (await api<{ username: string }>("getMe")).username;
 export const webhookInfo = () => api<{ url: string; last_error_message?: string }>("getWebhookInfo");
-export const setWebhook = (url: string, secret: string) => api("setWebhook", { url, secret_token: secret, allowed_updates: ["message", "callback_query"], drop_pending_updates: true });
+
+// Asking Telegram takes a few hundred milliseconds, and the My Telegram page asks on every visit: the answer is kept for a minute (and forgotten when the webhook is changed).
+let hook: { at: number; v: Awaited<ReturnType<typeof webhookInfo>> } | null = null;
+export const webhookInfoCached = async () => { if (hook && Date.now() - hook.at < 60_000) return hook.v; const v = await webhookInfo(); hook = { at: Date.now(), v }; return v; };
+export const setWebhook = (url: string, secret: string) => { hook = null; return setWebhookNow(url, secret); };
+const setWebhookNow = (url: string, secret: string) => api("setWebhook", { url, secret_token: secret, allowed_updates: ["message", "callback_query"], drop_pending_updates: true });

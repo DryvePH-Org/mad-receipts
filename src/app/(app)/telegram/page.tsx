@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
 import { isSuper, roleFromDb } from "@/lib/roles";
-import { botToken, webhookInfo } from "@/lib/notify/bot";
+import { botToken, webhookInfoCached } from "@/lib/notify/bot";
 import { categoriesForRole } from "@/lib/notify/categories";
 import { allLinks, getLink, mutedCategories, notifyDb } from "@/lib/notify/store";
 import { ROLE_LABELS } from "@/lib/navigation";
@@ -27,7 +27,7 @@ async function Content() {
   const [link, muted, hook, everyone, chainRows, candidates] = await Promise.all([
     getLink(user.id).catch(() => null),
     mutedCategories(user.id).catch(() => new Set<string>()),
-    sup && configured ? webhookInfo().catch(() => null) : null,
+    sup && configured ? webhookInfoCached().catch(() => null) : null,
     sup ? Promise.all([allLinks().catch(() => []), notifyDb().from("profiles").select("id, full_name, role").order("full_name")]) : null,
     sup ? loadChain().catch(() => []) : null,
     sup ? loadChainChoices().catch(() => []) : null,

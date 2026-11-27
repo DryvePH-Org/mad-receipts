@@ -31,8 +31,10 @@ export const telegram: Tg = {
   async remove(chatId, messageId) { await api("deleteMessage", { chat_id: chatId, message_id: messageId }); },
 };
 
-export const setRepairsWebhook = (url: string) => api("setWebhook", { url, secret_token: repairsWebhookSecret(repairsToken()!), allowed_updates: ["message", "callback_query"] });
-export const repairsWebhookInfo = () => api<{ url: string; pending_update_count?: number; last_error_message?: string }>("getWebhookInfo", {});
+let hookInfo: { at: number; v: { url: string; pending_update_count?: number; last_error_message?: string } } | null = null;
+export const setRepairsWebhook = (url: string) => { hookInfo = null; return setRepairsWebhookNow(url); };
+const setRepairsWebhookNow = (url: string) => api("setWebhook", { url, secret_token: repairsWebhookSecret(repairsToken()!), allowed_updates: ["message", "callback_query"] });
+export const repairsWebhookInfo = async () => { if (hookInfo && Date.now() - hookInfo.at < 60_000) return hookInfo.v; const v = await api<{ url: string; pending_update_count?: number; last_error_message?: string }>("getWebhookInfo", {}); hookInfo = { at: Date.now(), v }; return v; }; // asking Telegram takes a few hundred ms and the Repairs page asks on every visit: kept for a minute
 
 /** A voice note's bytes (Telegram keeps the file for an hour; the token stays out of any error). */
 export async function downloadVoice(fileId: string): Promise<Uint8Array> {
@@ -43,5 +45,5 @@ export async function downloadVoice(fileId: string): Promise<Uint8Array> {
   return new Uint8Array(await res.arrayBuffer());
 }
 
-export const deleteRepairsWebhook = () => api("deleteWebhook", { drop_pending_updates: false });
+export const deleteRepairsWebhook = () => { hookInfo = null; return api("deleteWebhook", { drop_pending_updates: false }); };
 export const setRepairsCommands = (commands: { command: string; description: string }[]) => api("setMyCommands", { commands });
