@@ -22,12 +22,15 @@ async function approvedReceipts(plate: string) {
   return { folder, receipts: data ?? [] };
 }
 
-/** The car's approved receipts, and whether each one is already in the folder (read from the folder's own list of files). */
-export async function listCarReceipts(plate: string): Promise<CarReceipt[]> {
+/**
+ * The car's approved receipts, and whether each one is already in the folder. Reading the folder's own list of files goes to Google (one to three seconds), so it is
+ * done only when the Receipts tab is open (`checkDrive`); otherwise the receipts are listed from the database alone (`filed` is not known then).
+ */
+export async function listCarReceipts(plate: string, opts: { checkDrive?: boolean } = {}): Promise<CarReceipt[]> {
   const { folder, receipts } = await approvedReceipts(plate);
   if (!receipts.length) return [];
   let names = new Set<string>();
-  if (folder?.folder_id) { try { names = new Set((await docsBridge().listFiles(folder.folder_id)).files.map((f) => f.name)); } catch { /* unknown: shown as not filed */ } }
+  if (opts.checkDrive && folder?.folder_id) { try { names = new Set((await docsBridge().listFiles(folder.folder_id)).files.map((f) => f.name)); } catch { /* unknown: shown as not filed */ } }
   return receipts.map((r) => ({ id: r.id, receiptNo: r.receipt_no, filed: receiptCopyNames(r.receipt_no, plate).some((n) => names.has(n)), copyName: receiptCopyName(r.receipt_no, plate) }));
 }
 

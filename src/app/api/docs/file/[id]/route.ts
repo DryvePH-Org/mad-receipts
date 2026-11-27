@@ -1,5 +1,6 @@
 import { getCurrentUser } from "@/lib/auth";
 import { docsBridge } from "@/lib/docs/bridge";
+import { cachedPreview } from "@/lib/docs/preview-cache";
 import { PRIVATE_DOCS } from "@/lib/docs/types";
 import { seesPrivateDocs, seesSales } from "@/lib/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -22,11 +23,12 @@ export async function GET(request: Request, ctx: RouteContext<"/api/docs/file/[i
   if (file.archive && !seesSales(user.role)) return new Response("Not found", { status: 404 }); // payment papers are money: not for Online Marketing
   const download = new URL(request.url).searchParams.get("download") === "1";
   try {
-    const p = await docsBridge().preview(file.drive_file_id, download ? 3000 : 1200);
-    const mime = p.mimeType || "image/jpeg";
+    const size = download ? 3000 : 1200;
+    const got = await cachedPreview(`${file.drive_file_id}:${size}`, async () => { const p = await docsBridge().preview(file.drive_file_id, size); return { bytes: Buffer.from(p.base64, "base64"), mime: p.mimeType || "image/jpeg" }; });
+    const mime = got.mime;
     const base = String(file.filename ?? "photo").replace(/\.[A-Za-z0-9]{2,5}$/, "").replace(/[^\w .()-]+/g, "_").slice(0, 80) || "photo";
-    return new Response(Buffer.from(p.base64, "base64"), { headers: {
-      "Content-Type": mime, "Cache-Control": "private, max-age=3600", "X-Content-Type-Options": "nosniff",
+    return new Response(new Uint8Array(got.bytes), { headers: {
+      "Content-Type": mime, "Cache-Control": "private, max-age=86400", "X-Content-Type-Options": "nosniff",
       ...(download ? { "Content-Disposition": `attachment; filename="${base}.${EXT[mime] ?? "jpg"}"` } : {}),
     } });
   } catch {

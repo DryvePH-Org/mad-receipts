@@ -23,7 +23,7 @@ export default function DocumentsPage() {
 async function Content() {
   const user = await requireModule("register"); // inside Suspense: reading the signed-in person is request data
   const role = user.role, canAct = user.modules.includes("documents");
-  const [{ rows, grid }, open, copies] = await Promise.all([
+  const [{ rows }, open, copies] = await Promise.all([ // the table view's data (every column of every car) is not sent: it is read when the table is opened
     loadUnified(),
     docsDb().from("docs_review_items").select("id", { count: "exact", head: true }).eq("status", "open"),
     isAdmin(role) ? listSavedCopies().catch(() => []) : Promise.resolve([]),
@@ -35,7 +35,7 @@ async function Content() {
         {canAct && <Button variant="outline" nativeButton={false} render={<Link href="/documents/handoff" />}>Documents on handoff</Button>}
         {seesSales(role) && <Button variant="outline" nativeButton={false} render={<Link href="/documents/transfers" />}>Transfers</Button>}
       </div>}
-      <DocumentsBoard rows={rows} grid={grid} role={role} canAct={canAct} openDecisions={open.count ?? 0} />
+      <DocumentsBoard rows={rows} role={role} canAct={canAct} openDecisions={open.count ?? 0} />
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <Button size="sm" variant="outline" nativeButton={false} render={<a href="/api/docs-bible/export" download />}>Download as CSV (sheet layout)</Button>
         <span className="text-muted-foreground">Opens in Google Sheets or Excel with the same columns as the old sheet.</span>

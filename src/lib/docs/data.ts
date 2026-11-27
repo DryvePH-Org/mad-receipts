@@ -11,10 +11,14 @@ import { selectAll } from "@/lib/supabase/select-all";
 
 export interface DealBrief { id: string; dealNo: string; buyerName: string; hasReceipt: boolean; saleType: string; status: string }
 
+type DealRow = { id: string; deal_no: string; buyer_name: string; approved_count: number | null; pending_count: number | null; sale_type: string; status: string };
+const DEAL_COLS = "id, deal_no, buyer_name, approved_count, pending_count, sale_type, status";
+const dealMap = (data: DealRow[] | null) => new Map((data ?? []).map((d) => [d.id, { id: d.id, dealNo: d.deal_no, buyerName: d.buyer_name, hasReceipt: (d.approved_count ?? 0) + (d.pending_count ?? 0) > 0, saleType: d.sale_type, status: d.status } as DealBrief]));
+
 async function dealsById(ids: string[]): Promise<Map<string, DealBrief>> {
   if (!ids.length) return new Map();
-  const { data } = await createAdminClient().from("deal_summaries").select("id, deal_no, buyer_name, approved_count, pending_count, sale_type, status").in("id", ids);
-  return new Map((data ?? []).map((d) => [d.id, { id: d.id, dealNo: d.deal_no, buyerName: d.buyer_name, hasReceipt: (d.approved_count ?? 0) + (d.pending_count ?? 0) > 0, saleType: d.sale_type, status: d.status }]));
+  const { data } = await createAdminClient().from("deal_summaries").select(DEAL_COLS).in("id", ids);
+  return dealMap(data as DealRow[] | null);
 }
 
 export interface CarRow {
@@ -39,14 +43,15 @@ export interface CarRow {
 export async function listCarRows(): Promise<CarRow[]> {
   const admin = createAdminClient();
   // everything is asked at the same time; the files come in pages (the database gives 1000 rows at most per request)
-  const [{ data: folders }, files, { data: sold }] = await Promise.all([
+  const [{ data: folders }, files, { data: sold }, { data: dealRows }] = await Promise.all([
     admin.from("unit_folders").select("*").order("plate_display").limit(5000),
     selectAll<FileRow>((from, to) => admin.from("folder_files").select("*").order("id").range(from, to) as unknown as PromiseLike<{ data: FileRow[] | null; error: { message: string } | null }>),
     (admin as unknown as SupabaseClient).from("car_sales").select("plate_no, buyer, payment_status").neq("stage", "cancelled").eq("is_reference", false).limit(6000),
+    selectAll<DealRow>((from, to) => admin.from("deal_summaries").select(DEAL_COLS).order("id").range(from, to) as unknown as PromiseLike<{ data: DealRow[] | null; error: { message: string } | null }>).then((data) => ({ data })), // asked now with the rest, not after the folders
   ]);
   const byPlate = new Map<string, FileRow[]>();
   for (const f of files) byPlate.set(f.plate_no, [...(byPlate.get(f.plate_no) ?? []), f]);
-  const deals = await dealsById([...new Set((folders ?? []).map((f) => f.deal_id).filter((x): x is string => !!x))]);
+  const deals = dealMap(dealRows);
   const saleBy = new Map(((sold ?? []) as { plate_no: string; buyer: string | null; payment_status: string | null }[]).map((s) => [s.plate_no, s]));
   return (folders ?? []).map((folder: FolderRow) => {
     const deal = folder.deal_id ? deals.get(folder.deal_id) ?? null : null;
@@ -65,11 +70,14 @@ export interface CarDetail { car: Car; deal: DealBrief | null }
 export async function getCarDetail(plate: string): Promise<CarDetail | null> {
   const admin = createAdminClient();
   const key = normalizePlate(plate);
-  const { data: folder } = await admin.from("unit_folders").select("*").eq("plate_no", key).maybeSingle();
+  // the folder, its files and the plate's sale are asked together; the deal is one step after the folder (it needs the folder's deal id)
+  const [{ data: folder }, { data: files }, sale] = await Promise.all([
+    admin.from("unit_folders").select("*").eq("plate_no", key).maybeSingle(),
+    admin.from("folder_files").select("*").eq("plate_no", key).order("created_at").order("filename"),
+    saleOfPlate(admin, key).catch(() => null), // no AR: a sale recorded by hand stands in for it
+  ]);
   if (!folder) return null;
-  const { data: files } = await admin.from("folder_files").select("*").eq("plate_no", key).order("created_at").order("filename");
   const deal = folder.deal_id ? (await dealsById([folder.deal_id])).get(folder.deal_id) ?? null : null;
-  const sale = deal ? null : await saleOfPlate(admin, key).catch(() => null); // no AR: a sale recorded by hand stands in for it
-  return { car: buildCar(folder, files ?? [], { buyerName: deal?.buyerName ?? sale?.buyer ?? null, hasReceipt: deal?.hasReceipt ?? false, linked: !!sale }), deal };
+  const standIn = deal ? null : sale;
+  return { car: buildCar(folder, files ?? [], { buyerName: deal?.buyerName ?? standIn?.buyer ?? null, hasReceipt: deal?.hasReceipt ?? false, linked: !!standIn }), deal };
 }
-

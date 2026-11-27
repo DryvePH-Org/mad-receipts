@@ -7,10 +7,13 @@ import { selectAll } from "@/lib/supabase/select-all";
 
 export interface HistoryRow { field: string; before: string | null; after: string | null; actor: string | null; source: string; at: string }
 
+const GRID_SELECT = ["id", "plate_no", "arrival_date", ...COLUMNS.filter((c) => c.key !== "complete_docs").map((c) => c.key)].filter((k, i, a) => a.indexOf(k) === i).join(", ");
+
 export async function loadGrid(): Promise<GridRow[]> {
   const db = docsDb();
   const [units, files, open] = await Promise.all([
-    db.from("docs_units_current").select("*").order("arrival_date", { ascending: false, nullsFirst: false }).limit(5000),
+    // only the columns the table shows (the rest of the row, import leftovers included, is more than half of it)
+    db.from("docs_units_current").select(GRID_SELECT).order("arrival_date", { ascending: false, nullsFirst: false }).limit(5000),
     selectAll<{ plate_no: string; doc_types: string[] | null }>((from, to) => db.from("folder_files").select("plate_no, doc_types").is("archive", null).order("id").range(from, to) as unknown as PromiseLike<{ data: { plate_no: string; doc_types: string[] | null }[] | null; error: { message: string } | null }>).then((data) => ({ data })),
     db.from("docs_review_items").select("unit_id, plate_no").eq("status", "open").limit(5000),
   ]);
@@ -19,7 +22,7 @@ export async function loadGrid(): Promise<GridRow[]> {
   for (const f of files.data ?? []) found.set(f.plate_no as string, [...(found.get(f.plate_no as string) ?? []), ...((f.doc_types as string[] | null) ?? [])]);
   const decisions = new Map<string, number>();
   for (const i of open.data ?? []) { const k = (i.plate_no as string | null) ?? ""; if (k) decisions.set(k, (decisions.get(k) ?? 0) + 1); }
-  return (units.data ?? []).map((u: Record<string, unknown>) => {
+  return ((units.data ?? []) as unknown as Record<string, unknown>[]).map((u) => {
     const values: Record<string, string | null> = {};
     for (const c of COLUMNS) if (c.key !== "complete_docs") values[c.key] = (u[c.key] as string | null) ?? null;
     const marks = finishMarks(values, found.get(u.plate_no as string) ?? []);

@@ -17,12 +17,16 @@ import { seesSales } from "@/lib/roles";
 import { CHIPS, filterUnified, FOLDER_FILTERS, STAGES, type ChipKey, type FolderFilter, type UnifiedRow } from "@/lib/docsbible/unified";
 import { cn } from "@/lib/utils";
 import { DocsGrid } from "../docs-bible/docs-grid";
+import { loadGridAction } from "../docs-bible/actions";
 import { refreshFoldersAction } from "./actions";
 
 /** The Car documents module: the same cars as a list (quick information, click to open) or as the table that looks like the old sheet. */
-export function DocumentsBoard({ rows, grid, role, canAct, openDecisions }: { rows: UnifiedRow[]; grid: GridRow[]; role: Role; canAct: boolean; openDecisions: number }) {
+export function DocumentsBoard({ rows, role, canAct, openDecisions }: { rows: UnifiedRow[]; role: Role; canAct: boolean; openDecisions: number }) {
   const router = useRouter();
   const [view, setView] = useState<"list" | "table">("list");
+  // the table (every column of every car) is read when it is opened, fresh each time, so the list opens quickly
+  const [grid, setGrid] = useState<GridRow[] | null | undefined>(undefined);
+  const openTable = () => { setView("table"); setGrid(undefined); loadGridAction().then(setGrid, () => setGrid(null)); };
   const [chip, setChip] = useState<ChipKey>("all");
   const [q, setQ] = useState("");
   const [attention, setAttention] = useState(false);
@@ -48,7 +52,7 @@ export function DocumentsBoard({ rows, grid, role, canAct, openDecisions }: { ro
       <div className="flex flex-wrap items-center gap-2">
         <div role="tablist" aria-label="View" className="inline-flex rounded-lg border p-0.5">
           <button type="button" role="tab" aria-selected={view === "list"} onClick={() => setView("list")} className={cn("flex items-center gap-1.5 rounded-md px-3 py-1 text-sm", view === "list" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}><Rows3 className="size-4" aria-hidden />List</button>
-          <button type="button" role="tab" aria-selected={view === "table"} onClick={() => setView("table")} className={cn("flex items-center gap-1.5 rounded-md px-3 py-1 text-sm", view === "table" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}><Table2 className="size-4" aria-hidden />Table</button>
+          <button type="button" role="tab" aria-selected={view === "table"} onClick={openTable} className={cn("flex items-center gap-1.5 rounded-md px-3 py-1 text-sm", view === "table" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}><Table2 className="size-4" aria-hidden />Table</button>
         </div>
         {canAct && <Button type="button" size="sm" variant="outline" className="ml-auto" disabled={pending} onClick={() => start(async () => { const r = await refreshFoldersAction(); if (r.ok) toast.success(r.message); else toast.error(r.message); router.refresh(); })}>{pending ? <Loader2 className="animate-spin" /> : <FolderSync />} Refresh from Drive</Button>}
       </div>
@@ -59,7 +63,7 @@ export function DocumentsBoard({ rows, grid, role, canAct, openDecisions }: { ro
         </div>
       )}
 
-      {view === "table" ? <DocsGrid initial={grid} role={role} /> : (
+      {view === "table" ? (grid === undefined ? <p className="rounded-lg bg-muted p-4 text-sm text-muted-foreground" role="status">Opening the table…</p> : grid === null ? <p className="rounded-lg bg-amber-50 p-4 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100" role="alert">The table could not be read. Open it again in a moment.</p> : <DocsGrid initial={grid} role={role} />) : (
         <>
           <div className="flex items-center gap-2">
             <div className="relative min-w-0 flex-1 sm:max-w-sm"><Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />

@@ -17,12 +17,13 @@ import { approvesOut, isAdmin, movesToSold, seesPrivateDocs, seesSales, type Rol
 import { loadStageApprovals } from "@/lib/docs/stage-approval";
 import { stageApprovalRule } from "@/lib/docs/stage";
 import { getSettings } from "@/lib/data";
+import { normalizePlate } from "@/lib/rules/plate";
 import { isScanning, readerMode } from "@/lib/docs/bot-scan";
 import { readingNotes, reviewedOf, rotationOf, detectionsOf, wasEdited } from "@/lib/docs/car";
 import { getCarDetail } from "@/lib/docs/data";
 import { cleanDetails, missingDetails } from "@/lib/docs/details";
 import { deriveStage } from "@/lib/docs/stage";
-import { loadStageInput } from "@/lib/docs/stage-server";
+import { stageInputOf } from "@/lib/docs/stage-server";
 import { loadWorkflow } from "@/lib/docs/workflow";
 import { handoffOf } from "@/lib/transfers/handoff";
 import { workLabel } from "@/lib/grokbot/labels";
@@ -74,25 +75,29 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
   const canUpload = user.modules.includes("upload"); // the OUT documents: Sales, Online Marketing and Documentation add them; Buying only reads them
   const canTransfer = user.modules.includes("transfer"); // the Sale and transfer tab: Documentation and the Admins; everyone else only looks
   const { plate } = await params;
-  const detail = await getCarDetail(plate);
+  // Everything that needs only the plate is asked at the same time as the car itself (it used to be one wave after another, about nine of them).
+  const key0 = normalizePlate(plate);
+  const admin = createAdminClient();
+  const [detail, flow, settings, botWork, scanning, lastScanRow, approvals, scanningOut, scanningTransfer, orRow, transfers, hand, register, receipts, activity, facts] = await Promise.all([
+    getCarDetail(plate),
+    loadWorkflow(key0).catch(() => ({ workflow: EMPTY_WORKFLOW, details: cleanDetails({}), detailsSaved: false })),
+    getSettings(), workForPlate(key0).catch(() => []), isScanning(key0).catch(() => false),
+    admin.from("grokbot_jobs").select("status, created_at, completed_at, request, error").eq("plate_no", key0).eq("action", "docs_scan").in("status", ["done", "failed"]).order("created_at", { ascending: false }).limit(1).maybeSingle().then((r) => r.data, () => null),
+    loadStageApprovals(key0).catch(() => ({ out: null, transfer: null })), isScanning(key0, admin, undefined, "out").catch(() => false), isScanning(key0, admin, undefined, "transfer").catch(() => false),
+    docsDb().from("docs_units_current").select("or_expiry").eq("plate_no", key0).maybeSingle(),
+    seesSales(user.role) ? loadTransfers(key0) : Promise.resolve(null),
+    handoffOf(key0).catch(() => null), // the steps of the transfer are kept on the car's sale record
+    loadRegisterRow(key0).catch(() => null),
+    canUpload ? listCarReceipts(key0, { checkDrive: wanted === "receipts" }).catch(() => []) : Promise.resolve([]),
+    loadCarActivity(key0).catch(() => [] as ActivityEntry[]),
+    loadCarFacts(key0).catch(() => ({ unit: null, repairs: [] } as CarFacts)),
+  ]);
   if (!detail) return <RegisterOnly plate={plate} role={user.role} modules={user.modules} canAct={canAct} canUpload={canUpload} wanted={wanted} />;
   const { car, deal } = detail;
   const key = car.folder.plate_no;
-  const admin = createAdminClient();
-
-  const [flow, settings, botWork, scanning, input, lastScanRow, approvals, scanningOut, scanningTransfer] = await Promise.all([
-    loadWorkflow(key).catch(() => ({ workflow: EMPTY_WORKFLOW, details: cleanDetails({}), detailsSaved: false })),
-    getSettings(), workForPlate(key).catch(() => []), isScanning(key).catch(() => false), loadStageInput(key, admin).catch(() => null),
-    admin.from("grokbot_jobs").select("status, created_at, completed_at, request, error").eq("plate_no", key).eq("action", "docs_scan").in("status", ["done", "failed"]).order("created_at", { ascending: false }).limit(1).maybeSingle().then((r) => r.data, () => null),
-    loadStageApprovals(key).catch(() => ({ out: null, transfer: null })), isScanning(key, admin, undefined, "out").catch(() => false), isScanning(key, admin, undefined, "transfer").catch(() => false),
-  ]);
   const linked = car.folder.match_status === "linked" && !!car.folder.folder_id;
-  const stage = deriveStage(input ?? { linked, location: car.folder.location as "available" | "sold", filesTotal: car.files.length, pending: car.pending, failed: 0, scanning, flaggedFiles: 0, missingBefore: 0, missingSold: 0, hasDeal: !!deal, approved: !!flow.workflow.approvedAt, caseChosen: car.folder.case_source === "manual", handoffAt: flow.workflow.handoffAt, returnedAt: flow.workflow.handoffReturnedAt, receiver: settings.print.transmittalReceiver || "the receiver" });
-  const orRow = await docsDb().from("docs_units_current").select("or_expiry").eq("plate_no", key).maybeSingle();
+  const stage = deriveStage(stageInputOf(car, flow.workflow, settings, scanning));
   const orDate = orRow.data?.or_expiry ? String(orRow.data.or_expiry).slice(0, 10) : null;
-  const transfers = seesSales(user.role) ? await loadTransfers(key) : null;
-  const hand = await handoffOf(key).catch(() => null); // the steps of the transfer are kept on the car's sale record
-  const [register, receipts, activity] = await Promise.all([loadRegisterRow(key).catch(() => null), canUpload ? listCarReceipts(key).catch(() => []) : Promise.resolve([]), loadCarActivity(key).catch(() => [] as ActivityEntry[])]);
 
   const recipient = settings.print.transmittalReceiver || "the receiver";
   // who uploaded each photo: the names of the people of the app (a photo that was already in the Drive folder has no uploader)
@@ -133,7 +138,6 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
   // the app's own printout of the AR (unsigned) saved in the folder: shown beside the signed paper, for Documentation (it does not hold up the car)
   const busy = scanning || data.botWork.length > 0;
 
-  const facts = await loadCarFacts(key).catch(() => ({ unit: null, repairs: [] } as CarFacts));
   const sale = transfers ? saleOf(transfers.transfers) : null;
   const archive: ArchiveFile[] = seesSales(user.role) ? car.archive.filter((f) => f.archive === "payment").map((f) => ({ id: f.id, name: f.filename, tag: f.archive_tag ?? "Other", amount: f.archive_amount === null ? null : Number(f.archive_amount), on: f.archive_on, note: f.archive_note, addedAt: f.created_at, by: f.uploaded_by ? uploaderName.get(f.uploaded_by) ?? "Someone" : null, mime: f.mime_type ?? "" })) : [];
   const newOwnerFiles = seesSales(user.role) ? car.archive.filter((f) => f.archive === "transfer").map((f) => ({ id: f.id, name: f.filename, tag: f.archive_tag ?? "Other", addedAt: f.created_at, by: f.uploaded_by ? uploaderName.get(f.uploaded_by) ?? "Someone" : null })) : [];
