@@ -3,6 +3,7 @@ import { manilaToday } from "@/lib/dates";
 import { docsDb } from "@/lib/docsbible/review-server";
 import { appUrl, tell } from "@/lib/notify";
 import { normalizePlate } from "@/lib/rules/plate";
+import { closeAsks, escalateRepairApprovals, loadChain } from "./approval-chain";
 import { appendNote, cleanItem, cleanStatus, dueDate, isOpen, PENDING_STATUS, REJECTED_STATUS, stateAfterRepairs, type Approval, type ItemInput, type Repair } from "./model";
 
 const COLS = "id, key, unit_id, plate_no, ym, brand, vehicle, problem, happened_on, happened_raw, solution, supplier, company, est_timeline, due_on, status, approval, approved_by, approved_at, reject_reason, reported_by, created_at, can_display";
@@ -77,6 +78,8 @@ export async function reportRepairs(input: ReportInput, by: Actor): Promise<{ ok
     ids.push(data.id as string);
     await event(data.id as string, "reported", it.problem, by);
   }
+  // with an escalation chain set, the first person in line is asked (with Approve / Reject buttons); without one, everyone whose role decides is told
+  if ((await loadChain().catch(() => [])).length) { await escalateRepairApprovals().catch((e) => console.warn(`[repair-chain] ${e instanceof Error ? e.message : "unknown"}`)); return { ok: true, ids, plate, found: !!car }; }
   await tell({ category: "repair_waiting", dedupe: `repair:${reportId}`, text: `🔧 Repair report waiting for approval\n${plate}${input.vehicle ? ` · ${input.vehicle}` : ""}\n${items.map((x) => `• ${x.problem}`).join("\n")}\n${appUrl("/repairs")}` });
   return { ok: true, ids, plate, found: !!car };
 }
@@ -98,6 +101,7 @@ export async function decideRepairs(ids: string[], approve: boolean, reason: str
     plates.add(j.plate_no as string);
   }
   if (approve) for (const p of plates) await syncCarRepairState(p);
+  await closeAsks(jobs.map((j) => j.id as string), approve, by.name, reason.trim()); // the Telegram asks of this report show who decided
   return { ok: true, changed: jobs.length };
 }
 

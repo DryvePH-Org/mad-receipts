@@ -19,7 +19,12 @@ async function api<T>(method: string, body?: Record<string, unknown>): Promise<T
   return json.result as T;
 }
 
-export const sendTo = (chatId: number | string, text: string) => api("sendMessage", { chat_id: chatId, text: text.slice(0, 4096), disable_web_page_preview: true });
+export const sendTo = (chatId: number | string, text: string, extra: Record<string, unknown> = {}) => api("sendMessage", { chat_id: chatId, text: text.slice(0, 4096), disable_web_page_preview: true, ...extra });
+/** A message with buttons: returns its id, so it can be changed later. */
+export const sendWithButtons = (chatId: number | string, text: string, reply_markup: Record<string, unknown>) => api<{ message_id: number }>("sendMessage", { chat_id: chatId, text: text.slice(0, 4096), disable_web_page_preview: true, reply_markup }).then((m) => m.message_id);
+/** Changes a message and takes its buttons away. */
+export const editTo = (chatId: number | string, messageId: number, text: string) => api("editMessageText", { chat_id: chatId, message_id: messageId, text: text.slice(0, 4096), disable_web_page_preview: true, reply_markup: { inline_keyboard: [] } });
+export const answerCallback = (id: string, text?: string) => api("answerCallbackQuery", { callback_query_id: id, ...(text ? { text: text.slice(0, 190) } : {}) });
 export const botName = async (): Promise<string> => (await api<{ username: string }>("getMe")).username;
 export const webhookInfo = () => api<{ url: string; last_error_message?: string }>("getWebhookInfo");
-export const setWebhook = (url: string, secret: string) => api("setWebhook", { url, secret_token: secret, allowed_updates: ["message"], drop_pending_updates: true });
+export const setWebhook = (url: string, secret: string) => api("setWebhook", { url, secret_token: secret, allowed_updates: ["message", "callback_query"], drop_pending_updates: true });

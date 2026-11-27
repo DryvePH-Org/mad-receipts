@@ -1,11 +1,16 @@
 import { timingSafeEqual } from "node:crypto";
-import { botToken, sendTo } from "@/lib/notify/bot";
+import { revalidatePath } from "next/cache";
+import { answerCallback, botToken, sendTo } from "@/lib/notify/bot";
+import { answerButton, answerReason } from "@/lib/repairs/approval-telegram";
 import { readLinkToken, webhookSecret } from "@/lib/notify/link";
 import { notifyDb, removeLinkOfChat, saveLink } from "@/lib/notify/store";
 import { categoriesForRole } from "@/lib/notify/categories";
 import { roleFromDb } from "@/lib/roles";
 
-interface Update { message?: { text?: string; chat?: { id: number; type?: string }; from?: { username?: string } } }
+interface Update {
+  message?: { text?: string; chat?: { id: number; type?: string }; from?: { username?: string }; reply_to_message?: { message_id?: number } };
+  callback_query?: { id: string; data?: string; message?: { chat?: { id: number; type?: string } } };
+}
 
 const same = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
@@ -16,7 +21,21 @@ export async function POST(request: Request) {
   if (!same(request.headers.get("x-telegram-bot-api-secret-token") ?? "", webhookSecret(token))) return Response.json({ ok: false }, { status: 401 });
 
   const update = (await request.json().catch(() => null)) as Update | null;
+  // a button on a repair approval message
+  const cb = update?.callback_query;
+  if (cb) {
+    const chatId = cb.message?.chat?.id;
+    const shown = chatId && cb.message?.chat?.type === "private" ? await answerButton(cb.data, chatId).catch(() => "Something went wrong. Open MAD → Repairs.") : "Not available here.";
+    await answerCallback(cb.id, shown).catch(() => undefined);
+    revalidatePath("/repairs"); revalidatePath("/cars");
+    return Response.json({ ok: true });
+  }
   const chat = update?.message?.chat, text = (update?.message?.text ?? "").trim();
+  // the reason typed after pressing Reject
+  if (chat?.type === "private" && text && !text.startsWith("/") && update?.message?.reply_to_message?.message_id) {
+    const said = await answerReason(chat.id, update.message.reply_to_message.message_id, text).catch(() => "Something went wrong. Open MAD → Repairs.");
+    if (said) { await sendTo(chat.id, said).catch(() => undefined); revalidatePath("/repairs"); revalidatePath("/cars"); return Response.json({ ok: true }); }
+  }
   if (!chat || chat.type !== "private" || !text.startsWith("/")) return Response.json({ ok: true });
   const [command, arg] = text.split(/\s+/, 2);
   const cmd = command.toLowerCase().replace(/@.*$/, "");

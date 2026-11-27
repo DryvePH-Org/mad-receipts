@@ -12,7 +12,7 @@ export const NOTIFY_CATEGORIES: readonly NotifyCategory[] = [
   { id: "sold_papers_missing", label: "Sold papers still missing on my deal", detail: "The signed AR, the buyer's ID or the deed is not in the car's folder.", when: "every 3 days, from 2 days after the AR is saved", roles: ["sales"] },
   { id: "deal_settled", label: "My deal is settled or the loan was released", detail: "", when: "right away", roles: ["sales"] },
   // Whoever decides on repairs
-  { id: "repair_waiting", label: "A repair report is waiting for my approval", detail: "The car, the problems and who reported them.", when: "right away", roles: ["super_admin", "admin", "sales"] },
+  { id: "repair_waiting", label: "A repair report is waiting for my approval", detail: "The car, the problems and who reported them. When a chain is set on the Repairs page, only the person whose turn it is gets it, with Approve and Reject buttons.", when: "right away", roles: ["super_admin", "admin", "sales"] },
   // Buying
   { id: "sold_papers_added", label: "Sales added sold papers on a car", detail: "", when: "right away", roles: ["buying"] },
   { id: "scan_result", label: "A scan finished with warnings, or failed", detail: "One message per car.", when: "right away", roles: ["buying"] },
