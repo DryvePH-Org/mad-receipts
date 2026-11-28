@@ -33,6 +33,7 @@ async function main() {
   for (const p of plans.filter((x) => x.action === "update" && x.reason)) console.log(`  ${p.plate}: ${p.reason}`);
   for (const p of plans.filter((x) => x.arMissing)) console.log(`  ${p.plate} ${p.buyer}: ${p.arMissing} payment(s) with no AR number`);
 
+  const sheetPlates = new Set((await all<{ plate_no: string }>((a, b) => db.from("car_sale_payments").select("plate_no").in("plate_no", plates).range(a, b))).map((r) => norm(r.plate_no)));
   const deals = await all<Record<string, unknown>>((a, b) => db.from("deals").select("id, deal_no, buyer_name, agreed_price, status, deal_units(plate_no), receipts(id, receipt_no, amount, status)").gte("created_at", "2026-11-01").range(a, b));
   const byAr = new Map(pays.filter((p) => p.arNo).map((p) => [norm(p.arNo), p]));
   const removable: string[] = [];
@@ -47,7 +48,7 @@ async function main() {
       if (!s) notes.push(`AR ${r.receipt_no} (${peso(Number(r.amount))}) is not on the sheet: the sheet wins`);
       else if (Math.abs(s.amount - Number(r.amount)) > 0.5) notes.push(`AR ${r.receipt_no}: typed ${peso(Number(r.amount))}, sheet ${peso(s.amount)}: the sheet wins`);
     }
-    const made = sales.some((s) => norm(s.plate_no) === plate && s.source === "sheet");
+    const made = sheetPlates.has(plate); // the plate has its payments from the sheet in a sale record (a record that already existed keeps its own source)
     if (!made) problems.push("its sale record is not made from the sheet yet");
     console.log(`  ${d.deal_no} ${plate} ${d.buyer_name}: ${problems.length ? "KEEP — " + problems.join("; ") : "covered by the sheet"}${notes.length ? " (" + notes.join("; ") + ")" : ""}`);
     if (!problems.length) removable.push(d.id as string);
@@ -64,6 +65,7 @@ async function main() {
       await db.from("sync_jobs").delete().in("receipt_id", ids);
       const r = await db.from("receipts").delete().eq("deal_id", id); if (r.error) { console.error("receipts:", r.error.message); continue; }
     }
+    await db.from("car_sales").delete().eq("deal_id", id).like("source_key", `deal|${id}|%`); // the sale record the deal made itself (a duplicate once the sheet's record exists)
     const d = await db.from("deals").delete().eq("id", id);
     console.log(d.error ? `  could not remove ${id}: ${d.error.message}` : `  removed ${id}`);
   }
