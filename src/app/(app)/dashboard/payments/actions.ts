@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { syncPaymentSheets } from "@/lib/payments/sync";
 
 export interface RefreshStep { ok: boolean; since: number; copied: number; rows: number; remaining: number; failed: { tab: string; error: string }[]; message?: string }
@@ -11,7 +11,7 @@ export interface RefreshStep { ok: boolean; since: number; copied: number; rows:
  * `since` (null on the first call, then the one returned) is when the refresh began: every tab not copied since then is still to do; `skip` are the tabs that already failed in this refresh.
  */
 export async function refreshPaymentsAction(sinceIn: number | null, skip: string[]): Promise<RefreshStep> {
-  await requireRole("super_admin");
+  await requireModule("dashboard");
   const since = sinceIn ?? Date.now(); // the server's clock starts the refresh, so a different clock on the phone or laptop cannot confuse it
   try {
     const r = await syncPaymentSheets({ since, skip, maxTabs: 3 });

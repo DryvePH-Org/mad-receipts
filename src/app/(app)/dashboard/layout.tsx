@@ -2,13 +2,12 @@ import { Suspense } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { getCurrentUser } from "@/lib/auth";
 import { BUY_SHEET_ID, SELL_SHEET_ID, sheetUrl } from "@/lib/dashboard/sheets";
-import { isSuper } from "@/lib/roles";
 import { DashboardNav } from "./dashboard-nav";
 
-/** The tabs; Payments (banks and ways of payment) shows for the Super Admin only. */
+/** The tabs; Payments (banks and ways of payment) is part of the Dashboard. */
 async function Nav() {
   const me = await getCurrentUser();
-  return <DashboardNav buyUrl={sheetUrl(BUY_SHEET_ID)} sellUrl={sheetUrl(SELL_SHEET_ID)} payments={!!me && isSuper(me.role)} />;
+  return <DashboardNav buyUrl={sheetUrl(BUY_SHEET_ID)} sellUrl={sheetUrl(SELL_SHEET_ID)} payments={!!me?.modules.includes("dashboard")} />;
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

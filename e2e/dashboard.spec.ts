@@ -13,8 +13,8 @@ async function as(browser: Browser, who: keyof typeof credentials) {
   return page;
 }
 
-test("the Approver sees the Buy and Sell dashboards; Sales and Documentation do not", async ({ browser }) => {
-  const approver = await as(browser, "approver");
+test("the Super Admin sees the Buy, Sell and Payments dashboards; Admins, Sales and Documentation do not unless it is given", async ({ browser }) => {
+  const approver = await as(browser, "admin"); // the Super Admin (the Dashboard is given to other people on the Users page)
   await approver.getByRole("link", { name: "Dashboard" }).click();
   await expect(approver.getByRole("heading", { name: "Dashboard" })).toBeVisible();
   await expect(approver).toHaveURL(/\/dashboard\/buy/);
@@ -52,8 +52,10 @@ test("the Approver sees the Buy and Sell dashboards; Sales and Documentation do 
     await expect(page.getByText("You don't have access to this page.")).toBeVisible();
     await page.close();
   }
-  const admin = await as(browser, "admin");
-  await admin.goto("/dashboard/sell");
-  await expect(admin.getByText(/^Reserves/).first()).toBeVisible({ timeout: 60_000 });
+  // an Admin does not have it by default
+  const admin = await as(browser, "approver");
+  await expect(admin.getByRole("link", { name: "Dashboard" })).toHaveCount(0);
+  await admin.goto("/dashboard/payments");
+  await expect(admin.getByText("You don't have access to this page.")).toBeVisible();
   await admin.close();
 });

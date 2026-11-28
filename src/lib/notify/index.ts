@@ -1,4 +1,5 @@
 import "server-only";
+import { effectiveModules, type ModuleId } from "@/lib/navigation";
 import { roleFromDb, type Role } from "@/lib/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTo, TelegramError } from "./bot";
@@ -24,19 +25,20 @@ export interface NotifyResult { sent: number; held: number; skipped: number }
 const MAX_TRIES = 5;
 
 /** Who gets it: connected people of the right role, who have not muted this category. */
-async function recipients(category: string, roles: readonly Role[], only?: readonly string[]) {
+async function recipients(category: string, roles: readonly Role[], only?: readonly string[], module?: ModuleId) {
   const links = await allLinks();
   if (!links.length) return [];
   const ids = links.map((l) => l.userId).filter((id) => !only || only.includes(id));
   if (!ids.length) return [];
   const db = notifyDb();
   const [{ data: profiles }, { data: muted }] = await Promise.all([
-    db.from("profiles").select("id, role").in("id", ids),
+    db.from("profiles").select("id, role, module_grants, module_denies").in("id", ids),
     db.from("notify_prefs").select("user_id").eq("category", category).eq("enabled", false).in("user_id", ids),
   ]);
   const off = new Set((muted ?? []).map((m) => String(m.user_id)));
   const roleOf = new Map((profiles ?? []).map((p) => [String(p.id), roleFromDb(p.role)]));
-  return links.filter((l) => ids.includes(l.userId) && !off.has(l.userId) && roles.includes(roleOf.get(l.userId) as Role));
+  const has = new Set((profiles ?? []).filter((p) => module && effectiveModules(roleFromDb(p.role), Array.isArray(p.module_grants) ? p.module_grants : [], Array.isArray(p.module_denies) ? p.module_denies : []).includes(module)).map((p) => String(p.id)));
+  return links.filter((l) => ids.includes(l.userId) && !off.has(l.userId) && (roles.includes(roleOf.get(l.userId) as Role) || has.has(l.userId)));
 }
 
 async function deliver(row: { id: string; user_id: string; body: string; attempts: number }, chatId: number): Promise<boolean> {
@@ -59,7 +61,7 @@ export async function notify(input: NotifyInput): Promise<NotifyResult> {
   const cat = categoryById(input.category);
   if (!cat) throw new Error(`Unknown notification category: ${input.category}`);
   const now = input.now ?? new Date();
-  const people = (await recipients(cat.id, cat.roles, input.userIds)).filter((p) => p.userId !== input.except);
+  const people = (await recipients(cat.id, cat.roles, input.userIds, cat.module)).filter((p) => p.userId !== input.except);
   const out: NotifyResult = { sent: 0, held: 0, skipped: 0 };
   const db = notifyDb();
   for (const p of people) {

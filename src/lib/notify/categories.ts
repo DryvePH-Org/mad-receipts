@@ -1,16 +1,19 @@
+import type { ModuleId } from "@/lib/navigation";
 import type { Role } from "@/lib/roles";
 
 /**
  * Every kind of personal Telegram message. `roles` who may get it, `urgent` messages ignore quiet hours,
  * `when` is only text for the settings page (the schedule itself lives in schedule.ts and the places that send).
  */
-export interface NotifyCategory { id: string; label: string; detail: string; when: string; roles: readonly Role[]; urgent?: boolean }
+export interface NotifyCategory { id: string; label: string; detail: string; when: string; roles: readonly Role[]; /** also everyone who has this module (given to them on the Users page) */ module?: ModuleId; urgent?: boolean }
 
 export const NOTIFY_CATEGORIES: readonly NotifyCategory[] = [
   // Sales
   { id: "money_digest", label: "My deals: due, overdue, loan waiting", detail: "Deals due in 7 days, due today or late, loans waiting too long, collateral dates. Only your own deals.", when: "every morning at 8:00", roles: ["sales"] },
   { id: "sold_papers_missing", label: "Sold papers still missing on my deal", detail: "The signed AR, the buyer's ID or the deed is not in the car's folder.", when: "every 3 days, from 2 days after the AR is saved", roles: ["sales"] },
   { id: "deal_settled", label: "My deal is settled or the loan was released", detail: "", when: "right away", roles: ["sales"] },
+  // Whoever has the Reminders module (the Super Admin and the people given it)
+  { id: "overdue_digest", label: "Every deal that is due or overdue", detail: "All the deals on the Reminders page: due in 7 days, due today or late, loans waiting too long, collateral dates. Not only your own.", when: "every morning at 8:00", roles: [], module: "reminders" },
   // Whoever decides on repairs
   { id: "repair_waiting", label: "A repair report is waiting for my approval", detail: "The car, the problems and who reported them. When a chain is set on the Repairs page, only the person whose turn it is gets it, with Approve and Reject buttons.", when: "right away", roles: ["super_admin", "admin", "sales"] },
   // Buying and Documentation
@@ -29,4 +32,4 @@ export const NOTIFY_CATEGORIES: readonly NotifyCategory[] = [
 ];
 
 export const categoryById = (id: string): NotifyCategory | undefined => NOTIFY_CATEGORIES.find((c) => c.id === id);
-export const categoriesForRole = (role: Role): NotifyCategory[] => NOTIFY_CATEGORIES.filter((c) => c.roles.includes(role));
+export const categoriesForRole = (role: Role, modules: readonly ModuleId[] = []): NotifyCategory[] => NOTIFY_CATEGORIES.filter((c) => c.roles.includes(role) || (!!c.module && modules.includes(c.module)));

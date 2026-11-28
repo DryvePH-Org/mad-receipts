@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
-import { requireRole } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { loadPaymentsData } from "@/lib/payments/sync";
 import { PASSBOOK_SHEET_ID, sheetUrl } from "@/lib/dashboard/sheets";
 import { STAGE_LABEL } from "@/lib/payments/parse";
@@ -19,7 +19,7 @@ const dayLabel = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString("e
 const ago = (iso: string | null) => { if (!iso) return "never"; const m = Math.round((Date.now() - Date.parse(iso)) / 60_000); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`; };
 
 async function Content({ searchParams }: { searchParams: Promise<{ month?: string | string[] }> }) {
-  await requireRole("super_admin"); // bank balances and account numbers: the Super Admin only, for now
+  await requireModule("dashboard"); // bank balances and account numbers: whoever the Super Admin gave the Dashboard to
   const want = (await searchParams).month;
   const data = await loadPaymentsData().catch(() => null);
   if (!data || data.lines.length === 0) {

@@ -35,7 +35,7 @@ export async function disconnectAction(): Promise<Result> {
 
 export async function setCategoryAction(category: string, enabled: boolean): Promise<Result> {
   const user = await requireUser();
-  if (!categoriesForRole(user.role).some((c) => c.id === category)) return { ok: false, error: "That message is not for your role." };
+  if (!categoriesForRole(user.role, user.modules).some((c) => c.id === category)) return { ok: false, error: "That message is not for your role." };
   try { await setCategory(user.id, category, enabled); } catch (e) { return fail(e); }
   revalidatePath("/telegram");
   return { ok: true, message: "Saved." };

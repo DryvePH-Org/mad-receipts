@@ -34,6 +34,7 @@ export async function runScheduled(now = new Date()): Promise<Record<string, unk
 
   if (hour >= 8) {
     await part("money", () => moneyDigests(today));
+    await part("overdue", () => overdueDigest(today));
     await part("soldPapers", () => soldPapersMissing(now, today));
     if (monday) await part("weekly", () => weekly(now, today));
   }
@@ -55,6 +56,14 @@ async function moneyDigests(today: string) {
     if (text) sent += (await notify({ category: "money_digest", userIds: [userId], dedupe: `money:${today}`, text })).sent;
   }
   return { people: owners.size, sent };
+}
+
+/** Everyone who has the Reminders module: every deal on the Reminders page that is due, late or waiting (not only their own). */
+async function overdueDigest(today: string) {
+  const { list } = await allReminders();
+  const items: DigestItem[] = list.filter((n) => n.icon !== "x" && n.icon !== "shield").map((n) => ({ title: n.title, detail: n.detail }));
+  const text = digestText("⏰ Deals due or overdue", today, items, appUrl("/reminders"));
+  return text ? notify({ category: "overdue_digest", dedupe: `overdue:${today}`, text }) : { sent: 0 };
 }
 
 /** Sales: the deal's AR was saved at least 2 days ago and a sold paper (signed AR, buyer's ID, deed) is still missing. Repeats every 3 days. */

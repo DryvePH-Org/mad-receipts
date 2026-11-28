@@ -20,7 +20,7 @@ export default function TelegramPage() {
 
 async function Content() {
   const user = await requireUser();
-  const mine = categoriesForRole(user.role);
+  const mine = categoriesForRole(user.role, user.modules);
   const configured = !!botToken();
   const sup = isSuper(user.role);
   // everything is asked at the same time (it used to be one thing after the other)

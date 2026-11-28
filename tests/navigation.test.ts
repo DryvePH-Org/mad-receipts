@@ -6,15 +6,15 @@ import { tabHint } from "@/app/(app)/documents/[plate]/tabs";
 describe("navigation", () => {
   it("each role sees its own pages", () => {
     expect(navFor("super_admin").map((i) => i.href)).toEqual(["/home", "/dashboard", "/activity", "/new", "/deals", "/reminders", "/cars", "/new-cars", "/documents", "/documents/add", "/repairs", "/settings", "/admin/users", "/admin/sync"]);
-    expect(navFor("admin").map((i) => i.href)).toEqual(["/home", "/dashboard", "/activity", "/cars", "/new-cars", "/documents", "/documents/add", "/repairs"]); // every module, none of the administration tools; receipts, transactions and reminders are hidden for now
+    expect(navFor("admin").map((i) => i.href)).toEqual(["/home", "/activity", "/cars", "/new-cars", "/documents", "/documents/add", "/repairs"]); // every module, none of the administration tools; receipts, transactions and reminders are hidden for now
     expect(navFor("buying").map((i) => i.href)).toEqual(["/home", "/cars", "/documents", "/documents/add", "/repairs"]); // Add a car is in the menu for Buying
     expect(navFor("marketing").map((i) => i.href)).toEqual(["/home", "/cars", "/documents", "/repairs"]); // the same pages, looking only
     expect(navFor("sales").map((i) => i.href)).toEqual(["/home", "/cars", "/documents", "/repairs"]);
   });
 
-  it("new receipt, transactions and reminders are for the Super Admin only, the dashboard for the Admins", () => {
+  it("new receipt, transactions and reminders are for the Super Admin only, the dashboard too (it is given to a person on the Users page)", () => {
     for (const id of ["new", "deals", "reminders"]) expect(NAV_ITEMS.find((i) => i.id === id)?.roles).toEqual(["super_admin"]);
-    expect(NAV_ITEMS.find((i) => i.id === "dashboard")?.roles).toEqual(["super_admin", "admin"]);
+    expect(NAV_ITEMS.find((i) => i.id === "dashboard")?.roles).toEqual(["super_admin"]);
   });
 
   it("settings, users and sync jobs are for the Super Admin only", () => {
