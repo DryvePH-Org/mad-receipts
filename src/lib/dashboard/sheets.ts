@@ -12,6 +12,8 @@ export type { DataNotes };
 export const BUY_SHEET_ID = process.env.DASHBOARD_BUY_SHEET_ID || "19qUB27b_6nbGU0vrcNtC-7cojOJ_tYWxVMnUloN7u1s";
 /** The real MAD CONSOLIDATED 2026 (sales, entries) and the 2026 Sales Passbook Monitoring (banks, payments): private, so they are read through the Apps Script bridge. */
 export const CONSOLIDATED_SHEET_ID = "1WK3BQzn-OgAyyNZc3pko_2tBvLMtsF_xI3Pl5i3oa2Y";
+/** The real 2026 MAD BUYING CONSOLIDATED: private too. The Buy tab keeps reading the old public copy until DASHBOARD_BUY_SHEET_ID is set to this id. */
+export const BUYING_SHEET_ID = "13JneAqaYx_qxYR44o_cqNl-awAUZSqvymCR-82-YSqU";
 // until DASHBOARD_SELL_SHEET_ID is set to the real MAD CONSOLIDATED (CONSOLIDATED_SHEET_ID, once the Apps Script bridge may open it), the Sell tab keeps reading the old public copy
 export const SELL_SHEET_ID = process.env.DASHBOARD_SELL_SHEET_ID || "10k3ENWKgIi634cl91jPnqrdsNBZLEWrN4uAryyuPgwo";
 export const PASSBOOK_SHEET_ID = process.env.PAYMENTS_SHEET_ID || "1KTx0HiIQFHiN0fUCk_jQL2scCtsYTSw00wpgFYuH3ho";
@@ -22,7 +24,7 @@ export const PASSBOOK_SHEET_ID = process.env.PAYMENTS_SHEET_ID || "1KTx0HiIQFHiN
 export function isPrivateSheet(id: string): boolean {
   if (!appsScriptConfigured()) return false;
   const named = (process.env.DASHBOARD_PRIVATE_SHEETS ?? "").split(",").map((x) => x.trim()).filter(Boolean);
-  return [CONSOLIDATED_SHEET_ID, PASSBOOK_SHEET_ID, ...named].includes(id);
+  return [CONSOLIDATED_SHEET_ID, PASSBOOK_SHEET_ID, BUYING_SHEET_ID, ...named].includes(id);
 }
 export const sheetUrl = (id: string) => `https://docs.google.com/spreadsheets/d/${id}/edit`;
 export const DASHBOARD_TAG = "dashboard-sheets";

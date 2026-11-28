@@ -159,7 +159,7 @@ export function scoreboard(entries: Entry[], sales: Sale[], today: string): Sell
  * consolidated Jan-Sept tab gets one too) and leave the old RESERVATION row where it was. So a car's real state is the furthest it got:
  *   released or cancelled  >  paid, waiting for release  >  reserved
  * Rows of one car are grouped by plate and buyer (a car sold twice is two sales). A reservation is also dead when the car was later
- * released to a DIFFERENT buyer. Only one row per sale is returned.
+ * released to a DIFFERENT buyer, or later reserved (or reserved and cancelled) by one. Only one row per sale is returned.
  */
 export function currentSales(sales: Sale[], today = new Date().toISOString().slice(0, 10)): Sale[] {
   const stage = (s: Sale) => (isCancelled(s) || s.releaseDate ? 3 : s.status === "FULLY PAID" ? 2 : 1);
@@ -177,7 +177,9 @@ export function currentSales(sales: Sale[], today = new Date().toISOString().sli
     }
     const winners = clusters.map(furthest);
     for (const w of winners) {
-      const dead = stage(w) < 3 && winners.some((o) => o !== w && !isCancelled(o) && o.releaseDate && (reservedOn(w) ? o.releaseDate >= reservedOn(w)! : o.order >= w.order));
+      // a car offered to another buyer later (whatever came of it: released, cancelled, or a new reservation) is no longer held by the older reservation
+      const later = (o: Sale) => (reservedOn(o) && reservedOn(w) ? reservedOn(o)! > reservedOn(w)! : o.order > w.order);
+      const dead = stage(w) < 3 && winners.some((o) => o !== w && ((!isCancelled(o) && o.releaseDate && (reservedOn(w) ? o.releaseDate >= reservedOn(w)! : o.order >= w.order)) || later(o)));
       if (!dead) current.push(w);
     }
   }

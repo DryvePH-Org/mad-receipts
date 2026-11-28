@@ -196,6 +196,14 @@ describe("a car's real state is its newest row", () => {
     ];
     expect(currentSales(all).map((s) => [s.buyer, s.status])).toEqual([["DAN LIM", "FULLY PAID"], ["EVA SY", "RESERVATION"]]);
   });
+  it("an older reservation ends when the car was reserved again by another buyer, even if that one was cancelled (the sheet's NNV2135)", () => {
+    const d = run([
+      { tab: "Aug2026_Sold", order: 8, rows: [sale("NNV2135", "RESERVATION", "SOFIA ADUARTE", { 13: "August 23" })] },
+      { tab: "Oct2026_Sold", order: 10, rows: [sale("NNV2135", "CANCELLED", "KYLA ARUTA", { 13: "October 6" })] },
+    ]);
+    expect(d.pending).toEqual([]);
+    expect(d.released).toEqual([]);
+  });
   it("a name spelled a little differently in the newer row is still the same buyer", () => {
     const all = [...parseSold(tab([sale("EEE5555", "RESERVATION", "MARIA LEONILA LIM")]), "Sept2026_Sold", 9), ...parseSold(tab([sale("EEE5555", "FULLY PAID", "LIM, MARIA LEONILA", { 23: "October 9" })]), "Oct2026_Sold", 10)];
     expect(currentSales(all)).toHaveLength(1);
