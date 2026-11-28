@@ -11,7 +11,11 @@ const STATUS: Record<string, { label: string; tone: "emerald" | "amber" | "zinc"
 /** The payments of the car's sale as the Sales Passbook sheet has them (the sheet is the source: fix a wrong line there; MAD copies it). Nothing is typed here. */
 export async function SheetPaymentsCard({ plate }: { plate: string }) {
   const db = createAdminClient() as unknown as SupabaseClient;
-  const { data: sale } = await db.from("car_sales").select("id, buyer, agreed_price, payment_status").eq("plate_no", plate).eq("source", "sheet").neq("stage", "cancelled").order("created_at", { ascending: false }).limit(1).maybeSingle();
+  // the sale that has this plate's payments from the sheet (a record made earlier keeps its own source, so the payments are the sign)
+  const { data: own } = await db.from("car_sale_payments").select("sale_id").eq("plate_no", plate).limit(1);
+  const saleId = (own?.[0]?.sale_id as string | undefined) ?? null;
+  if (!saleId) return null;
+  const { data: sale } = await db.from("car_sales").select("id, buyer, agreed_price, payment_status").eq("id", saleId).maybeSingle();
   if (!sale) return null;
   const { data } = await db.from("car_sale_payments").select("id, stage, bank, paid_on, amount, ar_no").eq("sale_id", sale.id as string).order("paid_on", { nullsFirst: false });
   const rows = (data ?? []) as { id: string; stage: keyof typeof STAGE_LABEL; bank: string | null; paid_on: string | null; amount: number | string; ar_no: string | null }[];
