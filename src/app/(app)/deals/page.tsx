@@ -1,13 +1,11 @@
 import { Suspense } from "react";
-import Link from "next/link";
-import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
-import { Button } from "@/components/ui/button";
 import { requireModule } from "@/lib/auth";
-import { listDeals } from "@/lib/data";
+import { getSettings } from "@/lib/data";
+import { saleStatus } from "@/lib/sales/money";
+import { loadSales } from "@/lib/sales/read";
 import { manilaToday, daysBetween } from "@/lib/dates";
-import { dealStatusKey } from "@/lib/deal/status";
 import { formatPeso } from "@/lib/rules/money";
 import { DealsBoard, type BoardDeal } from "./deals-board";
 
@@ -16,8 +14,7 @@ export default function DealsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Transactions"
-        description="Every deal and its receipts. A financed car takes more than one receipt, so check here what is still unpaid."
-        actions={<Button nativeButton={false} render={<Link href="/new" />}><Plus /> New receipt</Button>}
+        description="Every sale and its payments, as the Sales Passbook sheet has them. Check here what is still to be collected."
       />
       <Suspense fallback={<PageSkeleton />}><Content /></Suspense>
     </div>
@@ -37,13 +34,12 @@ function Stat({ label, value, sub, tone }: { label: string; value: string; sub: 
 async function Content() {
   await requireModule("deals");
   const today = manilaToday();
-  const deals = await listDeals();
-  const rows: (BoardDeal & { loan: number })[] = deals.map((d) => ({
-    id: d.id, dealNo: d.dealNo, unitName: d.unitName, plates: d.plates, buyerName: d.buyerName, createdByName: d.createdByName, saleType: d.saleType,
-    institution: d.institution, price: d.price, received: d.approvedPaid, balance: d.balance, dueDate: d.dueDate, dueText: d.dueText,
-    status: dealStatusKey({ status: d.status, balance: d.balance, due_date: d.dueDate, sale_type: d.saleType, loan_status: d.loanStatus }, today),
-    receiptCount: d.approvedCount, loan: d.loan,
-    searchText: `${d.unitName} ${d.plates} ${d.buyerName} ${d.createdByName} ${d.institution ?? ""} ${d.receiptNos} ${d.dealNo}`.toLowerCase(),
+  const sales = await loadSales((await getSettings()).reminders.balanceDays);
+  const rows: (BoardDeal & { loan: number })[] = sales.map((d) => ({
+    id: d.id, href: `/documents/${d.plate}?tab=sale`, dealNo: d.arNos.length ? `AR ${d.arNos.join(", ")}` : "No AR yet", unitName: d.carName, plates: d.plate, buyerName: d.buyer || "No buyer", createdByName: d.sales,
+    saleType: d.financed ? "financing" : "cash", institution: d.lender, price: d.price, received: d.received, balance: d.balance, dueDate: d.dueDate, dueText: null,
+    status: saleStatus(d, today), receiptCount: d.paymentCount, loan: d.loan,
+    searchText: `${d.carName} ${d.plate} ${d.buyer} ${d.sales} ${d.lender ?? ""} ${d.arNos.join(" ")}`.toLowerCase(),
   }));
   const owe = rows.filter((r) => r.status !== "cancelled" && r.balance > 0);
   const overdue = rows.filter((r) => r.status === "overdue");

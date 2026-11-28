@@ -1,8 +1,9 @@
 import "server-only";
 import { cache } from "react";
 import { manilaToday } from "@/lib/dates";
-import type { CurrentUser } from "@/lib/auth";
-import { buildNotifications, centsOf, notificationsFor, type Notification } from "@/lib/deal/status";
+import { buildNotifications, centsOf, type Notification } from "@/lib/deal/status";
+import { notifyDealOf, type SaleMoney } from "@/lib/sales/money";
+import { loadSales } from "@/lib/sales/read";
 import { parseSettings, type AppSettings } from "@/lib/deal/settings";
 import type { FormState, LoanStatus, SaleType } from "@/lib/deal/types";
 import { createClient } from "@/lib/supabase/server";
@@ -197,30 +198,22 @@ export async function listActivity(action?: string): Promise<ActivityEntry[]> {
   return (data ?? []).map((l) => ({ id: l.id, action: l.action, at: l.created_at, actor: l.actor_id ? (names.get(l.actor_id) ?? "Someone") : "System", after: l.after, entity: l.entity, entityId: l.entity_id }));
 }
 
-function remindersOf(deals: DealView[], settings: AppSettings): Notification[] {
-  return buildNotifications(
-    deals.map((d) => ({
-      id: d.id, status: d.status, balance: d.balance, due_date: d.dueDate, sale_type: d.saleType, loan_status: d.loanStatus, buyer_name: d.buyerName,
-      institution: d.institution, loan_amount: d.loan / 100, lieu_amount: d.lieu / 100, lieu_until: d.lieuUntil, loan_since: d.loanSince, created_by: d.createdBy, unit_name: d.unitName,
-    })),
-    settings.reminders, manilaToday(),
-  );
+/** The reminders come from the sales of the sheet (the plate is the id, so a reminder opens the car). */
+function remindersOf(sales: SaleMoney[], settings: AppSettings): Notification[] {
+  return buildNotifications(sales.map(notifyDealOf), settings.reminders, manilaToday());
 }
 
-/** Everything that needs a nudge, for one person. */
-export async function remindersFor(user: CurrentUser): Promise<Notification[]> {
-  const [deals, settings] = await Promise.all([listDeals(), getSettings()]);
-  return notificationsFor(remindersOf(deals, settings), user);
+/** Everything that needs a nudge, for one person: whoever has the Reminders module sees them all. */
+export async function remindersFor(): Promise<Notification[]> {
+  const settings = await getSettings();
+  return remindersOf(await loadSales(settings.reminders.balanceDays), settings);
 }
 
 /** The same list for every person at once, read as the server (no signed-in user): what the morning Telegram messages are made from. */
-export async function allReminders(): Promise<{ list: Notification[]; deals: DealView[]; settings: AppSettings }> {
+export async function allReminders(): Promise<{ list: Notification[]; deals: { id: string; balance: number }[]; settings: AppSettings }> {
   const admin = createAdminClient();
-  const [{ data: dealRows }, { data: cfg }] = await Promise.all([
-    admin.from("deal_summaries").select("*").order("created_at", { ascending: false }).limit(2000),
-    admin.from("app_settings").select("config").eq("id", 1).maybeSingle(),
-  ]);
+  const { data: cfg } = await admin.from("app_settings").select("config").eq("id", 1).maybeSingle();
   const settings = parseSettings(cfg?.config);
-  const deals = (dealRows ?? []).map(toDealView);
-  return { list: remindersOf(deals, settings), deals, settings };
+  const sales = await loadSales(settings.reminders.balanceDays);
+  return { list: remindersOf(sales, settings), deals: sales.map((s) => ({ id: s.plate, balance: s.balance })), settings };
 }

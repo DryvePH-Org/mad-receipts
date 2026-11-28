@@ -1,7 +1,6 @@
 import "server-only";
 import { formatDate, manilaToday } from "@/lib/dates";
 import { allReminders } from "@/lib/data";
-import { centsOf } from "@/lib/deal/status";
 import { pesos } from "@/lib/deals";
 import { loadCar } from "@/lib/docs/service";
 import { listSavedCopies } from "@/lib/docsbible/export-server";
@@ -131,7 +130,7 @@ async function weekly(now: Date, today: string) {
     admin.from("folder_files").select("plate_no", { count: "exact", head: true }).eq("read_status", "pending"),
   ]);
   const overdue = list.filter((n) => n.key.startsWith("od-"));
-  const overdueBalance = deals.filter((d) => overdue.some((n) => n.dealId === d.id)).reduce((sum, d) => sum + centsOf(d.balance / 100), 0);
+  const overdueBalance = deals.filter((d) => overdue.some((n) => n.dealId === d.id)).reduce((sum, d) => sum + d.balance, 0);
   return notify({ category: "weekly_summary", dedupe: `weekly:${today}`, text: weeklyText(today, { receiptsSaved: saved ?? 0, overdueDeals: overdue.length, overdueBalance: pesos(overdueBalance / 100), carsNeedScan: unscanned ?? 0, carsHandedOff: handed ?? 0, reviewOpen: reviewOpen ?? 0 }, appUrl("/dashboard")) });
 }
 

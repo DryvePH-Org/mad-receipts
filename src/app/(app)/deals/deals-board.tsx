@@ -12,6 +12,8 @@ import { STATUS_LABELS, STATUS_ORDER, relativeDay, type DealStatusKey } from "@/
 
 export interface BoardDeal {
   id: string;
+  /** where the row opens (the car's Sale and transfer tab) */
+  href: string;
   dealNo: string;
   unitName: string;
   plates: string;
@@ -66,7 +68,7 @@ export function DealsBoard({ deals, today }: { deals: BoardDeal[]; today: string
         <ul className="space-y-3 lg:hidden">
           {rows.map((d) => (
             <li key={d.id}>
-              <Link href={`/deals/${d.id}`} className="block space-y-3 rounded-xl p-4 ring-1 ring-foreground/10 active:bg-muted/50">
+              <Link href={d.href} className="block space-y-3 rounded-xl p-4 ring-1 ring-foreground/10 active:bg-muted/50">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0"><p className="font-medium break-words">{d.unitName}</p><p className="font-mono text-xs text-muted-foreground">{d.plates}</p></div>
                   <DealStatusBadge status={d.status} />
@@ -93,7 +95,7 @@ export function DealsBoard({ deals, today }: { deals: BoardDeal[]; today: string
             <tbody>
               {rows.map((d) => (
                 <tr key={d.id} className="border-t hover:bg-muted/40">
-                  <td className="px-4 py-3"><Link href={`/deals/${d.id}`} className="font-medium underline-offset-2 hover:underline">{d.unitName}</Link><p className="font-mono text-xs text-muted-foreground">{d.plates}</p></td>
+                  <td className="px-4 py-3"><Link href={d.href} className="font-medium underline-offset-2 hover:underline">{d.unitName}</Link><p className="font-mono text-xs text-muted-foreground">{d.plates}</p></td>
                   <td className="px-4 py-3">{d.buyerName}<p className="text-xs text-muted-foreground">{d.createdByName}</p></td>
                   <td className="px-4 py-3">{d.saleType === "financing" ? <>Financing<p className="text-xs text-muted-foreground">{d.institution}</p></> : "Cash"}</td>
                   <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">{formatPeso(d.price)}</td>

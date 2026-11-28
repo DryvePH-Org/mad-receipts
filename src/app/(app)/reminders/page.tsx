@@ -32,7 +32,7 @@ function Group({ title, items }: { title: string; items: Notification[] }) {
             <div key={n.key} className="flex items-start gap-3 border-t p-4 first:border-t-0">
               <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg", TONE[n.level])}><Icon className="size-4" aria-hidden /></span>
               <div className="min-w-0 flex-1"><p className="font-medium">{n.title}</p><p className="text-sm text-muted-foreground">{n.detail}</p></div>
-              <div className="flex flex-col items-end gap-1.5"><SendReminderButton itemKey={n.key} /><Button size="sm" variant="ghost" nativeButton={false} render={<Link href={`/deals/${n.dealId}`} />}>Open deal</Button></div>
+              <div className="flex flex-col items-end gap-1.5"><SendReminderButton itemKey={n.key} /><Button size="sm" variant="ghost" nativeButton={false} render={<Link href={`/documents/${n.dealId}?tab=sale`} />}>Open car</Button></div>
             </div>
           );
         })}
@@ -43,13 +43,13 @@ function Group({ title, items }: { title: string; items: Notification[] }) {
 
 async function Content() {
   const user = await requireModule("reminders");
-  const list = await remindersFor(user);
+  const list = await remindersFor();
   return (
     <div className="space-y-6">
       <PageHeader title="Reminders" description={`What needs a nudge, for ${user.fullName ?? user.email} (${ROLE_LABELS[user.role]}). Reminders also go to Telegram every morning at 8:00.`}
         actions={list.length > 0 ? <SendReminderButton label="Send all to Telegram" /> : undefined} />
       <div className="max-w-4xl space-y-6">
-        {list.length === 0 ? <EmptyState icon={CircleCheck} title="Nothing needs attention" description="Overdue deals, deals due soon, and loans waiting too long show up here." /> : (
+        {list.length === 0 ? <EmptyState icon={CircleCheck} title="Nothing needs attention" description="Sales with a balance past due, due soon, or a loan waiting too long show up here." /> : (
           <>
             <Group title="Needs action now" items={list.filter((n) => n.level === "red")} />
             <Group title="Coming up" items={list.filter((n) => n.level === "amber" || n.level === "blue")} />

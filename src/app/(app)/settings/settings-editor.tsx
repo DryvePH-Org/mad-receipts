@@ -218,7 +218,7 @@ export function SettingsEditor({ initial, canDelete = false, today }: { initial:
             <Switch checked={cfg.reminders.dueDay} onChange={(v) => set("reminders", { ...cfg.reminders, dueDay: v })} label="On the due day" />
             <Switch checked={cfg.reminders.overdueDaily} onChange={(v) => set("reminders", { ...cfg.reminders, overdueDaily: v })} label="Every day when it is overdue" />
             <div className="grid gap-4 sm:grid-cols-2">
-              {([["lenderDays", "A loan waited for the lender more than", "days"]] as const).map(([k, label, unit]) => (
+              {([["lenderDays", "A loan waited for the lender more than", "days"], ["balanceDays", "A balance is due after the first payment by", "days"]] as const).map(([k, label, unit]) => (
                 <div key={k} className="space-y-1.5"><Label htmlFor={k}>{label}</Label><div className="flex"><Input id={k} defaultValue={cfg.reminders[k]} inputMode="numeric" className="rounded-r-none text-right" onBlur={(e) => { const v = parseInt(e.target.value, 10); if (v > 0) set("reminders", { ...cfg.reminders, [k]: v }); else e.target.value = String(cfg.reminders[k]); }} /><span className="grid place-items-center rounded-r-lg border border-l-0 bg-muted px-2.5 text-xs text-muted-foreground">{unit}</span></div></div>
               ))}
             </div>
