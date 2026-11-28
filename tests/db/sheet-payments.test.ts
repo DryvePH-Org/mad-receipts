@@ -17,3 +17,15 @@ describe("the copy of the payments sheet (migration 78)", () => {
     await expect(db.query("insert into public.sheet_sync_tabs (tab, kind) values ('U', 'other')")).rejects.toThrow();
   });
 });
+
+describe("sale payments from the sheet (migration 79)", () => {
+  it("a sale record can come from the sheet, and its payments go when it goes", async () => {
+    await db.query("insert into public.car_sales (plate_no, buyer, source, source_key) values ('NKH7462', 'JUAN', 'sheet', 'sheet|T|NKH7462')");
+    const { rows } = await db.query<{ id: string }>("select id from public.car_sales where plate_no = 'NKH7462'");
+    await db.query("insert into public.car_sale_payments (sale_id, plate_no, stage, amount, source_tab, source_row) values ($1, 'NKH7462', 'reservation', 20000, 'T', 3)", [rows[0].id]);
+    await expect(db.query("insert into public.car_sale_payments (sale_id, plate_no, stage, amount, source_tab, source_row) values ($1, 'NKH7462', 'reservation', 1, 'T', 3)", [rows[0].id])).rejects.toThrow();
+    await expect(db.query("insert into public.car_sale_payments (sale_id, plate_no, stage, amount, source_tab, source_row) values ($1, 'NKH7462', 'bonus', 1, 'T', 4)", [rows[0].id])).rejects.toThrow();
+    await db.query("delete from public.car_sales where id = $1", [rows[0].id]);
+    expect((await db.query("select 1 from public.car_sale_payments")).rows.length).toBe(0);
+  });
+});

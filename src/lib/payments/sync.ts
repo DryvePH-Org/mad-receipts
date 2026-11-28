@@ -48,6 +48,7 @@ export async function syncPaymentSheets(opts: { maxTabs?: number; force?: boolea
           if (error) throw new Error(error.message);
         }
         copied.push({ tab: w.tab, rows: pays.length });
+        await (await import("./sales-import")).importSheetSales(w.tab); // the sale records and their payments follow the sheet
       }
       await client.from("sheet_sync_tabs").upsert({ tab: w.tab, kind: w.kind, rows_copied: copied[copied.length - 1].rows, synced_at: stamp, error: null }, { onConflict: "tab" });
     } catch (e) {
