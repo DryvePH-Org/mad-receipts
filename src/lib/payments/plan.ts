@@ -14,11 +14,13 @@ export function wantedTabs(names: string[]): Wanted[] {
 
 /**
  * Which tabs to copy now. A tab never copied comes first (the first fill of the year). After that only the CURRENT month is copied again, once a day;
- * the older months stay as they were. A manual refresh (force) copies every tab.
+ * the older months stay as they were. A manual refresh copies every tab (in batches: `since`).
  */
-export function dueTabs(wanted: Wanted[], state: Map<string, { synced_at: string | null }>, today: string, now: number, force = false): Wanted[] {
+export function dueTabs(wanted: Wanted[], state: Map<string, { synced_at: string | null }>, today: string, now: number, force = false, since: number | null = null, skip: string[] = []): Wanted[] {
   const age = (t: Wanted) => { const s = state.get(t.tab)?.synced_at; return s ? now - Date.parse(s) : Infinity; };
   const current = (t: Wanted) => t.month === today.slice(0, 7);
+  // a manual refresh in batches: every tab not copied since the refresh began (the ones that already failed in it are left out)
+  if (since !== null) return wanted.filter((t) => !skip.includes(t.tab) && (!state.get(t.tab)?.synced_at || Date.parse(state.get(t.tab)!.synced_at!) < since)).sort((a, b) => (b.month ?? "").localeCompare(a.month ?? ""));
   return wanted.filter((t) => force || age(t) === Infinity || (current(t) && age(t) > DAY_MS))
     .sort((a, b) => (age(a) === Infinity ? 0 : 1) - (age(b) === Infinity ? 0 : 1) || (b.month ?? "").localeCompare(a.month ?? ""));
 }

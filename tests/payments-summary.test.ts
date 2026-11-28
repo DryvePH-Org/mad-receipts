@@ -77,6 +77,12 @@ describe("which tabs of the sheet are copied, and when", () => {
     expect(dueTabs(wanted, new Map(wanted.map((w) => [w.tab, at(60 * 5)])), today, now)).toEqual([]);
     expect(dueTabs(wanted, new Map(wanted.map((w) => [w.tab, at(60 * 25)])), today, now).map((d) => d.month)).toEqual(["2026-11", "2026-11", "2026-11"]); // March stays as it was
   });
+  it("a refresh in batches takes the tabs not copied since it began, leaving out the ones that failed", () => {
+    const since = now - 30 * 60_000;
+    const state = new Map(wanted.map((w, i) => [w.tab, i < 2 ? at(5) : at(60)])); // two copied in this refresh, two before it
+    expect(dueTabs(wanted, state, today, now, false, since).length).toBe(2);
+    expect(dueTabs(wanted, state, today, now, false, since, [wanted[3].tab]).length).toBe(1);
+  });
   it("a manual refresh copies every tab", () => {
     const state = new Map(wanted.map((w) => [w.tab, at(1)]));
     expect(dueTabs(wanted, state, today, now, true).length).toBe(4);

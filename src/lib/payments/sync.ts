@@ -17,16 +17,16 @@ const chunk = <T,>(a: T[], n: number) => Array.from({ length: Math.ceil(a.length
 /** Scheduled runs ask Apps Script nothing while everything is copied and the current month was copied less than a day ago (a restart asks once more). */
 let quietUntil = 0;
 
-export async function syncPaymentSheets(opts: { maxTabs?: number; force?: boolean; today?: string; now?: number } = {}): Promise<{ copied: { tab: string; rows: number }[]; failed: { tab: string; error: string }[]; skipped?: string }> {
-  if (!isPrivateSheet(PASSBOOK_SHEET_ID)) return { copied: [], failed: [], skipped: "the Google Apps Script bridge is not set up for this sheet" };
-  if (!opts.force && Date.now() < quietUntil) return { copied: [], failed: [] };
+export async function syncPaymentSheets(opts: { maxTabs?: number; force?: boolean; today?: string; now?: number; since?: number; skip?: string[] } = {}): Promise<{ copied: { tab: string; rows: number }[]; failed: { tab: string; error: string }[]; skipped?: string; remaining: number }> {
+  if (!isPrivateSheet(PASSBOOK_SHEET_ID)) return { copied: [], failed: [], skipped: "the Google Apps Script bridge is not set up for this sheet", remaining: 0 };
+  if (!opts.force && opts.since === undefined && Date.now() < quietUntil) return { copied: [], failed: [], remaining: 0 };
   const client = db(), now = opts.now ?? Date.now(), today = opts.today ?? new Date(now + 8 * 3_600_000).toISOString().slice(0, 10);
   const { data: stateRows } = await client.from("sheet_sync_tabs").select("tab, synced_at");
   const state = new Map((stateRows ?? []).map((r) => [String(r.tab), { synced_at: (r.synced_at as string | null) ?? null }]));
   const tabs = await privateTabs(PASSBOOK_SHEET_ID);
-  const all = dueTabs(wantedTabs(tabs.map((t) => t.name)), state, today, now, opts.force);
+  const all = dueTabs(wantedTabs(tabs.map((t) => t.name)), state, today, now, opts.force, opts.since ?? null, opts.skip);
   const due = all.slice(0, opts.maxTabs ?? 3);
-  if (!opts.force && all.length === 0) quietUntil = Date.now() + 60 * 60_000; // nothing due: look again in an hour (the current month turns due once a day)
+  if (!opts.force && opts.since === undefined && all.length === 0) quietUntil = Date.now() + 60 * 60_000; // nothing due: look again in an hour (the current month turns due once a day)
   const copied: { tab: string; rows: number }[] = [], failed: { tab: string; error: string }[] = [];
   for (const w of due) {
     try {
@@ -57,7 +57,7 @@ export async function syncPaymentSheets(opts: { maxTabs?: number; force?: boolea
       await client.from("sheet_sync_tabs").upsert({ tab: w.tab, kind: w.kind, error, synced_at: state.get(w.tab)?.synced_at ?? null }, { onConflict: "tab" });
     }
   }
-  return { copied, failed };
+  return { copied, failed, remaining: Math.max(0, all.length - due.length) };
 }
 
 /** Everything the Payments tab needs, read from MAD's own copy (fast). */
