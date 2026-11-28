@@ -31,6 +31,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { loadRegisterRow } from "@/lib/docsbible/grid-server";
 import { registerDiff } from "@/lib/docsbible/sync";
 import { AboutCard } from "./about-card";
+import { SheetPaymentsCard } from "./sheet-payments-card";
 import { ApprovalCard } from "./approval-card";
 import { CarLive } from "./car-live";
 import { CarTop, FolderBox } from "./car-top";
@@ -199,6 +200,7 @@ async function Content({ params, searchParams }: { params: PageProps<"/documents
     ...(transfers ? [{ key: "sale" as CarTab, label: "Sale and transfer", badge: sale ? STAGE_LABEL[sale.stage].split(" (")[0].split(",")[0].replace("In process at LTO", "In process") : null, tone: (sale?.flags.length ? "amber" : "zinc") as Tone2, node: (
       <div className="space-y-6">
         <HandoffCard isAdmin={data.isAdmin} canEdit={canTransfer} rules={stage.rules} data={handData} />
+        <Suspense fallback={null}><SheetPaymentsCard plate={key} /></Suspense>
         {data.botMode && linked ? (
           <StagePanel stage="transfer" title="Papers back from the transfer" intro="When Sir Jep gives the originals back: upload the new OR, the new CR, the PNP clearance and the macro-etching. The transfer scanner puts each in its place; Documentation reviews and approves, and the car is ready to release to the buyer." plate={key} items={transferStageItems} loose={transferLoose}
             pending={transferCheck.pending} failed={transferCheck.failed} scanning={scanningTransfer} botName="The transfer scanner" approval={approvals.transfer} rule={stageApprovalRule(transferCheck)} canEdit={canTransfer} canApprove={canTransfer} isAdmin={data.isAdmin} uploadTitle="Upload the papers back from the transfer" uploadDescription="The new OR, the new CR, the PNP clearance and the macro-etching: photos or PDFs, in any order. The transfer scanner puts each in its place." uploader={<TransferUploader plate={key} />} />
@@ -301,6 +303,7 @@ async function RegisterOnly({ plate, role, modules, canAct, canUpload, wanted }:
     ...(transfers ? [{ key: "sale" as CarTab, label: "Sale and transfer", badge: sale ? STAGE_LABEL[sale.stage].split(" (")[0].split(",")[0].replace("In process at LTO", "In process") : null, tone: (sale?.flags.length ? "amber" : "zinc") as Tone2, node: (
       <div className="space-y-6">
         <HandoffCard isAdmin={isAdmin(role)} canEdit={modules.includes("transfer")} rules={rules} data={handData} />
+        <Suspense fallback={null}><SheetPaymentsCard plate={key} /></Suspense>
       </div>) }] : []),
     { key: "details", label: "Details", node: (
       <div className="space-y-6">
