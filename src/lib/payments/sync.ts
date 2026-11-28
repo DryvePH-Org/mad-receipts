@@ -17,9 +17,9 @@ const chunk = <T,>(a: T[], n: number) => Array.from({ length: Math.ceil(a.length
 /** Scheduled runs ask Apps Script nothing while everything is copied and the current month was copied less than a day ago (a restart asks once more). */
 let quietUntil = 0;
 
-export async function syncPaymentSheets(opts: { maxTabs?: number; force?: boolean; today?: string; now?: number; since?: number; skip?: string[] } = {}): Promise<{ copied: { tab: string; rows: number }[]; failed: { tab: string; error: string }[]; skipped?: string; remaining: number }> {
-  if (!isPrivateSheet(PASSBOOK_SHEET_ID)) return { copied: [], failed: [], skipped: "the Google Apps Script bridge is not set up for this sheet", remaining: 0 };
-  if (!opts.force && opts.since === undefined && Date.now() < quietUntil) return { copied: [], failed: [], remaining: 0 };
+export async function syncPaymentSheets(opts: { maxTabs?: number; force?: boolean; today?: string; now?: number; since?: number; skip?: string[] } = {}): Promise<{ copied: { tab: string; rows: number }[]; failed: { tab: string; error: string }[]; skipped?: string; remaining: number; carStates: { plate: string; from: string | null; to: string }[] }> {
+  if (!isPrivateSheet(PASSBOOK_SHEET_ID)) return { copied: [], failed: [], skipped: "the Google Apps Script bridge is not set up for this sheet", remaining: 0, carStates: [] };
+  if (!opts.force && opts.since === undefined && Date.now() < quietUntil) return { copied: [], failed: [], remaining: 0, carStates: [] };
   const client = db(), now = opts.now ?? Date.now(), today = opts.today ?? new Date(now + 8 * 3_600_000).toISOString().slice(0, 10);
   const { data: stateRows } = await client.from("sheet_sync_tabs").select("tab, synced_at");
   const state = new Map((stateRows ?? []).map((r) => [String(r.tab), { synced_at: (r.synced_at as string | null) ?? null }]));
@@ -27,7 +27,7 @@ export async function syncPaymentSheets(opts: { maxTabs?: number; force?: boolea
   const all = dueTabs(wantedTabs(tabs.map((t) => t.name)), state, today, now, opts.force, opts.since ?? null, opts.skip);
   const due = all.slice(0, opts.maxTabs ?? 3);
   if (!opts.force && opts.since === undefined && all.length === 0) quietUntil = Date.now() + 60 * 60_000; // nothing due: look again in an hour (the current month turns due once a day)
-  const copied: { tab: string; rows: number }[] = [], failed: { tab: string; error: string }[] = [];
+  const copied: { tab: string; rows: number }[] = [], failed: { tab: string; error: string }[] = [], carStates: { plate: string; from: string | null; to: string }[] = [];
   for (const w of due) {
     try {
       const rows = await privateRows(PASSBOOK_SHEET_ID, w.tab);
@@ -48,7 +48,7 @@ export async function syncPaymentSheets(opts: { maxTabs?: number; force?: boolea
           if (error) throw new Error(error.message);
         }
         copied.push({ tab: w.tab, rows: pays.length });
-        await (await import("./sales-import")).importSheetSales(w.tab); // the sale records and their payments follow the sheet
+        carStates.push(...(await (await import("./sales-import")).importSheetSales(w.tab)).carStates); // the sale records, their payments and the cars' status follow the sheet
       }
       await client.from("sheet_sync_tabs").upsert({ tab: w.tab, kind: w.kind, rows_copied: copied[copied.length - 1].rows, synced_at: stamp, error: null }, { onConflict: "tab" });
     } catch (e) {
@@ -57,7 +57,7 @@ export async function syncPaymentSheets(opts: { maxTabs?: number; force?: boolea
       await client.from("sheet_sync_tabs").upsert({ tab: w.tab, kind: w.kind, error, synced_at: state.get(w.tab)?.synced_at ?? null }, { onConflict: "tab" });
     }
   }
-  return { copied, failed, remaining: Math.max(0, all.length - due.length) };
+  return { copied, failed, remaining: Math.max(0, all.length - due.length), carStates };
 }
 
 /** Everything the Payments tab needs, read from MAD's own copy (fast). */

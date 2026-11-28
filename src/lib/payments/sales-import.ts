@@ -3,12 +3,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { selectAll } from "@/lib/supabase/select-all";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { SalePayment } from "./parse";
-import { planSales, type ExistingSale, type SalePlan } from "./sales-plan";
+import { manilaToday } from "@/lib/dates";
+import { carStateFor, isRecentSale, planSales, type ExistingSale, type SalePlan } from "./sales-plan";
 
 const db = (): SupabaseClient => createAdminClient() as unknown as SupabaseClient;
 const chunk = <T,>(a: T[], n: number) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
 
-export interface SalesImport { plans: SalePlan[]; created: number; updated: number; skipped: { plate: string; reason: string }[]; payments: number }
+export interface SalesImport { plans: SalePlan[]; created: number; updated: number; skipped: { plate: string; reason: string }[]; payments: number; carStates: { plate: string; from: string | null; to: string }[] }
 
 /**
  * Makes the sale records of one SALES MONITORING tab (already copied into sheet_sale_payments) and their payments. The sheet is the source of truth:
@@ -25,11 +26,17 @@ export async function importSheetSales(tab: string, dryRun = false): Promise<Sal
     for (const r of data ?? []) existing.push({ id: r.id as string, plate: r.plate_no as string, buyer: (r.buyer as string | null) ?? null, sourceKey: (r.source_key as string | null) ?? null, stage: (r.stage as string | null) ?? null });
   }
   const plans = planSales(pays, existing);
-  const out: SalesImport = { plans, created: 0, updated: 0, skipped: [], payments: 0 };
+  const out: SalesImport = { plans, created: 0, updated: 0, skipped: [], payments: 0, carStates: [] };
+  const today = manilaToday();
   for (const p of plans) {
     if (p.action === "skip") { out.skipped.push({ plate: p.plate, reason: p.reason ?? "" }); continue; }
+    const { data: unit } = await client.from("docs_units").select("id, year_model, make, model_variant, color, stock_state").eq("plate_no", p.plate).is("archived_at", null).order("arrival_date", { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
+    // the car's status follows a recent sale on the sheet (paid in full: Sold; money in, balance left: Reserved)
+    const lastPaid = p.payments.map((x) => x.date).filter((d): d is string => !!d).sort().pop() ?? p.soldOn;
+    const to = unit && isRecentSale(lastPaid, today) ? carStateFor((unit.stock_state as string | null) ?? null, p.status) : null;
+    if (unit && to) out.carStates.push({ plate: p.plate, from: (unit.stock_state as string | null) ?? null, to });
     if (dryRun) { if (p.action === "create") out.created++; else out.updated++; out.payments += p.payments.length; continue; }
-    const { data: unit } = await client.from("docs_units").select("id, year_model, make, model_variant, color").eq("plate_no", p.plate).is("archived_at", null).order("arrival_date", { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
+    if (unit && to) await client.from("docs_units").update({ stock_state: to, last_change_source: "sheet" }).eq("id", unit.id as string).eq("stock_state", (unit.stock_state as string | null) ?? "");
     // what the sheet says follows it; what the sheet leaves empty is not erased in MAD
     const facts: Record<string, unknown> = { buyer: p.buyer, payment_status: p.status, payment_status_at: new Date().toISOString() };
     if (p.agreedPrice !== null) facts.agreed_price = p.agreedPrice;

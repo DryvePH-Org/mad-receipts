@@ -50,3 +50,18 @@ export function planSales(pays: SalePayment[], existing: ExistingSale[]): SalePl
   }
   return plans;
 }
+
+const KEEP = new Set(["Sold", "Not for sale", "For repair", "Sell as is", "Shipped to Cebu"]);
+/**
+ * The car's status that follows its sale on the sheet: a sale paid in full makes the car Sold; money in but a balance left makes an Onhand car Reserved.
+ * Never moves a car that is already Sold, not for sale, for repair, as-is or in Cebu, and never goes backwards. Null: leave the car as it is.
+ */
+export function carStateFor(current: string | null, status: PayStatus): "Sold" | "Reserved" | null {
+  if (current && KEEP.has(current)) return null;
+  if (status === "paid" || status === "loan_released") return "Sold";
+  if (status === "partial" && (!current || current === "Onhand")) return "Reserved";
+  return null;
+}
+
+/** A sale counts for the car's status only while it is recent: a car sold last spring may be on the lot again. */
+export const isRecentSale = (lastPaid: string | null, today: string, days = 45): boolean => !!lastPaid && Date.parse(`${today}T00:00:00Z`) - Date.parse(`${lastPaid}T00:00:00Z`) <= days * 86_400_000;

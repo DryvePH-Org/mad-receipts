@@ -16,15 +16,16 @@ export function RefreshPayments() {
     let since: number | null = null;
     const skip: string[] = [];
     let done = 0, rows = 0;
+    const cars: string[] = [];
     try {
       for (let guard = 0; guard < 40; guard++) {
         setProgress(done ? `Copying… ${done} tabs done` : "Copying…");
         const r = await refreshPaymentsAction(since, skip);
         since = r.since;
         if (!r.ok) { toast.error(r.message ?? "Could not copy the sheet."); break; }
-        done += r.copied; rows += r.rows;
+        done += r.copied; rows += r.rows; cars.push(...r.cars);
         for (const f of r.failed) { skip.push(f.tab); toast.error(`${f.tab}: ${f.error}`); }
-        if (r.remaining === 0 || (r.copied === 0 && r.failed.length === 0)) { toast.success(done ? `Copied ${done} ${done === 1 ? "tab" : "tabs"} (${rows} rows).` : "Everything is already copied."); break; }
+        if (r.remaining === 0 || (r.copied === 0 && r.failed.length === 0)) { toast.success(done ? `Copied ${done} ${done === 1 ? "tab" : "tabs"} (${rows} rows).${cars.length ? ` ${cars.length} car ${cars.length === 1 ? "status" : "statuses"} updated from the sales: ${cars.slice(0, 6).join(", ")}${cars.length > 6 ? "…" : ""}.` : ""}` : "Everything is already copied.", { duration: cars.length ? 12_000 : 4000 }); break; }
       }
     } catch { toast.error("The connection dropped. What was copied is saved: press the button again to finish."); }
     setProgress(null); router.refresh();

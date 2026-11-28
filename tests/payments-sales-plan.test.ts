@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planSales, saleKey, statusOf, type ExistingSale } from "@/lib/payments/sales-plan";
+import { carStateFor, isRecentSale, planSales, saleKey, statusOf, type ExistingSale } from "@/lib/payments/sales-plan";
 import type { SalePayment } from "@/lib/payments/parse";
 
 const T = "SALES MONITORING NOVEMBER 2026";
@@ -41,5 +41,18 @@ describe("sale records from the sales tab", () => {
     expect(statusOf(100, 100, false, false)).toBe("paid");
     expect(statusOf(100, 100, true, false)).toBe("paid");
     expect(statusOf(100, 100, true, true)).toBe("loan_released");
+  });
+  it("the car's status follows the sale, only forwards, and never touches the others", () => {
+    expect(carStateFor("Reserved", "paid")).toBe("Sold");
+    expect(carStateFor("Onhand", "loan_released")).toBe("Sold");
+    expect(carStateFor("Onhand", "partial")).toBe("Reserved");
+    expect(carStateFor("Reserved", "partial")).toBeNull();
+    expect(carStateFor("Onhand", "unpaid")).toBeNull();
+    for (const s of ["Sold", "Not for sale", "For repair", "Sell as is", "Shipped to Cebu"]) expect(carStateFor(s, "paid")).toBeNull();
+  });
+  it("an old sale does not decide the car's status", () => {
+    expect(isRecentSale("2026-11-20", "2026-11-28")).toBe(true);
+    expect(isRecentSale("2026-03-20", "2026-11-28")).toBe(false);
+    expect(isRecentSale(null, "2026-11-28")).toBe(false);
   });
 });
