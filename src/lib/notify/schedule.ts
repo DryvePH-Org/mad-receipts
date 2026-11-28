@@ -28,6 +28,7 @@ export async function runScheduled(now = new Date()): Promise<Record<string, unk
   await part("outbox", () => flushOutbox(now));
   await part("alerts", () => problemAlerts(now, today, hour));
   await part("repairApprovals", async () => (await import("@/lib/repairs/approval-chain")).escalateRepairApprovals(now));
+  await part("paymentSheets", async () => { const r = await (await import("@/lib/payments/sync")).syncPaymentSheets({ maxTabs: 3 }); if (r.failed.length) throw new Error(`${r.failed.length} payment tabs failed: ${r.failed[0].error}`); }); // the Dashboard's Payments tab: a few tabs of the payments sheet each run
   await part("repairsBot", async () => (await import("@/lib/repairs/bot/tick")).repairsBotTick(now));
   if (isQuiet(now)) return out; // the morning messages wait for 7:00; they go at their own hour
 

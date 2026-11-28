@@ -33,7 +33,7 @@ function authorizeAll() {
 
 function doGet() {
   // Lets you open the web app URL in a browser to check it is deployed. Reveals nothing.
-  return json_({ ok: true, data: 'MAD Receipts bridge is running. Version 2026-11-17, with the car-documents actions (docs.createFolder, docs.upload, docs.move).' });
+  return json_({ ok: true, data: 'MAD Receipts bridge is running. Version 2026-11-28, with the car-documents actions (docs.createFolder, docs.upload, docs.move) and sheets.tabs.' });
 }
 
 function doPost(e) {
@@ -63,6 +63,8 @@ function handle_(req) {
       return 'pong';
     case 'sheets.get':
       return sheetsGet_(req);
+    case 'sheets.tabs':
+      return sheetsTabs_(req);
     case 'sheets.update':
       return withLock_(function () {
         return sheetsWrite_(req, false);
@@ -132,6 +134,14 @@ function sheetsGet_(req) {
   });
   while (rows.length > 0 && rows[rows.length - 1].length === 0) rows.pop();
   return rows;
+}
+
+/** The tabs of a spreadsheet (name and gid), in order: read only, and only for a spreadsheet listed in ALLOWED_SHEET_IDS. */
+function sheetsTabs_(req) {
+  allowed_('ALLOWED_SHEET_IDS', req.spreadsheetId);
+  return SpreadsheetApp.openById(req.spreadsheetId).getSheets().map(function (s) {
+    return { name: s.getName(), gid: String(s.getSheetId()) };
+  });
 }
 
 /** Writes values starting at a cell (update) or below the last row (append). */

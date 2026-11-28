@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mad-test-project",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "set -a; . ./.env.test.local; set +a; export APPS_SCRIPT_URL= APPS_SCRIPT_SECRET= TELEGRAM_BOT_TOKEN= TELEGRAM_CHAT_ID= INVENTORY_SHEET_ID= GOOGLE_SHEET_ID= GOOGLE_SERVICE_ACCOUNT_EMAIL= GOOGLE_PRIVATE_KEY= RESEND_API_KEY= DOCS_MOCK=1 NEXT_DIST_DIR=.next-pcf; exec npx next dev -p 3125"],
+      "port": 3125
+    }
+  ]
+}
