@@ -20,7 +20,7 @@ export function Brand({ className, tagline = true }: { className?: string; tagli
       <span className={cn("flex items-center gap-1.5 text-muted-foreground", tagline ? "pl-0.5" : "border-l pl-3")}>
         <span className={cn("leading-none tracking-wide", tagline ? "text-[11px]" : "text-[10px]")}>Powered by</span>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/dryve-logo.png" alt="Dryve" className={cn("w-auto shrink-0 rounded-sm dark:bg-white/95 dark:px-1.5 dark:py-0.5", tagline ? "h-5" : "h-4")} />
+        <img src="/brand/dryve-logo.png" alt="Dryve" className={cn("w-auto shrink-0 rounded-sm dark:bg-white/95 dark:px-1.5 dark:py-0.5", tagline ? "h-6" : "h-4")} />
       </span>
     </span>
   );
