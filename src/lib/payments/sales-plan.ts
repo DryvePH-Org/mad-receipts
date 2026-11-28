@@ -9,7 +9,7 @@ export type PayStatus = "unpaid" | "partial" | "paid" | "loan_released";
 
 export interface SalePlan {
   plate: string; buyer: string; agreedPrice: number | null; soldOn: string | null; financing: string | null; paid: number; status: PayStatus;
-  /** create: a new record; update: the record this sheet row made before or the one with the same buyer; skip: another buyer already holds the car */
+  /** create: a new record; update: the record this sheet row made before, the one with the same buyer, or (the sheet wins) the one another buyer had; skip: nothing usable on the row */
   action: "create" | "update" | "skip"; saleId: string | null; sourceKey: string; reason?: string;
   payments: SalePayment[]; arMissing: number;
 }
@@ -45,7 +45,7 @@ export function planSales(pays: SalePayment[], existing: ExistingSale[]): SalePl
     if (known && !buyer) { plans.push({ ...plan, action: "update", saleId: known.id, buyer: known.buyer ?? "" }); continue; } // no name on the sheet row: the record keeps its buyer
     if (!buyer) { plans.push({ ...plan, action: "skip", reason: "no buyer written on the sheet row" }); continue; }
     if (known) plans.push({ ...plan, action: "update", saleId: known.id });
-    else if (mine.length) plans.push({ ...plan, action: "skip", reason: `another buyer already holds this car (${mine[0].buyer ?? "?"})` });
+    else if (mine.length) plans.push({ ...plan, action: "update", saleId: mine[0].id, reason: `the sheet has another buyer than the record had (${mine[0].buyer ?? "?"}): the sheet wins` });
     else plans.push(plan);
   }
   return plans;

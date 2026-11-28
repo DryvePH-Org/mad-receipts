@@ -21,9 +21,11 @@ describe("sale records from the sales tab", () => {
     expect(planSales([pay({ buyer: "APRIL JOY LIU" })], ex)[0]).toMatchObject({ action: "update", saleId: "s4", buyer: "APRIL JOY LIU" });
     expect(planSales([pay({ buyer: "" })], ex)[0]).toMatchObject({ action: "update", saleId: "s4", buyer: "APRIL JOY LILI" });
   });
-  it("does not take over a car that another buyer holds", () => {
+  it("the sheet wins when another buyer is on the record, and the plan says so", () => {
     const ex: ExistingSale[] = [{ id: "s2", plate: "NKH7462", buyer: "MARIA SANTOS", sourceKey: null, stage: "delivered" }];
-    expect(planSales(pays, ex)[0]).toMatchObject({ action: "skip" });
+    const [p] = planSales(pays, ex);
+    expect(p).toMatchObject({ action: "update", saleId: "s2", buyer: "JUAN DELA CRUZ" });
+    expect(p.reason).toContain("MARIA SANTOS");
   });
   it("a cancelled old record does not hold the car", () => {
     const ex: ExistingSale[] = [{ id: "s3", plate: "NKH7462", buyer: "MARIA SANTOS", sourceKey: null, stage: "cancelled" }];

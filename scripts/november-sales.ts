@@ -30,6 +30,7 @@ async function main() {
   console.log(`\n${TAB}: ${pays.length} payment lines, ${plans.length} sales`);
   console.log(`  would create ${plans.filter((p) => p.action === "create").length}, update ${plans.filter((p) => p.action === "update").length}, skip ${plans.filter((p) => p.action === "skip").length}`);
   for (const p of plans.filter((x) => x.action === "skip")) console.log(`  SKIP ${p.plate}: ${p.reason}`);
+  for (const p of plans.filter((x) => x.action === "update" && x.reason)) console.log(`  ${p.plate}: ${p.reason}`);
   for (const p of plans.filter((x) => x.arMissing)) console.log(`  ${p.plate} ${p.buyer}: ${p.arMissing} payment(s) with no AR number`);
 
   const deals = await all<Record<string, unknown>>((a, b) => db.from("deals").select("id, deal_no, buyer_name, agreed_price, status, deal_units(plate_no), receipts(id, receipt_no, amount, status)").gte("created_at", "2026-11-01").range(a, b));
@@ -39,15 +40,16 @@ async function main() {
   for (const d of deals) {
     const plate = norm((d.deal_units as { plate_no: string }[])[0]?.plate_no);
     const rs = (d.receipts as { receipt_no: string; amount: number; status: string }[]).filter((r) => r.status !== "void" && r.status !== "voided");
-    const problems: string[] = [];
+    const problems: string[] = [], notes: string[] = [];
     for (const r of rs) {
       const s = byAr.get(norm(r.receipt_no));
-      if (!s) problems.push(`AR ${r.receipt_no} (${peso(Number(r.amount))}) is not on the sheet`);
-      else if (Math.abs(s.amount - Number(r.amount)) > 0.5) problems.push(`AR ${r.receipt_no}: typed ${peso(Number(r.amount))}, sheet ${peso(s.amount)}`);
+      // the sheet is the source of truth: a typed AR the sheet does not have, or with another amount, is dropped with the deal
+      if (!s) notes.push(`AR ${r.receipt_no} (${peso(Number(r.amount))}) is not on the sheet: the sheet wins`);
+      else if (Math.abs(s.amount - Number(r.amount)) > 0.5) notes.push(`AR ${r.receipt_no}: typed ${peso(Number(r.amount))}, sheet ${peso(s.amount)}: the sheet wins`);
     }
     const made = sales.some((s) => norm(s.plate_no) === plate && s.source === "sheet");
     if (!made) problems.push("its sale record is not made from the sheet yet");
-    console.log(`  ${d.deal_no} ${plate} ${d.buyer_name}: ${problems.length ? "KEEP — " + problems.join("; ") : "covered by the sheet"}`);
+    console.log(`  ${d.deal_no} ${plate} ${d.buyer_name}: ${problems.length ? "KEEP — " + problems.join("; ") : "covered by the sheet"}${notes.length ? " (" + notes.join("; ") + ")" : ""}`);
     if (!problems.length) removable.push(d.id as string);
   }
   console.log(`\n${removable.length} deal(s) can be removed${apply ? "" : " (run with --delete to remove them)"}`);
