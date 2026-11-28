@@ -7,20 +7,26 @@ import { parseBankTab, parseSalesTab } from "./parse";
 import { dueTabs, wantedTabs } from "./plan";
 import type { Line, Pay } from "./summary";
 
-// Copies the tabs of the 2026 Sales Passbook Monitoring sheet into MAD (sheet to MAD only; nothing is ever written to the sheet). Tabs are copied a few at a time, the newest
-// months often and the old ones about once a day, so the first copy of the whole year fills in by itself over a few runs.
+// Copies the tabs of the 2026 Sales Passbook Monitoring sheet into MAD (sheet to MAD only; nothing is ever written to the sheet). Tabs are copied a few at a time, the first copy
+// of the whole year fills in by itself over a few runs; after that only the current month is copied, once a day. The Super Admin's refresh button copies every tab.
 
 const db = (): SupabaseClient => createAdminClient() as unknown as SupabaseClient;
 
 const chunk = <T,>(a: T[], n: number) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
 
+/** Scheduled runs ask Apps Script nothing while everything is copied and the current month was copied less than a day ago (a restart asks once more). */
+let quietUntil = 0;
+
 export async function syncPaymentSheets(opts: { maxTabs?: number; force?: boolean; today?: string; now?: number } = {}): Promise<{ copied: { tab: string; rows: number }[]; failed: { tab: string; error: string }[]; skipped?: string }> {
   if (!isPrivateSheet(PASSBOOK_SHEET_ID)) return { copied: [], failed: [], skipped: "the Google Apps Script bridge is not set up for this sheet" };
+  if (!opts.force && Date.now() < quietUntil) return { copied: [], failed: [] };
   const client = db(), now = opts.now ?? Date.now(), today = opts.today ?? new Date(now + 8 * 3_600_000).toISOString().slice(0, 10);
   const { data: stateRows } = await client.from("sheet_sync_tabs").select("tab, synced_at");
   const state = new Map((stateRows ?? []).map((r) => [String(r.tab), { synced_at: (r.synced_at as string | null) ?? null }]));
   const tabs = await privateTabs(PASSBOOK_SHEET_ID);
-  const due = dueTabs(wantedTabs(tabs.map((t) => t.name)), state, today, now, opts.force).slice(0, opts.maxTabs ?? 3);
+  const all = dueTabs(wantedTabs(tabs.map((t) => t.name)), state, today, now, opts.force);
+  const due = all.slice(0, opts.maxTabs ?? 3);
+  if (!opts.force && all.length === 0) quietUntil = Date.now() + 60 * 60_000; // nothing due: look again in an hour (the current month turns due once a day)
   const copied: { tab: string; rows: number }[] = [], failed: { tab: string; error: string }[] = [];
   for (const w of due) {
     try {

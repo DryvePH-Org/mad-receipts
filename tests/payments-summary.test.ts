@@ -71,14 +71,14 @@ describe("which tabs of the sheet are copied, and when", () => {
     expect(due.map((d) => d.month)).toEqual(["2026-11", "2026-11", "2026-03"]);
     expect(due.every((d) => d.tab !== wanted[0].tab)).toBe(true); // copied a minute ago
   });
-  it("a recent month is copied again after 15 minutes, an old one after a day", () => {
+  it("after the first copy only the current month is copied again, once a day", () => {
     const state = new Map(wanted.map((w) => [w.tab, at(10)]));
     expect(dueTabs(wanted, state, today, now)).toEqual([]);
-    expect(dueTabs(wanted, new Map(wanted.map((w) => [w.tab, at(20)])), today, now).map((d) => d.month)).toEqual(["2026-11", "2026-11", "2026-11"]); // March (old) waits for its day
-    expect(dueTabs(wanted, new Map(wanted.map((w) => [w.tab, at(60 * 25)])), today, now).length).toBe(4);
+    expect(dueTabs(wanted, new Map(wanted.map((w) => [w.tab, at(60 * 5)])), today, now)).toEqual([]);
+    expect(dueTabs(wanted, new Map(wanted.map((w) => [w.tab, at(60 * 25)])), today, now).map((d) => d.month)).toEqual(["2026-11", "2026-11", "2026-11"]); // March stays as it was
   });
-  it("a manual refresh copies the recent months at once", () => {
+  it("a manual refresh copies every tab", () => {
     const state = new Map(wanted.map((w) => [w.tab, at(1)]));
-    expect(dueTabs(wanted, state, today, now, true).map((d) => d.month)).toEqual(["2026-11", "2026-11", "2026-11"]);
+    expect(dueTabs(wanted, state, today, now, true).length).toBe(4);
   });
 });

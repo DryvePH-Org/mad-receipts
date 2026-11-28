@@ -4,11 +4,11 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { syncPaymentSheets } from "@/lib/payments/sync";
 
-/** The Super Admin copies the newest tabs of the payments sheet into MAD right now (the older months come by themselves). */
+/** The Super Admin copies every tab of the payments sheet into MAD right now. */
 export async function refreshPaymentsAction(): Promise<{ ok: boolean; message: string }> {
   await requireRole("super_admin");
   try {
-    const r = await syncPaymentSheets({ force: true, maxTabs: 8 });
+    const r = await syncPaymentSheets({ force: true, maxTabs: 60 });
     revalidatePath("/dashboard/payments");
     if (r.skipped) return { ok: false, message: `Not copied: ${r.skipped}.` };
     if (r.failed.length) return { ok: false, message: `${r.copied.length} tabs copied, ${r.failed.length} failed: ${r.failed[0].error}` };
